@@ -2210,10 +2210,118 @@ assertOrdered(
     [
         "accepted_request_count %i32",
         "accepted_proof_count %i32",
-        "context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
-        "context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "seed_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "seed_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "seed_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "seed_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "seed_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "seed_malformed_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "producer_not_connected_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_reader_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
     ],
-    "context-bound reader traversal bundle summary must expose only counts and typed Result payloads",
+    "context-bound reader traversal bundle summary must expose only counts and seed/availability typed Result payloads",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed\b/,
+    "actual traversal body reader seed must stay module-private until real body reader owns its construction",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed\b/m,
+    "public functions must not expose reader seed as an accepted-path input",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind"),
+    [
+        "ActualTraversalBodyInputProducerNotConnected %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyInputMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyInputUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyInputUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyInputMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodySeedMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodySeedKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodySeedGraphMismatch %i32",
+        "ActualTraversalBodySeedUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodySeedObservationUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodySeedMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodySeedObservationBuildRejected %SelfhostMemoCallBackendPrivateCacheProofKey",
+    ],
+    "availability error taxonomy must keep seed missing, key mismatch, graph mismatch, unsupported shape, observation, malformed, and observation-owner build rejection distinct",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_authority_validate_result"),
+    [
+        'field::get context "key"',
+        'field::get context "graph_id"',
+        "selfhost_memo_call_backend_private_cache_proof_key_eq seed.key expected_key",
+        "selfhost_memo_call_backend_private_cache_resource_graph_id_eq seed.graph_id expected_graph_id",
+        "ActualTraversalBodySeedGraphMismatch seed.graph_id.index",
+        "ActualTraversalBodySeedKeyMismatch seed.key",
+    ],
+    "reader seed authority validation must compare the full proof key and graph id against the rechecked request context before owner creation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_shape_validate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_place_supported_result seed",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_edge_supported_result seed",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_observation_supported_result seed",
+    ],
+    "reader seed shape validation must validate place, edge, and observation status before owner-bearing output is built",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_place_supported_result"),
+    /_:/,
+    "reader seed place validation must not use wildcard fallback",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_edge_supported_result"),
+    /_:/,
+    "reader seed edge validation must not use wildcard fallback",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_observation_supported_result"),
+    /_:/,
+    "reader seed observation validation must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_output_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_walker_input_result seed",
+        "Result::Ok input:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_empty_observations_result seed",
+        "Result::Ok observations:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+        "ActualTraversalBodySeedMalformed scanner_error",
+    ],
+    "reader seed output helper must only build owner-bearing output after validation and must close walker input when observation owner creation fails",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_output_result")),
+    /actual_traversal_bundle|region_fresh_witness|region_proof|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "reader seed output helper must not synthesize source-derived witness, proof, GraphInput, backend, effect, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result"),
+    [
+        "match seed_option:",
+        "Option::Some seed:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_authority_validate_result context seed",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_shape_validate_result seed",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_output_result seed",
+        "Option::None:",
+        'field::get context "key"',
+        "ActualTraversalBodySeedMissing key",
+    ],
+    "reader seed availability helper must reject missing seed without owner creation and route Some seed through authority, shape, and output boundaries",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result")),
+    /context_bound_reader_traversal_bundle_from_output_result|actual_traversal_bundle|region_fresh_witness|region_proof|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "reader seed availability helper must not bypass context-bound bundle validation or synthesize lower proof/backend artifacts",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_from_candidate_result"),
@@ -2290,18 +2398,19 @@ assertOrdered(
         "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context Result::Ok output",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_from_context context SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result context Option::Some seed",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context availability_result",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
     ],
-    "context-bound reader traversal bundle stage0 runner must rebuild request authority, build context-bound output, delegate bundle gate, and close request/module owners",
+    "context-bound reader traversal bundle stage0 runner must rebuild request authority, derive a context-bound seed, route seed availability through the bundle helper, delegate bundle gate, and close request/module owners",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result")),
-    /context_bound_reader_traversal_bundle_from_output_result context output|actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
-    "context-bound reader traversal bundle stage0 runner must not bypass source validation or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
+    /actual_traversal_body_reader_split_output_from_parts_result|context_bound_reader_traversal_bundle_from_output_result context output|actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-bound reader traversal bundle stage0 runner must not bypass seed availability/source validation or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result"),
@@ -2324,10 +2433,18 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0"),
     [
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 0",
-        "context_key_mismatch_rejected",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 78 0",
-        "context_graph_mismatch_rejected",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 77 1",
+        "seed_key_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_seed_result 77 0 78 0",
+        "seed_graph_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_seed_result 77 0 77 1",
+        "seed_missing_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_missing_seed_result 77 0",
+        "SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected",
+        "seed_observation_rejected",
+        "seed_unsupported_rejected",
+        "SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::ReturnCacheReference",
+        "seed_malformed_rejected",
+        "SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage -1 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue",
         "producer_not_connected_availability_rejected",
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected producer_not_connected_key",
         "missing_reader_availability_rejected",
@@ -2335,7 +2452,7 @@ assertOrdered(
         "accepted.request_count",
         "accepted.proven_request_count",
     ],
-    "context-bound reader traversal bundle stage0 must cover accepted source-derived witness output, context mismatch, and availability rejection paths",
+    "context-bound reader traversal bundle stage0 must cover accepted seed output, seed mismatch, missing seed, observation/unsupported/malformed seed, and availability rejection paths",
 );
 assert.doesNotMatch(
     code,
@@ -2754,8 +2871,22 @@ assertOrdered(
         "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnsupported key",
         "ActualTraversalBodyInputMalformed scanner_error",
         "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputMalformed scanner_error",
+        "ActualTraversalBodySeedMissing key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputMissing key",
+        "ActualTraversalBodySeedKeyMismatch key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputKeyMismatch key",
+        "ActualTraversalBodySeedGraphMismatch graph_index",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputGraphMismatch graph_index",
+        "ActualTraversalBodySeedUnsupported key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnsupported key",
+        "ActualTraversalBodySeedObservationUnsupported key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnsupported key",
+        "ActualTraversalBodySeedMalformed scanner_error",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputMalformed scanner_error",
+        "ActualTraversalBodySeedObservationBuildRejected key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnavailable key",
     ],
-    "actual traversal body adapter must map private availability errors to public bridge errors without collapsing missing, unavailable, unsupported, or malformed cases",
+    "actual traversal body adapter must map private availability and seed errors to public bridge errors without collapsing missing, unavailable, unsupported, key mismatch, graph mismatch, or malformed cases",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result"),

@@ -77313,3 +77313,58 @@ MERGE_APPROVED
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound reader seed availability checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader が返す最小 evidence を stage0 seed として表す checkpoint を追加した。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed` は proof key、Resource graph id、place kind、to-place index、edge kind、observation status だけを持つ module-private value である。seed は proof でも public accepted path でもない。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result` は `Option::None` を missing seed として owner-free に拒否し、`Some seed` は key / graph id 照合、place / edge / observation shape validation、owner output construction の順で処理する。
+- accepted representative は `PrivateCacheStorage`、`CloneOutOwnedValue`、`NoObservationDetected` だけであり、key mismatch、graph mismatch、missing seed、unsupported shape、malformed to-place、observation detected は typed seed rejection として fail-closed にする。
+- owner-bearing output は validation 後だけ作る。walker input owner 作成後に observation owner 作成が失敗した場合は walker input owner を閉じる。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` は accepted request/proof count、seed key mismatch、seed graph mismatch、missing seed、observation seed、unsupported seed、malformed seed、producer-not-connected availability、missing-reader availability の typed `Result` payload だけを公開する。
+- production availability はまだ `ProducerNotConnected` fallback のままである。Resource proof、request-evidence proof、GraphInput、PrivateCache / PrivateState effect mask、backend bytes、artifact key は作っていない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に context-bound reader seed availability checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、検証、残件を追記した。
+- `todo.md` の memo_call backend 残件を context-bound reader seed availability checkpoint 後の real Resource IR traversal producer、production availability、fresh witness、effect masking、artifact projectionへ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、seed type / helper の public API 化禁止、availability error taxonomy、seed authority validation、place / edge / observation wildcard fallback 禁止、owner cleanup、seed 系 availability error の bridge mapping、`to_place_index = -1` malformed seed rejection、stage0 runner が split-output fixture ではなく seed availability helper を通ることを固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針に沿って、契約、現状、owner lifecycle、fail-closed taxonomy をコメントと文書で明示した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`
+
+### 残件
+
+- real HIR lowering result / Resource IR body から seed ではなく `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound availability helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 seed fixture ではなく real traversal output から accepted source と witness を供給する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound reader seed availability review follow-up
+
+### subagent review
+
+- Ramanujan review は blocking issue なし。seed が public accepted path / caller supplied authority になっていないこと、accepted path が context -> seed availability -> context-bound source validation -> source-derived witness -> request-evidence gate を通ること、seed mismatch / missing / unsupported / observation detected が owner 作成前に typed rejection へ落ちること、owner cleanup と Clone/Copy 禁止に問題がないことが確認された。
+- 推奨指摘として、seed 系 availability error の bridge mapping と `to_place_index = -1` malformed seed case の source-policy 固定が出た。
+
+### 反映
+
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` に `seed_malformed_rejected` を追加した。
+- public doctest に malformed seed check を追加し、`to_place_index = -1` が typed rejection になることを固定した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` に seed 系 availability error の bridge mapping assertion と malformed seed stage0 assertion を追加した。
+
+### 追加検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`
