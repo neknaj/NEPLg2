@@ -2370,6 +2370,7 @@ assertOrdered(
     [
         "accepted_request_count %i32",
         "accepted_proof_count %i32",
+        "actual_body_reader_bundle_accepted_proof_count %i32",
         "hir_body_private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
         "hir_body_fn_value_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
         "hir_body_memoized_function_value_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
@@ -2587,7 +2588,7 @@ assert.doesNotMatch(
     "context-bound availability helper must not bypass output context validation, must not turn ProducerNotConnected into an accepted bundle path, and must not synthesize lower proof, backend, effect, or artifact records",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
         "Result::Ok sources:",
@@ -2595,12 +2596,55 @@ assertOrdered(
         "Result::Err e:",
         "Stage0SourceRejected e",
     ],
-    "context-owned reader traversal bundle helper must derive source owners from the rechecked context before deriving the witness owner from the source candidate",
+    "actual body reader bundle producer must derive source owners from request context and then derive the fresh witness owner from that source candidate",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result")),
+    /actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual body reader bundle producer must not roundtrip through availability/output owners, use input-owner adapters, inject witness metadata, call fixture witness helper, or synthesize proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result module context resolutions",
+    ],
+    "context-owned reader traversal bundle helper must delegate bundle ownership to the actual body reader bundle producer",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result")),
-    /actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
-    "context-owned reader traversal bundle helper must not roundtrip through availability/output owners, bypass the context source adapter, call the external-metadata fixture helper, or synthesize proof, backend, effect, or artifact records",
+    /actual_traversal_body_adapter_sources_from_request_context_result|actual_traversal_bundle_source_derived_witness_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-owned reader traversal bundle helper must not duplicate body reader bundle producer work or synthesize proof, backend, effect, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_stage0_run_summary_with_body_expr_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module_with_body_expr function_ty span def_id body_expr",
+        "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
+        "selfhost_memo_call_backend_request_table_get_entry &table 0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result &module context &resolutions",
+        "Result::Ok bundle:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions",
+        "selfhost_memo_call_backend_request_table_free table",
+        "selfhost_hir_module_free module",
+    ],
+    "actual body reader bundle stage0 runner must rebuild request authority, call the body reader bundle producer, gate only produced bundles, and close resolution/request/module owners",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_stage0_run_summary_with_body_expr_result")),
+    /actual_traversal_body_reader_seed_from_context|actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual body reader bundle stage0 runner must not use seed availability, roundtrip through availability/output owners, inject witness metadata, or synthesize lower proof/backend artifacts",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_stage0_run_summary_result"),
+    [
+        "let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_stage0_run_summary_with_body_expr_result context_body_module_fingerprint graph_index body_expr",
+    ],
+    "actual body reader bundle accepted runner must use the shared body-expr runner with a neutral Unit body",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_with_body_expr_result"),
@@ -2675,6 +2719,8 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0"),
     [
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_stage0_run_summary_result 77 0",
+        "Result::Ok actual_body_reader_bundle_accepted:",
         "SelfhostEffectKind::PrivateCache",
         "hir_body_private_cache_effect_rejected",
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_body_expr_result 77 0 private_cache_body_expr",
@@ -2702,6 +2748,7 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key",
         "accepted.request_count",
         "accepted.proven_request_count",
+        "actual_body_reader_bundle_accepted.proven_request_count",
     ],
     "context-bound reader traversal bundle stage0 must cover accepted production reader output, HIR body private-effect/function-observation source-derived rejections, seed mismatch, missing seed, observation/unsupported/malformed seed, and availability rejection paths",
 );
@@ -2709,6 +2756,11 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_(?!stage0\b)/m,
     "context-bound reader traversal bundle helpers must stay module-private; only the typed stage0 summary function may be public",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_/m,
+    "actual body reader bundle producer helpers must stay module-private until full Resource IR traversal owns the public boundary",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result"),
