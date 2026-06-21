@@ -6080,6 +6080,20 @@ Quadratic metric は original doubled start/control/end coordinate、stroke widt
 
 F5kt は internal misuse に備えて source segment の `segment_index >= 0` と `stroke_width > 0` も再検査する。これは F5ks 正常 path では既に満たされるが、metric boundary の契約として fail closed にする。
 
+### SFNT simple glyph render stroke source segment metric owner boundary
+
+F5ku は F5ks の fresh cursor を消費し、F5kt の checked metric value を source segment sequence 順に exact-capacity Vec へ蓄積する owner boundary である。この境界は stroke offset geometry の完成ではなく、offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+start は F5ks cursor invariant を再実行したうえで、fresh cursor だけを受け入れる。fresh cursor とは `scalar_index == 0`、emitted segment / MoveTo / Line / Quadratic count がすべて 0、`has_current_point == false`、current point が canonical zero state である cursor である。fresh でない cursor は start error として cursor を返す。
+
+metric Vec は F5kr plan owner の `draw_segment_count` と同じ capacity で 1 回だけ確保する。start 直後の len は 0、cap は `draw_segment_count` と一致しなければならない。不一致の場合は Vec を解放し、cursor を返す。
+
+step は F5ks cursor step を 1 回だけ進める。MoveTo terminal は metric を追加せず、updated cursor と同じ metric Vec/count を持つ drain owner を返す。Line / Quadratic terminal は F5kt prepare helper で checked metric を作り、成功時だけ metric Vec へ push し、metric count と kind count を 1 進める。
+
+metric prepare failure は、進んだ cursor、metric Vec、pre-push count、rejected segment kind、segment index、F5kt error kind を error payload に保持する。push failure は、進んだ cursor、`vec::push` から返った metric Vec、拒否された metric value、pre-push count、segment kind、segment index、storage error を保持する。どちらも通常の resumable drain owner とは扱わない。
+
+completion は F5ks `Completed` で返った F5kr plan owner と metric Vec を束ね、`GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner` を返す。completion 前に `metric_count == draw_segment_count`、`line_metric_count == line_to_count`、`quadratic_metric_count == quadratic_to_count`、Vec len/cap が `draw_segment_count` と一致することを検査する。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

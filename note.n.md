@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI font F5ku stroke source segment metric owner boundary
+
+## 目的
+
+- F5ks fresh cursor を消費し、F5kt の checked metric value を source segment sequence 順に exact-capacity Vec へ蓄積する owner/drain boundary を追加する。
+- actual offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へは進まない。
+- metric prepare / push 失敗では、進んだ cursor と metric Vec / count を持つ明示的な recovery state を返し、通常再開可能な drain owner と偽らない。
+
+## subagent review
+
+- Epicurus の F5ku plan review は `PLAN_APPROVED`。
+- 条件は、F5ku を source segment metric owner/drain として切ること、fresh cursor を scalar index だけでなく count / current point state まで検査すること、completion で draw / line / quadratic / Vec len/cap を厳密検査すること、push failure で advanced cursor / returned Vec / rejected metric / pre-push count を返すこと、metric failure で segment kind / index を保持すること、source 再読や fill/raster/coverage/render/platform 接続を禁止することだった。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner` と `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner` を追加した。
+- start は F5ks cursor invariant を再実行し、fresh cursor だけを受け入れ、`draw_segment_count` と同じ capacity の metric Vec を 1 回だけ確保する。
+- drain step は MoveTo で state update、Line / Quadratic で F5kt metric prepare と Vec push、completion で F5ks `Completed` 由来の F5kr plan owner を completed metric owner へ移す。
+- drain error は cursor または completed plan owner、metric Vec、pre-push count、cursor / metric / storage lower error、segment kind / index、rejected metric を保持する owner-bearing recovery payload にした。
+- docs、source policy、focused doctest、todo を F5ku に合わせて更新した。
+
+## verification_current
+
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ku_syntax.json -j 1`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_owner_f5ku.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ku.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ku.json`
+- checked JSON: `tmp/playground-editor-tests-f5ku.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Epicurus の implementation review は `REVIEW_APPROVED`。F5ku が source segment metric owner/drain に留まること、fresh cursor revalidation、exact completion count / Vec len/cap check、advanced cursor / returned Vec / rejected metric / pre-push count の push failure recovery、metric error の segment kind / index context、no reread / no render policy に blocker は無いことが確認された。
+
 # 2026-06-21 Agent2 GUI font F5kt stroke source segment metric preparation boundary
 
 ## 目的

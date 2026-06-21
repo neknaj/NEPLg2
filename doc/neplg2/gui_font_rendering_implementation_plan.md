@@ -2729,6 +2729,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gu
 git diff --check
 ```
 
+## Phase F5ku: sfnt simple glyph render stroke source segment metric owner boundary
+
+目的:
+
+- F5ks fresh cursor を消費し、F5kt の checked metric value を source segment sequence 順に exact-capacity Vec へ蓄積する owner boundary を追加する。
+- 後続 stroke offset geometry が sequence 全体を authority として扱えるようにするが、この phase では actual offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+- metric prepare / push 失敗は、通常再開可能な drain owner と偽らず、進んだ cursor、metric Vec、pre-push count、segment kind / index、lower error を持つ owner-bearing recovery state として返す。
+
+plan review:
+
+- Epicurus plan review は `PLAN_APPROVED`。
+- F5ku は source segment metric owner/drain として切り、actual offset geometry expansion 完了とは扱わない。
+- start は F5ks cursor invariant を再実行し、`scalar_index == 0`、emitted / MoveTo / Line / Quadratic count 0、`has_current_point == false`、current point zero の fresh cursor だけを受け付ける。
+- completed owner は F5ks `Completed` で返る F5kr plan owner、metric Vec、metric count、line metric count、quadratic metric count を保持する。
+- completion は draw / line / quadratic count と Vec len/cap が plan と完全一致することを検査する。
+- push failure は cursor がすでに進んでいるため、returned Vec、rejected metric、pre-push count、advanced cursor を error state に持たせる。
+- metric failure は F5kt error kind だけでなく rejected segment kind と segment index を持たせる。
+- source policy は source scalar 再読、SFNT byte parser、fill / raster edge / coverage / packed mask / render / platform / fallback / compositor 接続禁止と、metric Vec allocation / push recovery を検査する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner` を追加し、F5ks cursor、metric Vec、metric / line / quadratic count を保持する。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner` を追加し、F5ks completion 由来の F5kr plan owner と完成 metric Vec/count を保持する。
+- start error kind と owner-bearing start error を追加する。F5ks cursor invariant failure、non-fresh cursor state、metric Vec allocation / shape mismatch を typed error に分ける。
+- drain error kind と owner-bearing drain error を追加する。cursor step failure、metric local invariant failure、metric prepare failure、push failure、completion mismatch を分け、push failure では returned Vec と rejected metric を保持する。
+- drain start / step / free helper を追加する。step は MoveTo で owner state update、Line / Quadratic で F5kt metric prepare と push、completion で F5kr plan owner を completed metric owner へ移す。
+- focused doctest label と source policy を追加し、fresh cursor、exact capacity、line/quadratic push、completion count、push recovery、metric error context、no reread / no edge / no mask / no command / no platform policy を検査する。
+
+完了条件:
+
+- source policy が docs、Epicurus plan approval、fresh cursor reject、exact-capacity Vec allocation、metric local/completion invariants、line/quadratic metric push、push failure returned Vec / rejected metric recovery、metric prepare segment kind/index context、owner/free、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md` に fresh cursor、exact capacity、line/quadratic push、completion counts、push recovery、metric error context、no reread / no edge / no mask / no command / no platform の coverage label を追加する。
+- implementation review で F5ku が whole-sequence metric owner に留まり、actual offset geometry、stroke edge、coverage、render command、platform API へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke source segment metric owner boundary 接続済み、後続の stroke offset geometry expansion / stroke edge owner / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_owner_f5ku.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ku.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

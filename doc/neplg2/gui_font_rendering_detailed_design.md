@@ -6972,6 +6972,66 @@ Quadratic partial degeneracy remains explicit data. If `start_control_length_squ
 
 F5kt must not call F5ks cursor step, path sink scalar storage, stroke edge owner, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke rasterizers, shadow rasterizers, or compositor APIs.
 
+## SFNT simple glyph render stroke source segment metric owner boundary
+
+F5ku consumes a F5ks fresh cursor and builds a whole-sequence owner for prepared source segment metrics. It exists because the later stroke offset geometry boundary needs sequence-level ownership before it can reason about adjacency, joins, caps, and degenerate curve evidence without re-reading the path sink scalar stream.
+
+The start function accepts `GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor`, not the lower F5kr plan owner. It re-runs F5ks cursor invariants and then requires the canonical fresh state:
+
+```text
+scalar_index == 0
+emitted_segment_count == 0
+move_to_count == 0
+line_segment_count == 0
+quadratic_segment_count == 0
+has_current_point == false
+current_x2 == 0
+current_y2 == 0
+```
+
+Only after the fresh check does F5ku allocate `Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric` with capacity equal to `draw_segment_count`. The storage must start at len 0 and cap `draw_segment_count`. A malformed storage shape is rejected after freeing the just-created Vec; the cursor remains the recovery owner.
+
+The drain owner stores:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner:
+    cursor
+    metrics
+    metric_count
+    line_metric_count
+    quadratic_metric_count
+```
+
+The completed owner stores the F5kr plan owner returned by F5ks `Completed`:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner:
+    plan_owner
+    metrics
+    metric_count
+    line_metric_count
+    quadratic_metric_count
+```
+
+Drain step first validates F5ks cursor invariants and local metric owner invariants. Local invariants require nonnegative counts, `line_metric_count + quadratic_metric_count == metric_count`, count upper bounds against the plan, `vec::len metrics == metric_count`, and `vec::cap metrics == draw_segment_count`.
+
+At `scalar_index == path_sink_scalar_count`, F5ku checks completion invariants before calling F5ks step. Completion requires exact draw, line, quadratic, len, and cap counts. F5ks `Completed` then transfers the plan owner into the F5ku completed owner.
+
+For normal non-completion steps, F5ku delegates to F5ks cursor step:
+
+```text
+StateUpdated:
+    carry updated cursor and unchanged metric Vec/count
+LineSegment:
+    prepare F5kt line metric and push it
+QuadraticSegment:
+    prepare F5kt quadratic metric and push it
+```
+
+push failure must return the advanced cursor, returned metric Vec, rejected metric value, and pre push counts. Metric prepare failure similarly returns the advanced cursor, metric Vec, pre push counts, rejected segment kind, segment index, and F5kt metric error kind. These failure states are owner-bearing recovery payloads, but they are not normal resumable drain owners because the F5ks cursor has already advanced past the rejected source segment.
+
+F5ku must not call `path_sink_scalars` directly, SFNT byte lookup/parser helpers, fill alpha mask owners, raster edge owners, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke/shadow rasterizers, or compositor APIs. It may allocate one metric Vec and push through exactly one helper.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
