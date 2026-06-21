@@ -7999,6 +7999,49 @@ Recovery is explicit. A start error keeps the original F5lp owner and config. A 
 
 F5ls must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, resource table registration, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, shadow rasterizers, software surfaces, alpha Vec copy helpers, owner-bearing Vec payload storage, or a 2D compositor drain.
 
+## SFNT simple glyph render shadow source resource table boundary
+
+F5lt is the metadata table counterpart to F5ls. It consumes a `GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner`, derives a Copy metadata record from the F5lp authority kept inside that reservation, and inserts only that record into a private table. The table is still internal to `alloc/gui/font/sfnt/glyf`; it does not upload storage, expose a backend texture, or prove renderability.
+
+The table record is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+    width_px i32
+    height_px i32
+    cell_count i32
+    alpha_max i32
+    shadow_order i32
+    source_order i32
+```
+
+The table owner stores `Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord`. It must not store the reservation owner, the registered resource owner, the F5lp owner, or any alpha cell payload in the Vec. The registered resource owner keeps the original reservation and the stored record together. A successful registration returns a `GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner` containing the updated table and the registered resource owner. No partial registration is allowed.
+
+Registration revalidates the reservation before `vec::push`:
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+F5lp composition-order invariant failure -> CompositionOrderInvariantFailed with order_error = Some(lower kind)
+shadow shape/storage failures -> mapped F5ls storage error, order_error = None
+blend != SourceOver -> UnsupportedBlendMode
+rect derivation overflow -> RectXOverflow / RectYOverflow
+reservation rect != derived rect -> RectMetadataMismatch
+reservation paint != F5lp shadow paint -> PaintMetadataMismatch
+reservation shadow_order != F5lp shadow_order -> ShadowOrderMetadataMismatch
+reservation source_order != F5lp source_order -> SourceOrderMetadataMismatch
+existing table entry with same raw AlphaMaskId -> DuplicateMaskId
+Vec push failure -> TablePushFailed with storage_error = Some(error)
+```
+
+The lower F5lp order error is intentionally preserved in the owner-bearing register error. Without that evidence, a later table registration failure would hide whether the root cause was a packed mask invariant, edge invariant, source placement, paint, blend, or order metadata mismatch.
+
+Success and failure recovery use paired continuations. Success passes the updated table owner and registered resource owner together. Error recovery passes the table owner and reservation owner together through a rejected owner. F5lt does not expose split consuming accessors that return only the table or only the reservation.
+
+F5lt must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, shadow rasterizers, software surfaces, alpha Vec copy helpers, owner-bearing Vec payload storage, or a 2D compositor drain.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

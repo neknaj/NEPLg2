@@ -22849,6 +22849,434 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_start_error_f
     let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get error "owner"
     gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceRecord: shadow source resource table の metadata record
+//:
+//: [目的/もくてき]:
+//: - shadow alpha storage owner を table に[置/お]かず、id と描画 metadata だけを[登録/とうろく]します。
+//: - shadow/source order metadata を record に[保持/ほじ]し、後続境界が shadow-before-source の[順序/じゅんじょ]を再検査できるようにします。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:
+    mask_id %AlphaMaskId
+    rect %GuiRect
+    paint %GuiPaint
+    width_px %i32
+    height_px %i32
+    cell_count %i32
+    alpha_max %i32
+    shadow_order %i32
+    source_order %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \record:
+        *record
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \record:
+        record
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record %fn AlphaMaskId fn GuiRect fn GuiPaint fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \mask_id\rect\paint\width_px\height_px\cell_count\alpha_max\shadow_order\source_order:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceRecord mask_id rect paint width_px height_px cell_count alpha_max shadow_order source_order
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord AlphaMaskId \record:
+    *field::get_ref record "mask_id"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiRect \record:
+    *field::get_ref record "rect"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiPaint \record:
+    *field::get_ref record "paint"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    *field::get_ref record "width_px"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    *field::get_ref record "height_px"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    *field::get_ref record "cell_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    *field::get_ref record "alpha_max"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_shadow_order %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    *field::get_ref record "shadow_order"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_source_order %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    *field::get_ref record "source_order"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id record
+    alpha_mask_id_raw &mask_id
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner: metadata-only shadow source table
+//:
+//: [目的/もくてき]:
+//: - Copy record だけを Vec に[保持/ほじ]し、shadow alpha storage owner は registered resource owner に[残/のこ]します。
+//: - `lookup` は metadata だけを[返/かえ]し、host upload や renderability を表しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner:
+    records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner %fn Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner \records:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner records
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_new %fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner StdErrorKind \capacity:
+    let records_result %Result Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord StdErrorKind vec::with_capacity capacity
+    match records_result:
+        Result::Err storage_error:
+            Result::Err storage_error
+        Result::Ok records:
+            Result::Ok gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner records
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_len %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner i32 \table:
+    let records %&Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get_ref table "records"
+    vec::len records
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn AlphaMaskId bool \table\mask_id:
+    let target_raw %i32 alpha_mask_id_raw &mask_id
+    let records %&Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut found %bool false
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_raw %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw &record
+                            if eq record_raw target_raw:
+                                then:
+                                    set found true
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    found
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_lookup %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn AlphaMaskId Option GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \table\mask_id:
+    let target_raw %i32 alpha_mask_id_raw &mask_id
+    let records %&Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut output %Option GuiSfntSimpleGlyphRenderShadowSourceResourceRecord none
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_raw %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw &record
+                            if eq record_raw target_raw:
+                                then:
+                                    set output some record
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    output
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner unit \table:
+    let records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get table "records"
+    vec::free records
+
+//: GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner: table 登録済み shadow source owner
+//:
+//: [目的/もくてき]:
+//: - metadata table 登録と同じ record を[保持/ほじ]し、実 storage owner は reservation owner として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner:
+    reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner
+    record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord
+
+fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner \reservation\record:
+    GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner reservation record
+
+fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record %fn &GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \resource:
+    *field::get_ref resource "record"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner unit \resource:
+    let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get resource "reservation"
+    gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free reservation
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner: table と registered resource の同時 owner
+//:
+//: [目的/もくてき]:
+//: - 成功時に table と registered resource owner を同時に[渡/わた]し、metadata だけが[残/のこ]る partial registration を[防/ふせ]ぎます。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner:
+    table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
+    resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner \table\resource:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner table resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_record %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \registration:
+    let resource %&GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get_ref registration "resource"
+    gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner .R .R \registration\callback:
+    let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get registration "table"
+    let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get registration "resource"
+    callback table resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner unit \registration:
+    let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get registration "table"
+    let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get registration "resource"
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_free table
+    gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free resource
+
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind: shadow source table 登録の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind:
+    InvalidMaskId
+    CompositionOrderInvariantFailed
+    ShadowShapeInvalidWidth
+    ShadowShapeInvalidHeight
+    ShadowShapeInvalidSampleScale
+    ShadowShapeCoverageMaxMismatch
+    ShadowShapeCellCountMismatch
+    InvalidAlphaMax
+    ShadowAlphaCellCountMismatch
+    ShadowAlphaStorageLenMismatch
+    ShadowAlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+    RectXOverflow
+    RectYOverflow
+    RectMetadataMismatch
+    PaintMetadataMismatch
+    ShadowOrderMetadataMismatch
+    SourceOrderMetadataMismatch
+    DuplicateMaskId
+    TablePushFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \kind\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError kind order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \kind:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error kind order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \kind\order_error_value:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error kind order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind
+    table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
+    reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner
+    storage_error %Option StdErrorKind
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected:
+    table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
+    reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn Option StdErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \kind\table\reservation\storage_error\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError kind table reservation storage_error order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \kind\table\reservation:
+    let storage_error %Option StdErrorKind none
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error kind table reservation storage_error order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_from_record_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \table\reservation\record_error:
+    let kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind &record_error
+    let storage_error %Option StdErrorKind none
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error &record_error
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error kind table reservation storage_error order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_push_failed %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \table\reservation\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed table reservation storage_error order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_rejected %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected \error:
+    let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get error "table"
+    let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get error "reservation"
+    GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected table reservation
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner .R .R \rejected\callback:
+    let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get rejected "table"
+    let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get rejected "reservation"
+    callback table reservation
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError unit \error:
+    let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get error "table"
+    let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get error "reservation"
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_free table
+    gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free reservation
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind_from_reservation %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::InvalidMaskId:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::CompositionOrderInvariantFailed:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::CompositionOrderInvariantFailed
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeInvalidWidth:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidWidth
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeInvalidHeight:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidHeight
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeInvalidSampleScale:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidSampleScale
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeCoverageMaxMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeCoverageMaxMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowShapeCellCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeCellCountMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::InvalidAlphaMax:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidAlphaMax
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowAlphaCellCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaCellCountMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowAlphaStorageLenMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaStorageLenMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::ShadowAlphaStorageCapacityMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaStorageCapacityMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::UnsupportedBlendMode:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::UnsupportedBlendMode
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::RectXOverflow:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectXOverflow
+        GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::RectYOverflow:
+            GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectYOverflow
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal %fn GuiRect fn GuiRect bool \left\right:
+    let origin_matches %bool and eq gui_rect_x &left gui_rect_x &right eq gui_rect_y &left gui_rect_y &right
+    let size_matches %bool and eq gui_rect_width &left gui_rect_width &right eq gui_rect_height &left gui_rect_height &right
+    and origin_matches size_matches
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal %fn GuiPaint fn GuiPaint bool \left\right:
+    gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal left right
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn &GuiRect bool \reservation\expected_rect:
+    let reservation_rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_rect reservation
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal reservation_rect *expected_rect
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner bool \reservation:
+    let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
+    let reservation_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_paint reservation
+    let owner_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_paint owner
+    gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal reservation_paint owner_paint
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_shadow_order_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner bool \reservation:
+    let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
+    let reservation_order %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_order reservation
+    let owner_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order owner
+    eq reservation_order owner_order
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_source_order_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner bool \reservation:
+    let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
+    let reservation_order %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_source_order reservation
+    let owner_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order owner
+    eq reservation_order owner_order
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \reservation:
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_mask_id reservation
+    let raw %i32 alpha_mask_id_raw &mask_id
+    if le raw 0:
+        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId
+        else:
+            let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
+            match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner:
+                Result::Err order_error:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_with_order GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::CompositionOrderInvariantFailed order_error
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_storage_invariants owner:
+                        Result::Err reservation_error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind_from_reservation reservation_error_kind
+                        Result::Ok _:
+                            match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_blend owner:
+                                Result::Err reservation_error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind_from_reservation reservation_error_kind
+                                Result::Ok _:
+                                    match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner owner:
+                                        Result::Err reservation_error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind_from_reservation reservation_error_kind
+                                        Result::Ok expected_rect:
+                                            if not gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_matches_owner reservation &expected_rect:
+                                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectMetadataMismatch
+                                                else:
+                                                    if not gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_matches_owner reservation:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::PaintMetadataMismatch
+                                                        else:
+                                                            if not gui_sfnt_simple_glyph_render_shadow_source_resource_table_shadow_order_matches_owner reservation:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowOrderMetadataMismatch
+                                                                else:
+                                                                    if not gui_sfnt_simple_glyph_render_shadow_source_resource_table_source_order_matches_owner reservation:
+                                                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::SourceOrderMetadataMismatch
+                                                                        else:
+                                                                            let rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_rect reservation
+                                                                            let paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_paint reservation
+                                                                            let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+                                                                            let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape shadow_owner
+                                                                            let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shadow_shape
+                                                                            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shadow_shape
+                                                                            let cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count shadow_owner
+                                                                            let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max shadow_owner
+                                                                            let shadow_order %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_order reservation
+                                                                            let source_order %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_source_order reservation
+                                                                            let record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord gui_sfnt_simple_glyph_render_shadow_source_resource_record mask_id rect paint width_px height_px cell_count alpha_max shadow_order source_order
+                                                                            Result::Ok record
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \table\reservation:
+    match gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation &reservation:
+        Result::Err record_error:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_from_record_error table reservation record_error
+        Result::Ok record:
+            let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id &record
+            if gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains &table mask_id:
+                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::DuplicateMaskId table reservation
+                else:
+                    let records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get table "records"
+                    match vec::push records record:
+                        Result::Ok next_records:
+                            let next_table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner next_records
+                            let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner reservation record
+                            Result::Ok gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner next_table resource
+                        Result::Err push_error:
+                            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                            let returned_records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord vec::vec_push_error_vec push_error
+                            let returned_table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner returned_records
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_push_failed returned_table reservation storage_error_value
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:

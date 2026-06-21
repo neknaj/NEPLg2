@@ -522,6 +522,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOr
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
@@ -18736,8 +18737,9 @@ assert(
     "GUI font docs must pin F5ls approved plan, F5lp authority, non-renderable reservation scope, and checked rect derivation",
 );
 const renderShadowSourceResourceReservationStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig:");
-const renderShadowSourceResourceReservationEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceResourceReservationStartIndex);
-assert(renderShadowSourceResourceReservationStartIndex >= 0 && renderShadowSourceResourceReservationEndIndex > renderShadowSourceResourceReservationStartIndex, "alloc/gui/font/sfnt/glyf F5ls shadow source resource reservation region must exist before stroke segment plan");
+const renderShadowSourceResourceTableStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:", renderShadowSourceResourceReservationStartIndex);
+const renderShadowSourceResourceReservationEndIndex = renderShadowSourceResourceTableStartIndex;
+assert(renderShadowSourceResourceReservationStartIndex >= 0 && renderShadowSourceResourceReservationEndIndex > renderShadowSourceResourceReservationStartIndex, "alloc/gui/font/sfnt/glyf F5ls shadow source resource reservation region must exist before shadow source resource table");
 const renderShadowSourceResourceReservationRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceResourceReservationStartIndex, renderShadowSourceResourceReservationEndIndex);
 const renderShadowSourceResourceReservationConfigType = textSliceBetween(
     renderShadowSourceResourceReservationRegion,
@@ -18963,6 +18965,345 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceReservationTests.includes("render_shadow_source_resource_reservation_recovery_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceReservationTests.includes("render_shadow_source_resource_reservation_no_command_table_platform_compositor"),
     "F5ls render shadow source resource reservation focused doctest must cover F5lp authority, type shape, mask id, lower order evidence, shadow storage, SourceOver, checked rect, metadata, recovery/free, and no command/table/platform/compositor policy",
+);
+assert(spec.includes("### SFNT simple glyph render shadow source resource table boundary"), "GUI font spec must document F5lt render shadow source resource table boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render shadow source resource table boundary"), "GUI font detailed design must document F5lt render shadow source resource table boundary");
+assert(implementationPlan.includes("## Phase F5lt: sfnt simple glyph render shadow source resource table boundary"), "GUI font implementation plan must include F5lt phase");
+assert(
+    implementationPlan.includes("Maxwell 初回 plan review は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("Maxwell 改訂 plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("metadata table counterpart to F5ls") &&
+        detailedDesign.includes("order_error = Some(lower kind)") &&
+        detailedDesign.includes("No partial registration is allowed") &&
+        spec.includes("host-visible resource 登録ではない"),
+    "GUI font docs must pin F5lt revised plan, lower order evidence, metadata-only table, and non-renderable scope",
+);
+const renderShadowSourceResourceTableEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceResourceTableStartIndex);
+assert(renderShadowSourceResourceTableStartIndex >= 0 && renderShadowSourceResourceTableEndIndex > renderShadowSourceResourceTableStartIndex, "alloc/gui/font/sfnt/glyf F5lt shadow source resource table region must exist before stroke segment plan");
+const renderShadowSourceResourceTableRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceResourceTableStartIndex, renderShadowSourceResourceTableEndIndex);
+const renderShadowSourceResourceRecordType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:",
+    "impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:",
+);
+const renderShadowSourceResourceTableType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner:",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner ",
+);
+const renderShadowSourceRegisteredResourceType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner:",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner ",
+);
+const renderShadowSourceResourceTableRegistrationType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner:",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner ",
+);
+const renderShadowSourceResourceTableRegisterErrorKindType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "enum GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind:",
+    "impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind:",
+);
+const renderShadowSourceResourceTableRecordErrorType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError:",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error ",
+);
+const renderShadowSourceResourceTableRegisterErrorType = textSliceBetween(
+    renderShadowSourceResourceTableRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError:",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected:",
+);
+for (const fragment of [
+    "mask_id %AlphaMaskId",
+    "rect %GuiRect",
+    "paint %GuiPaint",
+    "width_px %i32",
+    "height_px %i32",
+    "cell_count %i32",
+    "alpha_max %i32",
+    "shadow_order %i32",
+    "source_order %i32",
+]) {
+    assert(renderShadowSourceResourceRecordType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lt record must include ${fragment}`);
+}
+assertMatch(
+    renderShadowSourceResourceTableRegion,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceResourceRecord\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceResourceRecord\b/,
+    "alloc/gui/font/sfnt/glyf F5lt metadata record is value-only and must implement Clone/Copy",
+);
+assert(
+    renderShadowSourceResourceTableType.includes("records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord"),
+    "alloc/gui/font/sfnt/glyf F5lt table must store Copy metadata records",
+);
+assertNoMatch(
+    renderShadowSourceResourceTableType,
+    /Vec GuiSfntSimpleGlyphRenderShadowSource(?:RegisteredResourceOwner|ResourceReservationOwner|CompositionOrderOwner|PackedMaskOwner)/,
+    "alloc/gui/font/sfnt/glyf F5lt table must not store owner-bearing shadow source resources in Vec",
+);
+for (const fragment of [
+    "reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner",
+    "record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord",
+]) {
+    assert(renderShadowSourceRegisteredResourceType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lt registered resource owner must include ${fragment}`);
+}
+for (const fragment of [
+    "table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner",
+    "resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner",
+]) {
+    assert(renderShadowSourceResourceTableRegistrationType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lt registration owner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner",
+    "GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner",
+    "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner",
+    "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError",
+    "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected",
+]) {
+    assertNoMatch(
+        renderShadowSourceResourceTableRegion,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lt ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderShadowSourceResourceTableRegion,
+    /pub struct GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:|pub struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner:|pub struct GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner:|pub struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner:|pub fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register\b/,
+    "alloc/gui/font/sfnt/glyf F5lt boundary types and register function must remain private",
+);
+for (const fragment of [
+    "InvalidMaskId",
+    "CompositionOrderInvariantFailed",
+    "ShadowShapeInvalidWidth",
+    "ShadowShapeInvalidHeight",
+    "ShadowShapeInvalidSampleScale",
+    "ShadowShapeCoverageMaxMismatch",
+    "ShadowShapeCellCountMismatch",
+    "InvalidAlphaMax",
+    "ShadowAlphaCellCountMismatch",
+    "ShadowAlphaStorageLenMismatch",
+    "ShadowAlphaStorageCapacityMismatch",
+    "UnsupportedBlendMode",
+    "RectXOverflow",
+    "RectYOverflow",
+    "RectMetadataMismatch",
+    "PaintMetadataMismatch",
+    "ShadowOrderMetadataMismatch",
+    "SourceOrderMetadataMismatch",
+    "DuplicateMaskId",
+    "TablePushFailed",
+]) {
+    assert(renderShadowSourceResourceTableRegisterErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lt register error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind",
+    "order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind",
+]) {
+    assert(renderShadowSourceResourceTableRecordErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lt record error must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind",
+    "table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner",
+    "reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner",
+    "storage_error %Option StdErrorKind",
+    "order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind",
+]) {
+    assert(renderShadowSourceResourceTableRegisterErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lt register error must include ${fragment}`);
+}
+const renderShadowSourceResourceTableNew = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_new");
+const renderShadowSourceResourceTableContains = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains");
+const renderShadowSourceResourceTableLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_lookup");
+const renderShadowSourceResourceTableRecordErrorWithOrder = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_with_order");
+const renderShadowSourceResourceTableRegisterErrorFromRecord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_from_record_error");
+const renderShadowSourceResourceTableRecordFromReservation = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation");
+const renderShadowSourceResourceTableRegister = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register");
+const renderShadowSourceResourceTableRegistrationOwnerWith = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_with");
+const renderShadowSourceResourceTableRegisterErrorRejected = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_rejected");
+const renderShadowSourceResourceTableRegisterRejectedWith = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_rejected_with");
+const renderShadowSourceResourceTableRegisterErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_free");
+const renderShadowSourceResourceTableRegistrationOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_free");
+assertOrderedFragments(
+    renderShadowSourceResourceTableNew,
+    [
+        "vec::with_capacity capacity",
+        "Result::Err storage_error",
+        "Result::Ok records",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner records",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt table new must allocate metadata Vec only",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableContains,
+    [
+        "alpha_mask_id_raw &mask_id",
+        "field::get_ref table \"records\"",
+        "vec::len records",
+        "while not done",
+        "vec::get records index",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw &record",
+        "eq record_raw target_raw",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt contains must scan metadata records by raw AlphaMaskId",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableLookup,
+    [
+        "alpha_mask_id_raw &mask_id",
+        "let mut output %Option GuiSfntSimpleGlyphRenderShadowSourceResourceRecord none",
+        "vec::get records index",
+        "set output some record",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt lookup must return metadata record option only",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRecordErrorWithOrder,
+    [
+        "some order_error_value",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error kind order_error",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt record error must preserve lower F5lp order evidence",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegisterErrorFromRecord,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind &record_error",
+        "let storage_error %Option StdErrorKind none",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error &record_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error kind table reservation storage_error order_error",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt register error must carry lower order evidence from record derivation",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRecordFromReservation,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_mask_id reservation",
+        "alpha_mask_id_raw &mask_id",
+        "le raw 0",
+        "InvalidMaskId",
+        "field::get_ref reservation \"owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_with_order GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::CompositionOrderInvariantFailed order_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_storage_invariants owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_validate_blend owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_matches_owner reservation &expected_rect",
+        "RectMetadataMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_matches_owner reservation",
+        "PaintMetadataMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_shadow_order_matches_owner reservation",
+        "ShadowOrderMetadataMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_source_order_matches_owner reservation",
+        "SourceOrderMetadataMismatch",
+        "field::get_ref owner \"shadow_owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape shadow_owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record mask_id rect paint width_px height_px cell_count alpha_max shadow_order source_order",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt record derivation must revalidate reservation, preserve lower order evidence, and compare rect/paint/order metadata before registration",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegister,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation &reservation",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_from_record_error table reservation record_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains &table mask_id",
+        "DuplicateMaskId",
+        "field::get table \"records\"",
+        "vec::push records record",
+        "vec::vec_push_error_kind &push_error",
+        "vec::vec_push_error_vec push_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_push_failed returned_table reservation storage_error_value",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt register must validate and reject duplicates before push, and recover owners on push failure",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegistrationOwnerWith,
+    [
+        "field::get registration \"table\"",
+        "field::get registration \"resource\"",
+        "callback table resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt success continuation must pass table and registered resource owner together",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegisterErrorRejected,
+    [
+        "field::get error \"table\"",
+        "field::get error \"reservation\"",
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected table reservation",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt register error rejected owner must keep table and reservation together",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegisterRejectedWith,
+    [
+        "field::get rejected \"table\"",
+        "field::get rejected \"reservation\"",
+        "callback table reservation",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt error recovery continuation must pass table and reservation owner together",
+);
+assertNoMatch(
+    renderShadowSourceResourceTableRegion,
+    /\bgui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_(?:table|reservation)\b|\bgui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_(?:table|resource|parts)\b/,
+    "alloc/gui/font/sfnt/glyf F5lt must not expose split consuming accessors that recover only one owner",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegistrationOwnerFree,
+    [
+        "field::get registration \"table\"",
+        "field::get registration \"resource\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_free table",
+        "gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt registration free must close both table and registered resource owner",
+);
+assertOrderedFragments(
+    renderShadowSourceResourceTableRegisterErrorFree,
+    [
+        "field::get error \"table\"",
+        "field::get error \"reservation\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_free table",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free reservation",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lt register error free must close recovered table and reservation owner",
+);
+for (const [slice, name] of [
+    [renderShadowSourceResourceTableNew, "resource table new"],
+    [renderShadowSourceResourceTableContains, "resource table contains"],
+    [renderShadowSourceResourceTableLookup, "resource table lookup"],
+    [renderShadowSourceResourceTableRecordErrorWithOrder, "record error lower order evidence"],
+    [renderShadowSourceResourceTableRegisterErrorFromRecord, "register error lower order evidence"],
+    [renderShadowSourceResourceTableRecordFromReservation, "resource table record derivation"],
+    [renderShadowSourceResourceTableRegister, "resource table register"],
+    [renderShadowSourceResourceTableRegistrationOwnerWith, "resource table registration continuation"],
+    [renderShadowSourceResourceTableRegisterErrorRejected, "resource table error rejected pair"],
+    [renderShadowSourceResourceTableRegisterRejectedWith, "resource table error recovery continuation"],
+    [renderShadowSourceResourceTableRegistrationOwnerFree, "resource table registration free"],
+    [renderShadowSourceResourceTableRegisterErrorFree, "resource table register error free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_(?:start|read|step|free|terminal_free)|gui_sfnt_simple_glyph_render_shadow_source_sample_render_command|gui_sfnt_simple_glyph_render_shadow_source_sample_command|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderStrokePackedMask|gui_sfnt_simple_glyph_render_stroke_packed_mask|GuiSfntSimpleGlyphRenderStrokeCoverageMask|gui_sfnt_simple_glyph_render_stroke_coverage_mask|render_command_alpha_mask_rect|render_command_fill_rect|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|shadow_raster|compositor|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5lt ${name} must not use sample command, fill/stroke resource, command emission, target/platform APIs, font fallback, alpha Vec copy, or compositor paths`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lt ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_record_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_metadata_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_register_owner_pair_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_lower_order_evidence_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_nonzero_id_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_reservation_revalidated_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_metadata_match_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_duplicate_reject_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_lookup_metadata_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_push_failure_pair_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests.includes("render_shadow_source_resource_table_no_command_platform_compositor"),
+    "F5lt render shadow source resource table focused doctest must cover record, metadata-only table, owner pair, lower order evidence, validation, duplicate, lookup, push recovery, free, and no command/platform/compositor policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");
