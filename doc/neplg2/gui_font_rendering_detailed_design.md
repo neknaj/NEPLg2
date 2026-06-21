@@ -8344,6 +8344,28 @@ Finish errors are normalized back to the compositor entry owner boundary. `owner
 
 F5me must not expose row tile plan storage refs, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, RLE encode, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no RLE / host present compositor tile payload bridge; payload transport and std present remain later compositor continuation boundaries.
 
+## Render2d compositor tile RLE count boundary
+
+F5mf is the compositor-side bridge from F5me tile payload ownership to the lower row tile RLE count start owner. It consumes `GuiRgba8888CompositorTilePayloadOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTilePayloadOwner`, calls `gui_rgba8888_row_tile_rle_cursor_start` exactly once, and then calls `gui_rgba8888_row_tile_rle_count_start` exactly once. The result is `GuiRgba8888CompositorTileRleCountOwner`, which keeps the lower `GuiRgba8888RowTileRleCountOwner` and copied `GuiRgba8888CompositorFrameEntryMetadata`.
+
+```text
+metadata = copy tile payload owner metadata
+lower_payload = move lower row tile payload owner
+cursor_or_error = gui_rgba8888_row_tile_rle_cursor_start lower_payload
+count_or_error = gui_rgba8888_row_tile_rle_count_start cursor
+wrap lower count owner with metadata
+```
+
+Start errors are normalized back to the compositor tile payload boundary. For cursor-start failure, `GuiRgba8888CompositorTileRleCountStartError` reads the lower cursor-start kind and category before taking the lower row tile payload owner, then reconstructs `GuiRgba8888CompositorTilePayloadOwner` from the payload owner plus copied metadata. For count-start failure, it reads the lower count-start kind and category before taking the lower cursor owner, finishes that cursor back to payload, and reconstructs the same metadata-bearing payload owner. The start error stores `kind/category/payload`, not the lower owner-bearing error.
+
+Accessor methods remain lower-count views. `gui_rgba8888_compositor_tile_rle_count_owner_accumulated_run_count`, `gui_rgba8888_compositor_tile_rle_count_owner_cursor_next_pixel_index`, and `gui_rgba8888_compositor_tile_rle_count_owner_cursor_status` borrow the lower `GuiRgba8888RowTileRleCountOwner` and delegate to its checked helpers. F5mf does not call drain or count step to manufacture count evidence.
+
+Finish errors are normalized back to the compositor entry owner boundary. `owner_finish_payload` copies metadata before consuming the lower count owner, then finishes lower count owner to cursor and lower cursor owner to payload before wrapping `GuiRgba8888CompositorTilePayloadOwner`. `owner_finish_entry` delegates to F5me `gui_rgba8888_compositor_tile_payload_owner_finish_entry`; if that returns a payload finish error, F5mf reads the lower finish kind and category before taking the recovered entry owner, and stores `kind/category/entry`.
+
+`owner_free` delegates to `owner_finish_entry` and then `gui_rgba8888_compositor_frame_entry_owner_free`. It distinguishes `FinishFailed lower_finish_kind` from `EntryFreeFailed entry_free_kind`, where `entry_free_kind` is the `GuiRgba8888SoftwareSurfaceErrorKind` returned by frame entry teardown. A successful RLE count finish followed by entry free failure is not collapsed into the payload finish path.
+
+F5mf must not expose row tile RLE drain, count step, completed count, encode cursor, writer plan, encoded storage, packet, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no drain / encode / present compositor tile RLE count bridge; payload transport and std present remain later compositor continuation boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

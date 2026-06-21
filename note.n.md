@@ -1,3 +1,50 @@
+# 2026-06-22 GUI render2d F5mf compositor tile RLE count bridge checkpoint
+
+## 目的
+
+- F5me の `GuiRgba8888CompositorTilePayloadOwner` を、lower `gui_rgba8888_row_tile_rle_cursor_start` と `gui_rgba8888_row_tile_rle_count_start` へ compositor metadata 付きで接続する。
+- lower row tile RLE count owner を compositor metadata と束ね、success / start error / finish error のどの経路でも compositor tile payload owner または frame entry owner へ戻せるようにする。
+- drain / count step / completed count / encode / std present / host / platform / fallback には進まない。
+
+## subagent review
+
+- Kant plan review は `PLAN_APPROVED`。
+- F5mf は F5me の compositor tile payload owner と lower row tile RLE count owner をつなぐ bridge として承認された。
+- lower cursor start と count start をそれぞれ 1 回だけ呼び、count step / completed count / encode / writer / storage / packet / std present / host / platform / fallback へ進まない方針になった。
+- start error は `kind/category/payload`、finish error は `kind/category/entry` を保持し、owner-bearing lower error をそのまま保持しない方針になった。
+- owner_finish_payload は metadata を Copy してから lower count owner を消費する方針になった。
+- Kant implementation review は `REVIEW_APPROVED`。F5mf が intended boundary に留まり、lower cursor/count start、metadata-preserving recovery、F5me finish delegation、drain / encode / present / raw byte leakage 禁止を満たすことが確認された。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_count.nepl` を追加した。
+- `GuiRgba8888CompositorTileRleCountOwner`、start / finish / free error kind、owner-bearing start / finish error を追加した。
+- `gui_rgba8888_compositor_tile_rle_count_start` は metadata を Copy してから lower payload owner を取り出し、lower RLE cursor start と lower RLE count start を順に 1 回だけ呼ぶ。
+- cursor start error は lower start error の kind / category を読んでから payload owner を `GuiRgba8888CompositorTilePayloadOwner` へ戻す。
+- count start error は lower count error の kind / category を読んでから cursor owner を payload owner へ戻す。
+- accumulated run count / cursor next pixel index / cursor status accessor は lower count owner helper に委譲する。
+- finish payload recovery、finish entry recovery、start / finish error free、owner free を追加した。
+- facade、focused doctest、source policy、spec / detailed design / standard spec / implementation plan、`todo.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_f5mf.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_module_f5mf.json -j 1`。29/29。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_payload.n.md --no-tree -o tmp_gui_render2d_compositor_tile_payload_f5mf_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5mf_regression.json -j 1`。2/2。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。baseline ok。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5mf_compositor_tile_rle_count.json`
+- checked JSON: `output/playground_editor_f5mf_compositor_tile_rle_count.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- pending: remote/main が `98a04e535` まで進んでおり、`git pull --ff-only origin main` は `todo.md` の local change 保護で停止した。checkpoint commit 後に main を取り込み、selfhost 側 note/todo 更新と F5mf 更新を統合する。
+
+## 未接続
+
+- F5mf 後続として、RLE count step / completed count / encode / storage / packet と std present への payload transport / present continuation を別 boundary として進める。
+
 # 2026-06-22 GUI render2d F5me compositor tile payload bridge checkpoint
 
 ## 目的
