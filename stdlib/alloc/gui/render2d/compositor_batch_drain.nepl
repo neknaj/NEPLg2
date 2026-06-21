@@ -1,0 +1,136 @@
+//: # alloc/gui/render2d/compositor_batch_drain
+//: RGBA8888 compositor row batch drain continuation boundary
+//:
+//: ### [目的/もくてき]
+//: - F5lz の `GuiRgba8888CompositorFrameEntryOwner` を、scheduler の batch budget 内で row batch drain へ[進/すす]めます。
+//: - frame entry metadata を drain terminal / error と同じ owner boundary に[保持/ほじ]し、budget exhaustion や error recovery 後も compositor continuation として[戻/もど]せるようにします。
+//:
+//: ### [契約/けいやく]
+//: - lower `gui_rgba8888_row_batch_drain_budget` を 1 [回/かい]だけ[呼/よ]び、cursor status / next batch / progress invariant は lower boundary に[委譲/いじょう]します。
+//: - entry owner を cursor へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - terminal / error から entry owner を[再構成/さいこうせい]するときも、lower terminal / error を[消費/しょうひ]する[前/まえ]に wrapper metadata を[読/よ]みます。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は row batch scheduler progress だけを compositor entry metadata と[束/たば]ねます。
+//: - row batch range、row byte storage、tile / RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_batch_drain" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/row_batch_drain" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888CompositorBatchDrainStatus:
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiRgba8888CompositorBatchDrainStatus:
+    fn clone %fn &GuiRgba8888CompositorBatchDrainStatus GuiRgba8888CompositorBatchDrainStatus \status:
+        *status
+
+impl Copy for GuiRgba8888CompositorBatchDrainStatus:
+    fn copy_mark %fn GuiRgba8888CompositorBatchDrainStatus GuiRgba8888CompositorBatchDrainStatus \status:
+        status
+
+pub enum GuiRgba8888CompositorBatchDrainErrorKind:
+    RowBatchDrainFailed %GuiRgba8888RowBatchDrainErrorKind
+
+impl Clone for GuiRgba8888CompositorBatchDrainErrorKind:
+    fn clone %fn &GuiRgba8888CompositorBatchDrainErrorKind GuiRgba8888CompositorBatchDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorBatchDrainErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorBatchDrainErrorKind GuiRgba8888CompositorBatchDrainErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888CompositorBatchDrainTerminal:
+    status %GuiRgba8888CompositorBatchDrainStatus
+    terminal %GuiRgba8888RowBatchDrainTerminal
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+pub struct GuiRgba8888CompositorBatchDrainError:
+    kind %GuiRgba8888CompositorBatchDrainErrorKind
+    category %Option GuiError
+    error %GuiRgba8888RowBatchDrainError
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+fn gui_rgba8888_compositor_batch_drain_status_from_lower %fn GuiRgba8888RowBatchDrainStatus GuiRgba8888CompositorBatchDrainStatus \status:
+    match status:
+        GuiRgba8888RowBatchDrainStatus::Completed:
+            GuiRgba8888CompositorBatchDrainStatus::Completed
+        GuiRgba8888RowBatchDrainStatus::StepBudgetExhausted:
+            GuiRgba8888CompositorBatchDrainStatus::StepBudgetExhausted
+
+fn gui_rgba8888_compositor_batch_drain_terminal_new %fn GuiRgba8888CompositorBatchDrainStatus fn GuiRgba8888RowBatchDrainTerminal fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchDrainTerminal \status\terminal\metadata:
+    GuiRgba8888CompositorBatchDrainTerminal status terminal metadata
+
+fn gui_rgba8888_compositor_batch_drain_error_new %fn GuiRgba8888RowBatchDrainError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchDrainError \lower\metadata:
+    let lower_kind %GuiRgba8888RowBatchDrainErrorKind gui_rgba8888_row_batch_drain_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_batch_drain_error_category_value &lower
+    let kind %GuiRgba8888CompositorBatchDrainErrorKind GuiRgba8888CompositorBatchDrainErrorKind::RowBatchDrainFailed lower_kind
+    GuiRgba8888CompositorBatchDrainError kind category lower metadata
+
+pub fn gui_rgba8888_compositor_batch_drain_terminal_status %fn &GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorBatchDrainStatus \terminal:
+    *field::get_ref terminal "status"
+
+pub fn gui_rgba8888_compositor_batch_drain_terminal_emitted_count %fn &GuiRgba8888CompositorBatchDrainTerminal i32 \terminal:
+    let lower %&GuiRgba8888RowBatchDrainTerminal field::get_ref terminal "terminal"
+    gui_rgba8888_row_batch_drain_terminal_emitted_count lower
+
+pub fn gui_rgba8888_compositor_batch_drain_terminal_metadata %fn &GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorFrameEntryMetadata \terminal:
+    *field::get_ref terminal "metadata"
+
+pub fn gui_rgba8888_compositor_batch_drain_error_kind %fn &GuiRgba8888CompositorBatchDrainError GuiRgba8888CompositorBatchDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_compositor_batch_drain_error_category_value %fn &GuiRgba8888CompositorBatchDrainError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_compositor_batch_drain_error_metadata %fn &GuiRgba8888CompositorBatchDrainError GuiRgba8888CompositorFrameEntryMetadata \error:
+    *field::get_ref error "metadata"
+
+//: gui_rgba8888_compositor_batch_drain_budget: compositor entry を lower row batch drain へ 1 [回/かい]だけ[委譲/いじょう]する
+//:
+//: [契約/けいやく]:
+//: - metadata を entry から Copy してから cursor を[取/と]り[出/だ]します。
+//: - lower drain の terminal / error を metadata と[束/たば]ね、caller が continuation entry を[再構成/さいこうせい]できます。
+pub fn gui_rgba8888_compositor_batch_drain_budget %fn GuiRgba8888CompositorFrameEntryOwner fn i32 Result GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorBatchDrainError \entry\remaining_batches:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata &entry
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor entry
+    match gui_rgba8888_row_batch_drain_budget cursor remaining_batches:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_batch_drain_error_new lower metadata
+        Result::Ok lower_terminal:
+            let lower_status %GuiRgba8888RowBatchDrainStatus gui_rgba8888_row_batch_drain_terminal_status &lower_terminal
+            let status %GuiRgba8888CompositorBatchDrainStatus gui_rgba8888_compositor_batch_drain_status_from_lower lower_status
+            Result::Ok gui_rgba8888_compositor_batch_drain_terminal_new status lower_terminal metadata
+
+pub fn gui_rgba8888_compositor_batch_drain_terminal_finish_entry %fn GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorFrameEntryOwner \terminal:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_terminal_metadata &terminal
+    let lower %GuiRgba8888RowBatchDrainTerminal field::get terminal "terminal"
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_terminal_finish_cursor lower
+    GuiRgba8888CompositorFrameEntryOwner cursor metadata
+
+pub fn gui_rgba8888_compositor_batch_drain_error_finish_entry %fn GuiRgba8888CompositorBatchDrainError GuiRgba8888CompositorFrameEntryOwner \error:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_error_metadata &error
+    let lower %GuiRgba8888RowBatchDrainError field::get error "error"
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_error_cursor lower
+    GuiRgba8888CompositorFrameEntryOwner cursor metadata
+
+pub fn gui_rgba8888_compositor_batch_drain_terminal_free %fn GuiRgba8888CompositorBatchDrainTerminal Result unit GuiRgba8888SoftwareSurfaceErrorKind \terminal:
+    let lower %GuiRgba8888RowBatchDrainTerminal field::get terminal "terminal"
+    gui_rgba8888_row_batch_drain_terminal_free lower
+
+pub fn gui_rgba8888_compositor_batch_drain_error_free %fn GuiRgba8888CompositorBatchDrainError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let lower %GuiRgba8888RowBatchDrainError field::get error "error"
+    gui_rgba8888_row_batch_drain_error_free lower
