@@ -45,6 +45,15 @@ function assertOrdered(text, snippets, message) {
     }
 }
 
+function enumVariantNames(src, enumName) {
+    return stripDocComments(topLevelBlock(src, "enum", enumName))
+        .split("\n")
+        .slice(1)
+        .map((line) => line.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)\b/))
+        .filter(Boolean)
+        .map((match) => match[1]);
+}
+
 const code = stripDocComments(source);
 
 assertOrdered(
@@ -3575,6 +3584,27 @@ assertOrdered(
     ],
     "actual traversal body reader operation policy must keep wrapper, cache operation, private effect, and observation vocabulary typed before source projection",
 );
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind"),
+    [
+        "PrivateCacheStoragePlace",
+        "CloneOutOwnedValueEdge",
+    ],
+    "HIR body reader explicit accepted source vocabulary must contain only accepted graph candidate source tags",
+);
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind"),
+    [
+        "PrivateCacheStoragePlace",
+        "CloneOutOwnedValueEdge",
+    ],
+    "HIR body reader explicit accepted source vocabulary must not contain any additional accepted variants",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind")),
+    /PrivateCacheEffect|PrivateStateEffect|Observation|Unsupported|Unavailable|CacheLookup|CacheInsert|ReturnCacheReference|PublicStore|ExternalHandle/,
+    "HIR body reader explicit accepted source vocabulary must not accept problem, escaping, observation, unsupported, unavailable, or cache-operation source tags",
+);
 assert.doesNotMatch(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_kind"),
     /_:/,
@@ -3657,6 +3687,42 @@ assertOrdered(
     "HIR body reader problem source append helper must use source table length for traversal ordinal, preserve accepted count, and increment problem count only after successful append",
 );
 assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_accepted_source_traversal_source_kind"),
+    /_:/,
+    "HIR body reader explicit accepted source projection must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_accepted_source_traversal_source_kind"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::PrivateCacheStoragePlace:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::CloneOutOwnedValueEdge:",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge",
+    ],
+    "HIR body reader explicit accepted source projection must map only accepted tags to traversal source tags",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result")),
+    /fail_with_source_state|source_state_free|traversal_source_table_free/,
+    "HIR body reader explicit accepted append helper must rely on source table push cleanup and must not double-free on push failure",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result"),
+    [
+        "field::get state \"problem_source_count\"",
+        "field::get state \"accepted_source_count\"",
+        "field::get state \"sources\"",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_accepted_source_traversal_source_kind accepted_kind",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal from_index to_index source_kind",
+        "Result::Ok next_sources:",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources problem_source_count add accepted_source_count 1",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "HIR body reader explicit accepted append helper must use source table length for ordinal, preserve problem count, and increment accepted count only after successful append",
+);
+assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_wrapper_sources_result")),
     /fail_with_source_state|source_state_free|traversal_source_table_free/,
     "HIR body reader accepted wrapper append helper must rely on wrapper source push cleanup and must not double-free on push failure",
@@ -3684,6 +3750,29 @@ assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_wrapper_sources_result")),
     /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "HIR body reader accepted wrapper state helper must not synthesize proof/backend/effect/artifact records",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result")),
+    /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "HIR body reader explicit accepted source state helper must not synthesize proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_sources_from_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new sources0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result state0 context 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::PrivateCacheStoragePlace",
+        "Result::Ok state1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result state1 context 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::CloneOutOwnedValueEdge",
+        "Result::Ok state2:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result state2 context",
+    ],
+    "explicit accepted source smoke helper must append accepted source pair through source state and finalize without default wrapper duplication",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_sources_from_context_result")),
+    /append_accepted_wrapper_sources|WrapperPrivateCacheStorage|WrapperCloneOutOwnedValue|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "explicit accepted source smoke helper must not use default wrapper policy or synthesize lower proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error"),
@@ -4052,6 +4141,7 @@ assertOrdered(
         "availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "explicit_accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "hir_body_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "hir_body_function_identity_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "hir_body_block_unit_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -4093,6 +4183,8 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "reader_context_reader_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77",
+        "explicit_accepted_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_source_count_result 77",
         "hir_body_private_cache_effect_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_call_effect_result 77 SelfhostEffectKind::PrivateCache",
         "hir_body_function_identity_source_count",

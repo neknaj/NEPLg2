@@ -3056,6 +3056,8 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 2026-06-22 fourth follow-up では、同じ state に `accepted_source_count` を追加した。problem append helper は accepted count を保持し、default wrapper pair は accepted source record 2 件として数える。finalizer は `problem_source_count == 0` かつ `accepted_source_count == 0` の場合だけ default wrapper pair を追加し、実 traversal が accepted source を先に発行した body では wrapper pair を重ねない。
 
+2026-06-22 fifth follow-up では、default wrapper representative とは別に、明示的な accepted traversal source を state に追加する module-private 境界を追加した。`ActualTraversalBodyReaderAcceptedSourceKind` は `PrivateCacheStoragePlace` と `CloneOutOwnedValueEdge` だけを持ち、private effect、observation、unsupported、unavailable、cache operation は accepted source として数えられない。explicit accepted append helper は source table length から operation ordinal を決め、push 成功後だけ `accepted_source_count` を 1 増やす。stage0 smoke は explicit accepted source pair を finalizer へ通し、default wrapper pair が重ならず source count 2 のままになることを確認する。
+
 この state は module-private で、event producer / bundle producer / output producer の外部 API は従来どおり source table owner を受け渡す。現 checkpoint の HIR reader は finalizer 前に accepted source を発行しないため、wrapper pair は accepted representative のままである。実 traversal が accepted source を発行し始める段階では、同じ state count を使い、accepted source と default wrapper pair の重複を避ける。
 
 この follow-up も full Resource IR walker 本体ではない。現時点では HIR body reader source plan が operation-classified collector path へ収束しただけであり、actual Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する boundary は後続に残る。
