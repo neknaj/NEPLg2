@@ -6498,6 +6498,35 @@ writer owner は `edge_owner`、cached `source_shape`、raw coverage `cells`、`
 
 zero-edge glyph と nonzero cell count の組み合わせは正当である。F5ll は cell storage writer なので、後続 scan が各 cell に 0 coverage を書く。edge が 0 件であることを理由に F5ll start や completion を拒否しない。
 
+### SFNT simple glyph render shadow source coverage scan converter boundary
+
+F5lm は F5ll shadow source coverage mask writer owner を direct authority とし、F5lk で作った shadow source raster edge を even-odd rule で走査して raw coverage cell を 1 cell ずつ F5ll `push_cell` へ渡す境界である。この phase は blur kernel、spread mutation、packed mask、resource table、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5lm は F5be の `GuiSfntSimpleGlyphRasterCoverageScanOwner` / error / terminal を再利用しない。F5ll writer の内側にある F5lk edge owner が shadow request / source shape / shadow metadata を保持する authority であり、generic fill coverage writer へ詰め替えたり、stroke coverage scan に渡したりしてはいけない。ただし、`sample_coordinate`、`scaled_edge_coordinate`、`line_crosses_scaled`、`quadratic_point_scaled` のような owner を持たない整数幾何 helper は、F5lm の専用 owner / error / terminal から呼ぶ限り再利用できる。
+
+F5lm config は value-only の `quadratic_segment_count` だけを持つ。`quadratic_segment_count <= 0` は `InvalidQuadraticSegmentCount` として拒否する。quadratic edge を line edge として黙って扱うこと、0 coverage にすること、platform text stack へ逃がすことは禁止する。
+
+start は F5ll writer invariant を再検査し、失敗時は lower F5ll error kind を保持する。さらに `source_shape` を新しい scan trust boundary として再検査する。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+written_cell_count == 0
+cells.len == 0
+cells.cap == cell_count
+```
+
+drain / step は completion 判定、budget 判定、coordinate math、edge scan、push の前に `0 <= cell_index <= cell_count` を検査する。`cell_index < 0` と `cell_index > cell_count` は owner-bearing typed error であり、completed mask や `StepBudgetExhausted` へ変換してはいけない。
+
+edge read は F5ll writer の nested F5lk edge owner から行う。read 前に F5lk edge owner invariant と edge Vec len/cap を再検査し、negative index、out-of-range、missing slot、storage mismatch を typed error として返す。zero-edge glyph では edge crossing count が 0 になり、nonzero cell count がある場合でも通常の sample loop が 0 coverage cell を push する。
+
+coverage は F5be と同じ doubled-coordinate integer sample space で計算する。line crossing は strict y activation と i64 cross product を用いる。quadratic edge は `quadratic_segment_count` による t 分割で source / control / end を評価し、各 segment を同じ line crossing helper へ渡す。inside 判定は crossing count の奇偶で決める。
+
+bounded drain は `cell_index == cell_count` の exact state だけで F5ll completion を呼ぶ。completion が incomplete terminal を返した場合は `CompletionIncomplete` として失敗させる。`StepBudgetExhausted` は未完了かつ budget が尽きた場合だけ返し、step 後は `cell_index` と writer `written_cell_count` がそれぞれ 1 だけ進んだことを検査する。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

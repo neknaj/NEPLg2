@@ -3484,6 +3484,55 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ll.json
 ```
 
+## Phase F5lm: sfnt simple glyph render shadow source coverage scan converter
+
+目的:
+
+- F5ll shadow source coverage mask writer owner を direct authority とし、F5lk shadow source raster edge を even-odd rule で scan して raw coverage cell を 1 cell ずつ F5ll `push_cell` boundary へ渡す。
+- F5be の scan owner / error / terminal や generic coverage writer owner を直接再利用せず、shadow source 専用の config / owner / error / terminal を持つ。
+- owner を持たない F5be の integer geometry helper は allowlist されたものだけを使い、F5be authority へ詰め替えない。
+- blur、spread mutation、packed mask、resource、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+plan review:
+
+- Kuhn plan review は `PLAN_APPROVED`。
+- F5ll writer を唯一の direct authority とする設計、F5ll invariant / source_shape / edge storage / push / completion の再検査、zero-edge nonzero-cell の通常 scan、exact completion before budget exhaustion は妥当とされた。
+- F5be の `sample_coordinate`、`scaled_edge_coordinate`、`line_crosses_scaled`、`quadratic_point_scaled` は owner-free integer geometry helper なので reuse 可。ただし F5be owner / error / terminal / start / read / step / drain / free と generic writer path は source policy で禁止する。
+- F5lm を `GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner` の前に挿入するため、既存 F5ll source-policy region の終端を F5lm marker へ切り替える。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig` を追加する。`quadratic_segment_count` だけを持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner` を追加する。F5ll writer、config、cell index を保持し、`Clone` / `Copy` は実装しない。
+- start error、scan error、bounded terminal、owner/error/terminal free helper を追加する。
+- start は `quadratic_segment_count > 0`、F5ll writer invariant、source shape invariant、not-started writer、cell storage exactness を検査する。
+- edge read は nested F5lk edge owner invariant、edge index bounds、edge Vec len/cap、slot presence を検査する。
+- line edge と config-driven quadratic edge の even-odd crossing を integer coordinate で計算する。
+- step は 1 cell coverage を計算し、F5ll `push_cell` だけで writer へ積む。push failure では returned writer と pre-push cell index を保持する。
+- bounded drain は exact full のときだけ F5ll completion を呼び、incomplete / budget exhausted / progress invariant failure を分ける。
+- docs / source policy / focused doctest label / todo / note を F5lm に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Kuhn approval、F5ll writer authority、private config/owner/error/terminal、config `Clone` / `Copy`、owner-bearing no `Clone` / `Copy`、F5ll writer invariant、shape revalidation、not-started writer、cell bounds before completion/budget/math/push、F5lk edge read/revalidation、allowlisted integer helper reuse、line/quadratic crossing、push recovery、exact completion / incomplete / budget / progress invariant、zero-edge zero-coverage loop、F5be owner/error/terminal direct reuse 禁止、generic writer/stroke/packed/blur/render/platform/compositor/fallback 禁止、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md` に F5ll authority、config/shape start validation、cell bounds、edge read revalidation、line/quadratic crossing、push recovery、budget/completion/progress、zero-edge nonzero-cell、no generic scan/packed/blur/render/platform policy の coverage label を追加する。
+- implementation review で F5lm が F5be owner へ詰め替えていないこと、generic writer/stroke path を使っていないこと、pure helper reuse が allowlist に留まっていること、completion / budget order が正しいことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lm 後の shadow source blur / packing / composition、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_f5lm.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5lm_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lm.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lm.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
