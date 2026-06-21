@@ -6189,6 +6189,36 @@ completion は `line_side_edge_count == line_geometry_count * 2`、`quadratic_si
 
 F5ky は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
 
+### SFNT simple glyph render stroke edge closure owner boundary
+
+F5kz は completed F5ky stroke side edge owner を消費し、stroke edge closure / join-cap owner を作る境界である。F5kz の direct authority は F5ky completed owner だけであり、F5ba/F5az scalar stream、byte-backed glyph lookup、F5ku metric owner 単独、F5kw cursor/drain、F5kx geometry drain、F5ky side edge drain を再実行しない。
+
+F5kz completed owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner:
+    side_edge_owner GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner
+    joins Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+    side_edge_count i32
+    join_count i32
+    left_join_count i32
+    right_join_count i32
+    cap_policy GuiStrokeCap
+    cap_resolution GuiSfntSimpleGlyphRenderStrokeCapResolution::ClosedContourNoCap
+    join_policy GuiStrokeJoin
+    miter_limit f32
+```
+
+`GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord` は `from_side_edge_index`、`to_side_edge_index`、source metric / edge / contour provenance、directed endpoint、`GuiStrokeJoin`、`miter_limit` を保持する。さらに `GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency` と `source_edge_gap_count` を保持し、直接隣接、SkipNoSegment range 跨ぎ、contour wrap、self-target closure を区別する。これは座標一致ではなく、contour 内 `edge_index` order から計算する。
+
+Left side は同じ contour / side の次の drawable edge へ進む。Right side は F5ky で source-reverse として記録済みなので、同じ contour / side の前の drawable edge へ進む。間に no-segment source edge がある場合も座標一致で補間せず、`source_edge_gap_count` と adjacency evidence を join record に残す。1 drawable edge しかない contour では self-target を許すが、通常隣接とは扱わず `SelfTarget` evidence を残す。
+
+simple glyph contour は閉じているため cap geometry は作らない。要求された `GuiStrokeCap` は `cap_policy` として保持し、`ClosedContourNoCap` は「cap を無視した」ことではなく、closed contour なので cap が geometry 化されないことを示す typed evidence である。
+
+Miter / Bevel / Round は F5kz では connector geometry にせず、`GuiStrokeJoin` と finite positive `miter_limit` の policy record として保持する。後続の stroke boundary がこの evidence を使って形状化する。
+
+F5kz は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

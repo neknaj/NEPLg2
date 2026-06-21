@@ -1,3 +1,53 @@
+# 2026-06-21 Agent2 GUI font F5kz stroke edge closure owner boundary
+
+## 目的
+
+- completed F5ky stroke side edge owner を authority として消費し、stroke edge closure / join-cap owner を追加する。
+- F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、F5kx geometry drain 再実行、F5ky side edge drain 再実行へ戻らない。
+- 1 side edge から 1 join closure record を作り、Left は次の drawable edge、Right は前の drawable edge へ `edge_index` order で接続する。
+- SkipNoSegment range、contour wrap、self-target closure を通常 join と混同せず、adjacency evidence と `source_edge_gap_count` を record に残す。
+- simple glyph contour は閉じているため cap geometry を作らず、requested cap と `ClosedContourNoCap` evidence を保持する。
+- miter / bevel / round は connector geometry にせず、join/miter policy evidence として保持する。
+- coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へは進まない。
+
+## subagent review
+
+- Arendt の F5kz plan review は `PLAN_REVIEWED`。
+- 指摘は、F5ky と stroke coverage の間に closure / join-cap owner を挟む責務分割は妥当だが、SkipNoSegment を跨いだ closure を通常 join と同じ情報量で保存してはいけないというものだった。
+- 指摘に従い、`GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency`、`GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence`、`source_edge_gap_count`、join record invariant を追加した。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeCapResolution` を追加し、requested `GuiStrokeCap` と `ClosedContourNoCap` evidence を completed owner に保持するようにした。
+- `GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency` と `GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence` を追加した。`DirectNeighbor`、`SkippedNoSegmentRange`、`ContourWrap`、`SelfTarget` を区別し、`source_edge_gap_count` を edge_index order から計算する。
+- `GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord` を追加し、from/to side edge index、source metric/edge/contour provenance、directed endpoint、join/miter policy、adjacency/gap evidence を保持するようにした。
+- `GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner` を追加した。
+- start は F5ky completed owner invariant を再検査し、join Vec を `side_edge_count` exact capacity で 1 回だけ確保し、cap/join/miter policy を completed owner chain から読む。
+- successor search は same contour / same side の候補だけを scan し、Left next / Right previous / wrap / self-target を `edge_index` order で選ぶ。endpoint 座標一致では復元しない。
+- join record 作成時に adjacency evidence を計算し、push 前に `gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants` で from/to index 範囲、direction、gap evidence を再検査する。
+- push failure は returned Vec と pre-push side edge index / join count / left-right count を保持する owner-bearing error にした。
+- docs、source policy、focused doctest label、todo を F5kz に合わせて更新した。
+
+## verification_current
+
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kz_probe.json -j 1`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_edge_closure_owner.n.md --no-tree -o tmp_gui_font_render_stroke_edge_closure_owner_f5kz.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kz.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kz.json`
+- checked JSON: `tmp/playground-editor-tests-f5kz.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Arendt の implementation review 1 は `REVIEW_CHANGES_REQUESTED`。指摘は focused doctest が未追跡で、このままでは clean checkout の source policy が壊れるという staged set blocker だった。
+- 指摘対応として、`tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_edge_closure_owner.n.md` を commit 対象へ追加した。
+- Arendt の re-review は `REVIEW_APPROVED`。focused doctest staged、implementation/docs/source policy/note/todo staged、`git diff --cached --check` pass が確認された。
+- 残リスクは、focused doctest が policy label smoke であり、実データでの skip/wrap/self-target geometry 化は後続の stroke coverage phase で具体ケースを追加する余地がある点。
+- F5kz 後続は stroke coverage mask owner を別 boundary として追加する。
+
 # 2026-06-21 Agent2 GUI font F5ky stroke side edge owner boundary
 
 ## 目的

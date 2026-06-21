@@ -2953,6 +2953,56 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gu
 git diff --check
 ```
 
+## Phase F5kz: sfnt simple glyph render stroke edge closure owner boundary
+
+目的:
+
+- completed F5ky stroke side edge owner を authority とし、stroke edge closure / join-cap owner を追加する。
+- F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、F5kx geometry drain 再実行、F5ky side edge drain 再実行へ戻らない。
+- 1 side edge から 1 join closure record を作り、Left は次の drawable edge、Right は前の drawable edge へ `edge_index` order で接続する。
+- SkipNoSegment range、contour wrap、self-target closure を通常 join と混同せず、adjacency evidence と `source_edge_gap_count` を record に残す。
+- requested cap は `cap_policy` として保持し、simple glyph contour の closed evidence として `ClosedContourNoCap` を保持する。
+- miter / bevel / round は connector geometry にせず、join/miter policy evidence として保持する。
+- coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+
+plan review:
+
+- Arendt plan review は `PLAN_REVIEWED`。
+- 指摘に従い、F5kz は F5ky completed side edge owner と stroke policy evidence だけを authority にし、coverage へ直接進まない。
+- Left は同一 contour/side の次の drawable edge、Right は同一 contour/side の前の drawable edge を選び、座標一致ではなく `edge_index` order で skip / wrap を扱う。
+- 通常隣接、SkipNoSegment range、contour wrap、self-target の evidence を join record に保持する。
+- 各 join record について from/to side edge index 範囲、同一 contour、同一 side、方向規則、gap evidence を invariant として検査する。
+- simple glyph contour は閉じているため cap geometry を作らず、requested cap と `ClosedContourNoCap` evidence を保持する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeCapResolution`、`GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency`、`GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence` を追加する。
+- `GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord` を追加し、from/to side edge、source metric/edge/contour provenance、directed endpoint、join/miter policy、adjacency、`source_edge_gap_count` を保持する。
+- `GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner` を追加する。
+- start は F5ky completed owner invariant を再検査し、join Vec を `side_edge_count` exact capacity で 1 回だけ確保し、requested cap/join/miter policy を completed owner chain から読む。
+- successor search は same contour / same side の候補だけを scan し、Left next / Right previous / wrap / self-target を `edge_index` order で選ぶ。
+- join record 作成時に adjacency evidence を計算し、push 前に `gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants` で再検査する。
+- push failure は returned Vec と pre-push side edge index / join count / left-right count を保持する owner-bearing error にする。
+- source policy / docs / focused doctest label / todo / note を F5kz に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Arendt review result、F5ky completed owner authority、F5ky invariant 再検査、join Vec exact capacity、1 step 1 join push、push failure recovery、Left next / Right previous search、edge_index-order skip、adjacency/gap/self-target evidence、join record invariant、cap no-geometry evidence、join/miter policy evidence、owner-bearing type no Clone/Copy、no scalar/mask/command/platform 接続を検査する。
+- focused doctest label が side edge authority、join record capacity、left/right successor、adjacency/gap evidence、closed contour cap evidence、join policy no geometry fabrication、push recovery、no scalar/mask/command/platform policy を固定する。
+- implementation review で F5kz が closure record owner に留まり、coverage / packed mask / render command / pixel write / platform API / font fallback へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke edge closure / join-cap owner 接続済み、後続の stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_edge_closure_owner.n.md --no-tree -o tmp_gui_font_render_stroke_edge_closure_owner_f5kz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kz.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
