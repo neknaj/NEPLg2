@@ -7324,6 +7324,101 @@ Completion succeeds only at exact full progress. It moves the nested `join_geome
 
 F5lf does not bind glyph paint, emit render commands, write pixels, call DrawTarget / RenderTarget, call platform or host APIs, request font fallback, build shadows, or enter a 2D compositor.
 
+## SFNT simple glyph render glyph paint composition order boundary
+
+F5lg connects the already completed fill and stroke mask owners without crossing into command emission or resource registration. The direct inputs are:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+```
+
+The boundary is deliberately fill+stroke only. A stroke packed mask whose nested stroke request chain has `fill == None` is rejected as `MissingStrokeFillMetadata`; a later sibling boundary can define stroke-only order without pretending that a missing fill owner exists.
+
+Euler revised plan review は `PLAN_APPROVED` after the scope was narrowed to fill+stroke, both owner shapes were revalidated independently before tuple comparison, stroke-only was left out of scope, nested stroke metadata extraction was made explicit, and the error recovery contract was changed to recover both owners together.
+
+The stroke metadata is not reconstructed from geometry. It is read through the existing owner chain:
+
+```text
+stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner
+```
+
+That plan owner is the authority for `origin`, optional `fill`, `stroke`, and `blend`, because F5kq stored the original glyph paint subset before stroke segment expansion. F5lg preserves the `stroke` value from this chain in the completed order owner.
+
+Validation order is:
+
+1. Revalidate the completed fill owner shape and alpha storage: positive width/height/sample scale, `coverage_max == sample_scale * sample_scale`, `cell_count == width_px * height_px`, positive alpha max, and owner cell count / alpha len / alpha cap equal to shape cell count.
+2. Revalidate the completed stroke packed owner shape and alpha storage with the same checks.
+3. Revalidate the nested completed stroke join geometry invariant and keep the lower `GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind` if it fails.
+4. Compare the full shape tuple: `origin_x2`, `origin_y2`, `width_px`, `height_px`, `sample_scale`, `coverage_max`, `cell_count`.
+5. Read the optional fill from the nested stroke metadata and reject `None` as `MissingStrokeFillMetadata` before origin or blend mismatch checks.
+6. Compare fill owner origin, fill paint, and blend with the nested stroke metadata.
+7. Reject any non-SourceOver blend before producing the completed order owner.
+
+The completed owner is module-private and owns both mask owners:
+
+```text
+GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner:
+    fill_owner GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    stroke_owner GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    origin GuiPoint
+    fill_paint GuiPaint
+    stroke GuiStroke
+    blend GuiBlendMode
+    fill_order i32
+    stroke_order i32
+```
+
+`fill_order` is always `0`; `stroke_order` is always `1`. The owner, start error, and recovery payload do not implement `Clone` / `Copy`. The start error exposes kind and optional lower join error, but owner recovery is a single consuming recovery path returning both owners together. Free paths release the fill owner first and then the stroke owner.
+
+The fill paint comparison uses typed `GuiPaint` / `Rgba8888` accessors. It must not compare source text or struct layout strings. F5lg does not inspect raw F5bf raster packed mask internals; it accepts only the F5bh/F5bg completed fill owner and F5lf completed stroke packed owner.
+
+F5lg does not allocate alpha-mask ids, reserve/register resource table records, emit `RenderCommand`, write pixels, drain a software surface, touch platform/backend APIs, invoke fallback text, start shadow rasterization, or invoke the 2D compositor.
+
+## SFNT simple glyph render stroke-only composition order boundary
+
+F5lh is the stroke-only sibling of F5lg. It consumes one already completed stroke mask owner:
+
+```text
+GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+```
+
+It deliberately does not accept a fill owner. If the nested stroke request metadata still contains `fill == Some`, start returns `UnexpectedStrokeFillMetadata` so fill+stroke glyph paint remains routed through F5lg. This prevents a fake fill order from being invented for stroke-only text and prevents the stroke-only path from silently replacing the fill+stroke ordering contract.
+
+Euclid plan review は `PLAN_APPROVED` after the scope was kept to stroke-only, the direct authority was limited to the completed stroke packed owner, `Some(fill)` was made a typed rejection, lower join geometry evidence was preserved, recovery was kept as a single stroke-owner path, and the F5lg source policy slice was required to end at the F5lh marker.
+
+F5lh reads stroke metadata through the same completed owner chain as F5lg:
+
+```text
+stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner
+```
+
+That plan owner is the authority for `origin`, optional `fill`, `stroke`, and `blend`. F5lh may reuse module-private F5lg helpers for the common stroke-owner invariant, nested plan-owner chain, and SourceOver predicate, but it maps failures to its own `GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind`. The F5lg fill+stroke error kind is not the public contract of F5lh.
+
+Validation order is:
+
+1. Revalidate the completed stroke packed owner shape and alpha storage: positive width/height/sample scale, `coverage_max == sample_scale * sample_scale`, `cell_count == width_px * height_px`, positive alpha max, and owner cell count / alpha len / alpha cap equal to shape cell count.
+2. Revalidate the nested completed stroke join geometry invariant and keep the lower `GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind` if it fails.
+3. Read the nested stroke segment plan owner from the completed stroke packed owner chain.
+4. Require the plan owner fill metadata to be `None`; reject `Some(_)` as `UnexpectedStrokeFillMetadata`.
+5. Reject any non-SourceOver blend.
+6. Preserve origin, stroke, blend, and `stroke_order = 0` in the completed owner.
+
+The completed owner is module-private and owns the stroke mask owner:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner:
+    stroke_owner GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    origin GuiPoint
+    stroke GuiStroke
+    blend GuiBlendMode
+    stroke_order i32
+```
+
+The owner, start error, and recovery payload do not implement `Clone` / `Copy`. The start error exposes kind and optional lower join error, but owner recovery is a single consuming path returning the stroke owner. Free paths release the stroke packed mask owner once.
+
+F5lh does not allocate alpha-mask ids, reserve/register resource table records, emit `RenderCommand`, write pixels, drain a software surface, touch platform/backend APIs, invoke fallback text, start shadow rasterization, invoke the 2D compositor, or inspect raw F5bf raster packed mask internals.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

@@ -3198,6 +3198,103 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lf.json
 ```
 
+## Phase F5lg: sfnt simple glyph render glyph paint composition order
+
+目的:
+
+- F5bh/F5bg の completed fill alpha mask owner と F5lf の completed stroke packed mask owner を direct authority とし、fill-before-stroke の glyph paint composition order owner を作る。
+- stroke packed mask の nested chain から F5kq/F5kr の origin / fill / stroke / blend metadata を読み、fill owner の origin / fill paint / blend と一致することを検査する。
+- stroke-only paint はこの boundary では扱わず、`MissingStrokeFillMetadata` として typed error にする。stroke-only composition は後続 sibling boundary に残す。
+- render command、alpha mask resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+plan review:
+
+- Euler plan review 1 は `CHANGES_REQUESTED`。
+- shape equality だけでは壊れた completed owner を隠すため、fill / stroke の shape と alpha storage を個別に再検査してから tuple 比較する必要があると指摘された。
+- stroke-only をこの boundary に含めると fill owner がない状態を偽装するため、F5lg は fill+stroke 専用とし、stroke-only は後続 sibling boundary に残す。
+- nested stroke metadata extraction chain、lower join geometry invariant error evidence、module-private non-Clone/non-Copy owner/error、split raw owner accessor 禁止、fill-before-stroke free order を明文化する必要があると指摘された。
+- Euler revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner` を追加する。fill owner、stroke owner、origin、fill paint、stroke、blend、`fill_order = 0`、`stroke_order = 1` を保持する。
+- start error と recovery payload を owner-bearing にし、error kind と optional lower join error だけを参照 accessor として出す。owner recovery は両 owner をまとめて返す consuming path にする。
+- fill owner invariant は shape positive / coverage max / cell count / alpha max / cell count / alpha len / alpha cap を検査する。
+- stroke owner invariant は同じ alpha mask invariant を検査し、加えて `gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage` の lower error を保持する。
+- shape tuple は `origin_x2`、`origin_y2`、`width_px`、`height_px`、`sample_scale`、`coverage_max`、`cell_count` の field-specific mismatch として検査する。
+- stroke metadata は `stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner` から読み、origin / fill / stroke / blend を比較する。
+- stroke metadata の fill は origin / blend mismatch より先に読み、`None` なら `MissingStrokeFillMetadata` として返す。
+- fill paint comparison は typed `GuiPaint` / `Rgba8888` accessor で行う。
+- owner / error / recovery free path は fill owner を先に解放し、その後 stroke owner を解放する。
+- docs / source policy / focused doctest label / todo / note を F5lg に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Euler revised plan review result、fill+stroke only scope、stroke-only sibling 残件、nested chain、per-owner invariant before tuple comparison、lower join geometry evidence、private non-Clone/non-Copy owner/error/recovery、single combined recovery、no split raw owner accessor、SourceOver-only、typed paint comparison、fill_order/stroke_order、free order、forbidden command/resource/pixel/platform/fallback/shadow/compositor、F5bf internals direct reuse 禁止、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_composition_order.n.md` に fill+stroke scope、owner invariant、nested stroke metadata、shape tuple match、SourceOver/fill paint match、combined recovery/free order、no render/resource/platform/shadow/compositor policy の coverage label を追加する。
+- implementation review で owner recovery が split raw accessor になっていないこと、stroke-only を受理していないこと、shape validation が tuple comparison より前にあること、nested metadata が plan owner 由来であることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lg 後の stroke-only composition order、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_composition_order.n.md --no-tree -o tmp_gui_font_render_glyph_paint_composition_order_f5lg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lg.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lg.json
+```
+
+## Phase F5lh: sfnt simple glyph render stroke-only composition order
+
+目的:
+
+- F5lf の completed stroke packed mask owner を direct authority とし、stroke-only glyph paint の composition order owner を作る。
+- stroke packed mask の nested chain から F5kq/F5kr の origin / fill / stroke / blend metadata を読み、fill metadata が `None` であることを検査する。
+- `fill == Some` は `UnexpectedStrokeFillMetadata` として拒否し、fill+stroke composition は F5lg の責務に残す。
+- render command、alpha mask resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+plan review:
+
+- Euclid plan review は `PLAN_APPROVED`。
+- F5lg helper reuse は許容されたが、F5lh の error surface は `GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrder...` 側の typed kind に写し、F5lg の fill+stroke error kind を F5lh の contract として露出しないことを確認した。
+- validation order は stroke packed owner invariant、lower join invariant と lower error 保存、nested plan chain、`fill == None` 要求、SourceOver-only validation の順に固定する。
+- source policy は F5lg region の終端を F5lh start marker に分割し、F5lg が sibling 実装を巻き込まないようにする。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner` を追加する。stroke owner、origin、stroke、blend、`stroke_order = 0` を保持する。
+- start error と recovery payload を owner-bearing にし、error kind と optional lower join error だけを参照 accessor として出す。owner recovery は stroke owner を返す単一 consuming path にする。
+- stroke owner invariant は completed stroke packed owner の shape positive / coverage max / cell count / alpha max / alpha len / cap を検査し、F5lh の typed error kind へ写す。
+- stroke join geometry invariant は `gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage` の lower error kind を保持する。
+- stroke metadata は `stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner` から読み、optional fill が `None` であることを検査する。
+- blend は SourceOver だけを受理する。origin / stroke / blend は plan owner 由来の値を owner に保持する。
+- owner / error / recovery free path は stroke packed mask owner を一度だけ解放する。
+- docs / source policy / focused doctest label / todo / note を F5lh に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Euclid plan review result、stroke-only scope、direct stroke packed owner authority、F5lg region split、nested chain、typed F5lh error surface、stroke owner invariant、lower join geometry evidence、`UnexpectedStrokeFillMetadata`、SourceOver-only、private non-Clone/non-Copy owner/error/recovery、single stroke owner recovery、`stroke_order = 0`、free path、forbidden command/resource/pixel/platform/fallback/shadow/compositor、F5bf internals direct reuse 禁止、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_only_composition_order.n.md` に stroke-only scope、owner invariant、nested metadata, unexpected fill rejection, SourceOver-only, recovery/free order, no render/resource/platform/shadow/compositor policy の coverage label を追加する。
+- implementation review で fill owner を受け取らないこと、`Some(fill)` を受理していないこと、lower join error を保持すること、F5lg region source policy を分割していることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lh 後の shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_only_composition_order.n.md --no-tree -o tmp_gui_font_render_stroke_only_composition_order_f5lh.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lh.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lh.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

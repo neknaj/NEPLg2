@@ -523,6 +523,8 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests =
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_composition_order.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_only_composition_order.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -606,6 +608,8 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -19057,7 +19061,7 @@ assert(
     "GUI font docs must pin F5lf F5lb authority, no F5bf direct reuse, raw cell release, and completed owner payload",
 );
 const renderStrokePackedMaskStartIndex = renderStrokeCoverageScanEndIndex;
-const renderStrokePackedMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokePackedMaskStartIndex);
+const renderStrokePackedMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner:", renderStrokePackedMaskStartIndex);
 const renderStrokePackedMaskRegion = allocFontSfntGlyfImpl.slice(renderStrokePackedMaskStartIndex, renderStrokePackedMaskEndIndex);
 assert(renderStrokePackedMaskStartIndex >= 0 && renderStrokePackedMaskEndIndex > renderStrokePackedMaskStartIndex, "alloc/gui/font/sfnt/glyf F5lf stroke packed mask owner region must exist before fill alpha sample cursor");
 const renderStrokePackedMaskConfigType = textSliceBetween(
@@ -19302,6 +19306,468 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_completion_raw_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_no_fill_reuse_render_platform_shadow"),
     "F5lf render stroke packed mask focused doctest must cover F5lb authority, shape/raw validation, invariant, read/normalize, push recovery, raw free, and no fill reuse/render/platform/shadow policy",
+);
+assert(spec.includes("### SFNT simple glyph render glyph paint composition order boundary"), "GUI font spec must document F5lg render glyph paint composition order boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render glyph paint composition order boundary"), "GUI font detailed design must document F5lg render glyph paint composition order boundary");
+assert(implementationPlan.includes("## Phase F5lg: sfnt simple glyph render glyph paint composition order"), "GUI font implementation plan must include F5lg phase");
+assert(
+    implementationPlan.includes("Euler revised plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner") &&
+        detailedDesign.includes("single consuming recovery path returning both owners together") &&
+        spec.includes("stroke-only composition は別 sibling boundary") &&
+        spec.includes("fill_order = 0") &&
+        spec.includes("stroke_order = 1"),
+    "GUI font docs must pin F5lg approved plan, nested metadata authority, combined recovery, stroke-only sibling scope, and fill-before-stroke order",
+);
+const renderGlyphPaintCompositionOrderStartIndex = renderStrokePackedMaskEndIndex;
+const renderGlyphPaintCompositionOrderEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner:", renderGlyphPaintCompositionOrderStartIndex);
+const renderGlyphPaintCompositionOrderRegion = allocFontSfntGlyfImpl.slice(renderGlyphPaintCompositionOrderStartIndex, renderGlyphPaintCompositionOrderEndIndex);
+assert(renderGlyphPaintCompositionOrderStartIndex >= 0 && renderGlyphPaintCompositionOrderEndIndex > renderGlyphPaintCompositionOrderStartIndex, "alloc/gui/font/sfnt/glyf F5lg glyph paint composition order region must exist before stroke-only composition order");
+const renderGlyphPaintCompositionOrderOwnerType = textSliceBetween(
+    renderGlyphPaintCompositionOrderRegion,
+    "struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner:",
+    "fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner ",
+);
+const renderGlyphPaintCompositionOrderStartErrorKindType = textSliceBetween(
+    renderGlyphPaintCompositionOrderRegion,
+    "enum GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind:",
+    "impl Clone for GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind:",
+);
+const renderGlyphPaintCompositionOrderStartErrorType = textSliceBetween(
+    renderGlyphPaintCompositionOrderRegion,
+    "struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError:",
+    "struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery:",
+);
+const renderGlyphPaintCompositionOrderRecoveryType = textSliceBetween(
+    renderGlyphPaintCompositionOrderRegion,
+    "struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery:",
+    "fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error ",
+);
+for (const fragment of [
+    "fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+    "stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner",
+    "origin %GuiPoint",
+    "fill_paint %GuiPaint",
+    "stroke %GuiStroke",
+    "blend %GuiBlendMode",
+    "fill_order %i32",
+    "stroke_order %i32",
+]) {
+    assert(renderGlyphPaintCompositionOrderOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lg owner must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind",
+    "fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+    "stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner",
+    "lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind",
+]) {
+    assert(renderGlyphPaintCompositionOrderStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lg start error must include ${fragment}`);
+}
+for (const fragment of [
+    "fill_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+    "stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner",
+]) {
+    assert(renderGlyphPaintCompositionOrderRecoveryType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lg recovery must include ${fragment}`);
+}
+for (const fragment of [
+    "FillShapeInvalidWidth",
+    "FillShapeInvalidHeight",
+    "FillShapeInvalidSampleScale",
+    "FillShapeCoverageMaxMismatch",
+    "FillShapeCellCountMismatch",
+    "FillAlphaMaxInvalid",
+    "FillAlphaCellCountMismatch",
+    "FillAlphaStorageLenMismatch",
+    "FillAlphaStorageCapacityMismatch",
+    "StrokeShapeInvalidWidth",
+    "StrokeShapeInvalidHeight",
+    "StrokeShapeInvalidSampleScale",
+    "StrokeShapeCoverageMaxMismatch",
+    "StrokeShapeCellCountMismatch",
+    "StrokeAlphaMaxInvalid",
+    "StrokeAlphaCellCountMismatch",
+    "StrokeAlphaStorageLenMismatch",
+    "StrokeAlphaStorageCapacityMismatch",
+    "StrokeJoinGeometryInvariantFailed",
+    "ShapeOriginXMismatch",
+    "ShapeOriginYMismatch",
+    "ShapeWidthMismatch",
+    "ShapeHeightMismatch",
+    "ShapeSampleScaleMismatch",
+    "ShapeCoverageMaxMismatch",
+    "ShapeCellCountMismatch",
+    "MissingStrokeFillMetadata",
+    "OriginMismatch",
+    "FillPaintMismatch",
+    "BlendMismatch",
+    "UnsupportedBlendMode",
+]) {
+    assert(renderGlyphPaintCompositionOrderStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lg start error kind must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner",
+    "GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartError",
+    "GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery",
+]) {
+    assertNoMatch(
+        renderGlyphPaintCompositionOrderRegion,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lg ${typeName} owns mask authorities and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderGlyphPaintCompositionOrderRegion,
+    /pub struct GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrder(?:Owner|StartError|StartErrorRecovery)|pub enum GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind|pub fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_start\b/,
+    "alloc/gui/font/sfnt/glyf F5lg owner-bearing boundary must remain private",
+);
+assertNoMatch(
+    renderGlyphPaintCompositionOrderRegion,
+    /fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_(?:owner|start_error)_(?:fill_owner|stroke_owner)\b/,
+    "alloc/gui/font/sfnt/glyf F5lg must not expose split raw fill/stroke owner accessors",
+);
+const renderGlyphPaintCompositionOrderFillInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_fill_owner_invariants");
+const renderGlyphPaintCompositionOrderStrokeInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_owner_invariants");
+const renderGlyphPaintCompositionOrderShapeMatch = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_shape_match");
+const renderGlyphPaintCompositionOrderStrokePlanOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_plan_owner");
+const renderGlyphPaintCompositionOrderPaintEqual = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_paint_equal");
+const renderGlyphPaintCompositionOrderStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_start");
+const renderGlyphPaintCompositionOrderStartErrorRecovery = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery");
+const renderGlyphPaintCompositionOrderOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner_free");
+const renderGlyphPaintCompositionOrderStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_free");
+const renderGlyphPaintCompositionOrderRecoveryFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery_free");
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderFillInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_validate_fill_shape &shape",
+        "FillAlphaMaxInvalid",
+        "FillAlphaCellCountMismatch",
+        "FillAlphaStorageLenMismatch",
+        "FillAlphaStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg fill owner invariant must revalidate shape and alpha storage before composition",
+);
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderStrokeInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_validate_stroke_shape &shape",
+        "StrokeAlphaMaxInvalid",
+        "StrokeAlphaCellCountMismatch",
+        "StrokeAlphaStorageLenMismatch",
+        "StrokeAlphaStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg stroke owner invariant must revalidate shape and alpha storage before composition",
+);
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderShapeMatch,
+    [
+        "ShapeOriginXMismatch",
+        "ShapeOriginYMismatch",
+        "ShapeWidthMismatch",
+        "ShapeHeightMismatch",
+        "ShapeSampleScaleMismatch",
+        "ShapeCoverageMaxMismatch",
+        "ShapeCellCountMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg must compare the full fill/stroke shape tuple after per-owner validation",
+);
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderStrokePlanOwner,
+    [
+        "field::get_ref stroke_owner \"join_geometry_owner\"",
+        "field::get_ref join_geometry_owner \"edge_closure_owner\"",
+        "field::get_ref edge_closure_owner \"side_edge_owner\"",
+        "field::get_ref side_edge_owner \"geometry_owner\"",
+        "field::get_ref geometry_owner \"source_owner\"",
+        "field::get_ref source_owner \"metric_owner\"",
+        "field::get_ref metric_owner \"plan_owner\"",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg must read stroke metadata through the completed stroke owner chain",
+);
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderStart,
+    [
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_fill_owner_invariants &fill_owner",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_owner_invariants &stroke_owner",
+        "field::get_ref &stroke_owner \"join_geometry_owner\"",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_join_failed fill_owner stroke_owner lower_join_error",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_shape_match &fill_shape &stroke_shape",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_plan_owner &stroke_owner",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_fill stroke_plan_owner",
+        "MissingStrokeFillMetadata",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin &fill_owner",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_origin stroke_plan_owner",
+        "OriginMismatch",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_equal fill_blend stroke_blend",
+        "BlendMismatch",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_supported fill_blend",
+        "UnsupportedBlendMode",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_paint_equal fill_paint stroke_fill_paint",
+        "FillPaintMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke stroke_plan_owner",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_owner fill_owner stroke_owner fill_origin fill_paint stroke fill_blend 0 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg start must validate owners, lower join invariant, shape tuple, metadata, SourceOver, fill metadata, and fill-before-stroke order",
+);
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderPaintEqual,
+    [
+        "gui_paint_color &left",
+        "gui_paint_color &right",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_rgba_equal left_color right_color",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg paint comparison must use typed GuiPaint/Rgba8888 accessors",
+);
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderStartErrorRecovery,
+    [
+        "field::get error \"fill_owner\"",
+        "field::get error \"stroke_owner\"",
+        "GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorRecovery fill_owner stroke_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg start error recovery must consume and return both owners together",
+);
+for (const [slice, name] of [
+    [renderGlyphPaintCompositionOrderOwnerFree, "owner free"],
+    [renderGlyphPaintCompositionOrderRecoveryFree, "recovery free"],
+]) {
+    assertOrderedFragments(
+        slice,
+        [
+            "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free fill_owner",
+            "gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner",
+        ],
+        `alloc/gui/font/sfnt/glyf F5lg ${name} must free fill owner before stroke owner`,
+    );
+}
+assertOrderedFragments(
+    renderGlyphPaintCompositionOrderStartErrorFree,
+    [
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery error",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recovery_free recovery",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lg start error free must use the combined recovery/free path",
+);
+for (const [slice, name] of [
+    [renderGlyphPaintCompositionOrderFillInvariant, "fill invariant"],
+    [renderGlyphPaintCompositionOrderStrokeInvariant, "stroke invariant"],
+    [renderGlyphPaintCompositionOrderShapeMatch, "shape match"],
+    [renderGlyphPaintCompositionOrderStrokePlanOwner, "stroke metadata chain"],
+    [renderGlyphPaintCompositionOrderPaintEqual, "paint equal"],
+    [renderGlyphPaintCompositionOrderStart, "start"],
+    [renderGlyphPaintCompositionOrderStartErrorRecovery, "start error recovery"],
+    [renderGlyphPaintCompositionOrderOwnerFree, "owner free"],
+    [renderGlyphPaintCompositionOrderStartErrorFree, "start error free"],
+    [renderGlyphPaintCompositionOrderRecoveryFree, "recovery free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|GuiSfntSimpleGlyphRasterPackedMaskOwner|gui_sfnt_simple_glyph_raster_packed_mask|RenderCommand|render_command_|AlphaMaskId|ResourceReservation|ResourceTable|PreparedCommand|SoftwareDrain|software_surface|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|shadow_raster|compositor)\b/,
+        `alloc/gui/font/sfnt/glyf F5lg ${name} must not use byte lookup, F5bf internals, command/resource/pixel/platform/fallback/shadow/compositor work`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lg ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_fill_stroke_scope_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_owner_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_nested_stroke_metadata_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_shape_tuple_match_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_source_over_fill_paint_match_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_combined_recovery_free_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintCompositionOrderTests.includes("render_glyph_paint_composition_no_render_resource_platform_shadow"),
+    "F5lg render glyph paint composition order focused doctest must cover fill+stroke scope, owner invariants, nested metadata, shape tuple, SourceOver/fill paint match, combined recovery/free order, and no render/resource/platform/shadow policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke-only composition order boundary"), "GUI font spec must document F5lh render stroke-only composition order boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke-only composition order boundary"), "GUI font detailed design must document F5lh render stroke-only composition order boundary");
+assert(implementationPlan.includes("## Phase F5lh: sfnt simple glyph render stroke-only composition order"), "GUI font implementation plan must include F5lh phase");
+assert(
+    implementationPlan.includes("Euclid plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("The F5lg fill+stroke error kind is not the public contract of F5lh") &&
+        detailedDesign.includes("stroke_packed.join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner") &&
+        spec.includes("UnexpectedStrokeFillMetadata") &&
+        spec.includes("stroke_order = 0"),
+    "GUI font docs must pin F5lh approved plan, typed error surface, nested metadata authority, unexpected fill rejection, and stroke-only order",
+);
+const renderStrokeOnlyCompositionOrderStartIndex = renderGlyphPaintCompositionOrderEndIndex;
+const renderStrokeOnlyCompositionOrderEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeOnlyCompositionOrderStartIndex);
+const renderStrokeOnlyCompositionOrderRegion = allocFontSfntGlyfImpl.slice(renderStrokeOnlyCompositionOrderStartIndex, renderStrokeOnlyCompositionOrderEndIndex);
+assert(renderStrokeOnlyCompositionOrderStartIndex >= 0 && renderStrokeOnlyCompositionOrderEndIndex > renderStrokeOnlyCompositionOrderStartIndex, "alloc/gui/font/sfnt/glyf F5lh stroke-only composition order region must exist before fill alpha sample cursor");
+const renderStrokeOnlyCompositionOrderOwnerType = textSliceBetween(
+    renderStrokeOnlyCompositionOrderRegion,
+    "struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner:",
+    "fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner ",
+);
+const renderStrokeOnlyCompositionOrderStartErrorKindType = textSliceBetween(
+    renderStrokeOnlyCompositionOrderRegion,
+    "enum GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind:",
+    "impl Clone for GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind:",
+);
+const renderStrokeOnlyCompositionOrderStartErrorType = textSliceBetween(
+    renderStrokeOnlyCompositionOrderRegion,
+    "struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError:",
+    "struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery:",
+);
+const renderStrokeOnlyCompositionOrderRecoveryType = textSliceBetween(
+    renderStrokeOnlyCompositionOrderRegion,
+    "struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery:",
+    "fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error ",
+);
+for (const fragment of [
+    "stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner",
+    "origin %GuiPoint",
+    "stroke %GuiStroke",
+    "blend %GuiBlendMode",
+    "stroke_order %i32",
+]) {
+    assert(renderStrokeOnlyCompositionOrderOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lh owner must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind",
+    "stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner",
+    "lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind",
+]) {
+    assert(renderStrokeOnlyCompositionOrderStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lh start error must include ${fragment}`);
+}
+assert(renderStrokeOnlyCompositionOrderRecoveryType.includes("stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner"), "alloc/gui/font/sfnt/glyf F5lh recovery must return stroke owner");
+for (const fragment of [
+    "StrokeShapeInvalidWidth",
+    "StrokeShapeInvalidHeight",
+    "StrokeShapeInvalidSampleScale",
+    "StrokeShapeCoverageMaxMismatch",
+    "StrokeShapeCellCountMismatch",
+    "StrokeAlphaMaxInvalid",
+    "StrokeAlphaCellCountMismatch",
+    "StrokeAlphaStorageLenMismatch",
+    "StrokeAlphaStorageCapacityMismatch",
+    "StrokeJoinGeometryInvariantFailed",
+    "UnexpectedStrokeFillMetadata",
+    "UnsupportedBlendMode",
+    "StrokeInvariantUnexpectedErrorKind",
+]) {
+    assert(renderStrokeOnlyCompositionOrderStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lh start error kind must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner",
+    "GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError",
+    "GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery",
+]) {
+    assertNoMatch(
+        renderStrokeOnlyCompositionOrderRegion,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lh ${typeName} owns stroke mask authority and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderStrokeOnlyCompositionOrderRegion,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrder(?:Owner|StartError|StartErrorRecovery)|pub enum GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind|pub fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_start\b/,
+    "alloc/gui/font/sfnt/glyf F5lh owner-bearing boundary must remain private",
+);
+const renderStrokeOnlyCompositionOrderErrorMap = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_error_kind_from_glyph_paint");
+const renderStrokeOnlyCompositionOrderStrokeInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_owner_invariants");
+const renderStrokeOnlyCompositionOrderStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_start");
+const renderStrokeOnlyCompositionOrderStartErrorRecovery = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery");
+const renderStrokeOnlyCompositionOrderOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_free");
+const renderStrokeOnlyCompositionOrderStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_free");
+const renderStrokeOnlyCompositionOrderRecoveryFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery_free");
+assertOrderedFragments(
+    renderStrokeOnlyCompositionOrderErrorMap,
+    [
+        "StrokeShapeInvalidWidth",
+        "StrokeShapeInvalidHeight",
+        "StrokeShapeInvalidSampleScale",
+        "StrokeShapeCoverageMaxMismatch",
+        "StrokeShapeCellCountMismatch",
+        "StrokeAlphaMaxInvalid",
+        "StrokeAlphaCellCountMismatch",
+        "StrokeAlphaStorageLenMismatch",
+        "StrokeAlphaStorageCapacityMismatch",
+        "StrokeInvariantUnexpectedErrorKind",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lh must map reused stroke invariant errors into F5lh typed error kinds",
+);
+assertOrderedFragments(
+    renderStrokeOnlyCompositionOrderStrokeInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_owner_invariants owner",
+        "gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_error_kind_from_glyph_paint stroke_error",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lh stroke owner invariant must reuse completed stroke packed owner checks with F5lh typed errors",
+);
+assertOrderedFragments(
+    renderStrokeOnlyCompositionOrderStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_owner_invariants &stroke_owner",
+        "field::get_ref &stroke_owner \"join_geometry_owner\"",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner",
+        "gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_join_failed stroke_owner lower_join_error",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_plan_owner &stroke_owner",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_fill stroke_plan_owner",
+        "UnexpectedStrokeFillMetadata",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_blend stroke_plan_owner",
+        "gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_supported stroke_blend",
+        "UnsupportedBlendMode",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_origin stroke_plan_owner",
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke stroke_plan_owner",
+        "gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner stroke_owner origin stroke stroke_blend 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lh start must validate stroke owner, lower join invariant, nested metadata, unexpected fill, SourceOver, and stroke-only order",
+);
+assertNoMatch(
+    renderStrokeOnlyCompositionOrderStart,
+    /GuiSfntSimpleGlyphRenderFillAlphaMaskOwner|MissingStrokeFillMetadata|FillPaintMismatch|gui_sfnt_simple_glyph_render_glyph_paint_composition_order_shape_match/,
+    "alloc/gui/font/sfnt/glyf F5lh start must not accept a fill owner or run fill+stroke shape comparison",
+);
+assertOrderedFragments(
+    renderStrokeOnlyCompositionOrderStartErrorRecovery,
+    [
+        "field::get error \"stroke_owner\"",
+        "GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery stroke_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lh start error recovery must consume and return the stroke owner",
+);
+for (const [slice, name] of [
+    [renderStrokeOnlyCompositionOrderOwnerFree, "owner free"],
+    [renderStrokeOnlyCompositionOrderRecoveryFree, "recovery free"],
+]) {
+    assertOrderedFragments(
+        slice,
+        ["gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner"],
+        `alloc/gui/font/sfnt/glyf F5lh ${name} must free the stroke packed mask owner`,
+    );
+}
+assertOrderedFragments(
+    renderStrokeOnlyCompositionOrderStartErrorFree,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery error",
+        "gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery_free recovery",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lh start error free must use the single recovery/free path",
+);
+for (const [slice, name] of [
+    [renderStrokeOnlyCompositionOrderErrorMap, "error map"],
+    [renderStrokeOnlyCompositionOrderStrokeInvariant, "stroke invariant"],
+    [renderStrokeOnlyCompositionOrderStart, "start"],
+    [renderStrokeOnlyCompositionOrderStartErrorRecovery, "start error recovery"],
+    [renderStrokeOnlyCompositionOrderOwnerFree, "owner free"],
+    [renderStrokeOnlyCompositionOrderStartErrorFree, "start error free"],
+    [renderStrokeOnlyCompositionOrderRecoveryFree, "recovery free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|GuiSfntSimpleGlyphRasterPackedMaskOwner|gui_sfnt_simple_glyph_raster_packed_mask|RenderCommand|render_command_|AlphaMaskId|ResourceReservation|ResourceTable|PreparedCommand|SoftwareDrain|software_surface|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|shadow_raster|compositor)\b/,
+        `alloc/gui/font/sfnt/glyf F5lh ${name} must not use byte lookup, F5bf internals, command/resource/pixel/platform/fallback/shadow/compositor work`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lh ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_scope_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_owner_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_nested_metadata_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_unexpected_fill_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_source_over_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_recovery_free_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOnlyCompositionOrderTests.includes("render_stroke_only_composition_no_render_resource_platform_shadow"),
+    "F5lh render stroke-only composition order focused doctest must cover stroke-only scope, owner invariant, nested metadata, unexpected fill, SourceOver, recovery/free order, and no render/resource/platform/shadow policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");
