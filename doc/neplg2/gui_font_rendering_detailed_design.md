@@ -8129,6 +8129,52 @@ Recovery is paired. Start error recovery returns a rejected owner containing bot
 
 F5lv must not call `gui_rgba8888_software_surface_write_pixel`, `gui_rgba8888_software_surface_read_pixel`, `gui_rgba8888_source_over_alpha_mask`, `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, resource table lookup/register/push, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, dirty-region helpers, tile / bitmap transport, or a 2D compositor drain.
 
+## SFNT simple glyph render shadow source software drain-step boundary
+
+F5lw consumes the F5lv cursor owner as a bounded software compositing step. It mutates the owned RGBA8888 software surface through the checked render2d surface API and the shared `gui_rgba8888_source_over_alpha_mask` helper. It does not create dirty metadata, publish pixels, call host present, or drain a 2D compositor.
+
+The new owner-bearing values are:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:
+    Completed GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner
+
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:
+    kind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
+    owner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner
+    order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+```
+
+The step order is fixed:
+
+```text
+borrow prepared and surface from owner
+run F5lv validate_start
+preserve lower F5lp order_error on validation failure
+rederive the resource record
+reject negative or out-of-range cell_index
+borrow prepared.resource.reservation.owner.shadow_owner.alpha_cells
+read one alpha cell without Vec clone/copy
+map cell_index to record rect position with checked addition
+read destination pixel from the borrowed surface
+derive source color from record paint
+run gui_rgba8888_source_over_alpha_mask
+move prepared/surface only before write
+on write failure recover the returned surface and keep cell_index unchanged
+on write success rebuild the owner with cell_index + 1
+```
+
+`to_complete_budget` checks completion before budget validity. A cursor already at `cell_count` completes even with zero budget. A non-completed cursor with `remaining_steps <= 0` fails with `InvalidBudget`. `StepBudgetExhausted` is returned only after at least one successful step and only if the next owner has not reached completion. The progress invariant requires the step to advance by exactly one cell.
+
+The completed owner deliberately has no `DirtyRegion`. F5lw only proves that the shadow mask was composited into the software surface. The later dirty-region phase will consume the completed owner, derive the record rect through the same prepared/resource authority, and attach checked dirty metadata.
+
+F5lw may call `gui_rgba8888_software_surface_read_pixel`, `gui_rgba8888_software_surface_write_pixel`, and `gui_rgba8888_source_over_alpha_mask`. It must not call F5lq cursor start/read/step, F5lr command helpers, `render_command_fill_rect`, raw `RenderCommand` accessors, resource table lookup/register/push, dirty-region helpers, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, tile / bitmap transport, or a 2D compositor drain.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

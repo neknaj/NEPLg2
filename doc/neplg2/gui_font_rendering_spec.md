@@ -6892,6 +6892,31 @@ tile / bitmap transport
 2D compositor drain
 ```
 
+### SFNT simple glyph render shadow source software drain-step boundary
+
+F5lw は F5lv の drain owner を bounded work slice として進め、shadow source alpha mask を RGBA8888 software surface へ SourceOver 合成する境界である。この phase は alloc 内の software surface mutation までに限定し、dirty region metadata、tile / bitmap transport、host present、2D compositor drain へは進まない。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:
+    Completed GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner
+
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:
+    kind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
+    owner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner
+    order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+```
+
+`owner_step_once` は 1 cell だけを処理する。最初に F5lv の start validation を再実行し、lower F5lp `order_error` を step error に保持する。次に record を再導出し、`cell_index`、alpha cell、pixel position、destination pixel、SourceOver result を順に検査する。prepared / surface owner は write 直前まで move しない。write failure では `GuiRgba8888SoftwareSurfaceWriteError` から surface owner を回収し、同じ `cell_index` の owner-bearing step error として返す。write 成功後だけ `cell_index + 1` へ進める。
+
+`to_complete_budget` は `cell_index == cell_count` を budget 検査より先に completed とする。未完了で `remaining_steps <= 0` なら `InvalidBudget`、正の budget で少なくとも 1 cell 進んだが completed に達していない場合だけ `StepBudgetExhausted` を返す。completed owner は prepared owner と surface owner だけを保持し、dirty region は次 phase で checked constructor により追加する。
+
+F5lw は `gui_rgba8888_software_surface_read_pixel`、`gui_rgba8888_software_surface_write_pixel`、`gui_rgba8888_source_over_alpha_mask` だけを software drain のために使える。F5lq sample cursor、F5lr sample command bridge、`render_command_fill_rect`、raw `RenderCommand` accessor、resource table lookup / register / mutation、dirty region helper、DrawTarget / RenderTarget、platform / host / backend API、Canvas / DOM / minifb、font fallback、zero-fill fallback、tile / bitmap transport、2D compositor drain は使わない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
