@@ -7722,11 +7722,22 @@ pub enum NativeWindowLinuxX11WmProtocolRegistrationWriteState {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11KeyboardMappingRequestWriteState {
+    NotConfigured,
+    SetupBackedBuildPending,
+    RequestPending,
+    ReplyPending,
+    Ready,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11ServerErrorCorrelation {
     Unmatched,
     TopLevelWindowCreate { window_id: u32 },
     TopLevelWindowMap { window_id: u32 },
     WmProtocolRegistration { window_id: u32 },
+    KeyboardMapping { sequence: u16 },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -7766,7 +7777,7 @@ pub struct NativeWindowLinuxX11RegisteredWmProtocolContext {
     atoms: NativeWindowLinuxX11WmProtocolAtoms,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeWindowLinuxX11EventSourceObservationError {
     UnsupportedSourceKind {
         descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
@@ -7860,6 +7871,22 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
         byte_count: usize,
         remaining_byte_count: usize,
     },
+    KeyboardMappingRequestPreviouslyFailed {
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    },
+    KeyboardMappingRequestSetupResourceInfoMissing,
+    KeyboardMappingRequestBuildFailed {
+        error: NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError,
+    },
+    KeyboardMappingRequestWriteWouldBlock,
+    KeyboardMappingRequestWriteFailed {
+        code: u32,
+    },
+    KeyboardMappingRequestWriteReturnedZero,
+    KeyboardMappingRequestWriteOverflow {
+        byte_count: usize,
+        remaining_byte_count: usize,
+    },
     EventReadWouldBlock,
     EventReadFailed {
         code: u32,
@@ -7908,6 +7935,34 @@ pub enum NativeWindowLinuxX11EventSourceObservationError {
         correlation: NativeWindowLinuxX11WmProtocolAtomInternReplyCorrelation,
         reply: NativeWindowLinuxX11InternAtomReply,
         completed_atoms: Option<NativeWindowLinuxX11WmProtocolAtoms>,
+    },
+    KeyboardMappingReplyParseFailed {
+        error: NativeWindowLinuxX11KeyboardMappingReplyParseError,
+    },
+    KeyboardMappingReplyRequestMissing {
+        sequence: u16,
+    },
+    KeyboardMappingReplyBodyReadWouldBlock {
+        reply: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+        remaining_byte_count: usize,
+    },
+    KeyboardMappingReplyBodyReadFailed {
+        reply: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+        code: u32,
+        remaining_byte_count: usize,
+    },
+    KeyboardMappingReplyBodyReadEof {
+        reply: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+        remaining_byte_count: usize,
+    },
+    KeyboardMappingReplyBodyReadOverflow {
+        reply: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+        byte_count: usize,
+        remaining_byte_count: usize,
+    },
+    KeyboardMappingReplyReceived {
+        reply: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+        raw_keysyms: NativeWindowLinuxX11KeyboardMappingRawKeysyms,
     },
     ServerReplyReceived {
         reply: NativeWindowLinuxX11ServerReplyHeader,
@@ -8608,6 +8663,14 @@ pub struct NativeWindowLinuxX11EventSourceObservationReader<Api> {
     wm_protocol_registration_written_len: usize,
     wm_protocol_registration_sequence_plan:
         Option<NativeWindowLinuxX11WmProtocolRegistrationSequencePlan>,
+    keyboard_mapping_request: Option<NativeWindowLinuxX11SetupKeyboardMappingRequest>,
+    keyboard_mapping_request_state: NativeWindowLinuxX11KeyboardMappingRequestWriteState,
+    keyboard_mapping_request_written_len: usize,
+    keyboard_mapping_request_sequence: Option<u16>,
+    keyboard_mapping_raw_keysyms: Option<NativeWindowLinuxX11KeyboardMappingRawKeysyms>,
+    pending_keyboard_mapping_reply_header: Option<NativeWindowLinuxX11KeyboardMappingReplyHeader>,
+    pending_keyboard_mapping_reply_body_bytes: Vec<u8>,
+    pending_keyboard_mapping_reply_body_remaining_len: usize,
     next_x11_request_sequence: u16,
     setup_prefix: [u8; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
     setup_prefix_len: usize,
@@ -11313,6 +11376,7 @@ fn native_window_linux_x11_event_packet_to_observation(
     top_level_window_request_sequence_plan: Option<
         NativeWindowLinuxX11TopLevelWindowRequestSequencePlan,
     >,
+    keyboard_mapping_request_sequence: Option<u16>,
     wm_protocol_registration_sequence_plan: Option<
         NativeWindowLinuxX11WmProtocolRegistrationSequencePlan,
     >,
@@ -11331,6 +11395,10 @@ fn native_window_linux_x11_event_packet_to_observation(
             let correlation =
                 if top_level_correlation != NativeWindowLinuxX11ServerErrorCorrelation::Unmatched {
                     top_level_correlation
+                } else if keyboard_mapping_request_sequence == Some(error.sequence()) {
+                    NativeWindowLinuxX11ServerErrorCorrelation::KeyboardMapping {
+                        sequence: error.sequence(),
+                    }
                 } else {
                     match wm_protocol_registration_sequence_plan {
                         Some(plan) => plan.server_error_correlation(error),
@@ -11490,6 +11558,15 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
                 NativeWindowLinuxX11WmProtocolRegistrationWriteState::NotConfigured,
             wm_protocol_registration_written_len: 0,
             wm_protocol_registration_sequence_plan: None,
+            keyboard_mapping_request: None,
+            keyboard_mapping_request_state:
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::NotConfigured,
+            keyboard_mapping_request_written_len: 0,
+            keyboard_mapping_request_sequence: None,
+            keyboard_mapping_raw_keysyms: None,
+            pending_keyboard_mapping_reply_header: None,
+            pending_keyboard_mapping_reply_body_bytes: Vec::new(),
+            pending_keyboard_mapping_reply_body_remaining_len: 0,
             next_x11_request_sequence: NATIVE_WINDOW_LINUX_X11_FIRST_NORMAL_REQUEST_SEQUENCE,
             setup_prefix: [0; NATIVE_WINDOW_LINUX_X11_SETUP_PREFIX_BYTE_LEN],
             setup_prefix_len: 0,
@@ -11538,6 +11615,15 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         reader.setup_backed_top_level_window_create_plan = Some(plan);
         reader.top_level_window_request_state =
             NativeWindowLinuxX11TopLevelWindowRequestWriteState::SetupBackedBuildPending;
+        reader
+    }
+
+    pub fn new_with_setup_request_and_setup_backed_keyboard_mapping_request(
+        api: Api,
+        setup_request: NativeWindowLinuxX11SetupRequest,
+    ) -> Self {
+        let mut reader = Self::new_with_setup_request(api, setup_request);
+        reader.install_setup_backed_keyboard_mapping_request();
         reader
     }
 
@@ -11605,6 +11691,18 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         self.wm_protocol_registration_write_state =
             NativeWindowLinuxX11WmProtocolRegistrationWriteState::RequestPending;
         Ok(())
+    }
+
+    fn install_setup_backed_keyboard_mapping_request(&mut self) {
+        self.keyboard_mapping_request = None;
+        self.keyboard_mapping_request_written_len = 0;
+        self.keyboard_mapping_request_sequence = None;
+        self.keyboard_mapping_raw_keysyms = None;
+        self.pending_keyboard_mapping_reply_header = None;
+        self.pending_keyboard_mapping_reply_body_bytes.clear();
+        self.pending_keyboard_mapping_reply_body_remaining_len = 0;
+        self.keyboard_mapping_request_state =
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::SetupBackedBuildPending;
     }
 
     pub fn api(&self) -> &Api {
@@ -11701,6 +11799,42 @@ impl<Api> NativeWindowLinuxX11EventSourceObservationReader<Api> {
         self.wm_protocol_registration_sequence_plan
     }
 
+    pub fn keyboard_mapping_request(
+        &self,
+    ) -> Option<NativeWindowLinuxX11SetupKeyboardMappingRequest> {
+        self.keyboard_mapping_request
+    }
+
+    pub fn keyboard_mapping_request_state(
+        &self,
+    ) -> NativeWindowLinuxX11KeyboardMappingRequestWriteState {
+        self.keyboard_mapping_request_state
+    }
+
+    pub fn keyboard_mapping_request_written_len(&self) -> usize {
+        self.keyboard_mapping_request_written_len
+    }
+
+    pub fn keyboard_mapping_request_sequence(&self) -> Option<u16> {
+        self.keyboard_mapping_request_sequence
+    }
+
+    pub fn keyboard_mapping_raw_keysyms(
+        &self,
+    ) -> Option<&NativeWindowLinuxX11KeyboardMappingRawKeysyms> {
+        self.keyboard_mapping_raw_keysyms.as_ref()
+    }
+
+    pub fn pending_keyboard_mapping_reply_header(
+        &self,
+    ) -> Option<NativeWindowLinuxX11KeyboardMappingReplyHeader> {
+        self.pending_keyboard_mapping_reply_header
+    }
+
+    pub fn pending_keyboard_mapping_reply_body_remaining_len(&self) -> usize {
+        self.pending_keyboard_mapping_reply_body_remaining_len
+    }
+
     pub fn registered_wm_protocol_context(
         &self,
     ) -> Option<NativeWindowLinuxX11RegisteredWmProtocolContext> {
@@ -11778,6 +11912,15 @@ where
     ) -> NativeWindowLinuxX11EventSourceObservationError {
         self.wm_protocol_registration_write_state =
             NativeWindowLinuxX11WmProtocolRegistrationWriteState::Failed;
+        error
+    }
+
+    fn fail_keyboard_mapping_request(
+        &mut self,
+        error: NativeWindowLinuxX11EventSourceObservationError,
+    ) -> NativeWindowLinuxX11EventSourceObservationError {
+        self.keyboard_mapping_request_state =
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::Failed;
         error
     }
 
@@ -11864,6 +12007,133 @@ where
                 plan.record_change_property_sequence(sequence);
             }
         }
+    }
+
+    fn build_setup_backed_keyboard_mapping_request(
+        &mut self,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let Some(setup_resource_info) = self.setup_resource_info else {
+            return Err(self.fail_keyboard_mapping_request(
+                NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestSetupResourceInfoMissing,
+            ));
+        };
+        let request = native_window_linux_x11_setup_keyboard_mapping_request(setup_resource_info)
+            .map_err(|error| {
+                self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestBuildFailed {
+                        error,
+                    },
+                )
+            })?;
+        self.keyboard_mapping_request = Some(request);
+        self.keyboard_mapping_request_written_len = 0;
+        self.keyboard_mapping_request_sequence = None;
+        self.keyboard_mapping_raw_keysyms = None;
+        self.pending_keyboard_mapping_reply_header = None;
+        self.pending_keyboard_mapping_reply_body_bytes.clear();
+        self.pending_keyboard_mapping_reply_body_remaining_len = 0;
+        self.keyboard_mapping_request_state =
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::RequestPending;
+        Ok(())
+    }
+
+    fn write_keyboard_mapping_request(
+        &mut self,
+        raw_fd: i32,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let Some(request_len) = self
+            .keyboard_mapping_request
+            .as_ref()
+            .map(NativeWindowLinuxX11SetupKeyboardMappingRequest::len)
+        else {
+            self.keyboard_mapping_request_state =
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::NotConfigured;
+            self.keyboard_mapping_request_sequence = None;
+            return Ok(());
+        };
+        while self.keyboard_mapping_request_written_len < request_len {
+            let remaining = request_len - self.keyboard_mapping_request_written_len;
+            let written = {
+                let request = match self.keyboard_mapping_request.as_ref() {
+                    Some(request) => request.as_bytes(),
+                    None => {
+                        self.keyboard_mapping_request_state =
+                            NativeWindowLinuxX11KeyboardMappingRequestWriteState::NotConfigured;
+                        self.keyboard_mapping_request_sequence = None;
+                        return Ok(());
+                    }
+                };
+                self.api.write_x11_bytes_raw(
+                    raw_fd,
+                    &request[self.keyboard_mapping_request_written_len..],
+                )
+            };
+            if written < 0 {
+                let code = self.api.last_error_code();
+                if self.api.error_code_is_would_block(code) {
+                    return Err(
+                        NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteWouldBlock,
+                    );
+                }
+                return Err(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteFailed {
+                        code,
+                    },
+                ));
+            }
+            if written == 0 {
+                return Err(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteReturnedZero,
+                ));
+            }
+            let written = match usize::try_from(written) {
+                Ok(written) => written,
+                Err(_) => {
+                    return Err(self.fail_keyboard_mapping_request(
+                        NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteOverflow {
+                            byte_count: usize::MAX,
+                            remaining_byte_count: remaining,
+                        },
+                    ));
+                }
+            };
+            if written > remaining {
+                return Err(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteOverflow {
+                        byte_count: written,
+                        remaining_byte_count: remaining,
+                    },
+                ));
+            }
+            let previous_written_len = self.keyboard_mapping_request_written_len;
+            let accepted_end_len = match previous_written_len.checked_add(written) {
+                Some(accepted_end_len) => accepted_end_len,
+                None => {
+                    return Err(self.fail_keyboard_mapping_request(
+                        NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteOverflow {
+                            byte_count: written,
+                            remaining_byte_count: remaining,
+                        },
+                    ));
+                }
+            };
+            if accepted_end_len > request_len {
+                return Err(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteOverflow {
+                        byte_count: written,
+                        remaining_byte_count: remaining,
+                    },
+                ));
+            }
+            self.keyboard_mapping_request_written_len = accepted_end_len;
+            if previous_written_len < request_len && accepted_end_len == request_len {
+                self.keyboard_mapping_request_sequence =
+                    Some(self.take_next_x11_request_sequence());
+            }
+        }
+        self.keyboard_mapping_request_state =
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::ReplyPending;
+        Ok(())
     }
 
     fn write_setup_request(
@@ -12537,6 +12807,183 @@ where
         }
     }
 
+    fn ensure_keyboard_mapping_request_ready(
+        &mut self,
+        descriptor: NativeWindowLinuxWindowEventSourceDescriptor,
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let raw_fd = descriptor.raw_fd();
+        if raw_fd < 0 {
+            return Err(NativeWindowLinuxX11EventSourceObservationError::InvalidRawFd { raw_fd });
+        }
+        loop {
+            match self.keyboard_mapping_request_state {
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::NotConfigured => {
+                    return Ok(());
+                }
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::SetupBackedBuildPending => {
+                    self.build_setup_backed_keyboard_mapping_request()?;
+                }
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::RequestPending => {
+                    self.write_keyboard_mapping_request(raw_fd)?;
+                }
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::ReplyPending
+                | NativeWindowLinuxX11KeyboardMappingRequestWriteState::Ready => return Ok(()),
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::Failed => {
+                    return Err(
+                        NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestPreviouslyFailed {
+                            descriptor,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    fn start_keyboard_mapping_reply_body_read(
+        &mut self,
+        packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
+    ) -> Result<(), NativeWindowLinuxX11EventSourceObservationError> {
+        let reply = native_window_linux_x11_keyboard_mapping_reply_header_from_packet(&packet)
+            .map_err(|error| {
+                self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyParseFailed {
+                        error,
+                    },
+                )
+            })?;
+        let body_byte_len =
+            native_window_linux_x11_keyboard_mapping_reply_body_byte_len(reply.length_units())
+                .map_err(|error| {
+                    self.fail_keyboard_mapping_request(
+                NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyParseFailed {
+                    error,
+                },
+            )
+                })?;
+        self.pending_keyboard_mapping_reply_header = Some(reply);
+        self.pending_keyboard_mapping_reply_body_bytes.clear();
+        self.pending_keyboard_mapping_reply_body_remaining_len = body_byte_len;
+        Ok(())
+    }
+
+    fn complete_keyboard_mapping_reply_body_read(
+        &mut self,
+        reply: NativeWindowLinuxX11KeyboardMappingReplyHeader,
+    ) -> NativeWindowLinuxX11EventSourceObservationError {
+        let Some(keycode_count) = self
+            .keyboard_mapping_request
+            .as_ref()
+            .map(NativeWindowLinuxX11SetupKeyboardMappingRequest::keycode_count)
+        else {
+            return self.fail_keyboard_mapping_request(
+                NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyRequestMissing {
+                    sequence: reply.sequence(),
+                },
+            );
+        };
+        match native_window_linux_x11_keyboard_mapping_raw_keysyms_from_reply(
+            reply,
+            keycode_count,
+            &self.pending_keyboard_mapping_reply_body_bytes,
+        ) {
+            Ok(raw_keysyms) => {
+                self.pending_keyboard_mapping_reply_header = None;
+                self.pending_keyboard_mapping_reply_body_bytes.clear();
+                self.pending_keyboard_mapping_reply_body_remaining_len = 0;
+                self.keyboard_mapping_request_sequence = None;
+                self.keyboard_mapping_raw_keysyms = Some(raw_keysyms.clone());
+                self.keyboard_mapping_request_state =
+                    NativeWindowLinuxX11KeyboardMappingRequestWriteState::Ready;
+                NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyReceived {
+                    reply,
+                    raw_keysyms,
+                }
+            }
+            Err(error) => {
+                self.pending_keyboard_mapping_reply_header = None;
+                self.pending_keyboard_mapping_reply_body_bytes.clear();
+                self.pending_keyboard_mapping_reply_body_remaining_len = 0;
+                self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyParseFailed {
+                        error,
+                    },
+                )
+            }
+        }
+    }
+
+    fn drain_pending_keyboard_mapping_reply_body(
+        &mut self,
+        raw_fd: i32,
+    ) -> Result<
+        Option<NativeWindowLinuxX11EventSourceObservationError>,
+        NativeWindowLinuxX11EventSourceObservationError,
+    > {
+        let Some(reply) = self.pending_keyboard_mapping_reply_header else {
+            return Ok(None);
+        };
+        let mut scratch = [0_u8; 256];
+        while self.pending_keyboard_mapping_reply_body_remaining_len > 0 {
+            let read_len = self
+                .pending_keyboard_mapping_reply_body_remaining_len
+                .min(scratch.len());
+            let read = self
+                .api
+                .read_x11_bytes_raw(raw_fd, &mut scratch[..read_len]);
+            if read < 0 {
+                let code = self.api.last_error_code();
+                if self.api.error_code_is_would_block(code) {
+                    return Ok(Some(
+                        NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyBodyReadWouldBlock {
+                            reply,
+                            remaining_byte_count: self.pending_keyboard_mapping_reply_body_remaining_len,
+                        },
+                    ));
+                }
+                return Ok(Some(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyBodyReadFailed {
+                        reply,
+                        code,
+                        remaining_byte_count: self.pending_keyboard_mapping_reply_body_remaining_len,
+                    },
+                )));
+            }
+            if read == 0 {
+                return Ok(Some(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyBodyReadEof {
+                        reply,
+                        remaining_byte_count: self.pending_keyboard_mapping_reply_body_remaining_len,
+                    },
+                )));
+            }
+            let read = match usize::try_from(read) {
+                Ok(read) => read,
+                Err(_) => {
+                    return Ok(Some(self.fail_keyboard_mapping_request(
+                        NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyBodyReadOverflow {
+                            reply,
+                            byte_count: usize::MAX,
+                            remaining_byte_count: read_len,
+                        },
+                    )));
+                }
+            };
+            if read > read_len {
+                return Ok(Some(self.fail_keyboard_mapping_request(
+                    NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyBodyReadOverflow {
+                        reply,
+                        byte_count: read,
+                        remaining_byte_count: read_len,
+                    },
+                )));
+            }
+            self.pending_keyboard_mapping_reply_body_bytes
+                .extend_from_slice(&scratch[..read]);
+            self.pending_keyboard_mapping_reply_body_remaining_len -= read;
+        }
+        Ok(Some(self.complete_keyboard_mapping_reply_body_read(reply)))
+    }
+
     fn start_server_reply_body_drain(
         &mut self,
         packet: [u8; NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN],
@@ -12739,7 +13186,11 @@ where
             );
         }
         self.ensure_setup_ready(descriptor)?;
+        self.ensure_keyboard_mapping_request_ready(descriptor)?;
         self.ensure_top_level_window_request_ready(descriptor)?;
+        if let Some(error) = self.drain_pending_keyboard_mapping_reply_body(descriptor.raw_fd())? {
+            return Err(error);
+        }
         if let Some(packet) = self.drain_pending_server_reply_body(descriptor.raw_fd())? {
             return Err(self.server_reply_error_from_packet(packet));
         }
@@ -12749,17 +13200,43 @@ where
         if native_window_linux_x11_response_type_raw(&packet)
             == NATIVE_WINDOW_LINUX_X11_RESPONSE_TYPE_REPLY
         {
+            let reply = native_window_linux_x11_server_reply_header(&packet);
+            if self.keyboard_mapping_request_sequence == Some(reply.sequence()) {
+                self.start_keyboard_mapping_reply_body_read(packet)?;
+                if let Some(error) =
+                    self.drain_pending_keyboard_mapping_reply_body(descriptor.raw_fd())?
+                {
+                    return Err(error);
+                }
+                return Err(
+                    NativeWindowLinuxX11EventSourceObservationError::ServerReplyReceived { reply },
+                );
+            }
             self.start_server_reply_body_drain(packet)?;
             let packet = self.drain_server_reply_body(descriptor.raw_fd(), packet)?;
             return Err(self.server_reply_error_from_packet(packet));
         }
-        native_window_linux_x11_event_packet_to_observation(
+        let observation = native_window_linux_x11_event_packet_to_observation(
             input,
             &packet,
             self.top_level_window_request_sequence_plan,
+            self.keyboard_mapping_request_sequence,
             self.wm_protocol_registration_sequence_plan,
             self.registered_wm_protocol_context(),
-        )
+        );
+        if matches!(
+            &observation,
+            Err(
+                NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                    correlation: NativeWindowLinuxX11ServerErrorCorrelation::KeyboardMapping { .. },
+                    ..
+                }
+            )
+        ) {
+            self.keyboard_mapping_request_state =
+                NativeWindowLinuxX11KeyboardMappingRequestWriteState::Failed;
+        }
+        observation
     }
 }
 
@@ -12835,6 +13312,21 @@ impl<Provider, Api> NativeWindowLinuxX11WindowEventSourceObservationProvider<Pro
                     api,
                     setup_request,
                     plan,
+                ),
+        }
+    }
+
+    pub fn new_with_setup_request_and_setup_backed_keyboard_mapping_request(
+        provider: Provider,
+        api: Api,
+        setup_request: NativeWindowLinuxX11SetupRequest,
+    ) -> Self {
+        Self {
+            provider,
+            reader:
+                NativeWindowLinuxX11EventSourceObservationReader::new_with_setup_request_and_setup_backed_keyboard_mapping_request(
+                    api,
+                    setup_request,
                 ),
         }
     }
@@ -12920,6 +13412,21 @@ pub fn native_window_linux_x11_window_event_source_observation_provider_with_set
         api,
         setup_request,
         plan,
+    )
+}
+
+pub fn native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request<
+    Provider,
+    Api,
+>(
+    provider: Provider,
+    api: Api,
+    setup_request: NativeWindowLinuxX11SetupRequest,
+) -> NativeWindowLinuxX11WindowEventSourceObservationProvider<Provider, Api> {
+    NativeWindowLinuxX11WindowEventSourceObservationProvider::new_with_setup_request_and_setup_backed_keyboard_mapping_request(
+        provider,
+        api,
+        setup_request,
     )
 }
 
@@ -24540,6 +25047,442 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_setup_backed_keyboard_mapping_missing_setup_resource_info_fails() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            286,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(0)),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(1, 2)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestSetupResourceInfoMissing
+        );
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::Failed
+        );
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestPreviouslyFailed {
+                descriptor,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_keyboard_mapping_partial_write_preserves_sequence() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_len = setup_request.len();
+        let setup_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            12,
+            13,
+        );
+        let expected_request = native_window_linux_x11_get_keyboard_mapping_request(12, 2)
+            .unwrap()
+            .as_bytes()
+            .to_vec();
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            287,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(10, 11)),
+        ])
+        .with_write_steps(vec![
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(setup_len),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(4),
+            ScriptedNativeWindowLinuxX11WriteStep::Error(11),
+            ScriptedNativeWindowLinuxX11WriteStep::Bytes(4),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestWriteWouldBlock
+        );
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::RequestPending
+        );
+        assert_eq!(provider.reader().keyboard_mapping_request_written_len(), 4);
+        assert_eq!(provider.reader().keyboard_mapping_request_sequence(), None);
+        assert_eq!(provider.reader().next_x11_request_sequence(), 1);
+
+        let observation = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap();
+
+        assert_eq!(observation.pointer_raw(), Some((10.0, 11.0)));
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::ReplyPending
+        );
+        assert_eq!(provider.reader().keyboard_mapping_request_written_len(), 8);
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_sequence(),
+            Some(1)
+        );
+        assert_eq!(provider.reader().next_x11_request_sequence(), 2);
+        assert_eq!(provider.reader().api().writes[1], expected_request);
+        assert_eq!(provider.reader().api().writes[2], expected_request[4..]);
+        assert_eq!(provider.reader().api().writes[3], expected_request[4..]);
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_keyboard_mapping_reply_preserves_raw_keysyms() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            12,
+            13,
+        );
+        let keysyms = [
+            0x0d, 0xff, 0x00, 0x00, 0x41, 0x00, 0x00, 0x00, 0x42, 0x00, 0x00, 0x00, 0x43, 0x00,
+            0x00, 0x00,
+        ];
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            288,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_keyboard_mapping_reply_packet(1, 2, 4).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(keysyms.to_vec()),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        let error = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+
+        let NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyReceived {
+            reply,
+            raw_keysyms,
+        } = error
+        else {
+            panic!("expected keyboard mapping reply");
+        };
+        assert_eq!(reply.sequence(), 1);
+        assert_eq!(reply.keysyms_per_keycode(), 2);
+        assert_eq!(raw_keysyms.keycode_count(), 2);
+        assert_eq!(raw_keysyms.raw_keysym_count(), 4);
+        assert_eq!(raw_keysyms.raw_keysyms()[0].raw_value(), 0xff0d);
+        assert_eq!(raw_keysyms.raw_keysyms()[3].raw_value(), 0x43);
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::Ready
+        );
+        assert_eq!(provider.reader().keyboard_mapping_request_sequence(), None);
+        assert_eq!(
+            provider
+                .reader()
+                .keyboard_mapping_raw_keysyms()
+                .unwrap()
+                .raw_keysym_count(),
+            4
+        );
+        assert_eq!(
+            provider.reader().pending_keyboard_mapping_reply_header(),
+            None
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .pending_keyboard_mapping_reply_body_remaining_len(),
+            0
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_keyboard_mapping_reply_body_would_block_recovers() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            12,
+            13,
+        );
+        let keysyms_head = vec![0x0d, 0xff, 0x00, 0x00];
+        let keysyms_tail = vec![
+            0x41, 0x00, 0x00, 0x00, 0x42, 0x00, 0x00, 0x00, 0x43, 0x00, 0x00, 0x00,
+        ];
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            289,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_keyboard_mapping_reply_packet(1, 2, 4).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(keysyms_head),
+            ScriptedNativeWindowLinuxX11ReadStep::Error(11),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(keysyms_tail),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyBodyReadWouldBlock {
+                reply: NativeWindowLinuxX11KeyboardMappingReplyHeader {
+                    keysyms_per_keycode: 2,
+                    sequence: 1,
+                    length_units: 4,
+                },
+                remaining_byte_count: 12,
+            }
+        );
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::ReplyPending
+        );
+        assert_eq!(
+            provider.reader().pending_keyboard_mapping_reply_header(),
+            Some(NativeWindowLinuxX11KeyboardMappingReplyHeader {
+                keysyms_per_keycode: 2,
+                sequence: 1,
+                length_units: 4,
+            })
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .pending_keyboard_mapping_reply_body_remaining_len(),
+            12
+        );
+
+        let error = provider
+            .poll_window_event_source_observation(descriptor, input)
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyReceived { .. }
+        ));
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::Ready
+        );
+        assert_eq!(
+            provider
+                .reader()
+                .keyboard_mapping_raw_keysyms()
+                .unwrap()
+                .raw_keysym_count(),
+            4
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_keyboard_mapping_reply_parse_failure_fails_closed() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            12,
+            13,
+        );
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            290,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(
+                scripted_x11_keyboard_mapping_reply_packet(1, 3, 1).to_vec(),
+            ),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(vec![0, 0, 0, 0]),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_motion_notify_event(2, 3)),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingReplyParseFailed {
+                error:
+                    NativeWindowLinuxX11KeyboardMappingReplyParseError::ExpectedBodyByteLenMismatch {
+                        body_byte_len: 4,
+                        expected_body_byte_len: 24,
+                    },
+            }
+        );
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::Failed
+        );
+        assert_eq!(
+            provider.reader().pending_keyboard_mapping_reply_header(),
+            None
+        );
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestPreviouslyFailed {
+                descriptor,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_backed_keyboard_mapping_server_error_is_correlated() {
+        let input = NativeWindowEventPumpInput {
+            previous_size: NativeWindowSize::new(320, 240),
+            previous_mouse_down: false,
+        };
+        let setup_request = NativeWindowLinuxX11SetupRequest::no_authorization();
+        let setup_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            12,
+            13,
+        );
+        let provider = ScriptedNativeWindowLinuxWindowEventSourceProvider::ok(
+            NativeWindowLinuxWindowEventSourceKind::X11Connection,
+            291,
+        );
+        let raw_api = ScriptedNativeWindowLinuxX11EventSourceRawApi::new(vec![
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_setup_success_prefix(
+                setup_body.len(),
+            )),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(setup_body),
+            ScriptedNativeWindowLinuxX11ReadStep::Bytes(scripted_x11_server_error_packet(
+                2,
+                1,
+                12,
+                0,
+                NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_OPCODE,
+            )),
+        ]);
+        let mut provider =
+            native_window_linux_x11_window_event_source_observation_provider_with_setup_and_setup_backed_keyboard_mapping_request(
+                provider,
+                raw_api,
+                setup_request,
+            );
+        let descriptor = provider.window_event_source_descriptor().unwrap();
+
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::ServerErrorReceived {
+                error: NativeWindowLinuxX11ServerErrorPacket {
+                    error_code: 2,
+                    sequence: 1,
+                    bad_value: 12,
+                    minor_opcode: 0,
+                    major_opcode: NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_OPCODE,
+                },
+                correlation: NativeWindowLinuxX11ServerErrorCorrelation::KeyboardMapping {
+                    sequence: 1,
+                },
+            }
+        );
+        assert_eq!(
+            provider.reader().keyboard_mapping_request_state(),
+            NativeWindowLinuxX11KeyboardMappingRequestWriteState::Failed
+        );
+        assert_eq!(
+            provider
+                .poll_window_event_source_observation(descriptor, input)
+                .unwrap_err(),
+            NativeWindowLinuxX11EventSourceObservationError::KeyboardMappingRequestPreviouslyFailed {
+                descriptor,
+            }
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_wm_protocol_atom_assignment_completes_after_both_slots() {
         let wm_protocols_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f1).unwrap();
         let wm_delete_window_atom = NativeWindowLinuxX11AtomId::new(0x0000_00f2).unwrap();
@@ -26667,15 +27610,17 @@ mod tests {
             scripted_x11_expose_event(true).try_into().unwrap();
 
         let configure_observation = native_window_linux_x11_event_packet_to_observation(
-            input, &configure, None, None, None,
+            input, &configure, None, None, None, None,
         )
         .unwrap();
-        let map_observation =
-            native_window_linux_x11_event_packet_to_observation(input, &map, None, None, None)
-                .unwrap();
-        let expose_observation =
-            native_window_linux_x11_event_packet_to_observation(input, &expose, None, None, None)
-                .unwrap();
+        let map_observation = native_window_linux_x11_event_packet_to_observation(
+            input, &map, None, None, None, None,
+        )
+        .unwrap();
+        let expose_observation = native_window_linux_x11_event_packet_to_observation(
+            input, &expose, None, None, None, None,
+        )
+        .unwrap();
 
         assert_eq!(
             configure_observation.event_kind(),
@@ -26932,12 +27877,14 @@ mod tests {
                 .try_into()
                 .unwrap();
 
-        let press_observation =
-            native_window_linux_x11_event_packet_to_observation(input, &press, None, None, None)
-                .unwrap();
-        let release_observation =
-            native_window_linux_x11_event_packet_to_observation(input, &release, None, None, None)
-                .unwrap();
+        let press_observation = native_window_linux_x11_event_packet_to_observation(
+            input, &press, None, None, None, None,
+        )
+        .unwrap();
+        let release_observation = native_window_linux_x11_event_packet_to_observation(
+            input, &release, None, None, None, None,
+        )
+        .unwrap();
 
         assert_eq!(
             press_observation.event_kind(),
@@ -27040,8 +27987,10 @@ mod tests {
                 .unwrap();
 
         assert_eq!(
-            native_window_linux_x11_event_packet_to_observation(input, &packet, None, None, None)
-                .unwrap_err(),
+            native_window_linux_x11_event_packet_to_observation(
+                input, &packet, None, None, None, None
+            )
+            .unwrap_err(),
             NativeWindowLinuxX11EventSourceObservationError::KeyboardKeycodeInvalid {
                 raw_keycode: 0,
             }
@@ -27072,12 +28021,14 @@ mod tests {
             .try_into()
             .unwrap();
 
-        let motion_observation =
-            native_window_linux_x11_event_packet_to_observation(input, &motion, None, None, None)
-                .unwrap();
+        let motion_observation = native_window_linux_x11_event_packet_to_observation(
+            input, &motion, None, None, None, None,
+        )
+        .unwrap();
         let close_observation = native_window_linux_x11_event_packet_to_observation(
             input,
             &close,
+            None,
             None,
             None,
             Some(context),
@@ -27123,6 +28074,7 @@ mod tests {
             &packet,
             None,
             None,
+            None,
             Some(context),
         )
         .unwrap();
@@ -27165,6 +28117,7 @@ mod tests {
             &packet,
             None,
             None,
+            None,
             Some(context),
         )
         .unwrap();
@@ -27195,8 +28148,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            native_window_linux_x11_event_packet_to_observation(input, &packet, None, None, None)
-                .unwrap_err(),
+            native_window_linux_x11_event_packet_to_observation(
+                input, &packet, None, None, None, None
+            )
+            .unwrap_err(),
             NativeWindowLinuxX11EventSourceObservationError::ClientMessageWmProtocolNotRegistered
         );
     }
@@ -27253,6 +28208,7 @@ mod tests {
                 &wrong_format,
                 None,
                 None,
+                None,
                 Some(context),
             )
             .unwrap_err(),
@@ -27265,6 +28221,7 @@ mod tests {
             native_window_linux_x11_event_packet_to_observation(
                 input,
                 &wrong_window,
+                None,
                 None,
                 None,
                 Some(context),
@@ -27281,6 +28238,7 @@ mod tests {
                 &wrong_type,
                 None,
                 None,
+                None,
                 Some(context),
             )
             .unwrap_err(),
@@ -27293,6 +28251,7 @@ mod tests {
             native_window_linux_x11_event_packet_to_observation(
                 input,
                 &wrong_protocol,
+                None,
                 None,
                 None,
                 Some(context),
@@ -27459,6 +28418,7 @@ mod tests {
             native_window_linux_x11_event_packet_to_observation(
                 input,
                 &packet,
+                None,
                 None,
                 provider.reader().wm_protocol_registration_sequence_plan(),
                 provider.reader().registered_wm_protocol_context(),

@@ -1431,6 +1431,18 @@ F5km は、X11 setup success response body から得た `min-keycode` / `max-key
 
 F5km は setup-owned request derivation だけを担当する。`NativeWindowLinuxX11EventSourceObservationReader` への state 追加、raw fd write / read、reply sequence correlation、pending keymap state、raw keysym selection、portable key projection、event decode、IME / text input、shortcut policy、runner、queue、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness へは接続しない。
 
+## F5kn Native Linux X11 setup-owned keyboard mapping reader scheduling boundary
+
+F5kn は、F5km の `NativeWindowLinuxX11SetupKeyboardMappingRequest` を `NativeWindowLinuxX11EventSourceObservationReader` の明示 state に接続し、setup ready 後に `GetKeyboardMapping` request を raw fd へ partial-write し、accepted write boundary を越えた normal X11 request sequence と server reply / error を照合する boundary である。
+
+reader は keymap request lifecycle を `NotConfigured`、`SetupBackedBuildPending`、`RequestPending`、`ReplyPending`、`Ready`、`Failed` のような enum state で保持する。configured path で `setup_resource_info` が無い場合、F5km request build が失敗した場合、write would-block / hard failure / zero write / overflow、reply header / body parse failure、reply body read would-block / failure / EOF、previously failed retry は typed error として返し、silent skip や fallback keymap は作らない。
+
+sequence は 8 byte の `GetKeyboardMapping` request 全体が raw fd write に受理された後だけ割り当てる。partial write では sequence を進めず、would-block は written length と owned request を保持する。server error packet が accepted keymap request sequence と一致する場合は `KeyboardMapping` として typed correlation し、`Unmatched` へ落とさない。
+
+keymap reply は generic server reply body drain で捨ててはいけない。matched sequence の reply は header packet と body bytes を dedicated pending owner に保持し、would-block の場合は同じ body owner から drain を再開する。body が揃った後だけ F5kl parser に渡し、`NativeWindowLinuxX11KeyboardMappingRawKeysyms` を返す。
+
+F5kn は reader scheduling / fd write / reply correlation / raw keysym table owner 生成だけを担当する。X11 keycode からどの keysym を選ぶか、modifier state と group / level の解釈、portable key projection、`native_window_linux_x11_event_packet_to_observation` への接続、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、queue、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。
