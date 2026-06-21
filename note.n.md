@@ -76974,3 +76974,28 @@ MERGE_APPROVED
 - pass with LF/CRLF warnings only: `git diff --check`
 - Tesla の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lu 後続は shadow source formal transport / drain owner、2D compositor drain に分ける。
+
+## 2026-06-22 Agent2 GUI font rendering F5lv shadow source software drain-start boundary
+
+- F5lv では、F5lu prepared command owner と `GuiRgba8888SoftwareSurfaceOwner` を同時に消費し、後続の bounded shadow SourceOver drain step が使う cursor owner を作る境界を追加した。
+- Maxwell の plan review は `PLAN_APPROVED`。F5bp と同じ drain-start cursor boundary に限定し、pixel write / SourceOver / dirty region は後続へ残す方針で承認された。
+- shadow 固有条件として、F5lt record derivation が返す lower F5lp `order_error` を F5lv owner-bearing start error にも `Option` として保持する方針にした。
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner` は prepared owner、surface owner、`cell_index` を保持し、Clone / Copy を実装しない。start 成功時だけ `cell_index = 0` の owner を返す。
+- start validation は prepared owner 内の registered resource / reservation から expected record を再導出し、stored record と F5lu record equality で比較してから、private command validation helper 内だけで `RenderCommand::AlphaMaskRect` payload を検査する。
+- start error / rejected owner は prepared owner と surface owner を pair のまま回収する。prepared だけ、surface だけを取り出す consuming split accessor は作らない。
+- この checkpoint は pixel write、pixel read、SourceOver 合成、dirty region、F5lq cursor、F5lr sample command bridge、resource table lookup / register / push、platform / host / backend API、font fallback、zero-fill fallback、tile / bitmap transport、2D compositor drain を扱わない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest、`todo.md` を F5lv contract へ更新した。
+- `plan.md` との差異はない。plan.md の前置記法と stdlib 方針に沿って、F5lu の dangling command 防止境界の後続として prepared/surface pair の owner/lifetime 境界だけを切り出した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: focused doctest `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md` (`1/1`)
+- pass: F5lu prepared command regression (`1/1`)
+- pass: F5lt resource table regression (`1/1`)
+- pass: F5ls resource reservation regression (`1/1`)
+- pass: render2d software surface regression (`2/2`)
+- pass: `stdlib/alloc/gui/font/sfnt/glyf.nepl` full doctest (`1334/1334`)
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lv.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+- Maxwell の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5lv 後続は bounded shadow SourceOver drain step、dirty region、2D compositor drain に分ける。

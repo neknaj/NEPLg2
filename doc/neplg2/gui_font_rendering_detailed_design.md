@@ -8083,6 +8083,52 @@ GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError:
 
 F5lu must not call `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, resource table lookup/register/push, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, shadow rasterizers, software surfaces, alpha Vec copy helpers, owner-bearing Vec payload storage, tile / bitmap transport, or a 2D compositor drain. It may call `render_command_alpha_mask_rect` only in the validated success path and only to store the command inside the prepared owner.
 
+## SFNT simple glyph render shadow source software drain-start boundary
+
+F5lv consumes the F5lu prepared command owner and a shared render2d `GuiRgba8888SoftwareSurfaceOwner` together. It creates a cursor owner for the later bounded shadow SourceOver drain step. This is only a drain-start boundary: it does not write pixels, read pixels, run SourceOver, create dirty metadata, publish a tile or bitmap payload, call a host present API, or drain a compositor.
+
+The owner is private:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:
+    prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    cell_index i32
+```
+
+The start error owns both input owners and keeps lower F5lp order evidence:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError:
+    kind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
+    prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+```
+
+The validation helper uses value-level errors before the consuming start function builds the owner-bearing start error. That keeps the prepared owner and surface owner unmoved until all checks have completed. The validation order is fixed:
+
+```text
+borrow prepared and surface
+read stored record from prepared.resource
+borrow prepared.resource.reservation
+derive expected record through F5lt record_from_reservation
+map lower record errors to F5lv errors and preserve lower order_error
+compare stored and expected record through F5lu record equality
+validate record width, height, cell_count, and alpha_max
+inspect the private command field only inside command payload validation
+accept only RenderCommand::AlphaMaskRect
+compare command mask id, rect, and paint to the rederived record
+validate rect origin, positive size, checked right/bottom extents, and surface containment
+return cell_index 0 owner only after success
+```
+
+The command field carveout is intentionally narrow. F5lv may borrow `prepared.command` only in the private command payload validator. It still must not expose the command, return it, pass it to arbitrary callbacks, or treat command validation as command stream emission.
+
+Recovery is paired. Start error recovery returns a rejected owner containing both prepared and surface. `rejected_with` passes both owners to one callback. There are no consuming split accessors for only the prepared owner or only the surface owner. Free helpers close the prepared side first and then free the software surface; surface free failure maps to `SurfaceFreeFailed`.
+
+F5lv must not call `gui_rgba8888_software_surface_write_pixel`, `gui_rgba8888_software_surface_read_pixel`, `gui_rgba8888_source_over_alpha_mask`, `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, resource table lookup/register/push, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, dirty-region helpers, tile / bitmap transport, or a 2D compositor drain.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

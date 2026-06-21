@@ -524,6 +524,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommand
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourceTableTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourcePreparedCommandTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_prepared_command.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
@@ -19318,8 +19319,9 @@ assert(
         spec.includes("order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind"),
     "GUI font docs must pin F5lu approved plan, raw command escape ban, and lower order evidence preservation",
 );
-const renderShadowSourceResourcePreparedCommandEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceResourcePreparedCommandStartIndex);
-assert(renderShadowSourceResourcePreparedCommandStartIndex >= 0 && renderShadowSourceResourcePreparedCommandEndIndex > renderShadowSourceResourcePreparedCommandStartIndex, "alloc/gui/font/sfnt/glyf F5lu shadow source prepared command region must exist before stroke segment plan");
+const renderShadowSourceSoftwareDrainStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:", renderShadowSourceResourcePreparedCommandStartIndex);
+const renderShadowSourceResourcePreparedCommandEndIndex = renderShadowSourceSoftwareDrainStartIndex;
+assert(renderShadowSourceResourcePreparedCommandStartIndex >= 0 && renderShadowSourceResourcePreparedCommandEndIndex > renderShadowSourceResourcePreparedCommandStartIndex, "alloc/gui/font/sfnt/glyf F5lu shadow source prepared command region must exist before software drain start");
 const renderShadowSourceResourcePreparedCommandRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceResourcePreparedCommandStartIndex, renderShadowSourceResourcePreparedCommandEndIndex);
 for (const fragment of [
     "struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner:",
@@ -19511,6 +19513,317 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourcePreparedCommandTests.includes("render_shadow_source_resource_prepared_command_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceResourcePreparedCommandTests.includes("render_shadow_source_resource_prepared_command_no_stream_platform_compositor"),
     "F5lu render shadow source resource prepared command focused doctest must cover owner pair, no raw command escape, lower order evidence, revalidation, equality, order metadata, SourceOver, mismatch, recovery, free, and no stream/platform/compositor policy",
+);
+assert(spec.includes("### SFNT simple glyph render shadow source software drain-start boundary"), "GUI font spec must document F5lv render shadow source software drain-start boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render shadow source software drain-start boundary"), "GUI font detailed design must document F5lv render shadow source software drain-start boundary");
+assert(implementationPlan.includes("## Phase F5lv: sfnt simple glyph render shadow source software drain-start owner boundary"), "GUI font implementation plan must include F5lv phase");
+assert(
+    implementationPlan.includes("Maxwell plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("lower `order_error` evidence") &&
+        detailedDesign.includes("does not write pixels") &&
+        detailedDesign.includes("keeps lower F5lp order evidence") &&
+        spec.includes("pixel write") &&
+        spec.includes("order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind"),
+    "GUI font docs must pin F5lv approved plan, no-pixel-write start boundary, lower order evidence, and owner-bearing start error",
+);
+const renderShadowSourceSoftwareDrainEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceSoftwareDrainStartIndex);
+assert(renderShadowSourceSoftwareDrainStartIndex >= 0 && renderShadowSourceSoftwareDrainEndIndex > renderShadowSourceSoftwareDrainStartIndex, "alloc/gui/font/sfnt/glyf F5lv shadow source software drain region must exist before stroke segment plan");
+const renderShadowSourceSoftwareDrainRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceSoftwareDrainStartIndex, renderShadowSourceSoftwareDrainEndIndex);
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:",
+    "prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner",
+    "surface %GuiRgba8888SoftwareSurfaceOwner",
+    "cell_index %i32",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError:",
+    "kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind",
+    "order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError:",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected:",
+]) {
+    assert(renderShadowSourceSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lv software drain region must include ${fragment}`);
+}
+for (const fragment of [
+    "UnexpectedCommand",
+    "InvalidMaskId",
+    "CompositionOrderInvariantFailed",
+    "ShadowShapeInvalidWidth",
+    "ShadowShapeInvalidHeight",
+    "ShadowShapeInvalidSampleScale",
+    "ShadowShapeCoverageMaxMismatch",
+    "ShadowShapeCellCountMismatch",
+    "InvalidAlphaMax",
+    "ShadowAlphaCellCountMismatch",
+    "ShadowAlphaStorageLenMismatch",
+    "ShadowAlphaStorageCapacityMismatch",
+    "UnsupportedBlendMode",
+    "RectXOverflow",
+    "RectYOverflow",
+    "RectMetadataMismatch",
+    "PaintMetadataMismatch",
+    "ShadowOrderMetadataMismatch",
+    "SourceOrderMetadataMismatch",
+    "ResourceRecordMismatch",
+    "UnexpectedTableRegisterState",
+    "CommandMaskIdMismatch",
+    "CommandRectMismatch",
+    "CommandPaintMismatch",
+    "RectInvalidOrigin",
+    "RectInvalidSize",
+    "RectRightOverflow",
+    "RectBottomOverflow",
+    "SurfaceInvalidGeometry",
+    "SurfaceBoundsMismatch",
+    "SurfaceFreeFailed",
+]) {
+    assert(renderShadowSourceSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lv software drain error kind must include ${fragment}`);
+}
+assertNoMatch(
+    renderShadowSourceSoftwareDrainRegion,
+    /impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError:|impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected:|impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected:/,
+    "alloc/gui/font/sfnt/glyf F5lv owner-bearing drain values must not implement Clone or Copy",
+);
+for (const fragment of [
+    "impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind",
+    "impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind",
+]) {
+    assert(renderShadowSourceSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lv value-only error kind must implement ${fragment}`);
+}
+assertNoMatch(
+    renderShadowSourceSoftwareDrainRegion,
+    /\bgui_sfnt_simple_glyph_render_shadow_source_software_drain_(?:owner|start_error|rejected)_(?:prepared|surface)\b/,
+    "alloc/gui/font/sfnt/glyf F5lv must not expose split consuming accessors for prepared owner or surface owner",
+);
+const renderShadowSourceSoftwareDrainValidationErrorSimple = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple");
+const renderShadowSourceSoftwareDrainValidationErrorOrder = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_order_error");
+const renderShadowSourceSoftwareDrainStartErrorOrder = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_order_error");
+const renderShadowSourceSoftwareDrainErrorRejected = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected");
+const renderShadowSourceSoftwareDrainRejectedWith = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_rejected_with");
+const renderShadowSourceSoftwareDrainErrorMap = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_table_register");
+const renderShadowSourceSoftwareDrainRehydrateRecord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record");
+const renderShadowSourceSoftwareDrainValidateRecordShape = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_shape");
+const renderShadowSourceSoftwareDrainValidateCommandPayload = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_payload");
+const renderShadowSourceSoftwareDrainValidateRectSurface = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surface");
+const renderShadowSourceSoftwareDrainValidateStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start");
+const renderShadowSourceSoftwareDrainStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start");
+const renderShadowSourceSoftwareDrainOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free");
+const renderShadowSourceSoftwareDrainStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_free");
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainValidationErrorSimple,
+    [
+        "let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error kind order_error",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv simple validation errors must carry no lower order evidence",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainValidationErrorOrder,
+    [
+        "field::get_ref error \"order_error\"",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv validation error must expose lower F5lp order evidence as metadata",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainStartErrorOrder,
+    [
+        "field::get_ref error \"order_error\"",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv start error must expose lower F5lp order evidence as metadata",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainErrorRejected,
+    [
+        "field::get error \"prepared\"",
+        "field::get error \"surface\"",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected prepared surface",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv start error rejected must keep prepared owner and surface owner paired",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainRejectedWith,
+    [
+        "field::get rejected \"prepared\"",
+        "field::get rejected \"surface\"",
+        "callback prepared surface",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv rejected recovery continuation must pass prepared owner and surface owner together",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainErrorMap,
+    [
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::InvalidMaskId",
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::CompositionOrderInvariantFailed",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CompositionOrderInvariantFailed",
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::UnsupportedBlendMode",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnsupportedBlendMode",
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowOrderMetadataMismatch",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowOrderMetadataMismatch",
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::DuplicateMaskId",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedTableRegisterState",
+        "GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedTableRegisterState",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv must map lower table validation errors and unreachable table states explicitly",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainRehydrateRecord,
+    [
+        "field::get_ref prepared \"resource\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource",
+        "field::get_ref resource \"reservation\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation reservation",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind &record_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_table_register lower_kind",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error &record_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error error_kind order_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_equal &stored_record &expected_record",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ResourceRecordMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv must rederive registered resource record from internal reservation and preserve lower order evidence",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainValidateRecordShape,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px record",
+        "le width_px 0",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px record",
+        "le height_px 0",
+        "gt width_px div_s max_i32 height_px",
+        "let expected_cell_count %i32 mul width_px height_px",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count record",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max record",
+        "le alpha_max 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv must validate shadow record dimensions and alpha metadata before cursor creation",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainValidateCommandPayload,
+    [
+        "field::get_ref prepared \"command\"",
+        "match *command",
+        "RenderCommand::AlphaMaskRect payload",
+        "alpha_mask_rect_command_mask_id &payload",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id record",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CommandMaskIdMismatch",
+        "alpha_mask_rect_command_rect &payload",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect record",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CommandRectMismatch",
+        "alpha_mask_rect_command_paint &payload",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint record",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CommandPaintMismatch",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedCommand",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv command validation may inspect private command only inside start validation helper",
+);
+const renderShadowSourceSoftwareDrainWithoutCommandValidation = renderShadowSourceSoftwareDrainRegion.replace(renderShadowSourceSoftwareDrainValidateCommandPayload, "");
+assertNoMatch(
+    renderShadowSourceSoftwareDrainWithoutCommandValidation,
+    /\bfield::get(?:_ref)?\s+(?:prepared|owner)\s+"command"\b|%fn\s+&GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner\s+RenderCommand|%fn\s+GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner\s+RenderCommand|\bcallback\s+prepared\s+surface\s+command\b/,
+    "alloc/gui/font/sfnt/glyf F5lv must not expose or inspect raw command outside command validation helper",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainValidateRectSurface,
+    [
+        "gui_rect_x &rect",
+        "gui_rect_y &rect",
+        "or lt x 0 lt y 0",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectInvalidOrigin",
+        "gui_rect_width &rect",
+        "gui_rect_height &rect",
+        "or le width 0 le height 0",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectInvalidSize",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px record",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px record",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent x width GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectRightOverflow",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent y height GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectBottomOverflow",
+        "gui_rgba8888_software_surface_width surface",
+        "gui_rgba8888_software_surface_height surface",
+        "or gt right surface_width gt bottom surface_height",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceBoundsMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv must validate rect and surface containment with checked extents",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainValidateStart,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record prepared",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_shape &record",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_payload prepared &record",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surface &record surface",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv validate start must compose revalidation, command payload, and surface checks",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainStart,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start &prepared &surface",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_kind &validation_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_order_error &validation_error",
+        "Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error error_kind prepared surface order_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner prepared surface 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv start must preserve lower order evidence and return cell_index zero only after validation succeeds",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainOwnerFree,
+    [
+        "field::get owner \"prepared\"",
+        "field::get owner \"surface\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_free prepared",
+        "gui_rgba8888_software_surface_free surface",
+        "GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceFreeFailed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv owner free must close prepared owner and surface owner together",
+);
+assertOrderedFragments(
+    renderShadowSourceSoftwareDrainStartErrorFree,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected error",
+        "field::get rejected \"prepared\"",
+        "field::get rejected \"surface\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner prepared surface 0",
+        "gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lv start error free must recover paired rejected owners before freeing",
+);
+for (const [slice, name] of [
+    [renderShadowSourceSoftwareDrainValidationErrorSimple, "validation error simple"],
+    [renderShadowSourceSoftwareDrainValidationErrorOrder, "validation error lower order accessor"],
+    [renderShadowSourceSoftwareDrainStartErrorOrder, "start error lower order accessor"],
+    [renderShadowSourceSoftwareDrainErrorRejected, "start error rejected"],
+    [renderShadowSourceSoftwareDrainRejectedWith, "rejected continuation"],
+    [renderShadowSourceSoftwareDrainErrorMap, "error map"],
+    [renderShadowSourceSoftwareDrainRehydrateRecord, "record rederive"],
+    [renderShadowSourceSoftwareDrainValidateRecordShape, "record shape validation"],
+    [renderShadowSourceSoftwareDrainValidateCommandPayload, "command payload validation"],
+    [renderShadowSourceSoftwareDrainValidateRectSurface, "rect surface validation"],
+    [renderShadowSourceSoftwareDrainValidateStart, "start validation"],
+    [renderShadowSourceSoftwareDrainStart, "start"],
+    [renderShadowSourceSoftwareDrainOwnerFree, "owner free"],
+    [renderShadowSourceSoftwareDrainStartErrorFree, "start error free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_rgba8888_software_surface_write_pixel|gui_rgba8888_software_surface_read_pixel|gui_rgba8888_source_over_alpha_mask|dirty_region_|render_command_|gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_(?:start|read|step|free|terminal_free)|gui_sfnt_simple_glyph_render_shadow_source_sample_render_command|gui_sfnt_simple_glyph_render_shadow_source_sample_command|gui_sfnt_simple_glyph_render_shadow_source_resource_table_lookup|gui_sfnt_simple_glyph_render_shadow_source_resource_table_register\b|gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains|RenderTarget|DrawTarget|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|shadow_raster|compositor|tile|bitmap|transport|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderStrokePackedMask|gui_sfnt_simple_glyph_render_stroke_packed_mask|GuiSfntSimpleGlyphRenderStrokeCoverageMask|gui_sfnt_simple_glyph_render_stroke_coverage_mask|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5lv ${name} must not write/read pixels, run SourceOver, use targets/platforms/fallback, sample cursor, table lookup/mutation, dirty region, transport, or owner-bearing vec copy`,
+    );
+    assertNoMatch(slice, /\bgui_rect_right\b|\bgui_rect_bottom\b/, `alloc/gui/font/sfnt/glyf F5lv ${name} must not use unchecked rect extent helpers`);
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lv ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_start_cursor_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_no_pixel_write_yet_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_paired_owner_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_no_split_accessor_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_private_command_validation_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_lower_order_evidence_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_registered_resource_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_command_payload_match_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_checked_geometry_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_surface_containment_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSoftwareDrainTests.includes("render_shadow_source_software_drain_no_target_platform_fallback"),
+    "F5lv render shadow source software drain focused doctest must cover start cursor owner, no pixel write, pair recovery, no split accessor, command validation, lower order evidence, revalidation, geometry, surface containment, free, and no target/platform/fallback policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");

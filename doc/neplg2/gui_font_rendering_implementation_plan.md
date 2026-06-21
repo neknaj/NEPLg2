@@ -3924,6 +3924,61 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lu.json
 ```
 
+## Phase F5lv: sfnt simple glyph render shadow source software drain-start owner boundary
+
+目的:
+
+- F5lu prepared command owner と F5bo software RGBA8888 surface owner を同時に消費する。
+- completed drain ではなく、後続の bounded shadow SourceOver drain step が使う cursor owner を作る。
+- F5lp lower `order_error` evidence を drain-start error まで保持する。
+- この phase では pixel write、pixel read、SourceOver 合成、dirty region、tile / bitmap transport、host present、2D compositor drain は実行しない。
+- raw `RenderCommand` escape を再導入せず、private command field は start validation helper 内だけで読む。
+- error recovery は prepared owner と surface owner を pair のまま扱い、片方だけを取り出す consuming accessor を作らない。
+
+plan review:
+
+- Maxwell plan review は `PLAN_APPROVED`。
+- F5bp と同じ drain-start cursor boundary に限定し、pixel write / SourceOver / dirty region は後続へ残す。
+- shadow 固有条件として、F5lt record derivation が返す lower F5lp `order_error` を F5lv の owner-bearing start error にも `Option` として保持する。
+- command validation helper は private command field の narrow carveout とし、raw command accessor / borrow / callback は作らない。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner` を追加する。prepared owner、surface owner、`cell_index` を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind`、value-level start validation error、owner-bearing start error、rejected owner を追加する。
+- start error は `order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind` を持ち、F5lp composition invariant failure の lower evidence を保持する。
+- start error から rejected owner を作り、`rejected_with` callback で prepared owner と surface owner を同時に回収する。split consuming accessor は作らない。
+- start validation は prepared owner の registered resource を internal reservation から再検証し、stored record と rederived record を F5lu record equality で比較する。
+- command payload validation は private `command` field を内部で読み、`RenderCommand::AlphaMaskRect` だけを受理し、mask id、rect、paint を rederived record と比較する。
+- rect / surface validation は origin、size、checked right、checked bottom、surface containment を順に検査する。
+- `gui_sfnt_simple_glyph_render_shadow_source_software_drain_start` は validation 成功時だけ `cell_index = 0` の owner を返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md` を追加し、source policy coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5lv source policy を追加する。
+
+完了条件:
+
+- source policy が docs、Maxwell approval、drain-start cursor boundary、owner no `Clone` / `Copy`、owner-bearing error no `Clone` / `Copy`、paired recovery、split accessor 禁止、private command field の start validation helper 限定、lower `order_error` preservation、registered resource revalidation、command payload equality、checked geometry、surface containment、no pixel write/read、no SourceOver、no dirty region、no target / platform / fallback / transport / compositor、括弧なし prefix style、focused doctest coverage label を検査する。
+- focused doctest と F5lu / F5lt / F5ls / render2d software surface 回帰、source policy が通る。
+- implementation review で pixel write へ進んでいないこと、raw command escape がないこと、lower order evidence と paired owner recovery が維持されていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lv 後の bounded shadow SourceOver drain step、dirty region、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_f5lv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_prepared_command_f5lv_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_table_f5lv_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_f5lv_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5lv_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lv.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lv.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
