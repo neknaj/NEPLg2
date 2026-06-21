@@ -103,6 +103,8 @@ const allocRender2dBitmapFrame = read("stdlib/alloc/gui/render2d/bitmap_frame.ne
 const allocRender2dBitmapFrameImpl = withoutComments(allocRender2dBitmapFrame);
 const allocRender2dCompositorFrameEntry = read("stdlib/alloc/gui/render2d/compositor_frame_entry.nepl");
 const allocRender2dCompositorFrameEntryImpl = withoutComments(allocRender2dCompositorFrameEntry);
+const allocRender2dCompositorBatchDrain = read("stdlib/alloc/gui/render2d/compositor_batch_drain.nepl");
+const allocRender2dCompositorBatchDrainImpl = withoutComments(allocRender2dCompositorBatchDrain);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -347,6 +349,7 @@ const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
 const guiRender2dCompositorFrameEntryTests = read("tests/stdlib/gui_render2d_compositor_frame_entry.n.md");
+const guiRender2dCompositorBatchDrainTests = read("tests/stdlib/gui_render2d_compositor_batch_drain.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -26269,6 +26272,120 @@ assert(
         guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_invalid_max_rows_recovery_ok") &&
         guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_no_transport_no_platform_no_fallback"),
     "F5lz compositor frame entry focused doctest must cover facade, empty/full success metadata, invalid frame/max-row owner recovery, and no transport/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5ma") &&
+            doc.includes("compositor batch drain") &&
+            doc.includes("GuiRgba8888CompositorBatchDrainTerminal") &&
+            doc.includes("gui_rgba8888_row_batch_drain_budget") &&
+            doc.includes("row batch range") &&
+            doc.includes("fallback"),
+        `F5ma ${name} must document compositor batch drain delegation, metadata recovery, deferred payload transport, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5ma") &&
+        implementationPlan.includes("Hilbert plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("lower `gui_rgba8888_row_batch_drain_budget` を 1 回だけ") &&
+        implementationPlan.includes("metadata は `entry` を `finish_cursor` する前"),
+    "F5ma implementation plan must retain plan review approval, exact lower-drain call, and metadata-before-finish refinements",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_batch_drain" as *'), "alloc/gui/render2d facade must export F5ma compositor batch drain");
+assert(
+    allocRender2dCompositorBatchDrainImpl.includes("pub enum GuiRgba8888CompositorBatchDrainStatus:") &&
+        allocRender2dCompositorBatchDrainImpl.includes("Completed") &&
+        allocRender2dCompositorBatchDrainImpl.includes("StepBudgetExhausted") &&
+        allocRender2dCompositorBatchDrainImpl.includes("pub enum GuiRgba8888CompositorBatchDrainErrorKind:") &&
+        allocRender2dCompositorBatchDrainImpl.includes("RowBatchDrainFailed %GuiRgba8888RowBatchDrainErrorKind") &&
+        allocRender2dCompositorBatchDrainImpl.includes("pub struct GuiRgba8888CompositorBatchDrainTerminal:") &&
+        allocRender2dCompositorBatchDrainImpl.includes("terminal %GuiRgba8888RowBatchDrainTerminal") &&
+        allocRender2dCompositorBatchDrainImpl.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorBatchDrainImpl.includes("pub struct GuiRgba8888CompositorBatchDrainError:") &&
+        allocRender2dCompositorBatchDrainImpl.includes("error %GuiRgba8888RowBatchDrainError"),
+    "alloc/gui/render2d/compositor_batch_drain F5ma must define typed status, lower drain error kind, and metadata-preserving terminal/error owners",
+);
+assertNoMatch(
+    allocRender2dCompositorBatchDrainImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorBatchDrainTerminal|GuiRgba8888CompositorBatchDrainError)\b/,
+    "alloc/gui/render2d/compositor_batch_drain F5ma terminal and error owners must not implement Clone or Copy",
+);
+const compositorBatchDrainBudget = functionSlice(allocRender2dCompositorBatchDrainImpl, "gui_rgba8888_compositor_batch_drain_budget");
+assertOrderedFragments(
+    compositorBatchDrainBudget,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata &entry",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor entry",
+        "match gui_rgba8888_row_batch_drain_budget cursor remaining_batches:",
+        "Result::Err gui_rgba8888_compositor_batch_drain_error_new lower metadata",
+        "let lower_status %GuiRgba8888RowBatchDrainStatus gui_rgba8888_row_batch_drain_terminal_status &lower_terminal",
+        "Result::Ok gui_rgba8888_compositor_batch_drain_terminal_new status lower_terminal metadata",
+    ],
+    "alloc/gui/render2d/compositor_batch_drain F5ma must copy metadata before finishing entry cursor and delegate once to lower row batch drain",
+);
+assert(
+    (compositorBatchDrainBudget.match(/\bgui_rgba8888_row_batch_drain_budget\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_batch_drain F5ma budget helper must call lower row batch drain exactly once",
+);
+assertNoMatch(
+    compositorBatchDrainBudget,
+    /\b(?:gui_rgba8888_row_batch_cursor_status|gui_rgba8888_row_batch_cursor_next_batch|row_batch_range|row_byte|row_tile|rle|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_batch_drain F5ma budget helper must not reimplement lower cursor drain or enter payload/host/platform/fallback APIs",
+);
+assertNoMatch(
+    compositorBatchDrainBudget,
+    /[()]/,
+    "alloc/gui/render2d/compositor_batch_drain F5ma budget helper must preserve NEPL prefix style without parentheses",
+);
+const compositorBatchDrainErrorNew = functionSlice(allocRender2dCompositorBatchDrainImpl, "gui_rgba8888_compositor_batch_drain_error_new");
+assertOrderedFragments(
+    compositorBatchDrainErrorNew,
+    [
+        "let lower_kind %GuiRgba8888RowBatchDrainErrorKind gui_rgba8888_row_batch_drain_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_batch_drain_error_category_value &lower",
+        "GuiRgba8888CompositorBatchDrainErrorKind::RowBatchDrainFailed lower_kind",
+        "GuiRgba8888CompositorBatchDrainError kind category lower metadata",
+    ],
+    "alloc/gui/render2d/compositor_batch_drain F5ma error wrapper must read lower kind/category before storing lower owner-bearing error",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorBatchDrainImpl, "gui_rgba8888_compositor_batch_drain_terminal_finish_entry"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_terminal_metadata &terminal",
+        "let lower %GuiRgba8888RowBatchDrainTerminal field::get terminal \"terminal\"",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_terminal_finish_cursor lower",
+        "GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+    ],
+    "alloc/gui/render2d/compositor_batch_drain F5ma terminal recovery must copy metadata before consuming lower terminal",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorBatchDrainImpl, "gui_rgba8888_compositor_batch_drain_error_finish_entry"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_error_metadata &error",
+        "let lower %GuiRgba8888RowBatchDrainError field::get error \"error\"",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_error_cursor lower",
+        "GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+    ],
+    "alloc/gui/render2d/compositor_batch_drain F5ma error recovery must copy metadata before consuming lower error",
+);
+assertNoMatch(
+    allocRender2dCompositorBatchDrainImpl,
+    /\bgui_rgba8888_compositor_batch_drain_(?:row_batch_range|row_byte|row_tile|rle|present|publish|host|platform|video_memory)\b/,
+    "alloc/gui/render2d/compositor_batch_drain F5ma must not expose payload, RLE, present, host, or platform APIs",
+);
+assert(
+    guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_facade_ok") &&
+        guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_empty_negative_complete_ok") &&
+        guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_full_budget_continuation_ok") &&
+        guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_negative_budget_recovery_ok") &&
+        guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_metadata_recovery_ok") &&
+        guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_no_payload_no_platform_no_fallback"),
+    "F5ma compositor batch drain focused doctest must cover facade, empty complete, full budget continuation, negative budget recovery, metadata recovery, and no payload/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

@@ -6,7 +6,7 @@
 //: - font rasterizer、widget renderer、offscreen screenshot が同じ surface owner contract を使えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、compositor frame entry owner、row batch plan / cursor / drain / range / byte storage / row tile plan / row tile payload view / row tile RLE cursor / drain / count / completed count owner / encode seed owner / encode cursor owner / writer plan owner / encoded storage owner / sealed encoded owner / packet owner / typed packet record reader、SourceOver alpha-mask 合成 helper を公開します。
+//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、compositor frame entry / batch drain owner、row batch plan / cursor / drain / range / byte storage / row tile plan / row tile payload view / row tile RLE cursor / drain / count / completed count owner / encode seed owner / encode cursor owner / writer plan owner / encoded storage owner / sealed encoded owner / packet owner / typed packet record reader、SourceOver alpha-mask 合成 helper を公開します。
 //: - platform surface、window、DrawTarget、RenderTarget への接続は含めません。
 //:
 //: ### [注意/ちゅうい]
@@ -24,6 +24,7 @@ pub #import "./render2d/software_surface" as *
 pub #import "./render2d/dirty_surface" as *
 pub #import "./render2d/bitmap_frame" as *
 pub #import "./render2d/compositor_frame_entry" as *
+pub #import "./render2d/compositor_batch_drain" as *
 pub #import "./render2d/row_batch_plan" as *
 pub #import "./render2d/row_batch_cursor" as *
 pub #import "./render2d/row_batch_drain" as *

@@ -8248,6 +8248,23 @@ The metadata copy is taken before `gui_rgba8888_row_batch_cursor_start` because 
 
 F5lz is not row batch drain, row range, row byte storage, tile payload, RLE transport, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
 
+## Render2d compositor batch drain boundary
+
+F5ma is the first scheduler continuation above the F5lz entry owner. It consumes `GuiRgba8888CompositorFrameEntryOwner` and a caller supplied batch budget, but it does not inspect row batch cursor status or call `next_batch` itself. The entire progress decision remains inside F5bx:
+
+```text
+metadata = copy entry metadata
+cursor = gui_rgba8888_compositor_frame_entry_finish_cursor entry
+terminal_or_error = gui_rgba8888_row_batch_drain_budget cursor remaining_batches
+wrap lower terminal/error with metadata
+```
+
+This boundary exists because later compositor drain phases need the F5lz frame metadata even after the row batch cursor has moved through scheduler slices. `GuiRgba8888CompositorBatchDrainTerminal` keeps the mapped compositor status, the lower `GuiRgba8888RowBatchDrainTerminal`, and the copied metadata. `GuiRgba8888CompositorBatchDrainError` keeps `RowBatchDrainFailed lower_kind`, the lower category, the lower owner-bearing error, and the copied metadata. Both are owner-bearing and must not implement `Clone` / `Copy`.
+
+The wrapper must copy metadata before `finish_cursor`. `terminal_finish_entry` and `error_finish_entry` must also copy wrapper metadata before consuming the lower terminal/error. This preserves a recoverable `GuiRgba8888CompositorFrameEntryOwner` for both `StepBudgetExhausted` continuation and owner-bearing error recovery. Empty dirty completion with a negative budget and ready-cursor negative budget remain lower row batch drain semantics; F5ma only preserves the compositor metadata and maps the lower status/kind.
+
+F5ma must call `gui_rgba8888_row_batch_drain_budget` exactly once. It must not call `gui_rgba8888_row_batch_cursor_status`, `gui_rgba8888_row_batch_cursor_next_batch`, row batch range, row byte storage, row tile plan/payload, RLE encode, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

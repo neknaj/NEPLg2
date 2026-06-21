@@ -79450,3 +79450,27 @@ MERGE_APPROVED
 - Rawls の initial implementation review は `REVIEW_BLOCKED`。code 本体の blocker はなく、commit 対象の新規ファイル未 tracking とこの note 未更新が blocker だったため、明示的な staging と note 更新で対応する。
 - Rawls follow-up implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lz 後続は row batch drain / range / row byte storage / tile / RLE と std present への compositor drain continuation に分ける。
+
+## 2026-06-22 Agent2 GUI render2d F5ma compositor batch drain continuation boundary
+
+- F5ma では、F5lz の `GuiRgba8888CompositorFrameEntryOwner` を F5bx `gui_rgba8888_row_batch_drain_budget` へ 1 回だけ委譲する `alloc/gui/render2d/compositor_batch_drain` を追加した。
+- `GuiRgba8888CompositorBatchDrainStatus`、`GuiRgba8888CompositorBatchDrainErrorKind`、`GuiRgba8888CompositorBatchDrainTerminal`、`GuiRgba8888CompositorBatchDrainError` を追加した。status / kind は Copy、terminal / error は lower owner と metadata を保持する owner-bearing struct で Clone / Copy なし。
+- `gui_rgba8888_compositor_batch_drain_budget` は `entry` を `finish_cursor` する前に metadata を Copy し、lower drain terminal / error を metadata と束ねる。terminal / error から entry owner を再構成するときも、lower terminal / error を消費する前に wrapper metadata を読む。
+- F5ma は row batch cursor status / next batch を再実装せず、row batch range、row byte storage、tile / RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、transport、fallback / silent no-op へ進まない。
+- empty dirty + negative budget は lower drain の complete-first contract に従って Completed になる。ready cursor + negative budget は `InvalidBudget` error として entry owner と metadata を回収できる。この違いを focused doctest で別々に固定した。
+- focused doctest は最初、未使用の `bitmap_frame` import により 180 秒 timeout を越えた。根本対応として不要 import を削り、同じ契約を 180 秒 timeout 内で通した。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_batch_drain.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5ma contract に合わせて更新した。
+- `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5ma.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_batch_drain.nepl --no-tree -o tmp_gui_render2d_compositor_batch_drain_module_f5ma.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp_gui_render2d_compositor_frame_entry_f5ma_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5ma_regression.json -j 1`。5/5。
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ma.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- Hilbert plan review は `PLAN_APPROVED`。
+- Hilbert initial implementation review は `REVIEW_CHANGES_REQUESTED`。code 本体の blocker はなく、新規 `stdlib/alloc/gui/render2d/compositor_batch_drain.nepl` / `tests/stdlib/gui_render2d_compositor_batch_drain.n.md` が未 tracking のまま commit される危険と、この note の review status 未反映が blocker だったため、明示 staging と note 更新で対応する。
+- Hilbert follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 10 files のみで、新規 module / focused doctest が含まれ、F5ma implementation contract と docs / source policy に commit-blocking finding は無い。
+- F5ma 後続は row batch range / row byte storage / tile / RLE と std present への payload transport / present continuation に分ける。
