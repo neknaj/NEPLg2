@@ -7087,6 +7087,72 @@ LineTo and QuadraticTo handling first reads the next F5ku metric at `metric_prov
 
 F5kw does not create offset points, decide joins/caps, expand dashes, clip miters, allocate stroke edges, build coverage or packed masks, emit render commands, write pixels, call platform APIs, resolve font fallback, or infer contour boundaries from coordinate equality.
 
+## SFNT simple glyph render stroke offset geometry boundary
+
+F5kx consumes the completed F5kw source contour owner as the only geometry authority. This prevents the geometry expansion from falling back to the F5ku metric owner alone, the F5ba/F5az scalar stream, byte-backed glyph lookup, fill mask output, or a raster edge owner. The completed F5kw owner already ties each drawable metric slot to path command index, contour edge, contour span, command tag, and source coordinate guard, so F5kx must drain that owner rather than rediscovering source topology.
+
+The drain owner stores:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner:
+    source_owner GuiSfntSimpleGlyphRenderStrokeSourceContourOwner
+    geometry Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry
+    metric_index i32
+    line_geometry_count i32
+    quadratic_geometry_count i32
+```
+
+The completed owner stores the same source owner and geometry Vec with final geometry counts. Both owner types own resources and must not implement `Clone` / `Copy`.
+
+`GuiSfntSimpleGlyphRenderStrokeOffsetNormal` is the numeric bridge from F5kt metrics to offset geometry:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeOffsetNormal:
+    tangent_dx i64
+    tangent_dy i64
+    length_squared i64
+    length f32
+    unit_normal_x f32
+    unit_normal_y f32
+    offset_x2 f32
+    offset_y2 f32
+    stroke_width i32
+```
+
+The normal builder uses the F5kt i64 tangent values. It casts `length_squared` to f32, calls `sqrt`, checks the result is finite and positive, then computes `(-dy / length, dx / length)`. The offset vector is that unit normal multiplied by `stroke_width`. Because glyph outlines are kept in doubled coordinates, `stroke_width` is the half-width distance in the doubled-coordinate space. A 1-pixel stroke has total doubled-coordinate width 2 and offset distance 1.
+
+Line geometry stores both left and right offset endpoints. The input line metric still carries integer doubled start/end coordinates, while the expanded endpoints are f32 values guarded for non-finite results:
+
+```text
+left_start = start + offset
+left_end = end + offset
+right_start = start - offset
+right_end = end - offset
+```
+
+Quadratic geometry does not pretend that the exact offset is another quadratic curve. It stores the source start/control/end coordinates, the start endpoint normal, the end endpoint normal, and the left/right offset endpoints. The start endpoint normally uses the start-control tangent and the end endpoint normally uses the control-end tangent. If one tangent length is zero, F5kx uses the nonzero tangent for that endpoint and stores the selected source as `GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource`. This preserves F5kt partial-degeneracy evidence instead of silently flattening or normalizing it away.
+
+F5kx reads `GuiStroke` through accessors from the F5kr plan owner nested under the F5kw source owner. It rechecks positive width, finite positive miter limit, and the explicit cap / join / dash values. `GuiStrokeDash::Solid` remains explicit no-dash. If future dash variants are added, F5kx must add typed handling or typed unsupported errors; it must not approximate them as solid. Cap and join are not resolved in this boundary. They stay as style policy for the later stroke edge / join / cap phase.
+
+Start validation order:
+
+1. Revalidate the completed F5kw source owner shape: metric owner counts, path command count, provenance counts, MoveTo / SkipNoSegment counts, Vec len/cap, and completion counts.
+2. Revalidate `GuiStroke` style via accessors.
+3. Allocate the geometry Vec once with capacity equal to source drawable metric count.
+4. Require initial Vec len 0 and exact capacity.
+
+Step validation order:
+
+1. Validate drain invariants and source owner invariants.
+2. If `metric_index == metric_count`, require completion counts and return the completed owner.
+3. Read provenance from F5kw owner and metric from F5ku metric owner at the same index.
+4. Check provenance metric index, command tag, contour span shape, metric kind, segment index, and metric stroke width.
+5. Build line or quadratic offset geometry and push it into the geometry Vec.
+
+Push failure is owner-bearing. The returned Vec from `vec::push` is rewrapped with the pre-push metric, line, and quadratic counts, so line and quadratic failures recover the same state they had before the attempted push.
+
+F5kx does not read path sink scalar storage, step a path command stream, call byte-backed lookup helpers, build stroke edge owners, coverage masks, packed masks, render commands, pixel buffers, platform resources, host text measurement, fallback text, shadows, or compositor output.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
