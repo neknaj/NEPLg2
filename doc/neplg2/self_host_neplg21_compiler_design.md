@@ -2976,13 +2976,15 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_res
 
 `actual_traversal_body_reader_sources_from_request_context_result` は context の proof key と Resource graph id を authority とし、memo_call backend wrapper body の代表 source plan として `PrivateCacheStoragePlace` と `CloneOutOwnedValueEdge` を持つ source table owner を返す。`actual_traversal_body_reader_output_from_request_context_result` はこの source plan を context-bound validation、source-to-operation projection、既存 operation classifier、unified event split に通してから `ResourceWalkerInput + ObservationBanTable` owner を作る。seed、既存 unsupported producer bridge、public source table、GraphInput、proof table、backend bytes、effect mask、artifact record は使わない。
 
-`actual_traversal_body_adapter_input_availability_from_request_result` は request entry / root / fingerprint / key / graph id を context にまとめ、`actual_traversal_body_adapter_input_availability_from_request_context_result` から reader output へ委譲する。したがって production accepted path は、availability `Ok`、context-bound source validation、source-derived witness generation、actual traversal bundle request-evidence gate の順に進む。Err availability は bundle path に進めず typed bridge error へ写す。
+`actual_traversal_body_adapter_input_availability_from_request_result` は request entry / root / fingerprint / key / graph id を context にまとめ、`actual_traversal_body_adapter_input_availability_from_request_context_result` から reader output へ委譲する。この availability path は reader output / seed / rejection smoke の互換境界として残す。Err availability は bundle path に進めず typed bridge error へ写す。
+
+2026-06-22 context-owned bundle follow-up では、production accepted bundle runner を availability / output roundtrip から外し、`context_bound_reader_traversal_bundle_from_context_result` へ寄せた。この helper は `ActualTraversalBodyReaderRequestContext` と borrowed `SelfhostHirModule` を受け、`actual_traversal_body_adapter_sources_from_request_context_result` で context-bound source table owner を作り、同じ source authority から `actual_traversal_bundle_source_derived_witness_result` により fresh witness owner を導出する。source validation、source-derived witness、request-evidence recheck は短絡しない。availability / output helper は rejection smoke と互換境界として残すが、production bundle runner の authority にはしない。
 
 operation producer bridge stage0 は同じ reader source plan helper 由来の traversal source table を operation table へ投影する accepted smoke を持つ。一方、`producer_owned_unavailable_traversal_bundle_from_hir_root_result` は explicit unavailable smoke として request context から key / graph id だけを取り出し、専用 unavailable source helper を呼ぶ。production reader path と unavailable smoke を混ぜないことで、accepted source を未接続 fallback として合成したように見せない。
 
 public stage0 summary は `reader_context_reader_source_count` と operation producer bridge の `accepted_result` を通して、production reader output が source table / operation projection に到達することだけを示す。reader context、walker input、observation table、source table、fresh witness table、Resource proof table、request-evidence proof table、GraphInput、backend bytes、effect mask、artifact key は public API に出さない。
 
-source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。production reader が wrapper source を output helper に直接焼き込まず shared reader source plan を通ること、seed fixture、既存 unsupported producer bridge、proof / backend / effect / artifact 合成を使わないこと、context availability helper が `ProducerNotConnected` fallback を残さないこと、accepted bundle runner が production availability を通ること、explicit unavailable smoke が production bridge helper を呼ばないことを固定している。
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。production reader が wrapper source を output helper に直接焼き込まず shared reader source plan を通ること、seed fixture、既存 unsupported producer bridge、proof / backend / effect / artifact 合成を使わないこと、context availability helper が `ProducerNotConnected` fallback を残さないこと、accepted bundle runner が context-owned source / witness bundle helper を通り availability / output roundtrip に戻らないこと、explicit unavailable smoke が production bridge helper を呼ばないことを固定している。
 
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
@@ -2998,8 +3000,8 @@ source-to-operation projection、operation classifier、region proof input proje
 
 残件:
 
-- policy source table へ接続した wrapper body reader を full Resource IR / HIR lowering body reader へ置き換え、実 traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。
-- full traversal 由来 source と source-derived witness を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
+- `MemoizedFunctionValue` の `DefId` から body HIR root / body module fingerprint / lowering availability を解決する module-private resolver を追加し、context-owned bundle bridge の source generator を full Resource IR / HIR lowering body reader へ置き換える。
+- full traversal 由来 source と fresh witness table を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
 ## 既存 issue との対応

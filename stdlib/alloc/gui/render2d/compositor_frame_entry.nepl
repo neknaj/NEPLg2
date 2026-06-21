@@ -29,6 +29,14 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 
+//: GuiRgba8888CompositorFrameEntryPrepareErrorKind: compositor frame entry prepare の[失敗/しっぱい][段階/だんかい]
+//:
+//: bitmap frame prepare、row batch plan prepare、row batch cursor start のどこで owner-bearing prepare が[止/と]まったかを lower error kind として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub enum GuiRgba8888CompositorFrameEntryPrepareErrorKind:
     BitmapFramePrepareFailed %GuiRgba8888BitmapFramePrepareErrorKind
     RowBatchPlanPrepareFailed %GuiRgba8888RowBatchPlanPrepareErrorKind
@@ -42,6 +50,14 @@ impl Copy for GuiRgba8888CompositorFrameEntryPrepareErrorKind:
     fn copy_mark %fn GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind \kind:
         kind
 
+//: GuiRgba8888CompositorFrameEntryConfig: compositor frame entry prepare の[設定/せってい]
+//:
+//: frame id と 1 batch [当/あ]たりの[最大/さいだい] row [数/すう]を lower bitmap frame / row batch plan 境界へ[渡/わた]す Copy value です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub struct GuiRgba8888CompositorFrameEntryConfig:
     frame_id %i32
     max_rows_per_batch %i32
@@ -54,6 +70,14 @@ impl Copy for GuiRgba8888CompositorFrameEntryConfig:
     fn copy_mark %fn GuiRgba8888CompositorFrameEntryConfig GuiRgba8888CompositorFrameEntryConfig \config:
         config
 
+//: GuiRgba8888CompositorFrameEntryMetadata: compositor frame entry の[固定/こてい]metadata
+//:
+//: cursor start [前/まえ]に row batch plan から[読/よ]んだ frame id、surface size、row range、batch count、batch capacity を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub struct GuiRgba8888CompositorFrameEntryMetadata:
     frame_id %i32
     width %i32
@@ -71,21 +95,61 @@ impl Copy for GuiRgba8888CompositorFrameEntryMetadata:
     fn copy_mark %fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorFrameEntryMetadata \metadata:
         metadata
 
+//: GuiRgba8888CompositorFrameEntryOwner: row batch cursor と metadata の owner
+//:
+//: compositor drain が[後続/こうぞく]で row batch cursor を[消費/しょうひ]しながら、frame metadata を[参照/さんしょう]できるように[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub struct GuiRgba8888CompositorFrameEntryOwner:
     cursor %GuiRgba8888RowBatchCursorOwner
     metadata %GuiRgba8888CompositorFrameEntryMetadata
 
+//: GuiRgba8888CompositorFrameEntryPrepareError: dirty owner を[回収/かいしゅう]できる prepare error
+//:
+//: lower prepare の kind / category と、prepare [失敗/しっぱい][時/じ]に caller へ[戻/もど]す dirty owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub struct GuiRgba8888CompositorFrameEntryPrepareError:
     kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind
     category %Option GuiError
     owner %GuiRgba8888SoftwareSurfaceDirtyOwner
 
+//: gui_rgba8888_compositor_frame_entry_owner_new: cursor と metadata を entry owner に[束/たば]ねる
+//:
+//: lower prepare が[全/すべ]て[成功/せいこう]した後だけ呼び、row batch cursor owner と Copy metadata を 1 つの owner payload にします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 fn gui_rgba8888_compositor_frame_entry_owner_new %fn GuiRgba8888RowBatchCursorOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorFrameEntryOwner \cursor\metadata:
     GuiRgba8888CompositorFrameEntryOwner cursor metadata
 
+//: gui_rgba8888_compositor_frame_entry_prepare_error_new: prepare error payload を[作/つく]る
+//:
+//: lower error kind、GUI category、[回収/かいしゅう]済み dirty owner を 1 payload にまとめ、ownerless error に[落/お]とさないための constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 fn gui_rgba8888_compositor_frame_entry_prepare_error_new %fn GuiRgba8888CompositorFrameEntryPrepareErrorKind fn Option GuiError fn GuiRgba8888SoftwareSurfaceDirtyOwner GuiRgba8888CompositorFrameEntryPrepareError \kind\category\owner:
     GuiRgba8888CompositorFrameEntryPrepareError kind category owner
 
+//: gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new: bitmap frame prepare error を entry error へ[写/うつ]す
+//:
+//: lower error から kind / category を Copy value として[読/よ]んだ後、dirty owner を[取/と]り[出/だ]して entry prepare error に[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 fn gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new %fn GuiRgba8888BitmapFramePrepareError GuiRgba8888CompositorFrameEntryPrepareError \lower:
     let lower_kind %GuiRgba8888BitmapFramePrepareErrorKind gui_rgba8888_bitmap_frame_prepare_error_kind &lower
     let category %Option GuiError gui_rgba8888_bitmap_frame_prepare_error_category_value &lower
@@ -93,6 +157,14 @@ fn gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new %fn GuiRgb
     let kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind::BitmapFramePrepareFailed lower_kind
     gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner
 
+//: gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new: row batch plan error を entry error へ[写/うつ]す
+//:
+//: plan prepare [失敗/しっぱい][時/じ]は bitmap frame owner を dirty owner に[戻/もど]してから、lower kind / category と[一緒/いっしょ]に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 fn gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new %fn GuiRgba8888RowBatchPlanPrepareError GuiRgba8888CompositorFrameEntryPrepareError \lower:
     let lower_kind %GuiRgba8888RowBatchPlanPrepareErrorKind gui_rgba8888_row_batch_plan_prepare_error_kind &lower
     let category %Option GuiError gui_rgba8888_row_batch_plan_prepare_error_category_value &lower
@@ -101,6 +173,14 @@ fn gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new %fn GuiR
     let kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind::RowBatchPlanPrepareFailed lower_kind
     gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner
 
+//: gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new: cursor start error を entry error へ[写/うつ]す
+//:
+//: cursor start [失敗/しっぱい][時/じ]は row batch plan owner を dirty owner に[戻/もど]し、caller が surface を[失/うしな]わないようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 fn gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new %fn GuiRgba8888RowBatchCursorStartError GuiRgba8888CompositorFrameEntryPrepareError \lower:
     let lower_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_start_error_kind &lower
     let category %Option GuiError gui_rgba8888_row_batch_cursor_start_error_category_value &lower
@@ -109,6 +189,14 @@ fn gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new %fn GuiR
     let kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind GuiRgba8888CompositorFrameEntryPrepareErrorKind::RowBatchCursorStartFailed lower_kind
     gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner
 
+//: gui_rgba8888_compositor_frame_entry_metadata_from_plan: plan metadata を Copy value に[写/うつ]す
+//:
+//: row batch cursor start で plan owner を[移動/いどう]する[前/まえ]に、後続 drain が[必要/ひつよう]とする frame / row / batch metadata を[固定/こてい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 fn gui_rgba8888_compositor_frame_entry_metadata_from_plan %fn &GuiRgba8888RowBatchPlanOwner GuiRgba8888CompositorFrameEntryMetadata \plan:
     let frame_id %i32 gui_rgba8888_row_batch_plan_frame_id plan
     let width %i32 gui_rgba8888_row_batch_plan_width plan
@@ -119,45 +207,157 @@ fn gui_rgba8888_compositor_frame_entry_metadata_from_plan %fn &GuiRgba8888RowBat
     let max_rows_per_batch %i32 gui_rgba8888_row_batch_plan_max_rows_per_batch plan
     GuiRgba8888CompositorFrameEntryMetadata frame_id width height row_start row_count batch_count max_rows_per_batch
 
+//: gui_rgba8888_compositor_frame_entry_config: entry prepare config を[作/つく]る
+//:
+//: frame id と max rows per batch を 1 つの Copy config にまとめ、prepare pipeline へ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_config %fn i32 fn i32 GuiRgba8888CompositorFrameEntryConfig \frame_id\max_rows_per_batch:
     GuiRgba8888CompositorFrameEntryConfig frame_id max_rows_per_batch
 
+//: gui_rgba8888_compositor_frame_entry_config_frame_id: config の frame id を[返/かえ]す
+//:
+//: bitmap frame prepare に[渡/わた]す frame id を borrowed config から Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_config_frame_id %fn &GuiRgba8888CompositorFrameEntryConfig i32 \config:
     *field::get_ref config "frame_id"
 
+//: gui_rgba8888_compositor_frame_entry_config_max_rows_per_batch: config の batch row [上限/じょうげん]を[返/かえ]す
+//:
+//: row batch plan prepare に[渡/わた]す max rows per batch を borrowed config から Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_config_max_rows_per_batch %fn &GuiRgba8888CompositorFrameEntryConfig i32 \config:
     *field::get_ref config "max_rows_per_batch"
 
+//: gui_rgba8888_compositor_frame_entry_metadata: entry owner の metadata を[返/かえ]す
+//:
+//: cursor owner を[移動/いどう]せず、prepare [時/じ]に[固定/こてい]した frame metadata を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata %fn &GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
     *field::get_ref owner "metadata"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_frame_id: metadata の frame id を[返/かえ]す
+//:
+//: compositor frame entry がどの frame id から[作/つく]られたかを Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_frame_id %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "frame_id"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_width: metadata の surface width を[返/かえ]す
+//:
+//: row batch cursor が[対象/たいしょう]にする RGBA8888 surface width を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_width %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "width"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_height: metadata の surface height を[返/かえ]す
+//:
+//: row batch cursor が[対象/たいしょう]にする RGBA8888 surface height を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_height %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "height"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_row_start: metadata の[開始/かいし]row を[返/かえ]す
+//:
+//: dirty region から[導出/どうしゅつ]された row batch plan の first row を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_row_start %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "row_start"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_row_count: metadata の row [数/すう]を[返/かえ]す
+//:
+//: dirty region から[導出/どうしゅつ]された[処理/しょり][対象/たいしょう] row [数/すう]を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_row_count %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "row_count"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_batch_count: metadata の batch [数/すう]を[返/かえ]す
+//:
+//: row batch plan が[計算/けいさん]した drain batch [数/すう]を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_batch_count %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "batch_count"
 
+//: gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch: metadata の batch row [上限/じょうげん]を[返/かえ]す
+//:
+//: prepare config から row batch plan へ[渡/わた]された max rows per batch を Copy metadata として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch %fn &GuiRgba8888CompositorFrameEntryMetadata i32 \metadata:
     *field::get_ref metadata "max_rows_per_batch"
 
+//: gui_rgba8888_compositor_frame_entry_prepare_error_kind: prepare error kind を[返/かえ]す
+//:
+//: owner-bearing prepare error を[消費/しょうひ]せず、[失敗/しっぱい][段階/だんかい]を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_prepare_error_kind %fn &GuiRgba8888CompositorFrameEntryPrepareError GuiRgba8888CompositorFrameEntryPrepareErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_rgba8888_compositor_frame_entry_prepare_error_category_value: prepare error category を[返/かえ]す
+//:
+//: lower boundary から[渡/わた]された optional GUI category を owner 消費[前/まえ]に Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_prepare_error_category_value %fn &GuiRgba8888CompositorFrameEntryPrepareError Option GuiError \error:
     *field::get_ref error "category"
 
+//: gui_rgba8888_compositor_frame_entry_prepare_error_owner: prepare error から dirty owner を[回収/かいしゅう]する
+//:
+//: prepare [失敗/しっぱい][時/じ]に[保持/ほじ]していた dirty owner を[取/と]り[出/だ]し、caller が retry / free できるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_prepare_error_owner %fn GuiRgba8888CompositorFrameEntryPrepareError GuiRgba8888SoftwareSurfaceDirtyOwner \error:
     field::get error "owner"
 
@@ -166,6 +366,11 @@ pub fn gui_rgba8888_compositor_frame_entry_prepare_error_owner %fn GuiRgba8888Co
 //: [契約/けいやく]:
 //: - `frame_id` と `max_rows_per_batch` は lower config aggregate として[渡/わた]し、lower prepare が owner-bearing error を[返/かえ]します。
 //: - row batch cursor start の[前/まえ]に plan metadata を Copy value として[保存/ほぞん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_prepare %fn GuiRgba8888SoftwareSurfaceDirtyOwner fn GuiRgba8888CompositorFrameEntryConfig Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryPrepareError \owner\config:
     let frame_id %i32 gui_rgba8888_compositor_frame_entry_config_frame_id &config
     let frame_config %GuiRgba8888BitmapFrameConfig GuiRgba8888BitmapFrameConfig frame_id
@@ -186,13 +391,37 @@ pub fn gui_rgba8888_compositor_frame_entry_prepare %fn GuiRgba8888SoftwareSurfac
                         Result::Ok cursor:
                             Result::Ok gui_rgba8888_compositor_frame_entry_owner_new cursor metadata
 
+//: gui_rgba8888_compositor_frame_entry_finish_cursor: entry owner から row batch cursor を[取/と]り[出/だ]す
+//:
+//: metadata を[読/よ]んだ後の entry owner を[消費/しょうひ]し、後続 drain が[使/つか]う cursor owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_finish_cursor %fn GuiRgba8888CompositorFrameEntryOwner GuiRgba8888RowBatchCursorOwner \owner:
     field::get owner "cursor"
 
+//: gui_rgba8888_compositor_frame_entry_owner_free: entry owner を[閉/と]じる
+//:
+//: entry owner から cursor owner を[取/と]り[出/だ]し、row batch cursor free に[委譲/いじょう]して surface owner まで[解放/かいほう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_owner_free %fn GuiRgba8888CompositorFrameEntryOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \owner:
     let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor owner
     gui_rgba8888_row_batch_cursor_free cursor
 
+//: gui_rgba8888_compositor_frame_entry_prepare_error_free: prepare error の dirty owner を[閉/と]じる
+//:
+//: error payload を[消費/しょうひ]して dirty owner を[回収/かいしゅう]し、software surface dirty owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_frame_entry" as *
+//: ```
 pub fn gui_rgba8888_compositor_frame_entry_prepare_error_free %fn GuiRgba8888CompositorFrameEntryPrepareError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
     let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_compositor_frame_entry_prepare_error_owner error
     gui_rgba8888_software_surface_dirty_owner_free owner
