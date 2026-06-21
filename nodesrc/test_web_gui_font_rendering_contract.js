@@ -511,6 +511,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests = re
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
@@ -596,6 +597,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
@@ -15849,6 +15851,65 @@ for (const fragment of [
 ]) {
     assert(renderStrokeRequestStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kq start error must include ${fragment}`);
 }
+const renderPathCommandWriterAuthorityErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind:"),
+);
+const renderPathCommandWriterAuthorityErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error "),
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenNotZero",
+    "InnerWrittenCountMismatch",
+    "InnerPathSinkScalarCountMismatch",
+    "InnerMoveToCountMismatch",
+    "InnerLineToCountMismatch",
+    "InnerQuadraticToCountMismatch",
+    "InnerSkipNoSegmentCountMismatch",
+    "InnerLastPathCommandIndexMismatch",
+]) {
+    assert(renderPathCommandWriterAuthorityErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf shared path writer authority error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind",
+    "capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError",
+    "derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity",
+]) {
+    assert(renderPathCommandWriterAuthorityErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf shared path writer authority error must include ${fragment}`);
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub enum GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind:|pub struct GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError:|pub fn gui_sfnt_simple_glyph_render_path_command_writer_authority\b/,
+    "alloc/gui/font/sfnt/glyf shared path writer authority helper must remain private",
+);
+const renderPathCommandWriterAuthority = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_path_command_writer_authority");
+assertOrderedFragments(
+    renderPathCommandWriterAuthority,
+    [
+        "field::get_ref writer \"owner\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "PathSinkScalarCapacityMismatch",
+        "RasterMaskScalarCapacityMismatch",
+        "PathSinkScalarLenMismatch",
+        "RasterMaskScalarLenNotZero",
+        "InnerWrittenCountMismatch",
+        "InnerPathSinkScalarCountMismatch",
+        "InnerMoveToCountMismatch",
+        "InnerLineToCountMismatch",
+        "InnerQuadraticToCountMismatch",
+        "InnerSkipNoSegmentCountMismatch",
+        "InnerLastPathCommandIndexMismatch",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf shared path writer authority must validate completed path command writer invariants once for F5kq and F5li",
+);
 const renderStrokeRequestBlendSupported = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_request_blend_is_supported");
 assertOrderedFragments(
     renderStrokeRequestBlendSupported,
@@ -15864,6 +15925,49 @@ assertOrderedFragments(
     ],
     "alloc/gui/font/sfnt/glyf F5kq blend helper must accept SourceOver and reject Copy/Multiply/Screen",
 );
+const renderStrokeRequestWriterAuthorityMap = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_request_error_kind_from_writer_authority");
+for (const fragment of [
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::OwnerPlanRejected",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::StoredCapacityMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::StoredCapacityMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::PathSinkScalarCapacityMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::PathSinkScalarCapacityMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::RasterMaskScalarCapacityMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::RasterMaskScalarCapacityMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::PathSinkScalarLenMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::PathSinkScalarLenMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::RasterMaskScalarLenNotZero:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::RasterMaskScalarLenNotZero",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerWrittenCountMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerWrittenCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerPathSinkScalarCountMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerPathSinkScalarCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerMoveToCountMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerMoveToCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLineToCountMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerLineToCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerQuadraticToCountMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerQuadraticToCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerSkipNoSegmentCountMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerSkipNoSegmentCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLastPathCommandIndexMismatch:",
+    "GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerLastPathCommandIndexMismatch",
+]) {
+    assert(renderStrokeRequestWriterAuthorityMap.includes(fragment), `alloc/gui/font/sfnt/glyf F5kq writer authority mapper must include ${fragment}`);
+}
+const renderStrokeRequestWriterAuthorityError = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_request_start_error_from_writer_authority");
+assertOrderedFragments(
+    renderStrokeRequestWriterAuthorityError,
+    [
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error",
+        "gui_sfnt_simple_glyph_render_stroke_request_error_kind_from_writer_authority writer_error_kind",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_error &writer_error",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority_error_derived_capacity &writer_error",
+        "gui_sfnt_simple_glyph_render_stroke_request_start_error kind writer config capacity_error derived_capacity",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kq writer authority error mapper must preserve shared kind, capacity error, and derived capacity",
+);
 const renderStrokeRequestStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_request_owner_start");
 assertOrderedFragments(
     renderStrokeRequestStart,
@@ -15877,20 +15981,8 @@ assertOrderedFragments(
         "gui_glyph_paint_blend &paint",
         "gui_sfnt_simple_glyph_render_stroke_request_blend_is_supported blend",
         "UnsupportedBlendMode",
-        "field::get_ref &writer \"owner\"",
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
-        "StoredCapacityMismatch",
-        "PathSinkScalarCapacityMismatch",
-        "RasterMaskScalarCapacityMismatch",
-        "PathSinkScalarLenMismatch",
-        "RasterMaskScalarLenNotZero",
-        "InnerWrittenCountMismatch",
-        "InnerPathSinkScalarCountMismatch",
-        "InnerMoveToCountMismatch",
-        "InnerLineToCountMismatch",
-        "InnerQuadraticToCountMismatch",
-        "InnerSkipNoSegmentCountMismatch",
-        "InnerLastPathCommandIndexMismatch",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority &writer",
+        "gui_sfnt_simple_glyph_render_stroke_request_start_error_from_writer_authority writer config writer_error",
         "gui_glyph_paint_fill &paint",
         "gui_sfnt_simple_glyph_render_stroke_request_owner writer origin fill stroke blend",
     ],
@@ -15903,7 +15995,10 @@ assert(renderStrokeRequestStartErrorWriter.includes("field::get error \"writer\"
 assert(renderStrokeRequestOwnerFree.includes("gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer"), "alloc/gui/font/sfnt/glyf F5kq owner free must close path command writer authority");
 assert(renderStrokeRequestStartErrorFree.includes("gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer"), "alloc/gui/font/sfnt/glyf F5kq start error free must close recovered writer authority");
 for (const [slice, name] of [
+    [renderPathCommandWriterAuthority, "shared path writer authority"],
     [renderStrokeRequestBlendSupported, "blend support"],
+    [renderStrokeRequestWriterAuthorityMap, "writer authority kind mapper"],
+    [renderStrokeRequestWriterAuthorityError, "writer authority error mapper"],
     [renderStrokeRequestStart, "start"],
     [renderStrokeRequestStartErrorWriter, "error writer recovery"],
     [renderStrokeRequestOwnerFree, "owner free"],
@@ -15927,6 +16022,286 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests.includes("render_stroke_request_owner_recovery_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests.includes("render_stroke_request_no_fill_mask_no_render_command_no_platform"),
     "F5kq render stroke request focused doctest must cover config, completed path authority, missing/invalid stroke, shadow/blend rejects, fill metadata preservation, recovery, and no fill-mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render shadow request boundary"), "GUI font spec must document F5li render shadow request boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render shadow request boundary"), "GUI font detailed design must document F5li render shadow request boundary");
+assert(implementationPlan.includes("## Phase F5li: sfnt simple glyph render shadow request boundary"), "GUI font implementation plan must include F5li phase");
+assert(
+    implementationPlan.includes("Socrates revised plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("gui_sfnt_simple_glyph_render_path_command_writer_authority") &&
+        spec.includes("UnsupportedShadowRun") &&
+        spec.includes("StrokeWidthInvalid"),
+    "GUI font docs must pin F5li approved plan, shared writer authority helper, ShadowRun rejection, and stroke width revalidation",
+);
+const renderShadowRequestStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowRequestConfig:");
+const renderShadowRequestEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowRequestStartIndex);
+const renderShadowRequestRegion = allocFontSfntGlyfImpl.slice(renderShadowRequestStartIndex, renderShadowRequestEndIndex);
+const renderShadowRequestConfigType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowRequestConfig:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderShadowRequestConfig:"),
+);
+const renderShadowRequestOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowRequestOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_request_owner "),
+);
+const renderShadowRequestStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind:"),
+);
+const renderShadowRequestStartErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowRequestStartError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_request_start_error "),
+);
+const renderShadowRequestRecoveryType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_request_start_error "),
+);
+assert(renderShadowRequestStartIndex >= 0 && renderShadowRequestEndIndex > renderShadowRequestStartIndex, "alloc/gui/font/sfnt/glyf F5li shadow request region must exist before stroke segment plan");
+for (const fragment of [
+    "origin %GuiPoint",
+    "paint %GuiGlyphPaint",
+]) {
+    assert(renderShadowRequestConfigType.includes(fragment), `alloc/gui/font/sfnt/glyf F5li config must include ${fragment}`);
+}
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowRequestConfig\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowRequestConfig\b/,
+    "alloc/gui/font/sfnt/glyf F5li config is value-only and must implement Clone/Copy",
+);
+for (const fragment of [
+    "writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner",
+    "origin %GuiPoint",
+    "fill %Option GuiPaint",
+    "stroke %Option GuiStroke",
+    "shadow %GuiShadow",
+    "blend %GuiBlendMode",
+]) {
+    assert(renderShadowRequestOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5li owner must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind",
+    "writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner",
+    "config %GuiSfntSimpleGlyphRenderShadowRequestConfig",
+    "capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError",
+    "derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity",
+]) {
+    assert(renderShadowRequestStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5li start error must include ${fragment}`);
+}
+for (const fragment of [
+    "writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner",
+    "config %GuiSfntSimpleGlyphRenderShadowRequestConfig",
+]) {
+    assert(renderShadowRequestRecoveryType.includes(fragment), `alloc/gui/font/sfnt/glyf F5li recovery must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderShadowRequestOwner",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartError",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5li ${typeName} owns command-stream authority and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderShadowRequestConfig:|pub struct GuiSfntSimpleGlyphRenderShadowRequestOwner:|pub struct GuiSfntSimpleGlyphRenderShadowRequestStartError:|pub struct GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery:|pub fn gui_sfnt_simple_glyph_render_shadow_request_owner_start\b/,
+    "alloc/gui/font/sfnt/glyf F5li boundary types and start function must remain private",
+);
+for (const fragment of [
+    "MissingShadowPaint",
+    "UnsupportedShadowRun",
+    "ShadowBlurInvalid",
+    "ShadowSpreadInvalid",
+    "MissingShadowSourcePaint",
+    "StrokeWidthInvalid",
+    "UnsupportedBlendMode",
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenNotZero",
+    "InnerWrittenCountMismatch",
+    "InnerPathSinkScalarCountMismatch",
+    "InnerMoveToCountMismatch",
+    "InnerLineToCountMismatch",
+    "InnerQuadraticToCountMismatch",
+    "InnerSkipNoSegmentCountMismatch",
+    "InnerLastPathCommandIndexMismatch",
+]) {
+    assert(renderShadowRequestStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5li start error kind must include ${fragment}`);
+}
+const renderShadowRequestStrokeValid = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_stroke_is_valid");
+assertOrderedFragments(
+    renderShadowRequestStrokeValid,
+    [
+        "gui_stroke_width stroke",
+        "gt width 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li stroke validity helper must require positive stroke width",
+);
+const renderShadowRequestBlendSupported = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_blend_is_supported");
+assertOrderedFragments(
+    renderShadowRequestBlendSupported,
+    [
+        "GuiBlendMode::SourceOver:",
+        "true",
+        "GuiBlendMode::Copy:",
+        "false",
+        "GuiBlendMode::Multiply:",
+        "false",
+        "GuiBlendMode::Screen:",
+        "false",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li blend helper must accept SourceOver and reject Copy/Multiply/Screen",
+);
+const renderShadowRequestSourceHasPaint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_source_has_paint");
+assertOrderedFragments(
+    renderShadowRequestSourceHasPaint,
+    [
+        "not and is_none fill is_none stroke",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li source paint helper must require fill or stroke metadata",
+);
+const renderShadowRequestSourceStrokeValid = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_source_stroke_is_valid");
+assertOrderedFragments(
+    renderShadowRequestSourceStrokeValid,
+    [
+        "Option::None:",
+        "true",
+        "Option::Some stroke:",
+        "gui_sfnt_simple_glyph_render_shadow_request_stroke_is_valid &stroke",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li source stroke helper must revalidate optional stroke metadata",
+);
+const renderShadowRequestWriterAuthorityMap = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_error_kind_from_writer_authority");
+for (const fragment of [
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::OwnerPlanRejected",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::StoredCapacityMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::StoredCapacityMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::PathSinkScalarCapacityMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::PathSinkScalarCapacityMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::RasterMaskScalarCapacityMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::RasterMaskScalarCapacityMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::PathSinkScalarLenMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::PathSinkScalarLenMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::RasterMaskScalarLenNotZero:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::RasterMaskScalarLenNotZero",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerWrittenCountMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerWrittenCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerPathSinkScalarCountMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerPathSinkScalarCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerMoveToCountMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerMoveToCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLineToCountMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerLineToCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerQuadraticToCountMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerQuadraticToCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerSkipNoSegmentCountMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerSkipNoSegmentCountMismatch",
+    "GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLastPathCommandIndexMismatch:",
+    "GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerLastPathCommandIndexMismatch",
+]) {
+    assert(renderShadowRequestWriterAuthorityMap.includes(fragment), `alloc/gui/font/sfnt/glyf F5li writer authority mapper must include ${fragment}`);
+}
+const renderShadowRequestWriterAuthorityError = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_start_error_from_writer_authority");
+assertOrderedFragments(
+    renderShadowRequestWriterAuthorityError,
+    [
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error",
+        "gui_sfnt_simple_glyph_render_shadow_request_error_kind_from_writer_authority writer_error_kind",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_error &writer_error",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority_error_derived_capacity &writer_error",
+        "gui_sfnt_simple_glyph_render_shadow_request_start_error kind writer config capacity_error derived_capacity",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li writer authority error mapper must preserve shared kind, capacity error, and derived capacity",
+);
+const renderShadowRequestStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_owner_start");
+assertOrderedFragments(
+    renderShadowRequestStart,
+    [
+        "gui_glyph_paint_shadows &paint",
+        "MissingShadowPaint",
+        "UnsupportedShadowRun",
+        "GuiShadowRef::SingleShadow shadow",
+        "gui_shadow_blur_radius &shadow",
+        "ShadowBlurInvalid",
+        "gui_shadow_spread &shadow",
+        "ShadowSpreadInvalid",
+        "gui_glyph_paint_fill &paint",
+        "gui_glyph_paint_stroke &paint",
+        "gui_sfnt_simple_glyph_render_shadow_request_source_has_paint fill stroke",
+        "MissingShadowSourcePaint",
+        "gui_sfnt_simple_glyph_render_shadow_request_source_stroke_is_valid stroke",
+        "StrokeWidthInvalid",
+        "gui_glyph_paint_blend &paint",
+        "gui_sfnt_simple_glyph_render_shadow_request_blend_is_supported blend",
+        "UnsupportedBlendMode",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority &writer",
+        "gui_sfnt_simple_glyph_render_shadow_request_start_error_from_writer_authority writer config writer_error",
+        "gui_sfnt_simple_glyph_render_shadow_request_config_origin &config",
+        "gui_sfnt_simple_glyph_render_shadow_request_owner writer origin fill stroke shadow blend",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li start must validate single shadow, source metadata, stroke width, blend, and completed path command authority before owner creation",
+);
+const renderShadowRequestRecovery = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery");
+const renderShadowRequestOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_owner_free");
+const renderShadowRequestStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_start_error_free");
+const renderShadowRequestRecoveryFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery_free");
+assertOrderedFragments(
+    renderShadowRequestRecovery,
+    [
+        "field::get error \"writer\"",
+        "field::get error \"config\"",
+        "GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery writer config",
+    ],
+    "alloc/gui/font/sfnt/glyf F5li start error recovery must return the single writer authority and config",
+);
+assert(renderShadowRequestOwnerFree.includes("gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer"), "alloc/gui/font/sfnt/glyf F5li owner free must close path command writer authority");
+assert(renderShadowRequestStartErrorFree.includes("gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery error"), "alloc/gui/font/sfnt/glyf F5li start error free must recover writer/config before free");
+assert(renderShadowRequestStartErrorFree.includes("gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery_free recovery"), "alloc/gui/font/sfnt/glyf F5li start error free must close recovered authority once");
+assert(renderShadowRequestRecoveryFree.includes("gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer"), "alloc/gui/font/sfnt/glyf F5li recovery free must close path command writer authority");
+assert(renderGlyphPaintStart.includes("UnsupportedShadowPaint"), "alloc/gui/font/sfnt/glyf F5bh must still reject shadow paint before F5li request owner path");
+assert(renderStrokeRequestStart.includes("UnsupportedShadowPaint"), "alloc/gui/font/sfnt/glyf F5kq must still reject shadow paint before stroke request owner path");
+for (const [slice, name] of [
+    [renderShadowRequestStrokeValid, "stroke validity"],
+    [renderShadowRequestBlendSupported, "blend support"],
+    [renderShadowRequestSourceHasPaint, "source paint"],
+    [renderShadowRequestSourceStrokeValid, "source stroke"],
+    [renderShadowRequestWriterAuthorityMap, "writer authority kind mapper"],
+    [renderShadowRequestWriterAuthorityError, "writer authority error mapper"],
+    [renderShadowRequestStart, "start"],
+    [renderShadowRequestRecovery, "recovery"],
+    [renderShadowRequestOwnerFree, "owner free"],
+    [renderShadowRequestStartErrorFree, "start error free"],
+    [renderShadowRequestRecoveryFree, "recovery free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderFillAlphaMask|GuiSfntSimpleGlyphRenderStrokeRequest|GuiSfntSimpleGlyphRenderStrokeSegment|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)?|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor|vec::push|vec::with_capacity|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5li ${name} must not use fill/stroke masks, raster edges, coverage, command/target/platform APIs, fallback, shadow rasterizer/compositor, or owner-bearing vec operations`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5li ${name} must preserve NEPL prefix style without parentheses`);
+}
+assertNoMatch(
+    renderShadowRequestRegion,
+    /\b(?:GuiSfntSimpleGlyphRenderFillAlphaMask|GuiSfntSimpleGlyphRenderStrokeRequest|GuiSfntSimpleGlyphRenderStrokeSegment|GuiSfntSimpleGlyphRasterPackedMask|RenderCommand|RenderTarget|DrawTarget|render2d|software_surface|platform|fallback|shadow_raster|compositor)\b/,
+    "alloc/gui/font/sfnt/glyf F5li region must remain request-only and not consume existing fill/stroke owners or render/compositor resources",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_config_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_common_writer_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_single_shadow_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_reject_shadow_run_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_source_metadata_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_stroke_width_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_source_over_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_recovery_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests.includes("render_shadow_request_no_mask_resource_platform_compositor"),
+    "F5li render shadow request focused doctest must cover config, shared writer authority, single-shadow path, ShadowRun reject, source metadata, stroke width revalidation, SourceOver, recovery/free, and no mask/resource/platform/compositor policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");

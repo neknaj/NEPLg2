@@ -7419,6 +7419,65 @@ The owner, start error, and recovery payload do not implement `Clone` / `Copy`. 
 
 F5lh does not allocate alpha-mask ids, reserve/register resource table records, emit `RenderCommand`, write pixels, drain a software surface, touch platform/backend APIs, invoke fallback text, start shadow rasterization, invoke the 2D compositor, or inspect raw F5bf raster packed mask internals.
 
+## SFNT simple glyph render shadow request boundary
+
+F5li starts the shadow path without pretending to have a shadow rasterizer. It consumes the same kind of completed path command stream writer authority as F5kq and keeps exactly one `SingleShadow` value with the source paint metadata needed by later shadow mask phases.
+
+The direct inputs are:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+GuiSfntSimpleGlyphRenderShadowRequestConfig
+```
+
+Socrates plan review 1 was `CHANGES_REQUESTED`. The plan had to add `stroke.width > 0` revalidation because F5li stores optional stroke metadata for later shadow source selection. It also had to avoid copying the full F5kq writer-authority validation into F5li. The revised plan was `PLAN_APPROVED` after the common writer authority helper and F5li-specific error mapping were added.
+
+The common helper is module-private and neutral:
+
+```text
+gui_sfnt_simple_glyph_render_path_command_writer_authority
+```
+
+It borrows the completed path command writer and validates stored capacity against the owner plan, path sink scalar capacity, raster mask scalar capacity, path sink scalar len, zero raster mask scalar len, written count, path sink scalar count, move-to count, line-to count, quadratic-to count, skip-no-segment count, and last path command index. The helper returns value error metadata. F5kq maps it into `GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind`; F5li maps it into `GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind`. This keeps the authority check in one place while preserving typed request-specific error surfaces.
+
+F5li accepts only a single no_alloc shadow value:
+
+```text
+GuiShadowRef::NoShadow -> MissingShadowPaint
+GuiShadowRef::ShadowRun -> UnsupportedShadowRun
+GuiShadowRef::SingleShadow shadow -> continue
+```
+
+`ShadowRun` is intentionally rejected because this slice does not own or resolve an alloc-backed multi-shadow run. Accepting the id without a resolver would only move an opaque reference forward with no authority to expand it.
+
+Validation order is:
+
+1. Read `GuiGlyphPaint.shadows`.
+2. Reject `NoShadow` and `ShadowRun`; accept `SingleShadow`.
+3. Revalidate `gui_shadow_blur_radius &shadow >= 0` and `gui_shadow_spread &shadow >= 0`.
+4. Read fill and stroke metadata.
+5. Require at least one of fill or stroke as the shadow source metadata.
+6. If stroke metadata is present, revalidate `gui_stroke_width &stroke > 0`.
+7. Read glyph blend and require SourceOver.
+8. Revalidate the completed path command writer authority through the common helper.
+9. Produce the request owner.
+
+The success owner is private and owner-bearing:
+
+```text
+GuiSfntSimpleGlyphRenderShadowRequestOwner:
+    writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    origin GuiPoint
+    fill Option GuiPaint
+    stroke Option GuiStroke
+    shadow GuiShadow
+    blend GuiBlendMode
+```
+
+The owner, start error, and recovery payload do not implement `Clone` / `Copy`. Start error recovery consumes the error and returns writer and config together. Free paths release the path command writer. There is no fill owner, stroke owner, raw path-sink storage accessor, shadow mask, blur kernel, spread geometry, alpha-mask resource, render command, software surface, platform/backend call, fallback, or compositor drain in this phase.
+
+F5li does not change F5bh or F5kq. The no-shadow fill and stroke paths continue to reject shadow-bearing `GuiGlyphPaint` so a caller cannot accidentally route a shadow paint through a non-shadow path.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

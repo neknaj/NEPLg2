@@ -3295,6 +3295,54 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lh.json
 ```
 
+## Phase F5li: sfnt simple glyph render shadow request boundary
+
+目的:
+
+- shadow rasterization の最初の境界として、completed path command stream writer authority と single shadow metadata を owner 化する。
+- fill / stroke / fill+stroke のどれを shadow source にするかは metadata として保持し、fill/stroke mask owner や composition owner は消費しない。
+- `ShadowRun` は alloc-backed multi-shadow run resolver が未実装なので `UnsupportedShadowRun` として拒否する。
+- shadow blur、spread geometry、shadow mask、render command、alpha mask resource、pixel write、software surface、platform API、font fallback、2D compositor へ進まない。
+
+plan review:
+
+- Socrates plan review 1 は `CHANGES_REQUESTED`。
+- `stroke = Some` を後続 shadow source metadata として保持するなら F5li でも `gui_stroke_width > 0` を再検査する必要があると指摘された。
+- completed path command writer invariant は F5kq と同型なので、F5li に巨大な検査列を複製せず module-private neutral helper へ寄せる必要があると指摘された。
+- revised plan では `GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind` / error / helper を追加し、F5kq と F5li がそれぞれ typed error kind へ写す。F5li は source metadata 検査後、blend 検査前に optional stroke width を再検査する。
+- Socrates revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `gui_sfnt_simple_glyph_render_path_command_writer_authority` を追加する。completed path command writer の stored capacity、path/raster capacities、path scalar len、raster mask len zero、written count、path scalar count、move / line / quadratic / skip / last command count を検査する。
+- F5kq `gui_sfnt_simple_glyph_render_stroke_request_owner_start` は common helper を呼び、既存の `GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind` へ写す。F5kq の shadow reject / blend reject / success owner payload は変えない。
+- `GuiSfntSimpleGlyphRenderShadowRequestConfig` を追加する。origin と full `GuiGlyphPaint` を保持する value-only config とする。
+- `GuiSfntSimpleGlyphRenderShadowRequestOwner` を追加する。writer、origin、fill、stroke、single shadow、blend を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind`、start error、recovery payload、owner/start-error/recovery free helper を追加する。
+- F5li start は `NoShadow` を `MissingShadowPaint`、`ShadowRun` を `UnsupportedShadowRun`、negative blur/spread を typed error、fill/stroke 両方 missing を `MissingShadowSourcePaint`、forged non-positive stroke width を `StrokeWidthInvalid`、non-SourceOver blend を `UnsupportedBlendMode` として拒否する。
+- docs / source policy / focused doctest label / todo / note を F5li に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Socrates revised approval、common writer authority helper、F5kq helper reuse regression、F5li direct path writer authority、single-shadow only、`ShadowRun` rejection、shadow blur/spread revalidation、source fill/stroke metadata preservation、optional stroke width revalidation、SourceOver-only、private non-Clone/non-Copy owner/error/recovery、single writer+config recovery、no fill/stroke mask owner reuse、no render/resource/pixel/platform/fallback/shadow raster/compositor、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md` に config、common writer authority、single shadow accepted, ShadowRun rejected, source metadata, stroke width revalidation, SourceOver-only, recovery/free, no mask/resource/platform/compositor policy の coverage label を追加する。
+- implementation review で F5bh / F5kq の既存 no-shadow paths が shadow-bearing paint を受理していないこと、F5li が shadow blur/pixel へ進んでいないこと、common helper が F5kq / F5li の typed error surface を壊していないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5li 後の shadow mask geometry/rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md --no-tree -o tmp_gui_font_render_shadow_request_f5li.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5li_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5li.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5li.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
