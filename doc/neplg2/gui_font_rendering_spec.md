@@ -6543,6 +6543,20 @@ build owner は F5lm completed coverage owner、derived shadow shape、output ce
 
 bounded drain は `cell_index == shadow_cell_count` の exact state だけで completion を呼ぶ。未完了で budget が尽きた場合は `StepBudgetExhausted` を返す。step 後は `cell_index` と output cells len がそれぞれ 1 だけ進んだことを検査する。completion は exact full でなければ `CompletionIncomplete` とし、成功時は raw source cells を解放して completed blur owner を返す。
 
+### SFNT simple glyph render shadow source packed mask owner boundary
+
+F5lo は F5ln completed shadow source blur mask owner を direct authority とし、blurred coverage cells を shadow composition が読める alpha cells へ正規化する境界である。この phase は composition、resource table、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5lo は shadow paint / blend を packed owner に重複保持しない。後続の composition は completed packed owner に残る F5lk edge owner の context から shadow paint / blend / placement metadata を読む。F5lo は F5ln completed owner の `shadow_shape` と raw blurred `cells` を読み、completion 時に raw blurred cells を解放して、completed packed owner には alpha cells だけを残す。
+
+F5lo normalizes each blurred coverage cell by `alpha = (coverage * alpha_max) / coverage_max` using truncating integer division. `alpha_max` は positive でなければならない。start と step は `coverage_max * alpha_max` と `coverage * alpha_max` が i32 に収まることを検査し、raw blurred coverage が `0..coverage_max` に入ることを要求する。
+
+pack owner は F5ln completed blur owner、alpha cell Vec、config、`cell_index` を持つ。start は F5ln completed owner invariant、`alpha_max > 0`、raw blur cell count / Vec len/cap、alpha scale overflow を再検査してから、shadow cell count と等しい capacity の alpha Vec を確保する。step は 1 raw blurred cell を読み、alpha に正規化して push し、push failure では returned Vec と unchanged `cell_index` を owner-bearing error として返す。
+
+completion は `cell_index == shadow_cell_count` の exact state だけで成功する。成功時は F5ln blur owner を分解し、raw blurred cells を free して、F5lk edge owner、source shape、shadow shape、alpha cells、cell count、alpha max を持つ completed packed owner を返す。completed owner invariant は nested F5lk edge authority、cached source shape、derived shadow shape、alpha max、alpha Vec len/cap を再検査する。
+
+F5lo は generic F5be packed mask owner、stroke packed mask owner、fill alpha mask owner、composition order、render command、resource table、software surface、platform/backend API、font fallback、shadow rasterizer、2D compositor を呼ばない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

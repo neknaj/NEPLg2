@@ -7722,6 +7722,68 @@ The bounded drain completes only when `cell_index == shadow_shape.cell_count`. O
 
 F5ln must not call generic raster coverage scan owners, packed-mask helpers, stroke coverage helpers, fill alpha mask helpers, render command constructors, resource table helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
 
+## SFNT simple glyph render shadow source packed mask owner boundary
+
+F5lo consumes the completed F5ln shadow source blur mask owner and produces a completed shadow source alpha mask owner. It is still pre-composition and pre-render. It does not reserve resources, emit render commands, write pixels, call platform APIs, or drain a compositor.
+
+Pasteur plan review was `PLAN_APPROVED`. The review confirmed that F5lo should use the completed F5ln blur owner as direct authority, normalize raw blurred coverage while it still owns those cells, keep shadow paint / blend in the nested F5lk context, and ensure raw blurred coverage cells are freed at completion.
+
+The config is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig:
+    alpha_max i32
+```
+
+The transition owner is owner-bearing and non-copyable:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner:
+    blur_owner GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner
+    alpha_cells Vec i32
+    config GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig
+    cell_index i32
+```
+
+The completed owner stores both shapes and the packed alpha cells:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner:
+    edge_owner GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape GuiSfntSimpleGlyphRasterCoverageShape
+    shadow_shape GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells Vec i32
+    cell_count i32
+    alpha_max i32
+```
+
+The completed owner does not store shadow paint or blend. Later composition must read those values from the nested F5lk context. This keeps F5lo focused on alpha packing and avoids creating a second shadow metadata authority.
+
+F5lo starts by validating:
+
+```text
+alpha_max > 0
+F5ln completed blur owner invariant holds
+raw blur cell_count == shadow_shape.cell_count
+raw blur cells.len == shadow_shape.cell_count
+raw blur cells.cap == shadow_shape.cell_count
+coverage_max * alpha_max fits in i32
+```
+
+The conversion for each cell is:
+
+```text
+alpha = (coverage * alpha_max) / coverage_max
+```
+
+The division uses truncating integer division. Step revalidates the F5ln blur owner invariant, checks `cell_index` and alpha Vec exactness, reads the raw blurred cell at `cell_index`, rejects missing / negative / greater-than-coverage-max values, checks `coverage * alpha_max`, then pushes one alpha cell. Push failure returns a pack owner with the returned Vec and unchanged `cell_index`.
+
+The bounded drain completes only when `cell_index == shadow_shape.cell_count`. Otherwise it returns `StepBudgetExhausted` or advances by one cell and checks that both `cell_index` and alpha Vec length advanced by exactly one. Completion destructures the F5ln blur owner, frees raw blurred coverage cells, and returns a completed packed mask owner with the original F5lk edge owner, source shape, shadow shape, alpha cells, shadow cell count, and alpha max.
+
+F5lo also provides a completed owner invariant for later composition boundaries. It revalidates the nested F5lk edge owner, checks cached `source_shape` against the edge context, rederives the expected `shadow_shape`, verifies `alpha_max > 0`, and requires `cell_count`, alpha Vec len, and alpha Vec cap to equal the shadow cell count.
+
+F5lo must not call generic raster packed mask owners, stroke packed mask owners, fill alpha mask helpers, glyph paint composition order helpers, render command constructors, resource table helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

@@ -22013,6 +22013,625 @@ fn gui_sfnt_simple_glyph_render_shadow_source_blur_mask_build_terminal_free %imp
         GuiSfntSimpleGlyphRenderShadowSourceBlurMaskBuildTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_render_shadow_source_blur_mask_build_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig: shadow source blur coverage cell を alpha cell へ[正規化/せいきか]する[設定/せってい]
+//:
+//: [目的/もくてき]:
+//: - F5ln で[完成/かんせい]した shadow source blur mask を、後続の shadow composition が[読/よ]める alpha cell mask へ[変換/へんかん]する policy です。
+//: - owner を[保持/ほじ]しない value-only record なので `Clone` / `Copy` を[許可/きょか]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig:
+    alpha_max %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig \config:
+        config
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config: alpha [正規化/せいきか]の[設定/せってい]を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config %fn i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig \alpha_max:
+    GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig alpha_max
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max: alpha [最大値/さいだいち]を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig i32 \config:
+    *field::get_ref config "alpha_max"
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner: resumable shadow source packed mask conversion owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner:
+    blur_owner %GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner
+    alpha_cells %Vec i32
+    config %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig
+    cell_index %i32
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner: packed mask conversion owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner %fn GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner fn Vec i32 fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig fn i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner \blur_owner\alpha_cells\config\cell_index:
+    GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner blur_owner alpha_cells config cell_index
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index: [次/つぎ]に[処理/しょり]する cell index を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner i32 \owner:
+    *field::get_ref owner "cell_index"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_len: alpha cell Vec の len を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_cap: alpha cell Vec の cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner: completed shadow source packed alpha mask owner
+//:
+//: [目的/もくてき]:
+//: - source shape と shadow shape、alpha cell Vec、F5lk edge authority を[保持/ほじ]します。
+//: - shadow paint / blend は重複保持せず、後続 boundary が nested F5lk context から[読/よ]みます。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner:
+    edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape %GuiSfntSimpleGlyphRasterCoverageShape
+    shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells %Vec i32
+    cell_count %i32
+    alpha_max %i32
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner: completed packed alpha mask owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner \edge_owner\source_shape\shadow_shape\alpha_cells\cell_count\alpha_max:
+    GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner edge_owner source_shape shadow_shape alpha_cells cell_count alpha_max
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_source_shape: source shape を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_source_shape %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "source_shape"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape: shadow shape を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shadow_shape"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count: packed alpha cell count を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max: alpha [最大値/さいだいち]を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner i32 \owner:
+    *field::get_ref owner "alpha_max"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_len: completed alpha cell Vec の len を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_cap: completed alpha cell Vec の cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind: shadow source packed mask start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind:
+    InvalidAlphaMax
+    BlurOwnerInvariantFailed
+    AlphaScaleOverflow
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    AlphaStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind
+    blur_owner %GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner
+    config %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error: start failure payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError \kind\blur_owner\config\storage_error:
+    GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError kind blur_owner config storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple: storage payload なしの start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError \kind\blur_owner\config:
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error kind blur_owner config storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_storage_failed: allocation failure を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError \blur_owner\config\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::AlphaStorageAllocFailed blur_owner config storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_kind: start error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_storage_error: start error の storage payload を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_blur_owner: start error から blur owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_blur_owner %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner \error:
+    field::get error "blur_owner"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_count_checked_mul: start [検査/けんさ]用 i32 [乗算/じょうざん]を overflow [検査/けんさ]付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_alpha_scale_is_valid_for_start: coverage と alpha の[積/せき]が i32 に[収/おさ]まることを[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_alpha_scale_is_valid_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig Result unit GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind \shape\config:
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max config
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_count_checked_mul coverage_max alpha_max GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::AlphaScaleOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_start: blur owner から packed mask conversion を[開始/かいし]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig Result GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError \blur_owner\config:
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max &config
+    if le alpha_max 0:
+        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::InvalidAlphaMax blur_owner config
+        else:
+            match gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_invariants &blur_owner:
+                Result::Err _blur_error:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::BlurOwnerInvariantFailed blur_owner config
+                Result::Ok _:
+                    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_shadow_shape &blur_owner
+                    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_alpha_scale_is_valid_for_start &shadow_shape &config:
+                        Result::Err scale_error:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple scale_error blur_owner config
+                        Result::Ok _:
+                            let shadow_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+                            let owner_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_cell_count &blur_owner
+                            if ne owner_cell_count shadow_cell_count:
+                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::RawCellCountMismatch blur_owner config
+                                else:
+                                    let raw_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_cells_len &blur_owner
+                                    if ne raw_cells_len shadow_cell_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::RawCellStorageLenMismatch blur_owner config
+                                        else:
+                                            let raw_cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_cells_cap &blur_owner
+                                            if ne raw_cells_cap shadow_cell_count:
+                                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartErrorKind::RawCellStorageCapacityMismatch blur_owner config
+                                                else:
+                                                    let alpha_cells_result %Result Vec i32 StdErrorKind vec::with_capacity shadow_cell_count
+                                                    match alpha_cells_result:
+                                                        Result::Err storage_error:
+                                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_storage_failed blur_owner config storage_error
+                                                        Result::Ok alpha_cells:
+                                                            let owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner blur_owner alpha_cells config 0
+                                                            Result::Ok owner
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind: shadow source packed mask conversion failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind:
+    InvalidAlphaMax
+    BlurOwnerInvariantFailed
+    EdgeOwnerInvariantFailed
+    CachedSourceShapeMismatch
+    ShadowShapeMismatch
+    CellCountMismatch
+    CellIndexNegative
+    CellIndexExceedsCellCount
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    RawCellSlotMissing
+    RawCoverageNegative
+    RawCoverageExceedsMax
+    AlphaScaleOverflow
+    AlphaStoragePushFailed
+    CompletionIncomplete
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError: conversion failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError:
+    owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner
+    kind %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind
+    cell_index %Option i32
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error: conversion failure payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind fn Option i32 fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner\kind\cell_index\storage_error:
+    GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError owner kind cell_index storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple: optional payload なしの conversion error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner\kind:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error owner kind cell_index storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_with_cell_index: 問題の cell index を[持/も]つ conversion error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_with_cell_index %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind fn i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner\kind\cell_index_value:
+    let cell_index %Option i32 some cell_index_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error owner kind cell_index storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_storage_failed: push failure を conversion error に[包/つつ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner\storage_error_value:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error owner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::AlphaStoragePushFailed cell_index storage_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_kind: conversion error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_storage_error: conversion error の storage payload を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_owner: conversion error から pack owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner \error:
+    field::get error "owner"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_count_checked_mul: conversion [検査/けんさ]用 i32 [乗算/じょうざん]を overflow [検査/けんさ]付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_invariants: pack owner と F5ln blur owner の[整合/せいごう]を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner Result unit GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index owner
+    if lt cell_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::CellIndexNegative
+        else:
+            let config %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig field::get_ref owner "config"
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max config
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::InvalidAlphaMax
+                else:
+                    let blur_owner %&GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get_ref owner "blur_owner"
+                    match gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_invariants blur_owner:
+                        Result::Err _blur_error:
+                            Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::BlurOwnerInvariantFailed
+                        Result::Ok _:
+                            let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_shadow_shape blur_owner
+                            let shadow_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+                            if gt cell_index shadow_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::CellIndexExceedsCellCount
+                                else:
+                                    let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_len owner
+                                    if ne alpha_cells_len cell_index:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::AlphaStorageLenMismatch
+                                        else:
+                                            let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_cap owner
+                                            if ne alpha_cells_cap shadow_cell_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::AlphaStorageCapacityMismatch
+                                                else:
+                                                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_cell_count blur_owner
+                                                    if ne owner_cell_count shadow_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::RawCellCountMismatch
+                                                        else:
+                                                            let raw_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_cells_len blur_owner
+                                                            if ne raw_cells_len shadow_cell_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::RawCellStorageLenMismatch
+                                                                else:
+                                                                    let raw_cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_cells_cap blur_owner
+                                                                    if ne raw_cells_cap shadow_cell_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::RawCellStorageCapacityMismatch
+                                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_read_coverage_cell: [現在/げんざい]の raw blur coverage cell を[読/よ]み[範囲/はんい]を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_read_coverage_cell %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner Result i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index owner
+    let blur_owner %&GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get_ref owner "blur_owner"
+    let cells %&Vec i32 field::get_ref blur_owner "cells"
+    match vec::get cells cell_index:
+        Option::None:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::RawCellSlotMissing
+        Option::Some coverage_value:
+            if lt coverage_value 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::RawCoverageNegative
+                else:
+                    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_shadow_shape blur_owner
+                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shadow_shape
+                    if gt coverage_value coverage_max:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::RawCoverageExceedsMax
+                        else Result::Ok coverage_value
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_normalize_alpha: coverage cell を alpha cell に[正規化/せいきか]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_normalize_alpha %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \owner\coverage_value:
+    let blur_owner %&GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get_ref owner "blur_owner"
+    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_shadow_shape blur_owner
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shadow_shape
+    let config %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig field::get_ref owner "config"
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max config
+    let max_i32 %i32 2147483647
+    let max_coverage %i32 div_s max_i32 alpha_max
+    if gt coverage_value max_coverage:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::AlphaScaleOverflow
+        else:
+            let scaled %i32 mul coverage_value alpha_max
+            Result::Ok div_s scaled coverage_max
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_step: 1 cell を alpha Vec へ[追加/ついか]して owner を[進/すす]める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_step %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner Result GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_read_coverage_cell &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple owner error_kind
+                Result::Ok coverage_value:
+                    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_normalize_alpha &owner coverage_value:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple owner error_kind
+                        Result::Ok alpha_value:
+                            let cell_index %i32 field::get owner "cell_index"
+                            let blur_owner %GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get owner "blur_owner"
+                            let config %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig field::get owner "config"
+                            let alpha_cells %Vec i32 field::get owner "alpha_cells"
+                            match vec::push alpha_cells alpha_value:
+                                Result::Ok next_alpha_cells:
+                                    let next_cell_index %i32 add cell_index 1
+                                    let next_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner blur_owner next_alpha_cells config next_cell_index
+                                    Result::Ok next_owner
+                                Result::Err push_error:
+                                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                                    let returned_alpha_cells %Vec i32 vec::vec_push_error_vec push_error
+                                    let returned_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner blur_owner returned_alpha_cells config cell_index
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_storage_failed returned_owner storage_error_value
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_complete: exact full の owner から completed packed mask owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_complete %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner Result GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index &owner
+            let blur_ref %&GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get_ref &owner "blur_owner"
+            let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_shadow_shape blur_ref
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+            if ne cell_index cell_count:
+                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple owner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::CompletionIncomplete
+                else:
+                    let config %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig field::get owner "config"
+                    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_config_alpha_max &config
+                    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+                    let blur_owner %GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get owner "blur_owner"
+                    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get blur_owner "edge_owner"
+                    let source_shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get blur_owner "source_shape"
+                    let shadow_shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get blur_owner "shadow_shape"
+                    let raw_cells %Vec i32 field::get blur_owner "cells"
+                    let raw_cell_count %i32 field::get blur_owner "cell_count"
+                    vec::free raw_cells
+                    let completed %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner edge_owner source_shape_value shadow_shape_value alpha_cells raw_cell_count alpha_max
+                    Result::Ok completed
+
+//: GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal: bounded packed mask drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal:
+    PackedMaskCompleted %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_drain_to_complete_budget: budget [範囲/はんい]で packed mask conversion を[進/すす]める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError \owner\remaining_steps:
+    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            let blur_owner %&GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get_ref &owner "blur_owner"
+            let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_shadow_shape blur_owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+            let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index &owner
+            if eq cell_index cell_count:
+                then:
+                    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_complete owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok completed:
+                            Result::Ok GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal::PackedMaskCompleted completed
+                else:
+                    if le remaining_steps 0:
+                        then Result::Ok GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal::StepBudgetExhausted owner
+                        else:
+                            let old_cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index &owner
+                            let old_alpha_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_len &owner
+                            match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_step owner:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    let next_cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_cell_index &next_owner
+                                    let required_cell_index %i32 add old_cell_index 1
+                                    let next_alpha_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_alpha_cells_len &next_owner
+                                    let required_alpha_cells_len %i32 add old_alpha_cells_len 1
+                                    if or ne next_cell_index required_cell_index ne next_alpha_cells_len required_alpha_cells_len:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_simple next_owner GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::ProgressInvariantInvalid
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_drain_to_complete_budget next_owner next_remaining_steps
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_invariants: completed packed mask owner の authority と storage を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner Result unit GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \owner:
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max owner
+    if le alpha_max 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::InvalidAlphaMax
+        else:
+            let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref owner "edge_owner"
+            match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner:
+                Result::Err _edge_error:
+                    Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::EdgeOwnerInvariantFailed
+                Result::Ok _:
+                    let source_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_source_shape owner
+                    let actual_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner edge_owner
+                    if not gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal source_shape actual_shape:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::CachedSourceShapeMismatch
+                        else:
+                            match gui_sfnt_simple_glyph_render_shadow_source_blur_mask_derive_shadow_shape_from_edge_owner edge_owner &source_shape:
+                                Result::Err _derive_error:
+                                    Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::EdgeOwnerInvariantFailed
+                                Result::Ok expected_shadow_shape:
+                                    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape owner
+                                    if not gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal shadow_shape expected_shadow_shape:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::ShadowShapeMismatch
+                                        else:
+                                            let shadow_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+                                            let owner_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count owner
+                                            if ne owner_cell_count shadow_cell_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::CellCountMismatch
+                                                else:
+                                                    let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_len owner
+                                                    if ne alpha_cells_len shadow_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::AlphaStorageLenMismatch
+                                                        else:
+                                                            let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_cap owner
+                                                            if ne alpha_cells_cap shadow_cell_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::AlphaStorageCapacityMismatch
+                                                                else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_free: pack owner が[保持/ほじ]する blur owner と alpha Vec を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner unit \owner:
+    let blur_owner %GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get owner "blur_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_free blur_owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free: completed owner が[保持/ほじ]する edge owner と alpha Vec を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner unit \owner:
+    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_free: start error が[保持/ほじ]する blur owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskStartError unit \error:
+    let blur_owner %GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner field::get error "blur_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_blur_mask_owner_free blur_owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_free: conversion error が[保持/ほじ]する pack owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_terminal_free: terminal variant が[保持/ほじ]する owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal::PackedMaskCompleted completed:
+            gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free completed
+        GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal::StepBudgetExhausted owner:
+            gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
