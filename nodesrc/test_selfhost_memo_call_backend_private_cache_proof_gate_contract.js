@@ -2212,26 +2212,60 @@ assertOrdered(
         "accepted_proof_count %i32",
         "context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
         "context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
-        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
-        "rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
     ],
     "context-bound reader traversal bundle summary must expose only counts and typed Result payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_from_candidate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_candidate_validate_result candidate",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_new",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_record_new candidate.key candidate.graph_id candidate.root_operation_ordinal candidate.support_operation_ordinal SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_push table0 record",
+    ],
+    "source-derived witness table helper must validate the candidate and derive witness authority from candidate key, graph, and root/support ordinals",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_from_candidate_result")),
+    /witness_body_module_fingerprint|graph_index|RequestEvidenceProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "source-derived witness table helper must not accept external witness metadata or synthesize lower proof, backend, effect, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result &sources",
+        "Result::Ok table:",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result &table",
+        "selfhost_memo_call_backend_private_cache_region_proof_table_free table",
+        "Result::Ok candidate:",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_from_candidate_result candidate",
+        "Result::Ok witnesses:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_new sources witnesses",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+    ],
+    "source-derived traversal bundle helper must build proof table, extract candidate, close proof table, derive witness, and close source owner on candidate or witness failure",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result")),
+    /actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RequestEvidenceProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "source-derived traversal bundle helper must not call the external-metadata fixture helper or synthesize lower proof, backend, effect, or artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output",
         "Result::Ok sources:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources",
         "Result::Err e:",
         "Stage0SourceRejected e",
     ],
-    "context-bound reader traversal bundle helper must validate source owners through the context-bound output helper before adding a witness owner",
+    "context-bound reader traversal bundle helper must validate source owners through the context-bound output helper before deriving the witness owner from the source candidate",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result")),
-    /actual_traversal_body_adapter_sources_from_input_owners_result|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
-    "context-bound reader traversal bundle helper must not bypass the context-bound source adapter or synthesize proof, GraphInput, backend, effect, or artifact records",
+    /actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-bound reader traversal bundle helper must not bypass the context-bound source adapter, call the external-metadata fixture helper, or synthesize proof, GraphInput, backend, effect, or artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result"),
@@ -2240,7 +2274,7 @@ assertOrdered(
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output witness_body_module_fingerprint graph_index 0 1 status",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
@@ -2249,26 +2283,21 @@ assertOrdered(
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result")),
-    /actual_traversal_body_adapter_sources_from_input_owners_result|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    /actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "context-bound reader traversal bundle stage0 runner must not bypass source validation or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0"),
     [
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 77 0",
-        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 0",
         "context_key_mismatch_rejected",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 78 77 0",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 78 0",
         "context_graph_mismatch_rejected",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 77 77 1",
-        "missing_witness_rejected",
-        "PrivateCacheRegionFreshWitnessMissing",
-        "rejected_witness_rejected",
-        "PrivateCacheRegionFreshWitnessRejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 77 1",
         "accepted.request_count",
         "accepted.proven_request_count",
     ],
-    "context-bound reader traversal bundle stage0 must cover accepted output, context key mismatch, context graph mismatch, missing witness, and rejected witness",
+    "context-bound reader traversal bundle stage0 must cover accepted source-derived witness output, context key mismatch, and context graph mismatch",
 );
 assert.doesNotMatch(
     code,

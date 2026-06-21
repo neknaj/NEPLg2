@@ -77201,3 +77201,43 @@ MERGE_APPROVED
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend source-derived witness bundle checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、context-bound reader output から得た source table を no-escape candidate checker に通し、その candidate 由来で fresh witness table を作る checkpoint を追加した。
+- `selfhost_memo_call_backend_private_cache_region_fresh_witness_table_from_candidate_result` を追加した。caller から witness body fingerprint、graph index、root / support ordinal、status を受け取らず、candidate の proof key / graph id / root-support ordinal だけから accepted witness record を作る。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result` を追加した。source table から region proof table を作り、candidate extraction 後に proof table を閉じ、candidate extraction / witness table creation の失敗時には source table owner を閉じる。
+- `context_bound_reader_traversal_bundle_from_output_result` と stage0 runner から external witness metadata 引数を削除し、context-bound source helper -> source-derived witness helper -> actual traversal bundle gate の順にした。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` は accepted request / proof count と context key / graph mismatch の typed `Result` だけを公開する。missing / rejected witness の代表 smoke は既存 fresh witness stage と actual traversal bundle stage の責務として残す。
+- production availability はまだ `ProducerNotConnected` fallback のままである。`RequestEvidenceProven`、Resource proof push、GraphInput、PrivateCache / PrivateState effect mask、backend bytes、artifact key は作っていない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` を source-derived witness bundle checkpoint の説明へ更新した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に、external witness metadata fixture path を context-bound helper から外し、candidate-derived witness owner へ移したことを記録した。
+- `todo.md` の memo_call backend 残件を source-derived fresh witness bundle checkpoint 後の real Resource IR traversal producer、production availability、effect masking、artifact projectionへ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、candidate-derived witness 作成順序、source-derived bundle helper の cleanup、context-bound helper が `actual_traversal_bundle_stage0_with_sources_result` を呼ばないこと、private helper 非公開、backend / effect / artifact 非生成を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針に沿って、契約、現状、残件、owner cleanup をコメントと文書で明示した。
+
+### subagent review
+
+- Locke design review は `PLAN_APPROVED`。source table から `region_proof_table_from_sources_result` と `region_no_escape_candidate_from_table_result` を通し、その candidate 由来で witness owner を作る方向は、stage0 fixture 依存を減らす root-cause 的な前進として承認された。
+- 必須条件として、helper 非公開、external witness metadata 引数の削除、context-bound source validation failure では witness を作らないこと、proof table / source table cleanup、`RequestEvidenceProven` が backend / effect mask 完了ではないことの明記、production availability 維持、GraphInput / backend / effect / artifact 非生成、source policy での順序固定が確認された。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。candidate field 由来の witness 作成、candidate / witness failure での source owner cleanup、context-bound helper の external metadata fixture helper 非使用、public owner 非公開、source policy による backend / effect / artifact 非生成と `ProducerNotConnected` 維持、行数 / doc comment 量制限の非導入が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-source-derived-witness-bundle-doctest.json; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`。17/17。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
+- real Resource IR traversal producer から供給された source table を source-derived witness bundle helper へ渡し、stage0 fixture ではなく producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。

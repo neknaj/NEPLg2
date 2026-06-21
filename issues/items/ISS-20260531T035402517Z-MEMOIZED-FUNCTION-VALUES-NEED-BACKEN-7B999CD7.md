@@ -880,17 +880,17 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 ## 2026-06-21 selfhost memo_call backend context-bound reader traversal bundle checkpoint
 
-`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、context-bound available reader output を actual traversal bundle gate へ渡す stage0 checkpoint を追加した。
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、context-bound available reader output を source-derived fresh witness bundle として actual traversal bundle gate へ渡す stage0 checkpoint を追加した。
 
 `context_bound_reader_traversal_bundle_from_output_result` は、available output を直接 input-owner adapter に渡さず、既存の `actual_traversal_body_adapter_sources_from_request_context_output_result` を通して source table owner を得る。これにより、source table が非空であり、request context と同じ proof key / Resource graph id に閉じていることを確認してから次段へ進む。source validation に失敗した場合は `Stage0SourceRejected` に写し、fresh witness owner を作らない。
 
-source validation に成功した後だけ、`actual_traversal_bundle_stage0_with_sources_result` で fresh witness table owner を作る。witness 作成失敗時の source owner cleanup は既存 bundle helper に委譲する。bundle gate へ進んだ場合は、既存 `actual_traversal_bundle_request_evidence_gate_result` が source / witness / proof owner lifecycle を担当する。
+source validation に成功した後だけ、`actual_traversal_bundle_source_derived_witness_result` が source table から region proof table と no-escape candidate を作り、その candidate の proof key / graph id / root-support ordinal だけで fresh witness table owner を作る。witness body fingerprint、graph index、operation ordinal、witness status を外部から受け取る fixture path は context-bound helper から外した。candidate extraction 後は region proof table を閉じ、candidate extraction または witness table 作成に失敗した場合は source table owner も閉じる。bundle gate へ進んだ場合は、既存 `actual_traversal_bundle_request_evidence_gate_result` が source / witness / proof owner lifecycle を担当する。
 
-public stage0 summary には `accepted_request_count`、`accepted_proof_count`、`context_key_mismatch_rejected`、`context_graph_mismatch_rejected`、`missing_witness_rejected`、`rejected_witness_rejected` を追加した。これらは typed `Result` による smoke であり、reader context、split output、source table、fresh witness table、bundle、candidate、Resource proof table、backend bytes、effect mask、artifact key は public API に出さない。
+public stage0 summary には `accepted_request_count`、`accepted_proof_count`、`context_key_mismatch_rejected`、`context_graph_mismatch_rejected` を追加した。これらは typed `Result` による smoke であり、reader context、split output、source table、fresh witness table、bundle、candidate、Resource proof table、backend bytes、effect mask、artifact key は public API に出さない。`RequestEvidenceProven` は request occurrence と no-escape proof の照合結果であり、PrivateCache / PrivateState の pure mask や backend 完了を意味しない。
 
 この checkpoint は production real reader 接続ではない。production availability は引き続き `ProducerNotConnected` fallback のままであり、real HIR lowering result / Resource IR body から accepted source を作る producer は未接続である。
 
-source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context-bound source helper 経由、direct input-owner adapter bypass 禁止、source validation 成功後だけ witness 作成へ進む順序、request table / HIR module cleanup、helper 非公開、`ProducerNotConnected` fallback 維持、proof / GraphInput / backend / effect / artifact 非生成を固定した。行数や doc comment 量を制限する検査は追加していない。
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context-bound source helper 経由、direct input-owner adapter bypass 禁止、source validation 成功後だけ source-derived witness 作成へ進む順序、candidate field 由来の witness 作成、proof table / source table cleanup、request table / HIR module cleanup、helper 非公開、`ProducerNotConnected` fallback 維持、proof / GraphInput / backend / effect / artifact 非生成を固定した。行数や doc comment 量を制限する検査は追加していない。
 
 残件:
 
