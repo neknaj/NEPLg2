@@ -3632,6 +3632,50 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lo.json
 ```
 
+## Phase F5lp: sfnt simple glyph render shadow source composition order
+
+目的:
+
+- F5lo completed shadow source packed mask owner を direct authority とし、shadow contribution が source paint より前に合成される順序 metadata を固定する。
+- F5lk context の placement / shadow paint / blend を downstream 用の固定証跡として保持し、completed invariant で context と再照合する。
+- fill/stroke composition、sample cursor、resource reservation、render command、pixel write、platform API、font fallback、shadow rasterizer、2D compositor へ進まない。
+
+plan review:
+
+- Hume plan review は `PLAN_APPROVED`。
+- F5lp は completed F5lo owner だけを direct authority とし、F5lo invariant と nested F5lk edge/context invariant を再検査する設計が承認された。
+- lower packed mask error evidence と lower edge error evidence を start error に保持し、F5lo invariant が nested edge invalidity を `EdgeOwnerInvariantFailed` に畳んだ packed failure path でも root cause を隠さない。
+- `shadow_order = 0`、`source_order = 1` の固定順序を owner invariant で再検査する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner` を追加する。F5lo owner、source placement origin、shadow offset / extent / paint、blend、shadow/source order を保持し、`Clone` / `Copy` は実装しない。
+- start error kind、start error、recovery、free helper を追加する。start error は lower F5lo packed mask error kind と lower F5lk edge error kind を `Option` で保持する。
+- start は F5lo owner invariant、nested F5lk edge owner invariant、SourceOver-only blend support を検査してから、context metadata と fixed order 0/1 を owner に固定する。F5lo invariant failure が `EdgeOwnerInvariantFailed` の場合は nested edge invariant を再実行し、packed error と lower edge error を同じ start error に保持する。
+- completed owner invariant は F5lo owner invariant、nested F5lk edge owner invariant、context metadata equality、SourceOver-only blend support、fixed order を再検査する。
+- docs / source policy / focused doctest label / todo / note を F5lp に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Hume approval、F5lo completed packed mask authority、private owner / error / recovery、error kind の `Clone` / `Copy`、owner-bearing no `Clone` / `Copy`、packed invariant再検査、nested edge invariant再検査、lower error evidence、context metadata固定、SourceOver-only、shadow-before-source order、free/recovery、fill/stroke/render/platform/compositor禁止、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md` に F5lo authority、context metadata、packed invariant、edge error evidence、SourceOver、shadow-before-source、completed invariant、recovery free、no fill/stroke/render/platform policy の coverage label を追加する。
+- implementation review で F5lp が F5lo owner 以外を direct authority にしていないこと、fill/stroke composition / sample / resource / command / platform / compositor へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lp 後の shadow source sample/resource/command bridge、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md --no-tree -o tmp_gui_font_render_shadow_source_composition_order_f5lp.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_packed_mask_f5lp_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lp.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lp.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

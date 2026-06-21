@@ -21699,6 +21699,221 @@ fn gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_terminal_free %im
         GuiSfntSimpleGlyphRenderShadowSourcePackedMaskPackTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_render_shadow_source_packed_mask_pack_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner: shadow source の composition [順序/じゅんじょ] owner
+//:
+//: [目的/もくてき]:
+//: - 完成済み shadow source packed mask owner を、source paint より[前/まえ]に[描/えが]く shadow contribution として[固定/こてい]します。
+//: - この owner は command や resource を[作/つく]らず、後続境界が読む shadow metadata と mask owner だけを[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner:
+    shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner
+    source_placement_origin %GuiPoint
+    shadow_offset %GuiPoint
+    shadow_extent %i32
+    shadow_paint %GuiPaint
+    blend %GuiBlendMode
+    shadow_order %i32
+    source_order %i32
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner fn GuiPoint fn GuiPoint fn i32 fn GuiPaint fn GuiBlendMode fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner \shadow_owner\source_placement_origin\shadow_offset\shadow_extent\shadow_paint\blend\shadow_order\source_order:
+    GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner shadow_owner source_placement_origin shadow_offset shadow_extent shadow_paint blend shadow_order source_order
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_placement_origin %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiPoint \owner:
+    *field::get_ref owner "source_placement_origin"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_offset %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiPoint \owner:
+    *field::get_ref owner "shadow_offset"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_extent %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner i32 \owner:
+    *field::get_ref owner "shadow_extent"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiPaint \owner:
+    *field::get_ref owner "shadow_paint"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_blend %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiBlendMode \owner:
+    *field::get_ref owner "blend"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner i32 \owner:
+    *field::get_ref owner "shadow_order"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner i32 \owner:
+    *field::get_ref owner "source_order"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind: shadow source composition order start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind:
+    PackedMaskInvariantFailed
+    EdgeOwnerInvariantFailed
+    SourcePlacementOriginMismatch
+    ShadowOffsetMismatch
+    ShadowExtentMismatch
+    ShadowPaintMismatch
+    BlendMismatch
+    UnsupportedBlendMode
+    ShadowOrderMismatch
+    SourceOrderMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError: composition order start の owner recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+    shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner
+    packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind
+    edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery:
+    shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner fn Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \kind\shadow_owner\packed_error\edge_error:
+    GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError kind shadow_owner packed_error edge_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \kind\shadow_owner:
+    let packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind none
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error kind shadow_owner packed_error edge_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_failed %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \shadow_owner\packed_error_value:
+    let packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind some packed_error_value
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::PackedMaskInvariantFailed shadow_owner packed_error edge_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_edge_failed %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \shadow_owner\packed_error_value\edge_error_value:
+    let packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind some packed_error_value
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind some edge_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::PackedMaskInvariantFailed shadow_owner packed_error edge_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_from_packed_failed %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \shadow_owner\packed_error_value:
+    match packed_error_value:
+        GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::EdgeOwnerInvariantFailed:
+            let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref &shadow_owner "edge_owner"
+            match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner:
+                Result::Err edge_error:
+                    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_edge_failed shadow_owner packed_error_value edge_error
+                Result::Ok _:
+                    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_failed shadow_owner packed_error_value
+        _:
+            gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_failed shadow_owner packed_error_value
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_edge_failed %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \shadow_owner\edge_error_value:
+    let packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind none
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind some edge_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::EdgeOwnerInvariantFailed shadow_owner packed_error edge_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind \error:
+    *field::get_ref error "packed_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_edge_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
+    *field::get_ref error "edge_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery \error:
+    let shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get error "shadow_owner"
+    GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery shadow_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_context_from_packed_owner %fn &GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \shadow_owner:
+    let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref shadow_owner "edge_owner"
+    *field::get_ref edge_owner "context"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_context %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \owner:
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_context_from_packed_owner shadow_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \owner:
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_invariants shadow_owner:
+        Result::Err _packed_error:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::PackedMaskInvariantFailed
+        Result::Ok _:
+            let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref shadow_owner "edge_owner"
+            match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner:
+                Result::Err _edge_error:
+                    Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::EdgeOwnerInvariantFailed
+                Result::Ok _:
+                    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_context owner
+                    let expected_source_placement_origin %GuiPoint *field::get_ref &context "source_placement_origin"
+                    let source_placement_origin %GuiPoint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_placement_origin owner
+                    if not gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal source_placement_origin expected_source_placement_origin:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::SourcePlacementOriginMismatch
+                        else:
+                            let expected_shadow_offset %GuiPoint *field::get_ref &context "shadow_offset"
+                            let shadow_offset %GuiPoint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_offset owner
+                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal shadow_offset expected_shadow_offset:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::ShadowOffsetMismatch
+                                else:
+                                    let expected_shadow_extent %i32 *field::get_ref &context "shadow_extent"
+                                    let shadow_extent %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_extent owner
+                                    if ne shadow_extent expected_shadow_extent:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::ShadowExtentMismatch
+                                        else:
+                                            let expected_shadow_paint %GuiPaint *field::get_ref &context "shadow_paint"
+                                            let shadow_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_paint owner
+                                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal shadow_paint expected_shadow_paint:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::ShadowPaintMismatch
+                                                else:
+                                                    let expected_blend %GuiBlendMode *field::get_ref &context "blend"
+                                                    let blend %GuiBlendMode gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_blend owner
+                                                    if not gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal blend expected_blend:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::BlendMismatch
+                                                        else:
+                                                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported blend:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::UnsupportedBlendMode
+                                                                else:
+                                                                    let shadow_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order owner
+                                                                    if ne shadow_order 0:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::ShadowOrderMismatch
+                                                                        else:
+                                                                            let source_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order owner
+                                                                            if ne source_order 1:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::SourceOrderMismatch
+                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_start %fn GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner Result GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError \shadow_owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_invariants &shadow_owner:
+        Result::Err packed_error:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_from_packed_failed shadow_owner packed_error
+        Result::Ok _:
+            let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref &shadow_owner "edge_owner"
+            match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner:
+                Result::Err edge_error:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_edge_failed shadow_owner edge_error
+                Result::Ok _:
+                    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext gui_sfnt_simple_glyph_render_shadow_source_composition_order_context_from_packed_owner &shadow_owner
+                    let blend %GuiBlendMode *field::get_ref &context "blend"
+                    if not gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported blend:
+                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_simple GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind::UnsupportedBlendMode shadow_owner
+                        else:
+                            let source_placement_origin %GuiPoint *field::get_ref &context "source_placement_origin"
+                            let shadow_offset %GuiPoint *field::get_ref &context "shadow_offset"
+                            let shadow_extent %i32 *field::get_ref &context "shadow_extent"
+                            let shadow_paint %GuiPaint *field::get_ref &context "shadow_paint"
+                            let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner shadow_owner source_placement_origin shadow_offset shadow_extent shadow_paint blend 0 1
+                            Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner unit \owner:
+    let shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get owner "shadow_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free shadow_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError unit \error:
+    let recovery %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery error
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery_free recovery
+
+fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery unit \recovery:
+    let shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get recovery "shadow_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free shadow_owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
