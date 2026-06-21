@@ -79656,3 +79656,28 @@ MERGE_APPROVED
 - Hilbert initial implementation review は `REVIEW_CHANGES_REQUESTED`。code 本体の blocker はなく、新規 `stdlib/alloc/gui/render2d/compositor_batch_range.nepl` / `tests/stdlib/gui_render2d_compositor_batch_range.n.md` が未 tracking のまま commit される危険と、この note の review status 未反映が blocker だったため、明示 staging と note 更新で対応する。
 - Hilbert follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 10 files のみで、新規 module / focused doctest が含まれ、F5mb implementation contract と docs / source policy に commit-blocking finding は無い。
 - F5mb 後続は row byte storage / tile / RLE と std present への payload transport / present continuation に分ける。
+
+## 2026-06-22 selfhost memo_call backend event producer convergence checkpoint
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、古い actual walker event producer bridge の direct `Body + UnknownResourceOperation` constructor を production path から外し、resolver-bound HIR body reader source plan / operation projection / operation classifier path へ収束させた。
+- `actual_walker_event_producer_bridge_events_from_hir_root_result` は borrowed resolution table を受け、`actual_walker_operation_producer_bridge_operations_from_hir_root_result` で operation table owner を作り、`actual_walker_operation_classifier_events_from_hir_root_result` で unified event table owner を作る。classifier event table 作成後、operation table owner は必ず閉じる。
+- 旧 `actual_walker_event_producer_bridge_append_request_result` と `append_requests_loop` は削除した。これにより event producer bridge が request entry から proof key / graph id / unsupported event を直接作る competing authority を残さない。
+- stage0 runner は operation producer bridge と同じ `actual_traversal_body_stage0_resolution_table_result` を作って borrow で bridge へ渡し、success / failure のどちらでも resolution table owner を閉じる。
+- `SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary` の first field を `unsupported_rejected` から `accepted_result` へ更新した。これは reader-derived clean wrapper source が operation classifier / normalizer / graph gate へ届く smoke であり、fresh witness、effect mask、sealed backend、artifact key の完了を意味しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、event producer が operation producer / classifier 経由になること、operation owner cleanup、stage0 resolution owner cleanup、direct event table constructor / `UnknownResourceOperation` / direct proof key / graph id 作成禁止、backend / effect / artifact 非生成を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を event producer convergence checkpoint 後の残件へ更新した。plan.md との差異はない。
+- Averroes の design review は、event producer convergence を full traversal 前に行う semantic boundary として承認した。full Resource IR / HIR traversal-derived source / witness はこの slice の範囲外で、次の残件として残す方針が確認された。
+- 最新 `origin/main` 取り込み後、F5mb `stdlib/alloc/gui/render2d/compositor_batch_range.nepl` の宣言 doc / doctest marker 不足で `test_stdlib_documentation_contract.js` が baseline を超えていた。baseline を上げず、隣接 compositor module と同じ `neplg2:test[skip]` 付き宣言 doc を追加して復旧した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-event-producer-convergence.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-event-producer-convergence.json`。17 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_event_producer_convergence.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- pass: `node nodesrc/run_source_policy_regressions.js`

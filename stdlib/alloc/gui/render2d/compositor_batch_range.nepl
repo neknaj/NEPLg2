@@ -31,6 +31,11 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 
+//: GuiRgba8888CompositorBatchRangeErrorKind: compositor batch range prepare の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower row batch cursor の next batch 取得と row batch range prepare のどちらで[止/と]まったかを typed kind として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
 pub enum GuiRgba8888CompositorBatchRangeErrorKind:
     CursorNextBatchFailed %GuiRgba8888RowBatchCursorErrorKind
     RowBatchRangePrepareFailed %GuiRgba8888RowBatchRangePrepareErrorKind
@@ -43,21 +48,44 @@ impl Copy for GuiRgba8888CompositorBatchRangeErrorKind:
     fn copy_mark %fn GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind \kind:
         kind
 
+//: GuiRgba8888CompositorBatchRangeOwner: range owner と frame metadata を[束/たば]ねる owner
+//:
+//: row batch range owner を[保持/ほじ]しながら、後続の byte storage / tile transport が compositor frame entry metadata を[参照/さんしょう]できるようにします。
+//:
+//: neplg2:test[skip]
 pub struct GuiRgba8888CompositorBatchRangeOwner:
     range %GuiRgba8888RowBatchRangeOwner
     metadata %GuiRgba8888CompositorFrameEntryMetadata
 
+//: GuiRgba8888CompositorBatchRangeError: range prepare 失敗時に entry owner を[回収/かいしゅう]する error
+//:
+//: lower error kind / category と、caller へ[戻/もど]す compositor frame entry owner を 1 payload に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
 pub struct GuiRgba8888CompositorBatchRangeError:
     kind %GuiRgba8888CompositorBatchRangeErrorKind
     category %Option GuiError
     entry %GuiRgba8888CompositorFrameEntryOwner
 
+//: gui_rgba8888_compositor_batch_range_owner_new: range owner と metadata を owner payload に[束/たば]ねる
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_range_owner_new %fn GuiRgba8888RowBatchRangeOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchRangeOwner \range\metadata:
     GuiRgba8888CompositorBatchRangeOwner range metadata
 
+//: gui_rgba8888_compositor_batch_range_error_new: range prepare error payload を[作/つく]る
+//:
+//: lower error から[読/よ]んだ kind / category と、再構成済み entry owner を owner-bearing error に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_range_error_new %fn GuiRgba8888CompositorBatchRangeErrorKind fn Option GuiError fn GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorBatchRangeError \kind\category\entry:
     GuiRgba8888CompositorBatchRangeError kind category entry
 
+//: gui_rgba8888_compositor_batch_range_cursor_error_new: cursor step error を compositor range error へ[写/うつ]す
+//:
+//: lower cursor error から kind / category と cursor owner を[取/と]り[出/だ]し、metadata と[一緒/いっしょ]に entry owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_range_cursor_error_new %fn GuiRgba8888RowBatchCursorStepError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchRangeError \lower\metadata:
     let lower_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_step_error_kind &lower
     let category %Option GuiError gui_rgba8888_row_batch_cursor_step_error_category_value &lower
@@ -66,6 +94,11 @@ fn gui_rgba8888_compositor_batch_range_cursor_error_new %fn GuiRgba8888RowBatchC
     let kind %GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind::CursorNextBatchFailed lower_kind
     gui_rgba8888_compositor_batch_range_error_new kind category entry
 
+//: gui_rgba8888_compositor_batch_range_prepare_error_new: lower range prepare error を compositor range error へ[写/うつ]す
+//:
+//: lower batch owner を cursor owner へ[戻/もど]し、metadata と[一緒/いっしょ]に entry owner を[再構成/さいこうせい]して caller の recovery 境界を[保/たも]ちます。
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_range_prepare_error_new %fn GuiRgba8888RowBatchRangePrepareError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchRangeError \lower\metadata:
     let lower_kind %GuiRgba8888RowBatchRangePrepareErrorKind gui_rgba8888_row_batch_range_prepare_error_kind &lower
     let category %Option GuiError gui_rgba8888_row_batch_range_prepare_error_category_value &lower
@@ -75,52 +108,91 @@ fn gui_rgba8888_compositor_batch_range_prepare_error_new %fn GuiRgba8888RowBatch
     let kind %GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind::RowBatchRangePrepareFailed lower_kind
     gui_rgba8888_compositor_batch_range_error_new kind category entry
 
+//: gui_rgba8888_compositor_batch_range_owner_metadata: owner に[保持/ほじ]した frame metadata を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_metadata %fn &GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
     *field::get_ref owner "metadata"
 
+//: gui_rgba8888_compositor_batch_range_owner_range: owner 内の lower range metadata を Copy value として[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_range %fn &GuiRgba8888CompositorBatchRangeOwner GuiRgba8888RowBatchRange \owner:
     let range %&GuiRgba8888RowBatchRangeOwner field::get_ref owner "range"
     gui_rgba8888_row_batch_range_owner_range range
 
+//: gui_rgba8888_compositor_batch_range_owner_batch_index: range の batch index を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_batch_index %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_batch_index &range
 
+//: gui_rgba8888_compositor_batch_range_owner_row_start: range の開始 row を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_row_start %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_row_start &range
 
+//: gui_rgba8888_compositor_batch_range_owner_row_count: range の row 数を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_row_count %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_row_count &range
 
+//: gui_rgba8888_compositor_batch_range_owner_width: frame width を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_width %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_width &range
 
+//: gui_rgba8888_compositor_batch_range_owner_height: frame height を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_height %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_height &range
 
+//: gui_rgba8888_compositor_batch_range_owner_stride_bytes: frame stride bytes を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_stride_bytes %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_stride_bytes &range
 
+//: gui_rgba8888_compositor_batch_range_owner_byte_len: frame byte length を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_byte_len %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_byte_len &range
 
+//: gui_rgba8888_compositor_batch_range_owner_start_byte_offset: range の開始 byte offset を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_start_byte_offset %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_start_byte_offset &range
 
+//: gui_rgba8888_compositor_batch_range_owner_byte_count: range の byte count を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_byte_count %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
     let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
     gui_rgba8888_row_batch_range_byte_count &range
 
+//: gui_rgba8888_compositor_batch_range_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_error_kind %fn &GuiRgba8888CompositorBatchRangeError GuiRgba8888CompositorBatchRangeErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_rgba8888_compositor_batch_range_error_category_value: lower GUI error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_error_category_value %fn &GuiRgba8888CompositorBatchRangeError Option GuiError \error:
     *field::get_ref error "category"
 
@@ -129,6 +201,8 @@ pub fn gui_rgba8888_compositor_batch_range_error_category_value %fn &GuiRgba8888
 //: [契約/けいやく]:
 //: - metadata を entry から Copy してから cursor を[取/と]り[出/だ]します。
 //: - next batch と range prepare の lower boundary だけを[順番/じゅんばん]に[呼/よ]び、payload transport へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_prepare %fn GuiRgba8888CompositorFrameEntryOwner Result GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorBatchRangeError \entry:
     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata &entry
     let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor entry
@@ -142,19 +216,36 @@ pub fn gui_rgba8888_compositor_batch_range_prepare %fn GuiRgba8888CompositorFram
                 Result::Ok range:
                     Result::Ok gui_rgba8888_compositor_batch_range_owner_new range metadata
 
+//: gui_rgba8888_compositor_batch_range_owner_finish_entry: range owner から compositor entry owner を[再構成/さいこうせい]する
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower range owner を cursor owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_finish_entry %fn GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorFrameEntryOwner \owner:
     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_range_owner_metadata &owner
     let range %GuiRgba8888RowBatchRangeOwner field::get owner "range"
     let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_range_owner_finish_cursor range
     GuiRgba8888CompositorFrameEntryOwner cursor metadata
 
+//: gui_rgba8888_compositor_batch_range_error_finish_entry: error owner から compositor entry owner を[取/と]り[出/だ]す
+//:
+//: caller が error recovery を[選/えら]んだとき、error payload 内に[保持/ほじ]した entry owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_error_finish_entry %fn GuiRgba8888CompositorBatchRangeError GuiRgba8888CompositorFrameEntryOwner \error:
     field::get error "entry"
 
+//: gui_rgba8888_compositor_batch_range_owner_free: range owner 内の lower range owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_owner_free %fn GuiRgba8888CompositorBatchRangeOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \owner:
     let range %GuiRgba8888RowBatchRangeOwner field::get owner "range"
     gui_rgba8888_row_batch_range_owner_free range
 
+//: gui_rgba8888_compositor_batch_range_error_free: error owner 内の entry owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_range_error_free %fn GuiRgba8888CompositorBatchRangeError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
     let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_batch_range_error_finish_entry error
     gui_rgba8888_compositor_frame_entry_owner_free entry

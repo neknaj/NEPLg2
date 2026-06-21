@@ -2167,13 +2167,15 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、HIR root 由来の request authority から producer-owned unified event stream を作り、既存 actual walker event normalizer へ渡す producer bridge stage0 を追加した。
 
-この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、actual walker が接続される前でも、caller supplied request table、forged unified event table、direct GraphInput を authority にしないことである。bridge は HIR root から request table を内部再構築し、各 request entry を既存 gate と同じ HIR payload recheck / proof key construction へ通す。その後、request ごとに closed body event と `UnknownResourceOperation` unsupported event だけを unified event table へ追加する。
+この checkpoint は actual Resource IR traversal 本体ではない。ここで固定したのは、actual walker が接続される前でも、caller supplied request table、forged unified event table、direct GraphInput を authority にしないことである。この初期 checkpoint では HIR root から request table を内部再構築し、各 request entry を既存 gate と同じ HIR payload recheck / proof key construction へ通したうえで、request ごとに closed body event と `UnknownResourceOperation` unsupported event を unified event table へ追加していた。
+
+2026-06-22 の event producer convergence checkpoint で、この direct body / unsupported event constructor は production event producer path から撤去した。現在の `actual_walker_event_producer_bridge_events_from_hir_root_result` は、resolver 付き HIR body reader source plan から operation table を作り、`actual_walker_operation_classifier_events_from_hir_root_result` で unified event stream へ分類する。これにより event producer bridge と operation producer bridge が同じ request context / resolver / source-to-operation authority を使う。
 
 producer bridge は scanner / graph gate / observation ban gate を直接呼ばず、必ず `selfhost_memo_call_backend_private_cache_actual_walker_event_gate_from_hir_root_result` を経由する。これにより、前段で固定した observation precedence と owner cleanup の契約を 1 箇所に保つ。stage0 observation fixture は module-private helper で unified stream に detected observation を 1 件混ぜるだけであり、public API から private event table や injected observation を渡せる入口は作らない。
 
-source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。producer bridge error taxonomy、wildcard なしの error helper、HIR-root request authority、request recheck、proof key construction、body / unsupported unified event のみの生成、normalizer 経由、normalizer bypass 禁止、accepted proof / `PrivateCacheStorage` / `CloneOutOwnedValue` / GraphInput / proof table record 合成禁止、private bridge internals の public API 化禁止を固定している。
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。producer bridge error taxonomy、wildcard なしの error helper、HIR-root request authority、resolver 付き HIR body reader source plan、operation projection、classifier events 経由、operation owner cleanup、normalizer 経由、normalizer bypass 禁止、direct body / unsupported event constructor の非使用、GraphInput / proof table record / backend / effect / artifact 合成禁止、private bridge internals の public API 化禁止を固定している。
 
-計算量として、producer bridge 自体は request 数 `m` に対して O(m) 個の body / unsupported event を作る。現段階で重いのは、その後に通る既存 Resource checker の `resource_static_initialized_moves` と `resource_static_owner_obligations` であり、stage0 full doctest は大きな module 全体を再検査するため compile time が長い。これは stage0 fixture 分割、checker 側の initialized-state 探索削減、event / proof table index 化で後から改善できる。一方、HIR root authority、proof key 再構築、normalizer 経由、observation precedence、owner cleanup は後から変えると proof boundary を壊すため、この stage で固定する。
+計算量として、現在の producer bridge は request 数 `m` と reader source 数 `s` に対して source plan、operation projection、classifier event stream を作る。現状の classifier は operation record 数 `o` と request 数 `m` に対して O(m * o) の照合を行う。これは stage0 fixture 分割、checker 側の initialized-state 探索削減、event / proof table index 化、operation bucket 化で後から改善できる。一方、HIR root authority、resolver 付き body source plan、normalizer 経由、observation precedence、owner cleanup は後から変えると proof boundary を壊すため、この stage で固定する。
 
 検証:
 
@@ -3013,6 +3015,22 @@ problem source がある場合、wrapper source は混ぜない。`PrivateCache`
 body reader failure は source kind へ潰さない。missing expr は `ActualWalkerTraversalBodyReadFailed`、invalid child range は `ActualWalkerTraversalBodyChildRangeInvalid`、child id read failure は `ActualWalkerTraversalBodyChildReadFailed`、fuel exhaustion は `ActualWalkerTraversalBodyFuelExhausted` として public bridge error と availability error の往復変換に残す。source table owner は traversal failure で 1 回だけ閉じ、source push failure は既存 push helper の owner cleanup に任せる。
 
 この checkpoint も full Resource IR traversal ではない。fresh-region witness table、Resource proof / GraphInput、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key は作らない。次は lowering / Resource IR 由来の accepted / escaping / observation / unsupported source と fresh witness を同じ body identity から発行し、mask orchestration と sealed backend representation へ接続する。
+
+## 2026-06-22 selfhost memo_call backend event producer convergence checkpoint
+
+actual walker event producer bridge を、古い direct `Body + UnknownResourceOperation` unified event constructor から、resolver 付き HIR body reader source plan と operation classifier を通る path へ収束させた。`actual_walker_event_producer_bridge_events_from_hir_root_result` は borrowed resolution table を受け、`actual_walker_operation_producer_bridge_operations_from_hir_root_result` で request context / resolver / HIR body source table / source-to-operation projection を通して operation table owner を作る。その後 `actual_walker_operation_classifier_events_from_hir_root_result` で unified event table owner を作り、operation table owner を閉じる。
+
+stage0 runner は operation producer bridge と同じ `actual_traversal_body_stage0_resolution_table_result` を作って borrow で event producer bridge へ渡し、success / failure のどちらでも resolution table owner を閉じる。stage0 summary の first field は `unsupported_rejected` ではなく `accepted_result` になり、reader-derived clean wrapper source が operation classifier / normalizer / graph gate を通って accepted count へ届くことを確認する。observation fixture は base event stream 作成後に 1 件だけ追加し、observation precedence の smoke として残す。
+
+この checkpoint は full Resource IR traversal でも backend proof 完了でもない。fresh-region witness table、Resource proof table、GraphInput、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key は作らない。重要なのは、production event producer と operation producer が同じ HIR root authority、reader context、body resolver、source table、operation projection を共有し、古い unsupported direct event constructor を competing authority として残さないことである。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、event producer が operation producer / classifier 経由で unified event を作る順序、operation owner cleanup、stage0 resolution owner cleanup、direct event table constructor / `UnknownResourceOperation` / proof key / graph id direct construction 禁止、private helper 非公開、backend / effect / artifact 合成禁止を固定する。
+
+残件:
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。
+- event producer convergence で揃えた source / operation authority を、private-effect graph scanner / collector / materializer / proof producer と request-evidence bridge の両方へ同じ body identity で渡す。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 

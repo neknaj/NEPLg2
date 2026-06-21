@@ -1008,6 +1008,24 @@ source vocabulary と operation vocabulary には `CacheLookupOperation`、`Cach
 
 この checkpoint は executable cache operation、GraphInput、request proof table、Resource proof table、fresh witness table、backend bytes、effect mask、sealed backend representation、`.neplobj` / `.neplproof` artifact key を作らない。actual Resource IR / HIR lowering body reader 本体、実 traversal 由来 fresh witness table、PrivateCache / PrivateState effect masking、sealed memoized backend representation は後続で接続する。
 
+## 2026-06-22 selfhost memo_call backend event producer convergence checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、actual walker event producer bridge の direct `Body + UnknownResourceOperation` event constructor を production path から外し、resolver-bound HIR body reader source plan、operation projection、operation classifier を通る path へ収束させた。
+
+`actual_walker_event_producer_bridge_events_from_hir_root_result` は borrowed resolution table を受け取り、operation producer bridge で operation table owner を作り、operation classifier で unified event table owner を作ってから operation table owner を閉じる。stage0 runner は operation producer bridge と同じ resolution table owner を作成し、success / failure のどちらでも閉じる。public summary の first field は `accepted_result` とし、reader-derived clean wrapper source が classifier / normalizer / graph gate を通る smoke であることを明示した。
+
+この checkpoint は full Resource IR traversal、fresh-region witness table、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key を作らない。残件は、full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh witness を同じ body identity で発行し、private effect no-escape gate と request-evidence bridge の両方へ渡す上位 orchestration である。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。event producer が operation producer / classifier を経由する順序、operation owner cleanup、stage0 resolution owner cleanup、direct event table constructor / `UnknownResourceOperation` / direct proof key / graph id 作成禁止、backend / effect / artifact 非生成を固定している。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-event-producer-convergence.json`。17/17。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_event_producer_convergence.json`。13/13。
+
 ## 2026-06-21 selfhost private effect no-escape gate dependency checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、memo_call backend proof chain が将来発行する `PrivateState` / `PrivateCache` no-escape proof を、operation method body fact table へ渡す直前で消費できる checker-layer boundary を固定した。

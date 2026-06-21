@@ -1014,34 +1014,19 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result"),
     [
-        "selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel",
-        "Result::Ok table:",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new",
-        "selfhost_memo_call_backend_request_table_len &table",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_requests_loop module &table events0 root body_module_fingerprint 0 request_count",
-        "selfhost_memo_call_backend_request_table_free table",
-        "RequestCollectionFailed e",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result module root fuel body_module_fingerprint resolutions",
+        "Result::Ok operations:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result module root fuel body_module_fingerprint &operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
+        "Result::Err e:",
+        "Result::Err e",
     ],
-    "actual walker event producer bridge must build request authority internally from HIR root, create a private unified event table, append request-derived events, and close the request table",
-);
-assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_request_result"),
-    [
-        "selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry",
-        "selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint",
-        "SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary",
-        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events body_payload",
-        "SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation",
-        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events1 unsupported_payload",
-    ],
-    "actual walker event producer bridge must recheck each request entry, derive the proof key from the request, and emit only body plus typed unsupported unified events while actual traversal is unavailable",
+    "actual walker event producer bridge must derive operations from the resolver-bound HIR body reader source plan, classify those operations into unified events, and close the private operation owner",
 );
 assert.doesNotMatch(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_request_result"),
-    /PrivateCacheNoEscapeProven|PrivateCacheStorage|CloneOutOwnedValue|resource_graph_input_push|proof_table_push/,
-    "actual walker event producer bridge must not synthesize accepted proof, accepted private-cache graph payload, GraphInput, or proof table records",
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result")),
+    /actual_walker_event_table_new|actual_walker_event_producer_bridge_append_requests_loop|proof_key_from_entry_result|resource_graph_id_new|ActualWalkerEventPayload::Unsupported|ResourceWalkerUnsupportedReason::UnknownResourceOperation|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual walker event producer bridge must not keep the old direct body/unsupported event builder or synthesize lower proof, backend, effect, or artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_gate_events_result"),
@@ -1060,7 +1045,7 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_with_stage0_observation_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result module root fuel body_module_fingerprint resolutions",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_stage0_observation_result events0 kind",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_gate_events_result module root fuel body_module_fingerprint events1",
     ],
@@ -1072,16 +1057,37 @@ assert.doesNotMatch(
     "actual walker event producer bridge internals must stay module-private and must not expose private unified event construction or injected observation fixtures",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_summary_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id body_module_fingerprint",
+        "Result::Ok resolutions:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_result &module root 8 body_module_fingerprint &resolutions",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e",
+    ],
+    "actual walker event producer bridge stage0 runner must build and close the resolver table around the HIR body reader event stream",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary"),
+    [
+        "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+    ],
+    "actual walker event producer bridge stage0 summary must expose only typed result payloads for accepted reader-derived events, observation precedence, and placeholder rejection",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0"),
     [
-        "unsupported_rejected",
+        "accepted_result",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 77",
         "observation_rejected",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_observation_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved",
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 0",
     ],
-    "actual walker event producer bridge stage0 must cover unsupported traversal, observation precedence, and placeholder fingerprint rejection without exposing private unified event tables",
+    "actual walker event producer bridge stage0 must cover accepted reader-derived events, observation precedence, and placeholder fingerprint rejection without exposing private unified event tables",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind"),

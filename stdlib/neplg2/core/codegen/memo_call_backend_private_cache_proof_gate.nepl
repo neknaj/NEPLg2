@@ -27,7 +27,7 @@
 //: - Resource walker producer bridge は、HIR root から request table を内部再構築し、request occurrence ごとの private walker event stream を module-private に生成して既存 scanner / graph gate へ渡します。actual Resource IR traversal が閉じた graph を返せない部分は typed unsupported event として fail-closed に扱い、成功 proof にはしません。
 //: - Resource observation ban stage0 は、cache hit / miss / size / clear / debug と、function equality / hash / debug / wrapper identity / raw address observation を typed observation kind から unsupported walker event へ畳みます。これは actual walker からの検出結果を受けるための分類境界であり、NoEscape proof を合成する境界ではありません。
 //: - Actual walker event normalizer stage0 は、future actual Resource IR walker が返す単一の unified stream を、既存の graph-side `ResourceWalkerInput` と observation-side `ObservationBanTable` へ分配します。detected observation がある場合は graph path より observation ban gate を優先し、観測禁止操作が graph proof 成功で隠れないようにします。
-//: - Actual walker event producer bridge stage0 は、HIR root から request authority を再収集し、producer-owned unified event stream を normalizer へ渡します。actual traversal 本体はまだ接続せず、request ごとの closed body と typed unsupported event によって fail-closed になることを確認します。
+//: - Actual walker event producer bridge stage0 は、HIR root から request authority を再収集し、resolver 付き HIR body reader source plan から producer-owned unified event stream を normalizer へ渡します。
 //: - Actual walker operation classifier stage0 は、actual Resource IR traversal が将来列挙する最小 operation vocabulary を module-private record として受け、body event と同じ request key / graph id / ordinal を保ったまま unified stream へ分類します。accepted graph を作る case は classifier 接続確認に限り、sealed backend representation や PrivateCache effect masking の完了として扱いません。
 //: - Actual walker traversal source stage0 は、HIR root から request authority を再収集し、actual Resource IR traversal がまだ未接続であることを module-private source table に記録します。source table は operation table そのものではなく、後続の actual walker が差し替える producer boundary です。
 //: - Actual walker operation producer bridge stage0 は、production reader output 由来の traversal source table を operation table へ投影して operation classifier へ渡します。GraphInput や proof table はここで直接作りません。
@@ -54,7 +54,7 @@
 //: - producer bridge は現状、request table を O(n) で収集し、request 数 `m` に対して O(m) 個の body / unsupported event を作ります。その後の scanner と graph gate は既存の O((b+p+e+u)^2) / O(m*p) 境界に従います。actual Resource IR walker が接続された後も、request authority を HIR root から再収集する contract は維持します。
 //: - observation kind から unsupported reason への分類は O(1) です。実際の HIR / Resource IR traversal が観測 operation を列挙する計算量は、actual walker stage の doc comment で別に記録します。
 //: - unified event normalizer は event 数を `a` とすると O(a) 時間で stream を分配し、その後は observation が検出された場合は既存 observation ban gate、検出されない場合は既存 walker scanner / graph gate の計算量に従います。actual traversal の探索範囲削減や event index 化は後続で行えますが、observation precedence と owner cleanup の契約は維持します。
-//: - actual walker event producer bridge は request 数 `m` に対して O(m) 個の body / unsupported event を作り、必要に応じて stage0 observation event を O(1) で追加します。実際の Resource IR traversal の探索範囲削減は、producer が unsupported event ではなく typed place / edge / observation event を作る段階で扱います。
+//: - actual walker event producer bridge は request 数 `m` と reader source 数 `s` に対して source plan、operation projection、classifier event stream を構築し、必要に応じて stage0 observation event を O(1) で追加します。実際の Resource IR traversal の探索範囲削減は、reader がより詳細な typed place / edge / observation source を作る段階で扱います。
 //: - actual walker operation classifier は operation record 数を `o` とすると、現状 request ごとに operation table を線形走査するため O(m * o) 時間です。request key / ordinal の bucket 化は後からできる最適化ですが、operation kind の typed 分類、observation precedence、normalizer 経由の contract は維持します。
 //: - actual walker traversal source stage0 は request 数 `m` に対して O(m) 個の typed traversal source record を作ります。source から operation への投影は source 数 `s` に対して O(s) です。projection smoke は fixture source 数 `s` に対して O(s) で operation table を作り、その後は既存 classifier の O(m * o) 境界に従います。
 //: - actual walker operation producer bridge は現状、traversal source table と operation table の二段階 owner を通します。これは actual traversal 本体が返す source stream と、classifier が読む operation vocabulary を分けるための境界であり、後続で source/operation の bucket 化や直接 projection に置換できます。
@@ -295,7 +295,7 @@
 //:     let summary selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0
 //:     let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
 //:     let checks0 checks_new
-//:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_unknown_result_eq summary.unsupported_rejected expected_key
+//:     let checks1 checks_push checks0 check selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_ok_result_eq summary.accepted_result 1
 //:     let checks2 checks_push checks1 check selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_unknown_result_eq summary.observation_rejected expected_key
 //:     let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_placeholder_result_eq summary.placeholder_rejected
 //:     let shown checks_print_report checks3
@@ -2194,12 +2194,13 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerStage0S
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary: HIR-root unified event producer bridge smoke の代表結果
 //:
 //: [目的/もくてき]:
-//: - request authority から unified event stream を作り、normalizer 経由で unsupported traversal、detected observation、placeholder fingerprint がいずれも accepted proof にならないことを確認します。
+//: - request authority と resolver 付き HIR body reader source plan から unified event stream を作り、normalizer 経由で accepted graph、detected observation、placeholder fingerprint の代表 path を確認します。
 //:
 //: [契約/けいやく]:
 //: - summary は private unified event table や injected observation fixture を公開しません。公開されるのは Result payload だけです。
+//: - accepted result は HIR body reader / operation projection / classifier の接続 smoke であり、fresh private region proof、PrivateCache / PrivateState effect mask、sealed backend representation の完了ではありません。
 pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary:
-    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
@@ -11037,76 +11038,22 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bri
         Result::Err e:
             Result::Err e
 
-//: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_request_result: request entry を unified event stream に[写/うつ]す
-//:
-//: [目的/もくてき]:
-//: - HIR root から再収集した request entry を再検査し、proof key と closed body header を作ったうえで、actual Resource traversal 未接続部分を typed unsupported event として unified event table に追加します。
-//:
-//: [契約/けいやく]:
-//: - producer bridge は `PrivateCacheNoEscapeProven`、private-cache place、clone-out edge、GraphInput、proof table record を作りません。
-//: - actual traversal 本体が未接続の段階では、request ごとに body event と `UnknownResourceOperation` unsupported event だけを作り、normalizer / scanner / graph gate に fail-closed 判定を委ねます。
-fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\events\graph_index:
-    match selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry:
-        Result::Ok _rechecked:
-            match selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint:
-                Result::Ok key:
-                    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new graph_index
-                    let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
-                    let body_payload %SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body
-                    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events body_payload:
-                        Result::Ok events1:
-                            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new key graph_id 0 SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
-                            let unsupported_payload %SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
-                            match selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events1 unsupported_payload:
-                                Result::Ok events2:
-                                    Result::Ok events2
-                                Result::Err e:
-                                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
-                        Result::Err e:
-                            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
-                Result::Err e:
-                    selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ProofKeyRejected e
-        Result::Err e:
-            selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestRecheckRejected e
-
-//: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_requests_loop: request table 全体を unified event stream に[写/うつ]す
-fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_requests_loop %impure fn &SelfhostHirModule impure fn &SelfhostMemoCallBackendRequestTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\table\events\root_expr_id\body_module_fingerprint\idx\n:
-    if:
-        ge idx n
-        then:
-            Result::Ok events
-        else:
-            match selfhost_memo_call_backend_request_table_get_entry table idx:
-                Option::Some entry:
-                    match selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_request_result module entry root_expr_id body_module_fingerprint events idx:
-                        Result::Ok next_events:
-                            selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_requests_loop module table next_events root_expr_id body_module_fingerprint add idx 1 n
-                        Result::Err e:
-                            Result::Err e
-                Option::None:
-                    selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_fail_with_events events SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing idx
-
 //: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result: HIR root から unified event table を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - caller-supplied request table や forged unified stream を authority にせず、HIR root から request table を内部再構築して producer-owned unified event stream を作ります。
+//: - caller-supplied request table や forged unified stream を authority にせず、HIR root 由来 request authority と body resolution table から producer-owned unified event stream を作ります。
 //:
 //: [契約/けいやく]:
-//: - 成功時だけ caller が unified event table owner を受け取ります。失敗時は request table と event table の owner をこの関数または下位 helper が閉じます。
-fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint:
-    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
-        Result::Ok table:
-            match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
-                Result::Ok events0:
-                    let request_count %i32 selfhost_memo_call_backend_request_table_len &table
-                    let result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_requests_loop module &table events0 root body_module_fingerprint 0 request_count
-                    selfhost_memo_call_backend_request_table_free table
-                    result
-                Result::Err e:
-                    selfhost_memo_call_backend_request_table_free table
-                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
+//: - HIR body reader source plan を operation table へ投影し、operation classifier で unified event stream にします。body / unsupported event をこの helper で直接合成しません。
+//: - operation table owner は classifier event table の生成後に必ず閉じます。成功時だけ caller が unified event table owner を受け取ります。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint\resolutions:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result module root fuel body_module_fingerprint resolutions:
+        Result::Ok operations:
+            let result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result module root fuel body_module_fingerprint &operations
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+            result
         Result::Err e:
-            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_stage0_observation_result: stage0 用 observation event を unified stream に[追加/ついか]する
 //:
@@ -11134,9 +11081,9 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
 //: selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_result: HIR-root unified event bridge を[実行/じっこう]する
 //:
 //: [契約/けいやく]:
-//: - HIR root 由来 request authority から unified event stream を作り、既存 normalizer へ渡します。public caller が unified event table を渡す API は作りません。
-fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint:
-    match selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result module root fuel body_module_fingerprint:
+//: - HIR root 由来 request authority と resolver 付き source plan から unified event stream を作り、既存 normalizer へ渡します。public caller が unified event table を渡す API は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint\resolutions:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result module root fuel body_module_fingerprint resolutions:
         Result::Ok events:
             selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_gate_events_result module root fuel body_module_fingerprint events
         Result::Err e:
@@ -11146,8 +11093,9 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
 //:
 //: [契約/けいやく]:
 //: - observation event は request-derived body / unsupported event と同じ unified stream に入ります。normalizer は detected observation を優先し、graph path の結果で観測禁止を隠しません。
-fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_with_stage0_observation_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint\kind:
-    match selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result module root fuel body_module_fingerprint:
+//: - base stream は resolver 付き HIR body reader source plan から作ります。observation fixture はその後の precedence smoke だけに使い、source authority の代替にはしません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_with_stage0_observation_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable impure fn SelfhostMemoCallBackendPrivateCacheObservationKind Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint\resolutions\kind:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_events_from_hir_root_result module root fuel body_module_fingerprint resolutions:
         Result::Ok events0:
             match selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_append_stage0_observation_result events0 kind:
                 Result::Ok events1:
@@ -11165,7 +11113,13 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
     match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
         Result::Ok module:
             let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
-            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_result &module root 8 body_module_fingerprint
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind match selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id body_module_fingerprint:
+                Result::Ok resolutions:
+                    let resolved_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_result &module root 8 body_module_fingerprint &resolutions
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions
+                    resolved_result
+                Result::Err e:
+                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
             selfhost_hir_module_free module
             result
         Result::Err e:
@@ -11187,7 +11141,13 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
     match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
         Result::Ok module:
             let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
-            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_with_stage0_observation_result &module root 8 body_module_fingerprint kind
+            let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind match selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id body_module_fingerprint:
+                Result::Ok resolutions:
+                    let resolved_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_from_hir_root_with_stage0_observation_result &module root 8 body_module_fingerprint &resolutions kind
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions
+                    resolved_result
+                Result::Err e:
+                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
             selfhost_hir_module_free module
             result
         Result::Err e:
@@ -11207,12 +11167,12 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_
 //: - HIR root から request authority を再収集し、producer-owned unified event stream を作って normalizer へ渡す境界を確認します。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR walker はまだ接続していません。この stage0 は request ごとの closed body と `UnknownResourceOperation` unsupported event だけを作り、accepted no-escape proof を作りません。
+//: - actual Resource IR walker はまだ接続していません。この stage0 は resolver 付き HIR body reader source plan、operation projection、operation classifier を経由して accepted graph path へ届くことを確認します。fresh witness、effect mask、sealed backend representation は作りません。
 pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary \void:
-    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 77
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 77
     let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_observation_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_stage0_run_i32_result 0
-    SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary unsupported_rejected observation_rejected placeholder_rejected
+    SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeStage0Summary accepted_result observation_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_summary_result: stage0 module から operation producer bridge result を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_summary_result %impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
