@@ -77550,6 +77550,15 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-no-escape-gate-final.json`。13/13。
 - pass: `tmp/playground-editor-private-effect-no-escape-gate-final.json` は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+- pass after `origin/main` merge: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass after `origin/main` merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after `origin/main` merge: `node nodesrc/issues.js check --dir issues`
+- pass after `origin/main` merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest-after-merge.json`。1/1。
+- pass after `origin/main` merge: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md --no-tree -o tmp_gui_font_render_stroke_segment_plan_f5kr_after_merge.json -j 1`。1/1。
+- pass after `origin/main` merge: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kr_after_merge.json -j 1`。1162/1162。
+- pass after `origin/main` merge: `git diff --check`
+- pass after `origin/main` merge: `trunk build`
+- pass after `origin/main` merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-no-escape-gate-after-merge.json`。13/13、JSON は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
 
 ### 残件
 
@@ -77557,3 +77566,17 @@ MERGE_APPROVED
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
+
+## 2026-06-21 Agent2 GUI font rendering F5kr stroke segment plan boundary
+
+- F5kr では、F5kq の stroke request owner を authority として count-only stroke segment plan owner を追加した。completed path command stream writer owner は request owner 内に保持し、fill alpha mask / raster edge owner を stroke geometry authority にしない。
+- James の plan review は `PLAN_APPROVED`。`GuiStroke` は color / width だけなので join / cap / dash / miter を暗黙に仮定せず、この slice は source segment count と stroke width を固定するだけに限定する。
+- `GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner` と owner-bearing `GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartError` を追加した。start validation は request writer invariant 再検査、stroke width、checked `line_to_count + quadratic_to_count`、plan `draw_count` / derived raster edge capacity 一致、`NoDrawableStrokeSegments` reject の順に fail closed する。
+- `NoDrawableStrokeSegments` は empty / skip-only glyph の parse/topology が不正という意味ではなく、F5kr の success owner が drawable stroke segment plan なので 0 drawable segment には success owner を発行しない、という契約として docs/source policy に固定した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest を更新した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md --no-tree -o tmp_gui_font_render_stroke_segment_plan_f5kr.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kr.json -j 1`
+- implementation review は James が `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5kr 後続として、stroke geometry expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
