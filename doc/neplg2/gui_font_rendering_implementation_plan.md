@@ -3390,6 +3390,54 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lj.json
 ```
 
+## Phase F5lk: sfnt simple glyph render shadow source edge drain owner
+
+目的:
+
+- F5lj の shadow source coverage owner を direct authority とし、completed `path_sink_scalars` から shadow source 用 raster edge owner を作る。
+- generic raster edge drain owner は completed raster mask writer を要求するため使わず、shadow 専用の path sink scalar drain を追加する。
+- `SkipNoSegment` は path sink scalar record を持たないため、scalar stream 内の tag 4 を `UnexpectedSkipNoSegmentTag` として拒否する。
+- zero drawable edges を empty exact-capacity owner として完了できるようにする。
+- mask scan、blur、packing、composition、resource、render command、pixel write、platform API、2D compositor へ進まない。
+
+plan review:
+
+- Laplace plan review 1 は `CHANGES_REQUESTED`。
+- generic raster edge drain owner は completed raster mask writer owner を要求し、F5lj の raster mask scalar len 0 の writer state では契約が合わないと指摘された。
+- Laplace revised plan 1 は `CHANGES_REQUESTED`。
+- `SkipNoSegment` は `path_sink_scalars` に record を持たないため、tag 4 を record width 1 として数える案は誤りと指摘された。
+- Laplace revised plan 2 は `PLAN_APPROVED`。MoveTo / LineTo / QuadraticTo だけを読み、tag 4 を fail closed、skip progress を owner に持たず、zero drawable edge completion を許可する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceEdgeContext` を追加する。F5lj owner と nested request owner の source/shadow/placement/shape metadata を value-only に写し、`Clone` / `Copy` を許可する。
+- `GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner` と completed `GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner` を追加する。writer と edge Vec を所有するため `Clone` / `Copy` は実装しない。
+- start error、drain error、bounded terminal、owner/start-error/drain-error/terminal free helper を追加する。
+- start は context metadata、shape arithmetic、shared writer authority、`line_to_count + quadratic_to_count == raster_edge_capacity`、edge Vec exact allocation を検査し、allocation 成功後に writer authority を split する。
+- drain は `path_sink_scalars` を読み、MoveTo は current point 更新、LineTo / QuadraticTo は raster edge push、SkipNoSegment tag は `UnexpectedSkipNoSegmentTag` とする。
+- docs / source policy / focused doctest label / todo / note を F5lk に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Laplace approval、value-only context Clone/Copy、owner/error/terminal no Clone/Copy、private boundary、context revalidation、shape arithmetic、writer authority validation、exact edge Vec allocation、path sink scalar drain、tag 4 rejection、zero edge owner、generic raster edge drain / raster mask writer / mask scan / blur / resource / render / platform / compositor 不使用、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md` に context、no double writer owner、context revalidation、shape arithmetic、path sink scalar drain、skip tag rejection、empty owner、recovery/free、no mask/scan/blur/resource/platform/compositor policy の coverage label を追加する。
+- implementation review で F5lk が generic raster mask writer 経由になっていないこと、skip progress を owner に持たないこと、zero edge owner を完了できることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lk 後の shadow source mask scan / blur / packing / composition、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_edge_f5lk.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_config.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_f5lk_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lk.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lk.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

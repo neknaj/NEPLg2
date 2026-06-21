@@ -6451,6 +6451,39 @@ otherwise -> CoverageUnexpectedLowerError
 
 `CoverageUnexpectedLowerError` は `shape_from_config` contract が将来変わった場合の fail-closed guard である。F5lj は edge count、edge storage、cell storage allocation を扱わない。
 
+### SFNT simple glyph render shadow source edge drain owner boundary
+
+F5lk は F5lj の shadow source coverage owner を direct authority とし、completed path sink scalar stream から shadow source 用 raster edge owner を作る境界である。この phase は source mask allocation、mask scan conversion、packed mask、spread mutation、blur kernel、resource table、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5lk は generic `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner` を再利用しない。generic drain は completed raster mask writer owner を入力にし、raster mask scalar len/count が完成済みであることを契約に含む。F5lj の時点では raster mask writer は存在せず、`path_sink_scalars` だけが shadow source edge の authority であるため、F5lk は shadow 専用 owner として path sink scalar を読む。
+
+F5lk context は value-only であり、`Clone` / `Copy` を実装できる。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:
+    request_origin
+    request_fill
+    request_stroke
+    request_shadow
+    request_blend
+    source_shape
+    source_fill
+    source_stroke
+    source_placement_origin
+    shadow_offset
+    shadow_blur_radius
+    shadow_spread
+    shadow_extent
+    shadow_paint
+    blend
+```
+
+drain owner と completed owner は writer authority と edge Vec を所有するため `Clone` / `Copy` を実装しない。start は F5lj owner を借用して context 不変条件、writer authority、capacity を検査し、edge Vec allocation が成功した後に request owner から writer だけを split する。allocation failure では F5lj owner を消費せず start error に返す。
+
+F5lk は `path_sink_scalars` の record だけを読む。record 形式は `MoveTo = tag + x + y`、`LineTo = tag + end_x + end_y`、`QuadraticTo = tag + control_x + control_y + end_x + end_y` である。`SkipNoSegment` は path sink scalar record を持たないため、scalar stream 内の tag 4 は `UnexpectedSkipNoSegmentTag` として fail closed にする。skip count は drain progress field に持たず、shared writer authority / plan validation で検査する。
+
+`zero drawable edges` は正当な completion である。line/quadratic count が 0 なら edge Vec は len/cap 0 の exact owner として完成できる。F5kr の stroke segment plan のように `NoDrawableStrokeSegments` で拒否しない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
