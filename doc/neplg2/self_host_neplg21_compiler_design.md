@@ -2986,6 +2986,16 @@ public stage0 summary は `reader_context_reader_source_count` と operation pro
 
 source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。production reader が wrapper source を output helper に直接焼き込まず shared reader source plan を通ること、seed fixture、既存 unsupported producer bridge、proof / backend / effect / artifact 合成を使わないこと、context availability helper が `ProducerNotConnected` fallback を残さないこと、accepted bundle runner が context-owned source / witness bundle helper を通り availability / output roundtrip に戻らないこと、explicit unavailable smoke が production bridge helper を呼ばないことを固定している。
 
+## 2026-06-22 selfhost memo_call backend body resolution resolver checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、`MemoizedFunctionValue` の `DefId` から body HIR root / body module fingerprint / lowering availability を引く module-private resolver table を追加した。
+
+resolver record は source function `DefId`、callable function type、request kind、source effect、type argument count、body root expr id、body module fingerprint、lowering status を保持する。lookup は request context と `DefId` / function type / request kind / source effect / type argument count / body module fingerprint を再照合し、`BodyLoweringAvailable` だけを shared reader source plan へ進める。missing / unavailable / unsupported / key mismatch / fingerprint mismatch / missing body root / duplicate は typed error として fail-closed に返し、duplicate `DefId` は first-wins にしない。
+
+resolver は source text、span、display name、diagnostic、HIR arena id の偶然一致、public surface hash を authority にしない。body root は borrowed `SelfhostHirModule` に存在することを検査し、stage0 fixture でも memoized function value expr と body root expr を別 id に分ける。これにより、request root を body root と偽装せず、body identity の未解決 / 不一致 / root 欠落を accepted traversal source へ混ぜない。
+
+この checkpoint は actual Resource IR / HIR lowering body reader 本体ではない。`actual_traversal_body_reader_sources_from_request_context_result` は resolver を通った後、既存の wrapper representative source plan を読む。次の境界では resolver が返した body root を使い、actual lowering result から traversal source / operation event / fresh-region witness を発行する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
@@ -3000,7 +3010,7 @@ source-to-operation projection、operation classifier、region proof input proje
 
 残件:
 
-- `MemoizedFunctionValue` の `DefId` から body HIR root / body module fingerprint / lowering availability を解決する module-private resolver を追加し、context-owned bundle bridge の source generator を full Resource IR / HIR lowering body reader へ置き換える。
+- resolver が返す body HIR root / body module fingerprint / lowering availability を使い、context-owned bundle bridge の source generator を full Resource IR / HIR lowering body reader へ置き換える。
 - full traversal 由来 source と fresh witness table を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 

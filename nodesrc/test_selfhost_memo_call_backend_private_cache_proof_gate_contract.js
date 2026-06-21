@@ -2364,6 +2364,21 @@ assert.doesNotMatch(
     /^pub\s+fn\s+\w+[^\n]*SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed\b/m,
     "public functions must not expose reader seed as an accepted-path input",
 );
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBody(?:LoweringAvailabilityStatus|ResolutionRecord|ResolutionTable)\b/,
+    "actual traversal body resolver status, record, and owner table must stay module-private until the real lowering/body reader owns construction",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*SelfhostMemoCallBackendPrivateCacheActualTraversalBody(?:LoweringAvailabilityStatus|ResolutionRecord|ResolutionTable)\b/m,
+    "public functions must not expose private body resolver status, records, or owner tables",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable\b/,
+    "actual traversal body resolution table owner must not implement Clone or Copy",
+);
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind"),
     [
@@ -2372,6 +2387,16 @@ assertOrdered(
         "ActualTraversalBodyInputUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodyResolutionTableAllocFailed %StdErrorKind",
+        "ActualTraversalBodyResolutionPushFailed %StdErrorKind",
+        "ActualTraversalBodyResolutionReadFailed %i32",
+        "ActualTraversalBodyResolutionMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionFingerprintMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionRootMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodySeedMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodySeedKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodySeedGraphMismatch %i32",
@@ -2380,7 +2405,7 @@ assertOrdered(
         "ActualTraversalBodySeedMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
         "ActualTraversalBodySeedObservationBuildRejected %SelfhostMemoCallBackendPrivateCacheProofKey",
     ],
-    "availability error taxonomy must keep seed missing, key mismatch, graph mismatch, unsupported shape, observation, malformed, and observation-owner build rejection distinct",
+    "availability error taxonomy must keep body resolver and seed missing, key mismatch, graph mismatch, unsupported shape, observation, malformed, and observation-owner build rejection distinct",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_authority_validate_result"),
@@ -2528,7 +2553,7 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources",
         "Result::Err e:",
@@ -2547,8 +2572,10 @@ assertOrdered(
         "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result &module context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result &module context &resolutions",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
     ],
@@ -2609,7 +2636,7 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result context sources",
         "Result::Err e:",
@@ -2625,9 +2652,13 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result"),
     [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions",
+        "Result::Ok _body_root:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result context",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e",
     ],
-    "reader source plan helper must be the shared production source authority for output and operation producer paths",
+    "reader source plan helper must resolve DefId-linked body root before producing the shared source authority for output and operation producer paths",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result"),
@@ -2986,7 +3017,7 @@ assertOrdered(
         "Result::Ok table:",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
         "selfhost_memo_call_backend_request_table_len &table",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module &table sources0 root body_module_fingerprint 0 request_count",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module &table resolutions sources0 root body_module_fingerprint 0 request_count",
         "selfhost_memo_call_backend_request_table_free table",
         "RequestCollectionFailed e",
     ],
@@ -3016,8 +3047,18 @@ assertOrdered(
         "ActualTraversalBodyInputUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodyResolutionTableAllocFailed %StdErrorKind",
+        "ActualTraversalBodyResolutionPushFailed %StdErrorKind",
+        "ActualTraversalBodyResolutionReadFailed %i32",
+        "ActualTraversalBodyResolutionMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionFingerprintMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionRootMissing %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyResolutionDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey",
     ],
-    "actual traversal body input availability error taxonomy must distinguish producer-not-connected fallback, missing, real unavailable, unsupported, and malformed body inputs before source table production",
+    "actual traversal body input availability error taxonomy must distinguish producer-not-connected fallback, missing, real unavailable, unsupported, malformed body inputs, and resolver failures before source table production",
 );
 assert.doesNotMatch(
     code,
@@ -3056,6 +3097,70 @@ assertOrdered(
         "RequestRecheckRejected e",
     ],
     "actual traversal body reader request context helper must recheck the HIR entry, build the existing proof key, create graph id from request ordinal, and keep failures typed",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionRecord"),
+    [
+        "source_function_def_id %SelfhostDefId",
+        "function_ty %SelfhostTypeId",
+        "request_kind %SelfhostMemoCallBackendRequestKind",
+        "source_effect %SelfhostEffectKind",
+        "type_arg_count %i32",
+        "body_root_expr_id %SelfhostHirExprId",
+        "body_module_fingerprint %i32",
+        "lowering_status %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyLoweringAvailabilityStatus",
+    ],
+    "actual traversal body resolution record must bind DefId, type/effect/request identity, body root, body fingerprint, and lowering availability status",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable"),
+    [
+        "records %Vec SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionRecord",
+    ],
+    "actual traversal body resolution table must be Vec-backed owner storage",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_record_matches_context"),
+    [
+        "selfhost_def_id_eq record.source_function_def_id context.entry.request.source_function_def_id",
+        "selfhost_type_id_eq record.function_ty context.entry.request.function_ty",
+        "selfhost_memo_call_backend_private_cache_request_kind_eq record.request_kind context.entry.request.request_kind",
+        "selfhost_effect_kind_eq record.source_effect context.entry.request.source_effect",
+        "eq record.type_arg_count context.entry.request.type_arg_count",
+        "eq record.body_module_fingerprint context.body_module_fingerprint",
+    ],
+    "body resolver record matching must compare DefId plus type, request kind, effect, type argument count, and body module fingerprint",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_record_validate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_record_matches_context context record",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_status_result context record",
+        "selfhost_hir_module_get_expr module record.body_root_expr_id",
+        "Result::Ok record.body_root_expr_id",
+        "ActualTraversalBodyResolutionRootMissing key",
+        "ActualTraversalBodyResolutionKeyMismatch key",
+        "ActualTraversalBodyResolutionFingerprintMismatch key",
+    ],
+    "body resolver validation must reject identity/fingerprint mismatch, unavailable status, and missing HIR body root before source generation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_loop"),
+    [
+        "ActualTraversalBodyResolutionMissing key",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_get resolutions idx",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_record_def_matches_context context record",
+        "Option::Some _previous:",
+        "ActualTraversalBodyResolutionDuplicate key",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_record_validate_result module context record",
+        "ActualTraversalBodyResolutionReadFailed idx",
+    ],
+    "body resolver lookup must scan by DefId, reject duplicate candidates, validate the selected record, and keep missing/read failures typed",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result")),
+    /name|diagnostic|span|SelfhostHirFunctionId|selfhost_hir_module_get_function|resource_graph_input_push|proof_table_push|Wasm|LLVM|neplobj|neplproof/,
+    "body resolver lookup must not infer body identity from names, diagnostics, spans, function arena ids, proof tables, backend bytes, or artifacts",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind"),
@@ -3144,6 +3249,26 @@ assertOrdered(
         "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputKeyMismatch key",
         "ActualTraversalBodyInputGraphMismatch graph_index",
         "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputGraphMismatch graph_index",
+        "ActualTraversalBodyResolutionTableAllocFailed e",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionTableAllocFailed e",
+        "ActualTraversalBodyResolutionPushFailed e",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionPushFailed e",
+        "ActualTraversalBodyResolutionReadFailed idx",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionReadFailed idx",
+        "ActualTraversalBodyResolutionMissing key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionMissing key",
+        "ActualTraversalBodyResolutionUnavailable key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionUnavailable key",
+        "ActualTraversalBodyResolutionUnsupported key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionUnsupported key",
+        "ActualTraversalBodyResolutionKeyMismatch key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionKeyMismatch key",
+        "ActualTraversalBodyResolutionFingerprintMismatch key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionFingerprintMismatch key",
+        "ActualTraversalBodyResolutionRootMissing key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionRootMissing key",
+        "ActualTraversalBodyResolutionDuplicate key",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionDuplicate key",
         "ActualTraversalBodySourceTableAllocFailed e",
         "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalSourceTableAllocFailed e",
         "ActualTraversalBodySourcePushFailed e",
@@ -3186,7 +3311,7 @@ assertOrdered(
         "body_module_fingerprint",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root_expr_id body_module_fingerprint graph_id.index",
         "Result::Ok context:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context resolutions",
         "Result::Ok output:",
         "Result::Ok output",
         "Result::Err availability_error:",
@@ -3206,7 +3331,8 @@ assertOrdered(
     [
         "SelfhostHirModule",
         "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result context",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result module context resolutions",
     ],
     "actual traversal body context availability boundary must accept the rechecked context and return production reader output",
 );
@@ -3231,7 +3357,7 @@ assertOrdered(
         "SelfhostMemoCallBackendRequestTableEntry",
         "SelfhostHirExprId",
         "body_module_fingerprint",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result module entry root_expr_id body_module_fingerprint key graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result module entry root_expr_id body_module_fingerprint key graph_id resolutions",
         "Result::Ok output:",
         "field::get output \"walker_input\"",
         "field::get output \"observations\"",
@@ -3257,7 +3383,8 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result"),
     [
         "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result context",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
         "Result::Ok _valid:",
@@ -3319,7 +3446,7 @@ assertOrdered(
         "SelfhostMemoCallBackendRequestTableEntry",
         "SelfhostHirExprId",
         "body_module_fingerprint",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result module entry root_expr_id body_module_fingerprint key graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result module entry root_expr_id body_module_fingerprint key graph_id resolutions",
         "Result::Ok output:",
         "field::get output \"walker_input\"",
         "field::get output \"observations\"",
@@ -3472,6 +3599,12 @@ assertOrdered(
         "availability_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_malformed_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "resolution_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "resolution_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "resolution_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "resolution_fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "resolution_root_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "resolution_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
     ],
     "actual traversal body input adapter stage0 summary must expose only source counts, availability rejections, and typed Result payloads",
@@ -3511,6 +3644,18 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_unsupported_source_count_result",
         "availability_malformed_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_malformed_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
+        "resolution_missing_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_missing_resolution_result 77",
+        "resolution_unavailable_rejected",
+        "BodyLoweringUnavailable",
+        "resolution_unsupported_rejected",
+        "BodyLoweringUnsupported",
+        "resolution_fingerprint_mismatch_rejected",
+        "77 78",
+        "selfhost_hir_expr_id_new 99",
+        "resolution_root_missing_rejected",
+        "resolution_duplicate_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_duplicate_resolution_result 77",
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
     ],
@@ -3531,7 +3676,7 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root_expr_id body_module_fingerprint graph_index",
         "Result::Ok context:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
         "Result::Ok request_sources:",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result sources request_sources",
         "Result::Err e:",
@@ -3548,8 +3693,8 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop"),
     [
         "selfhost_memo_call_backend_request_table_get_entry table idx",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result module entry root_expr_id body_module_fingerprint sources idx",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module table next_sources root_expr_id body_module_fingerprint add idx 1 n",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result module entry root_expr_id body_module_fingerprint resolutions sources idx",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_requests_loop module table resolutions next_sources root_expr_id body_module_fingerprint add idx 1 n",
         "RequestEntryMissing idx",
     ],
     "actual walker operation producer bridge request loop must read request entries, thread the traversal source owner, and fail closed on missing entries",
@@ -3572,7 +3717,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint resolutions",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
     ],
@@ -3581,7 +3726,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_from_hir_root_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result module root fuel body_module_fingerprint resolutions",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_from_hir_root_result module root fuel body_module_fingerprint &operations",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
     ],
