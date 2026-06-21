@@ -518,6 +518,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetric
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_offset_geometry.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_side_edge_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_edge_closure_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -596,6 +597,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -17674,9 +17676,9 @@ assert(
     "GUI font docs must pin F5ky F5kx authority, side-edge-only semantics, and closure-before-coverage policy",
 );
 const renderStrokeSideEdgeStartIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeEdgeSide:", renderStrokeOffsetGeometryEndIndex);
-const renderStrokeSideEdgeEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSideEdgeStartIndex);
+const renderStrokeSideEdgeEndIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeCapResolution:", renderStrokeSideEdgeStartIndex);
 const renderStrokeSideEdgeRegion = allocFontSfntGlyfImpl.slice(renderStrokeSideEdgeStartIndex, renderStrokeSideEdgeEndIndex);
-assert(renderStrokeSideEdgeStartIndex >= 0 && renderStrokeSideEdgeEndIndex > renderStrokeSideEdgeStartIndex, "alloc/gui/font/sfnt/glyf F5ky stroke side edge owner region must exist before fill alpha sample cursor");
+assert(renderStrokeSideEdgeStartIndex >= 0 && renderStrokeSideEdgeEndIndex > renderStrokeSideEdgeStartIndex, "alloc/gui/font/sfnt/glyf F5ky stroke side edge owner region must exist before F5kz edge closure owner");
 for (const fragment of [
     "enum GuiSfntSimpleGlyphRenderStrokeEdgeSide:",
     "Left",
@@ -17922,6 +17924,288 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_not_closed_outline_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_no_scalar_mask_command_platform"),
     "F5ky render stroke side edge owner focused doctest must cover F5kx authority, doubled capacity, direction, quadratic policy, push recovery, not-closed semantics, and no scalar/mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke edge closure owner boundary"), "GUI font spec must document F5kz render stroke edge closure owner boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke edge closure owner boundary"), "GUI font detailed design must document F5kz render stroke edge closure owner boundary");
+assert(implementationPlan.includes("## Phase F5kz: sfnt simple glyph render stroke edge closure owner boundary"), "GUI font implementation plan must include F5kz phase");
+assert(
+    implementationPlan.includes("Arendt plan review は `PLAN_REVIEWED`") &&
+        detailedDesign.includes("F5kz consumes the completed F5ky side edge owner as the only direct authority") &&
+        detailedDesign.includes("F5kz stores join closure records rather than drawing join geometry") &&
+        detailedDesign.includes("Never reconstruct adjacency by endpoint coordinate equality") &&
+        spec.includes("F5kz の direct authority は F5ky completed owner だけ") &&
+        spec.includes("ClosedContourNoCap") &&
+        spec.includes("source_edge_gap_count"),
+    "GUI font docs must pin F5kz F5ky authority, no geometry fabrication, edge-index adjacency, cap evidence, and gap evidence",
+);
+const renderStrokeEdgeClosureStartIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeCapResolution:", renderStrokeSideEdgeEndIndex);
+const renderStrokeEdgeClosureEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeEdgeClosureStartIndex);
+const renderStrokeEdgeClosureRegion = allocFontSfntGlyfImpl.slice(renderStrokeEdgeClosureStartIndex, renderStrokeEdgeClosureEndIndex);
+assert(renderStrokeEdgeClosureStartIndex >= 0 && renderStrokeEdgeClosureEndIndex > renderStrokeEdgeClosureStartIndex, "alloc/gui/font/sfnt/glyf F5kz stroke edge closure owner region must exist before fill alpha sample cursor");
+for (const fragment of [
+    "enum GuiSfntSimpleGlyphRenderStrokeCapResolution:",
+    "ClosedContourNoCap",
+    "enum GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency:",
+    "DirectNeighbor",
+    "SkippedNoSegmentRange",
+    "ContourWrap",
+    "SelfTarget",
+    "struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence:",
+    "source_edge_gap_count %i32",
+    "struct GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:",
+    "from_side_edge_index %i32",
+    "to_side_edge_index %i32",
+    "from_metric_index %i32",
+    "to_metric_index %i32",
+    "from_edge_index %i32",
+    "to_edge_index %i32",
+    "contour_start_edge_index %i32",
+    "contour_end_edge_index %i32",
+    "adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency",
+    "join %GuiStrokeJoin",
+    "miter_limit %f32",
+]) {
+    assert(renderStrokeEdgeClosureRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5kz closure value region must include ${fragment}`);
+}
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner:",
+    "side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner",
+    "joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord",
+    "side_edge_index %i32",
+    "join_count %i32",
+    "left_join_count %i32",
+    "right_join_count %i32",
+    "cap_policy %GuiStrokeCap",
+    "cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution",
+    "join_policy %GuiStrokeJoin",
+    "struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner:",
+    "side_edge_count %i32",
+]) {
+    assert(renderStrokeEdgeClosureRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5kz closure owners must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner",
+    "GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner",
+    "GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError",
+    "GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError",
+    "GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5kz ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStroke(?:EdgeClosureDrainOwner|EdgeClosureOwner|EdgeClosureOwnerStartError|EdgeClosureDrainError)|pub enum GuiSfntSimpleGlyphRenderStroke(?:CapResolution|EdgeClosureAdjacency|EdgeClosureErrorKind|EdgeClosureOwnerStartErrorKind|EdgeClosureDrainTerminal)|pub fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_(?:start|step)\b/,
+    "alloc/gui/font/sfnt/glyf F5kz owner-bearing boundary and drain start/step must remain private",
+);
+for (const fragment of [
+    "SourceSideEdgeOwnerInvariantFailed",
+    "SourceSideEdgeCountMismatch",
+    "SourceSideEdgeStorageLenMismatch",
+    "JoinStorageInitialLenMismatch",
+    "JoinStorageCapacityMismatch",
+    "JoinSuccessorMissing",
+    "JoinSuccessorReadFailed",
+    "JoinContourMismatch",
+    "JoinSideMismatch",
+    "JoinContourSpanMismatch",
+    "JoinDirectionMismatch",
+    "JoinAdjacencyMismatch",
+    "JoinSourceEdgeGapMismatch",
+    "JoinSourceEdgeGapNegative",
+    "JoinPushFailed",
+    "CompletionJoinCountMismatch",
+    "CompletionLeftJoinCountMismatch",
+    "CompletionRightJoinCountMismatch",
+]) {
+    assert(renderStrokeEdgeClosureRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5kz error surface must include ${fragment}`);
+}
+const renderStrokeEdgeClosureSourceInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure");
+const renderStrokeEdgeClosureStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_start");
+const renderStrokeEdgeClosureFindNext = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_find_next_side_edge_index");
+const renderStrokeEdgeClosureAdjacency = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges");
+const renderStrokeEdgeClosureRecordFromEdges = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges");
+const renderStrokeEdgeClosureRecordInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants");
+const renderStrokeEdgeClosurePushJoin = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join");
+const renderStrokeEdgeClosurePushCurrent = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current");
+const renderStrokeEdgeClosureStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_step");
+assert(
+    renderStrokeEdgeClosurePushJoin.includes(
+        "fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError",
+    ),
+    "alloc/gui/font/sfnt/glyf F5kz push join must keep every argument separator impure in the impure function type",
+);
+assert(
+    renderStrokeEdgeClosurePushCurrent.includes(
+        "fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError",
+    ),
+    "alloc/gui/font/sfnt/glyf F5kz push current must keep every argument separator impure in the impure function type",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureSourceInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge geometry_owner",
+        "SourceSideEdgeCountNegative",
+        "SourceLineQuadraticSideEdgeCountMismatch",
+        "SourceLeftRightSideEdgeCountMismatch",
+        "SourceSideEdgeCountMismatch",
+        "SourceSideEdgeStorageLenMismatch",
+        "SourceSideEdgeStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz source invariants must revalidate the completed F5ky side edge owner before closure",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure &side_edge_owner",
+        "let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count &side_edge_owner",
+        "let joins_result %Result Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord StdErrorKind vec::with_capacity side_edge_count",
+        "match joins_result:",
+        "JoinStorageInitialLenMismatch",
+        "JoinStorageCapacityMismatch",
+        "gui_stroke_cap &stroke",
+        "GuiSfntSimpleGlyphRenderStrokeCapResolution::ClosedContourNoCap",
+        "gui_stroke_join &stroke",
+        "gui_stroke_miter_limit &stroke",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner side_edge_owner joins 0 0 0 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz start must validate F5ky owner, allocate exact join capacity, and retain cap/join/miter policy",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureFindNext,
+    [
+        "let current_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide",
+        "let current_edge_index %i32",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_candidate_matches current_edge &candidate",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:",
+        "if gt candidate_edge_index current_edge_index",
+        "if or not primary_found lt candidate_edge_index primary_edge_index",
+        "if or not wrap_found lt candidate_edge_index wrap_edge_index",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:",
+        "if lt candidate_edge_index current_edge_index",
+        "if or not primary_found gt candidate_edge_index primary_edge_index",
+        "if or not wrap_found gt candidate_edge_index wrap_edge_index",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz successor search must use same contour/side and Left-next Right-previous edge_index order",
+);
+assertNoMatch(
+    renderStrokeEdgeClosureFindNext,
+    /(?:start_x2|start_y2|end_x2|end_y2|from_end_x2|to_start_x2|_x2\b|_y2\b)/,
+    "alloc/gui/font/sfnt/glyf F5kz successor search must not reconstruct adjacency by endpoint coordinate equality",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureAdjacency,
+    [
+        "if eq from_edge_index to_edge_index",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:",
+        "if gt to_edge_index from_edge_index",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_non_wrap_evidence distance",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_wrap_evidence distance",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:",
+        "if lt to_edge_index from_edge_index",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz adjacency evidence must classify direct, skipped, wrap, and self-target by edge_index order",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureRecordFromEdges,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq from_side to_side",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_records_share_contour_for_closure from_edge to_edge",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges from_side from_edge_index to_edge_index",
+        "let adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency",
+        "let source_edge_gap_count %i32",
+        "gui_sfnt_simple_glyph_render_stroke_join_closure_record from_side_edge_index to_side_edge_index",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz join record construction must preserve from/to provenance, same contour/side, and adjacency gap evidence",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureRecordInvariants,
+    [
+        "from_side_edge_index",
+        "to_side_edge_index",
+        "source_edge_gap_count",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges side from_edge_index to_edge_index",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_eq expected_adjacency adjacency",
+        "JoinAdjacencyMismatch",
+        "JoinSourceEdgeGapMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz join record invariants must recheck index bounds, adjacency, and gap evidence before push",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosurePushJoin,
+    [
+        "previous_side_edge_index",
+        "previous_join_count",
+        "gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants &join side_edge_count",
+        "vec::push joins join",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner side_edge_owner next_joins next_side_edge_index",
+        "vec::vec_push_error_vec push_error",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner side_edge_owner returned_joins previous_side_edge_index previous_join_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz push failure must recover the returned Vec and pre-push closure progress",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosurePushCurrent,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_find_next_side_edge_index side_edge_owner &from_edge",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_edge_for_closure side_edge_owner to_side_edge_index",
+        "gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges side_edge_index &from_edge to_side_edge_index &to_edge",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:",
+        "next_left_join_count",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:",
+        "next_right_join_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz push current must read one successor and push one join with side-specific counts",
+);
+assertOrderedFragments(
+    renderStrokeEdgeClosureStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_local_invariants &owner",
+        "if eq side_edge_index side_edge_count",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_completion_invariants &owner",
+        "GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::Completed completed_owner",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_edge_for_closure side_edge_owner side_edge_index",
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current owner from_edge",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kz step must drain one join closure record per side edge",
+);
+assert(
+    (renderStrokeEdgeClosureRegion.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
+        (renderStrokeEdgeClosureRegion.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5kz region must allocate the join Vec once and push only through one helper",
+);
+assertNoMatch(
+    renderStrokeEdgeClosureRegion,
+    /\b(?:path_sink_scalars|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_glyf_simple_point_with_tables|gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_|GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner|gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_|GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner|gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_|GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner|gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_|GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner|gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor)\b/,
+    "alloc/gui/font/sfnt/glyf F5kz region must not read scalar storage, parse bytes, rerun earlier drains, use masks/coverage, emit commands, call platform APIs, or fallback",
+);
+for (const [slice, name] of [
+    [renderStrokeEdgeClosureSourceInvariants, "source invariants"],
+    [renderStrokeEdgeClosureStart, "start"],
+    [renderStrokeEdgeClosureFindNext, "successor search"],
+    [renderStrokeEdgeClosureAdjacency, "adjacency"],
+    [renderStrokeEdgeClosureRecordFromEdges, "record construction"],
+    [renderStrokeEdgeClosureRecordInvariants, "record invariants"],
+    [renderStrokeEdgeClosurePushJoin, "push join"],
+    [renderStrokeEdgeClosurePushCurrent, "push current"],
+    [renderStrokeEdgeClosureStep, "step"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5kz ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_side_edge_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_join_record_capacity_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_left_right_successor_policy_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_adjacency_gap_evidence_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_cap_closed_contour_evidence_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_join_policy_no_geometry_fabrication_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_push_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTests.includes("render_stroke_edge_closure_owner_no_scalar_mask_command_platform"),
+    "F5kz render stroke edge closure owner focused doctest must cover F5ky authority, capacity, successor search, adjacency evidence, cap evidence, join policy, push recovery, and no scalar/mask/command/platform policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");

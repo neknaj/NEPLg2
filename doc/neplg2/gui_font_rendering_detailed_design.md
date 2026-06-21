@@ -7193,6 +7193,30 @@ Completion requires:
 
 F5ky does not build closure edges, coverage masks, packed masks, render commands, pixel buffers, platform resources, host text measurement, fallback text, shadows, or compositor output.
 
+## SFNT simple glyph render stroke edge closure owner boundary
+
+F5kz consumes the completed F5ky side edge owner as the only direct authority. It must not return to the F5ba/F5az scalar stream, byte-backed glyph lookup, the F5ku metric owner by itself, a fresh F5kw cursor/drain, the F5kx offset geometry drain, or the F5ky side edge drain. The source style is read only through the nested completed owner chain so that requested cap, join, and miter policy remain tied to the same stroke request.
+
+F5kz stores join closure records rather than drawing join geometry. Each F5ky side edge produces exactly one `GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord`, and the join Vec capacity is exactly `side_edge_count`. The completed owner requires `join_count == side_edge_count`, `left_join_count == left_side_edge_count`, `right_join_count == right_side_edge_count`, and Vec len/cap equal to `side_edge_count`.
+
+The successor search is edge-order based:
+
+1. Read the current F5ky side edge by checked side edge index.
+2. Scan the F5ky side edge Vec for candidates with the same contour identity and the same side.
+3. For `Left`, select the smallest candidate `edge_index` greater than the current edge; if none exists, wrap to the smallest candidate edge in the contour.
+4. For `Right`, select the largest candidate `edge_index` smaller than the current edge; if none exists, wrap to the largest candidate edge in the contour.
+5. Never reconstruct adjacency by endpoint coordinate equality.
+
+The join record stores `from_side_edge_index`, `to_side_edge_index`, source metric indices, source edge indices, contour span metadata, directed endpoints, `GuiStrokeJoin`, `miter_limit`, `GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency`, and `source_edge_gap_count`. `DirectNeighbor` means the selected source edge is the next drawable edge in the side direction. `SkippedNoSegmentRange` means one or more source edges with no stroke segment were crossed without wrapping. `ContourWrap` records contour closure across the contour end/start boundary and still carries the skipped source edge count. `SelfTarget` is allowed only as explicit evidence for a contour with a single drawable side edge for that side.
+
+Before a join is pushed, `gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants` rechecks from/to side edge index bounds, contour span, edge-order direction, adjacency, and `source_edge_gap_count`. This keeps a skipped no-segment range or a self-target closure from being silently treated as a normal neighboring join.
+
+Cap handling is evidence-only in this phase. Simple glyph contours are closed, so F5kz records the requested `GuiStrokeCap` as `cap_policy` and records `ClosedContourNoCap` as typed evidence. This is not cap geometry and not a silent cap fallback.
+
+Miter, bevel, and round joins remain policy records in F5kz. `GuiStrokeJoin` and finite positive `miter_limit` are carried forward; later stroke boundary phases are responsible for any geometry construction.
+
+F5kz does not build coverage masks, packed masks, render commands, pixel buffers, platform resources, host text measurement, fallback text, shadows, or compositor output.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
