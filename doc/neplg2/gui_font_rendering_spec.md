@@ -6049,6 +6049,51 @@ start は request owner 内の completed path command stream writer invariant �
 
 `line_to_count + quadratic_to_count == 0` は `NoDrawableStrokeSegments` として fail closed する。これは empty / skip-only glyph の parse/topology が不正という意味ではない。F5az の owner boundary では skip-only completed output は valid だが、F5kr の success owner は後続 stroke expansion の drawable segment plan なので、drawable segment が 0 件の request に success owner を発行しない。
 
+### SFNT simple glyph render stroke source segment cursor boundary
+
+F5ks は F5kr の stroke segment plan owner を authority として、completed path sink scalar stream から stroke expansion 前の source segment を順に読み出す cursor boundary である。この境界では stroke offset geometry、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+path sink scalar stream は writer contract により次の record だけを持つ。
+
+```text
+MoveTo: tag, x2, y2
+LineTo: tag, x2, y2
+QuadraticTo: tag, control_x2, control_y2, end_x2, end_y2
+SkipNoSegment: no scalar record
+```
+
+F5ks は `path_command_count` を cursor step 数として使わず、`path_sink_scalar_count` までだけを進む。MoveTo は source segment として emit せず、cursor の current point だけを更新する。LineTo / QuadraticTo は現在の current point を start point とし、record 内の end / control point と F5kr で検査済みの `stroke_width` を持つ source segment value を返す。
+
+F5ks は start / step の前に F5kr と同等の authority invariant を再検査する。さらに cursor progress として scalar index、MoveTo count、line segment count、quadratic segment count、emitted segment count を検査し、completion では読み出した MoveTo / LineTo / QuadraticTo count が plan と一致することを確認する。
+
+`SkipNoSegment` は path command count / skip count には含まれるが、path sink scalar stream には record を持たない。したがって scalar stream に tag `4` が現れた場合は skip terminal ではなく `UnexpectedSkipNoSegmentTag` として stream corruption を返す。skip reason を scalar stream から復元しない。
+
+### SFNT simple glyph render stroke source segment metric preparation boundary
+
+F5kt は F5ks が返す source segment value を authority として、後続の stroke offset geometry が必要とする per-segment metric を value-only に準備する境界である。これは stroke offset geometry の完成ではなく、join / cap / dash / miter policy、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+F5kt は F5ks cursor / terminal owner を消費しない。`GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine` または `GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic` を借用し、成功時は copyable metric value を返す。失敗は owner recovery を必要としない typed error kind だけで返す。
+
+Line metric は original doubled start/end coordinate、stroke width、`dx`、`dy`、`length_squared` を持つ。`dx` / `dy` は座標を i64 へ cast してから subtraction で求め、i32 delta を先に作らない。`dx * dx`、`dy * dy`、合計は checked arithmetic で検査し、0 length line は `LineDegenerate` として fail closed する。
+
+Quadratic metric は original doubled start/control/end coordinate、stroke width、start to control tangent delta、control to end tangent delta、それぞれの squared length を持つ。両方の tangent length が 0 の fully degenerate quadratic は `QuadraticFullyDegenerate` として拒否する。片側 tangent だけが 0 の quadratic は zero tangent length を value に残し、ここでは flattening や normalization をしない。
+
+F5kt は internal misuse に備えて source segment の `segment_index >= 0` と `stroke_width > 0` も再検査する。これは F5ks 正常 path では既に満たされるが、metric boundary の契約として fail closed にする。
+
+### SFNT simple glyph render stroke source segment metric owner boundary
+
+F5ku は F5ks の fresh cursor を消費し、F5kt の checked metric value を source segment sequence 順に exact-capacity Vec へ蓄積する owner boundary である。この境界は stroke offset geometry の完成ではなく、offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+start は F5ks cursor invariant を再実行したうえで、fresh cursor だけを受け入れる。fresh cursor とは `scalar_index == 0`、emitted segment / MoveTo / Line / Quadratic count がすべて 0、`has_current_point == false`、current point が canonical zero state である cursor である。fresh でない cursor は start error として cursor を返す。
+
+metric Vec は F5kr plan owner の `draw_segment_count` と同じ capacity で 1 回だけ確保する。start 直後の len は 0、cap は `draw_segment_count` と一致しなければならない。不一致の場合は Vec を解放し、cursor を返す。
+
+step は F5ks cursor step を 1 回だけ進める。MoveTo terminal は metric を追加せず、updated cursor と同じ metric Vec/count を持つ drain owner を返す。Line / Quadratic terminal は F5kt prepare helper で checked metric を作り、成功時だけ metric Vec へ push し、metric count と kind count を 1 進める。
+
+metric prepare failure は、進んだ cursor、metric Vec、pre-push count、rejected segment kind、segment index、F5kt error kind を error payload に保持する。push failure は、進んだ cursor、`vec::push` から返った metric Vec、拒否された metric value、pre-push count、segment kind、segment index、storage error を保持する。どちらも通常の resumable drain owner とは扱わない。
+
+completion は F5ks `Completed` で返った F5kr plan owner と metric Vec を束ね、`GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner` を返す。completion 前に `metric_count == draw_segment_count`、`line_metric_count == line_to_count`、`quadratic_metric_count == quadratic_to_count`、Vec len/cap が `draw_segment_count` と一致することを検査する。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

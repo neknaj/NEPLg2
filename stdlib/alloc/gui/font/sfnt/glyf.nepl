@@ -18050,6 +18050,1577 @@ fn gui_sfnt_simple_glyph_render_stroke_segment_plan_start_error_free %impure fn 
     let request_owner %GuiSfntSimpleGlyphRenderStrokeRequestOwner field::get error "request_owner"
     gui_sfnt_simple_glyph_render_stroke_request_owner_free request_owner
 
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine: stroke expansion が[読/よ]む line source geometry
+//:
+//: [目的/もくてき]:
+//: - F5kr の count-only plan と path sink scalar stream から、line source segment だけを value として[切/き]り[出/だ]します。
+//: - doubled coordinate と stroke width を[保持/ほじ]しますが、offset、join、cap、coverage はここでは[計算/けいさん]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine \segment:
+        *segment
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine \segment:
+        segment
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine \segment_index\start_x2\start_y2\end_x2\end_y2\stroke_width:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine segment_index start_x2 start_y2 end_x2 end_y2 stroke_width
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine i32 \segment:
+    *field::get_ref segment "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine i32 \segment:
+    *field::get_ref segment "start_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine i32 \segment:
+    *field::get_ref segment "start_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine i32 \segment:
+    *field::get_ref segment "end_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine i32 \segment:
+    *field::get_ref segment "end_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine i32 \segment:
+    *field::get_ref segment "stroke_width"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic: stroke expansion が[読/よ]む quadratic source geometry
+//:
+//: [目的/もくてき]:
+//: - path sink scalar stream の quadratic record を、current point を start とする source segment value に[戻/もど]します。
+//: - control / end point と stroke width だけを[保持/ほじ]し、curve flattening や stroke edge 生成は後続境界へ[残/のこ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic \segment:
+        *segment
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic \segment:
+        segment
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic \segment_index\start_x2\start_y2\control_x2\control_y2\end_x2\end_y2\stroke_width:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic segment_index start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "start_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "start_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_control_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "control_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_control_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "control_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "end_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "end_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic i32 \segment:
+    *field::get_ref segment "stroke_width"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor: stroke source segment scalar stream cursor
+//:
+//: [目的/もくてき]:
+//: - F5kr の segment plan owner と completed path sink scalar stream を authority として、stroke expansion 前の source segment を 1 件ずつ[読/よ]みます。
+//: - MoveTo は current point 更新だけを[行/おこな]い、LineTo / QuadraticTo だけを source geometry terminal として[返/かえ]します。
+//: - cursor は plan owner を所有するため Clone / Copy を実装しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor:
+    plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+    scalar_index %i32
+    emitted_segment_count %i32
+    move_to_count %i32
+    line_segment_count %i32
+    quadratic_segment_count %i32
+    has_current_point %bool
+    current_x2 %i32
+    current_y2 %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor %fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner fn i32 fn i32 fn i32 fn i32 fn i32 fn bool fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor \plan_owner\scalar_index\emitted_segment_count\move_to_count\line_segment_count\quadratic_segment_count\has_current_point\current_x2\current_y2:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor plan_owner scalar_index emitted_segment_count move_to_count line_segment_count quadratic_segment_count has_current_point current_x2 current_y2
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "scalar_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "emitted_segment_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "move_to_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "line_segment_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "quadratic_segment_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_has_current_point %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor bool \cursor:
+    *field::get_ref cursor "has_current_point"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "current_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor i32 \cursor:
+    *field::get_ref cursor "current_y2"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind: source segment cursor [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind:
+    OwnerPlanRejected
+    StoredCapacityMismatch
+    PathSinkScalarCapacityMismatch
+    RasterMaskScalarCapacityMismatch
+    PathSinkScalarLenMismatch
+    RasterMaskScalarLenNotZero
+    InnerWrittenCountMismatch
+    InnerPathSinkScalarCountMismatch
+    InnerMoveToCountMismatch
+    InnerLineToCountMismatch
+    InnerQuadraticToCountMismatch
+    InnerSkipNoSegmentCountMismatch
+    InnerLastPathCommandIndexMismatch
+    StrokeWidthInvalid
+    DrawSegmentCountOverflow
+    DrawSegmentCountMismatch
+    RasterEdgeCapacityMismatch
+    NoDrawableStrokeSegments
+    OwnerPathCommandCountMismatch
+    OwnerMoveToCountMismatch
+    OwnerLineToCountMismatch
+    OwnerQuadraticToCountMismatch
+    OwnerSkipNoSegmentCountMismatch
+    OwnerDrawSegmentCountMismatch
+    OwnerPathSinkScalarCountMismatch
+    OwnerStrokeWidthMismatch
+    ScalarIndexNegative
+    ScalarIndexOutOfRange
+    ScalarStorageLengthMismatch
+    ScalarStorageCapacityMismatch
+    ScalarSlotMissing
+    CursorEmittedSegmentCountNegative
+    CursorMoveToCountNegative
+    CursorLineSegmentCountNegative
+    CursorQuadraticSegmentCountNegative
+    CursorEmittedCountMismatch
+    CursorMoveToCountExceeded
+    CursorLineSegmentCountExceeded
+    CursorQuadraticSegmentCountExceeded
+    CursorEmittedSegmentCountExceeded
+    MoveRecordTruncated
+    LineRecordTruncated
+    QuadraticRecordTruncated
+    PathSinkTagUnknown
+    UnexpectedSkipNoSegmentTag
+    CurrentPointMissing
+    CompletionMoveToCountMismatch
+    CompletionLineSegmentCountMismatch
+    CompletionQuadraticSegmentCountMismatch
+    CompletionDrawSegmentCountMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind
+    plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError \kind\plan_owner:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError kind plan_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error_plan_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner \error:
+    field::get error "plan_owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError: step failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind
+    cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError \kind\cursor:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError kind cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_cursor %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor \error:
+    field::get error "cursor"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep: emitted line と next cursor
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep:
+    segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine
+    cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep \segment\cursor:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep segment cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_segment %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine \step:
+    *field::get_ref step "segment"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor \step:
+    field::get step "cursor"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep: emitted quadratic と next cursor
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep:
+    segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic
+    cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep \segment\cursor:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep segment cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_segment %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic \step:
+    *field::get_ref step "segment"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor \step:
+    field::get step "cursor"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal: source segment cursor step terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal:
+    StateUpdated %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+    LineSegment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep
+    QuadraticSegment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep
+    Completed %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner Result unit GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \plan_owner:
+    let request_owner %&GuiSfntSimpleGlyphRenderStrokeRequestOwner field::get_ref plan_owner "request_owner"
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref request_owner "writer"
+    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+        Result::Err _capacity_error:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerPlanRejected
+        Result::Ok derived_capacity:
+            let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches &stored_capacity &derived_capacity:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::StoredCapacityMismatch
+                else:
+                    let path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &derived_capacity
+                    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap sink_owner
+                    if ne path_sink_scalars_cap path_sink_scalar_capacity:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::PathSinkScalarCapacityMismatch
+                        else:
+                            let raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &derived_capacity
+                            let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap sink_owner
+                            if ne raster_mask_scalars_cap raster_mask_scalar_capacity:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::RasterMaskScalarCapacityMismatch
+                                else:
+                                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len sink_owner
+                                    if ne path_sink_scalars_len path_sink_scalar_capacity:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::PathSinkScalarLenMismatch
+                                        else:
+                                            let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len sink_owner
+                                            if ne raster_mask_scalars_len 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::RasterMaskScalarLenNotZero
+                                                else:
+                                                    let path_command_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count &plan
+                                                    let inner_written_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count writer
+                                                    if ne inner_written_count path_command_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerWrittenCountMismatch
+                                                        else:
+                                                            let inner_path_sink_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count writer
+                                                            if ne inner_path_sink_scalar_count path_sink_scalar_capacity:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerPathSinkScalarCountMismatch
+                                                                else:
+                                                                    let inner_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count writer
+                                                                    let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                                                                    if ne inner_move_to_count plan_move_to_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerMoveToCountMismatch
+                                                                        else:
+                                                                            let inner_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count writer
+                                                                            let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                                                                            if ne inner_line_to_count plan_line_to_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerLineToCountMismatch
+                                                                                else:
+                                                                                    let inner_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count writer
+                                                                                    let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                                                                    if ne inner_quadratic_to_count plan_quadratic_to_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerQuadraticToCountMismatch
+                                                                                        else:
+                                                                                            let inner_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count writer
+                                                                                            let plan_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
+                                                                                            if ne inner_skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerSkipNoSegmentCountMismatch
+                                                                                                else:
+                                                                                                    let inner_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_last_path_command_index writer
+                                                                                                    let plan_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index &plan
+                                                                                                    if ne inner_last_path_command_index plan_last_path_command_index:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerLastPathCommandIndexMismatch
+                                                                                                        else:
+                                                                                                            let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke plan_owner
+                                                                                                            let stroke_width %i32 *field::get_ref &stroke "width"
+                                                                                                            if le stroke_width 0:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::StrokeWidthInvalid
+                                                                                                                else:
+                                                                                                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_count_checked_add plan_line_to_count plan_quadratic_to_count:
+                                                                                                                        Result::Err error_kind:
+                                                                                                                            Result::Err error_kind
+                                                                                                                        Result::Ok draw_segment_count:
+                                                                                                                            let plan_draw_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count &plan
+                                                                                                                            if ne draw_segment_count plan_draw_count:
+                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::DrawSegmentCountMismatch
+                                                                                                                                else:
+                                                                                                                                    let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &derived_capacity
+                                                                                                                                    if ne draw_segment_count raster_edge_capacity:
+                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::RasterEdgeCapacityMismatch
+                                                                                                                                        else:
+                                                                                                                                            if le draw_segment_count 0:
+                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::NoDrawableStrokeSegments
+                                                                                                                                                else:
+                                                                                                                                                    let owner_path_command_count %i32 *field::get_ref plan_owner "path_command_count"
+                                                                                                                                                    if ne owner_path_command_count path_command_count:
+                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerPathCommandCountMismatch
+                                                                                                                                                        else:
+                                                                                                                                                            let owner_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+                                                                                                                                                            if ne owner_move_to_count plan_move_to_count:
+                                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerMoveToCountMismatch
+                                                                                                                                                                else:
+                                                                                                                                                                    let owner_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                                                                                                                                    if ne owner_line_to_count plan_line_to_count:
+                                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerLineToCountMismatch
+                                                                                                                                                                        else:
+                                                                                                                                                                            let owner_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                                                                                                                                            if ne owner_quadratic_to_count plan_quadratic_to_count:
+                                                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerQuadraticToCountMismatch
+                                                                                                                                                                                else:
+                                                                                                                                                                                    let owner_skip_no_segment_count %i32 *field::get_ref plan_owner "skip_no_segment_count"
+                                                                                                                                                                                    if ne owner_skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerSkipNoSegmentCountMismatch
+                                                                                                                                                                                        else:
+                                                                                                                                                                                            let owner_draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                                                                                                                                                                            if ne owner_draw_segment_count draw_segment_count:
+                                                                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerDrawSegmentCountMismatch
+                                                                                                                                                                                                else:
+                                                                                                                                                                                                    let owner_path_sink_scalar_count %i32 *field::get_ref plan_owner "path_sink_scalar_count"
+                                                                                                                                                                                                    if ne owner_path_sink_scalar_count path_sink_scalar_capacity:
+                                                                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerPathSinkScalarCountMismatch
+                                                                                                                                                                                                        else:
+                                                                                                                                                                                                            let owner_stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke_width plan_owner
+                                                                                                                                                                                                            if ne owner_stroke_width stroke_width:
+                                                                                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::OwnerStrokeWidthMismatch
+                                                                                                                                                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result unit GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \cursor:
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor "plan_owner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants plan_owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index cursor
+            if lt scalar_index 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarIndexNegative
+                else:
+                    let scalar_count %i32 *field::get_ref plan_owner "path_sink_scalar_count"
+                    if gt scalar_index scalar_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarIndexOutOfRange
+                        else:
+                            let emitted_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count cursor
+                            if lt emitted_segment_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorEmittedSegmentCountNegative
+                                else:
+                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count cursor
+                                    if lt move_to_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorMoveToCountNegative
+                                        else:
+                                            let plan_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+                                            if gt move_to_count plan_move_to_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorMoveToCountExceeded
+                                                else:
+                                                    let line_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count cursor
+                                                    if lt line_segment_count 0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorLineSegmentCountNegative
+                                                        else:
+                                                            let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                            if gt line_segment_count plan_line_to_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorLineSegmentCountExceeded
+                                                                else:
+                                                                    let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count cursor
+                                                                    if lt quadratic_segment_count 0:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorQuadraticSegmentCountNegative
+                                                                        else:
+                                                                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                                            if gt quadratic_segment_count plan_quadratic_to_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorQuadraticSegmentCountExceeded
+                                                                                else:
+                                                                                    let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                                                                    if gt emitted_segment_count draw_segment_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorEmittedSegmentCountExceeded
+                                                                                        else:
+                                                                                            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_count_checked_add line_segment_count quadratic_segment_count:
+                                                                                                Result::Err error_kind:
+                                                                                                    Result::Err error_kind
+                                                                                                Result::Ok counted_emitted_segments:
+                                                                                                    if ne emitted_segment_count counted_emitted_segments:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorEmittedCountMismatch
+                                                                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind Result unit GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \cursor\record_width\truncated_kind:
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor "plan_owner"
+    let scalar_count %i32 *field::get_ref plan_owner "path_sink_scalar_count"
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index cursor
+    let remaining %i32 sub scalar_count scalar_index
+    if lt remaining record_width:
+        then Result::Err truncated_kind
+        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \cursor\index:
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor "plan_owner"
+    let scalar_count %i32 *field::get_ref plan_owner "path_sink_scalar_count"
+    if lt index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarIndexNegative
+        else:
+            if ge index scalar_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarIndexOutOfRange
+                else:
+                    let request_owner %&GuiSfntSimpleGlyphRenderStrokeRequestOwner field::get_ref plan_owner "request_owner"
+                    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref request_owner "writer"
+                    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len sink_owner
+                    if ne path_sink_scalars_len scalar_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarStorageLengthMismatch
+                        else:
+                            let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap sink_owner
+                            if ne path_sink_scalars_cap scalar_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarStorageCapacityMismatch
+                                else:
+                                    let scalars %&Vec i32 field::get_ref sink_owner "path_sink_scalars"
+                                    match vec::get scalars index:
+                                        Option::Some scalar:
+                                            Result::Ok scalar
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::ScalarSlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_completion_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result unit GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind \cursor:
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor "plan_owner"
+    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count cursor
+    let plan_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+    if ne move_to_count plan_move_to_count:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CompletionMoveToCountMismatch
+        else:
+            let line_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count cursor
+            let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+            if ne line_segment_count plan_line_to_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CompletionLineSegmentCountMismatch
+                else:
+                    let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count cursor
+                    let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                    if ne quadratic_segment_count plan_quadratic_to_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CompletionQuadraticSegmentCountMismatch
+                        else:
+                            let emitted_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count cursor
+                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                            if ne emitted_segment_count draw_segment_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CompletionDrawSegmentCountMismatch
+                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start %fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError \plan_owner:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants &plan_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error error_kind plan_owner
+        Result::Ok _:
+            let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor plan_owner 0 0 0 0 0 false 0 0
+            Result::Ok cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_move_to %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError \cursor:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room &cursor 3 GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::MoveRecordTruncated:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+        Result::Ok _:
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index &cursor
+            let x_index %i32 add scalar_index 1
+            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor x_index:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                Result::Ok x2:
+                    let y_index %i32 add scalar_index 2
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor y_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                        Result::Ok y2:
+                            let plan_owner_ref %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+                            let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count &cursor
+                            let plan_move_to_count %i32 *field::get_ref plan_owner_ref "move_to_count"
+                            if ge move_to_count plan_move_to_count:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorMoveToCountExceeded cursor
+                                else:
+                                    let emitted_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count &cursor
+                                    let line_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count &cursor
+                                    let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count &cursor
+                                    let next_scalar_index %i32 add scalar_index 3
+                                    let next_move_to_count %i32 add move_to_count 1
+                                    let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get cursor "plan_owner"
+                                    let next_cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor plan_owner next_scalar_index emitted_segment_count next_move_to_count line_segment_count quadratic_segment_count true x2 y2
+                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::StateUpdated next_cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_line_to %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError \cursor:
+    if not gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_has_current_point &cursor:
+        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CurrentPointMissing cursor
+        else:
+            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room &cursor 3 GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::LineRecordTruncated:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                Result::Ok _:
+                    let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index &cursor
+                    let x_index %i32 add scalar_index 1
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor x_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                        Result::Ok end_x2:
+                            let y_index %i32 add scalar_index 2
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor y_index:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                                Result::Ok end_y2:
+                                    let plan_owner_ref %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+                                    let line_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count &cursor
+                                    let plan_line_to_count %i32 *field::get_ref plan_owner_ref "line_to_count"
+                                    if ge line_segment_count plan_line_to_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorLineSegmentCountExceeded cursor
+                                        else:
+                                            let emitted_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count &cursor
+                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner_ref
+                                            if ge emitted_segment_count draw_segment_count:
+                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorEmittedSegmentCountExceeded cursor
+                                                else:
+                                                    let start_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_x2 &cursor
+                                                    let start_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_y2 &cursor
+                                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count &cursor
+                                                    let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count &cursor
+                                                    let stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke_width plan_owner_ref
+                                                    let next_scalar_index %i32 add scalar_index 3
+                                                    let next_emitted_segment_count %i32 add emitted_segment_count 1
+                                                    let next_line_segment_count %i32 add line_segment_count 1
+                                                    let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine gui_sfnt_simple_glyph_render_stroke_source_segment_line emitted_segment_count start_x2 start_y2 end_x2 end_y2 stroke_width
+                                                    let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get cursor "plan_owner"
+                                                    let next_cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor plan_owner next_scalar_index next_emitted_segment_count move_to_count next_line_segment_count quadratic_segment_count true end_x2 end_y2
+                                                    let step %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step segment next_cursor
+                                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::LineSegment step
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_quadratic_to %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError \cursor:
+    if not gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_has_current_point &cursor:
+        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CurrentPointMissing cursor
+        else:
+            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room &cursor 5 GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::QuadraticRecordTruncated:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                Result::Ok _:
+                    let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index &cursor
+                    let control_x_index %i32 add scalar_index 1
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor control_x_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                        Result::Ok control_x2:
+                            let control_y_index %i32 add scalar_index 2
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor control_y_index:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                                Result::Ok control_y2:
+                                    let end_x_index %i32 add scalar_index 3
+                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor end_x_index:
+                                        Result::Err error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                                        Result::Ok end_x2:
+                                            let end_y_index %i32 add scalar_index 4
+                                            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor end_y_index:
+                                                Result::Err error_kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                                                Result::Ok end_y2:
+                                                    let plan_owner_ref %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+                                                    let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count &cursor
+                                                    let plan_quadratic_to_count %i32 *field::get_ref plan_owner_ref "quadratic_to_count"
+                                                    if ge quadratic_segment_count plan_quadratic_to_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorQuadraticSegmentCountExceeded cursor
+                                                        else:
+                                                            let emitted_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count &cursor
+                                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner_ref
+                                                            if ge emitted_segment_count draw_segment_count:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::CursorEmittedSegmentCountExceeded cursor
+                                                                else:
+                                                                    let start_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_x2 &cursor
+                                                                    let start_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_y2 &cursor
+                                                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count &cursor
+                                                                    let line_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count &cursor
+                                                                    let stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke_width plan_owner_ref
+                                                                    let next_scalar_index %i32 add scalar_index 5
+                                                                    let next_emitted_segment_count %i32 add emitted_segment_count 1
+                                                                    let next_quadratic_segment_count %i32 add quadratic_segment_count 1
+                                                                    let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic emitted_segment_count start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width
+                                                                    let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get cursor "plan_owner"
+                                                                    let next_cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor plan_owner next_scalar_index next_emitted_segment_count move_to_count line_segment_count next_quadratic_segment_count true end_x2 end_y2
+                                                                    let step %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step segment next_cursor
+                                                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::QuadraticSegment step
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError \cursor:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_invariants &cursor:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+        Result::Ok _:
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index &cursor
+            let plan_owner_ref %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+            let scalar_count %i32 *field::get_ref plan_owner_ref "path_sink_scalar_count"
+            if eq scalar_index scalar_count:
+                then:
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_completion_invariants &cursor:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                        Result::Ok _:
+                            let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get cursor "plan_owner"
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::Completed plan_owner
+                else:
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor scalar_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error error_kind cursor
+                        Result::Ok tag_scalar:
+                            match gui_sfnt_simple_glyph_path_command_tag_from_scalar_value tag_scalar:
+                                Option::None:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::PathSinkTagUnknown cursor
+                                Option::Some tag:
+                                    match tag:
+                                        GuiSfntSimpleGlyphPathCommandTag::MoveTo:
+                                            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_move_to cursor
+                                        GuiSfntSimpleGlyphPathCommandTag::LineTo:
+                                            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_line_to cursor
+                                        GuiSfntSimpleGlyphPathCommandTag::QuadraticTo:
+                                            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_quadratic_to cursor
+                                        GuiSfntSimpleGlyphPathCommandTag::SkipNoSegment:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::UnexpectedSkipNoSegmentTag cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor unit \cursor:
+    let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get cursor "plan_owner"
+    gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError unit \error:
+    let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get error "plan_owner"
+    gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError unit \error:
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get error "cursor"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::StateUpdated cursor:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::LineSegment step:
+            let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor step
+            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::QuadraticSegment step:
+            let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor step
+            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::Completed plan_owner:
+            gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric: line stroke [展開/てんかい]の[前段/ぜんだん] metric
+//:
+//: [目的/もくてき]:
+//: - source line segment から i64 delta と squared length を checked に[作/つく]り、後続の offset geometry が scalar stream を[読/よ]み[直/なお]さずに[使/つか]える value として[保持/ほじ]します。
+//: - join / cap / dash / miter、stroke edge、coverage、pixel [生成/せいせい]はここでは[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+    dx %i64
+    dy %i64
+    length_squared %i64
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric \metric:
+        *metric
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric \metric:
+        metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i64 fn i64 fn i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric \segment_index\start_x2\start_y2\end_x2\end_y2\stroke_width\dx\dy\length_squared:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric segment_index start_x2 start_y2 end_x2 end_y2 stroke_width dx dy length_squared
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
+    *field::get_ref metric "dx"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
+    *field::get_ref metric "dy"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
+    *field::get_ref metric "length_squared"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric: quadratic stroke [展開/てんかい]の[前段/ぜんだん] metric
+//:
+//: [目的/もくてき]:
+//: - source quadratic segment から start to control と control to end の tangent delta と squared length を checked に[作/つく]ります。
+//: - [片側/かたがわ] tangent が 0 の[場合/ばあい]も value に[残/のこ]し、完全に[退化/たいか]した curve だけを typed error にします。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+    start_control_dx %i64
+    start_control_dy %i64
+    control_end_dx %i64
+    control_end_dy %i64
+    start_control_length_squared %i64
+    control_end_length_squared %i64
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric \metric:
+        *metric
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric \metric:
+        metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i64 fn i64 fn i64 fn i64 fn i64 fn i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric \segment_index\start_x2\start_y2\control_x2\control_y2\end_x2\end_y2\stroke_width\start_control_dx\start_control_dy\control_end_dx\control_end_dy\start_control_length_squared\control_end_length_squared:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric segment_index start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width start_control_dx start_control_dy control_end_dx control_end_dy start_control_length_squared control_end_length_squared
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric:
+    *field::get_ref metric "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "start_control_dx"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "start_control_dy"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "control_end_dx"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "control_end_dy"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "start_control_length_squared"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "control_end_length_squared"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric: prepared stroke source segment metric
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:
+    Line %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric
+    Quadratic %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric \metric:
+        *metric
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric \metric:
+        metric
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind: source segment metric [生成/せいせい]の[失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
+    SegmentIndexNegative
+    StrokeWidthInvalid
+    LineDeltaSquareOverflow
+    LineLengthSquareOverflow
+    LineDegenerate
+    QuadraticStartControlDeltaSquareOverflow
+    QuadraticStartControlLengthSquareOverflow
+    QuadraticControlEndDeltaSquareOverflow
+    QuadraticControlEndLengthSquareOverflow
+    QuadraticFullyDegenerate
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \kind:
+        kind
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max %fn i64:
+    let billion %i64 %i64 cast 1000000000
+    let high_part %i64 mul %i64 cast 922337203 billion
+    let base %i64 add high_part %i64 cast 685477580
+    add mul base %i64 cast 10 %i64 cast 7
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand %fn i64:
+    add mul %i64 cast 3037 %i64 cast 1000000 %i64 cast 499
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square %fn i64 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind Result i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \value\overflow_kind:
+    let limit %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand
+    let negative_limit %i64 sub %i64 cast 0 limit
+    if gt value limit:
+        then Result::Err overflow_kind
+        else:
+            if lt value negative_limit:
+                then Result::Err overflow_kind
+                else Result::Ok mul value value
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum %fn i64 fn i64 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind Result i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \x_square\y_square\overflow_kind:
+    let max_i64 %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max
+    let max_y %i64 sub max_i64 x_square
+    if gt y_square max_y:
+        then Result::Err overflow_kind
+        else Result::Ok add x_square y_square
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_segment_index segment
+    if lt segment_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::SegmentIndexNegative
+        else:
+            let stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_stroke_width segment
+            if le stroke_width 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::StrokeWidthInvalid
+                else:
+                    let start_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_start_x2 segment
+                    let start_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_start_y2 segment
+                    let end_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_end_x2 segment
+                    let end_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_end_y2 segment
+                    let dx %i64 sub %i64 cast end_x2 %i64 cast start_x2
+                    let dy %i64 sub %i64 cast end_y2 %i64 cast start_y2
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDeltaSquareOverflow:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok dx_square:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDeltaSquareOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok dy_square:
+                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum dx_square dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineLengthSquareOverflow:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok length_squared:
+                                            if eq length_squared %i64 cast 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDegenerate
+                                                else:
+                                                    let metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric segment_index start_x2 start_y2 end_x2 end_y2 stroke_width dx dy length_squared
+                                                    Result::Ok metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_segment_index segment
+    if lt segment_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::SegmentIndexNegative
+        else:
+            let stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_stroke_width segment
+            if le stroke_width 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::StrokeWidthInvalid
+                else:
+                    let start_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_start_x2 segment
+                    let start_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_start_y2 segment
+                    let control_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_control_x2 segment
+                    let control_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_control_y2 segment
+                    let end_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_end_x2 segment
+                    let end_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_end_y2 segment
+                    let start_control_dx %i64 sub %i64 cast control_x2 %i64 cast start_x2
+                    let start_control_dy %i64 sub %i64 cast control_y2 %i64 cast start_y2
+                    let control_end_dx %i64 sub %i64 cast end_x2 %i64 cast control_x2
+                    let control_end_dy %i64 sub %i64 cast end_y2 %i64 cast control_y2
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square start_control_dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticStartControlDeltaSquareOverflow:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok start_control_dx_square:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square start_control_dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticStartControlDeltaSquareOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok start_control_dy_square:
+                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum start_control_dx_square start_control_dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticStartControlLengthSquareOverflow:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok start_control_length_squared:
+                                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square control_end_dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticControlEndDeltaSquareOverflow:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok control_end_dx_square:
+                                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square control_end_dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticControlEndDeltaSquareOverflow:
+                                                        Result::Err error_kind:
+                                                            Result::Err error_kind
+                                                        Result::Ok control_end_dy_square:
+                                                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum control_end_dx_square control_end_dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticControlEndLengthSquareOverflow:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok control_end_length_squared:
+                                                                    let start_control_zero %bool eq start_control_length_squared %i64 cast 0
+                                                                    let control_end_zero %bool eq control_end_length_squared %i64 cast 0
+                                                                    if and start_control_zero control_end_zero:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticFullyDegenerate
+                                                                        else:
+                                                                            let metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric segment_index start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width start_control_dx start_control_dy control_end_dx control_end_dy start_control_length_squared control_end_length_squared
+                                                                            Result::Ok metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare segment:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok metric:
+            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare segment:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok metric:
+            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner: source segment metric owner を[作/つく]る drain state
+//:
+//: [目的/もくてき]:
+//: - F5ks の fresh cursor を authority として[消費/しょうひ]し、source segment の[順序/じゅんじょ]を[保/たも]った metric Vec を exact capacity で[構築/こうちく]します。
+//: - この owner は offset point、join、cap、dash、miter を[決/き]めず、後続の geometry expansion が source segment sequence 全体を[参照/さんしょう]できる[前段/ぜんだん] owner だけを[作/つく]ります。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner:
+    cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+    metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric
+    metric_count %i32
+    line_metric_count %i32
+    quadratic_metric_count %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner \cursor\metrics\metric_count\line_metric_count\quadratic_metric_count:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner cursor metrics metric_count line_metric_count quadratic_metric_count
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner i32 \owner:
+    *field::get_ref owner "metric_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_line_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner i32 \owner:
+    *field::get_ref owner "line_metric_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_quadratic_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner i32 \owner:
+    *field::get_ref owner "quadratic_metric_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metrics_len %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner i32 \owner:
+    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref owner "metrics"
+    vec::len metrics
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metrics_cap %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner i32 \owner:
+    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref owner "metrics"
+    vec::cap metrics
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner: completed source segment metric sequence owner
+//:
+//: [目的/もくてき]:
+//: - F5ks completion で[戻/もど]った F5kr plan owner と、exact capacity で[満/み]たされた metric Vec を[束/たば]ねます。
+//: - 後続の stroke geometry boundary はこの owner を authority として sequence 全体の[隣接/りんせつ][関係/かんけい]を[確認/かくにん]できます。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner:
+    plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+    metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric
+    metric_count %i32
+    line_metric_count %i32
+    quadratic_metric_count %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner %fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner \plan_owner\metrics\metric_count\line_metric_count\quadratic_metric_count:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner plan_owner metrics metric_count line_metric_count quadratic_metric_count
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner i32 \owner:
+    *field::get_ref owner "metric_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_line_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner i32 \owner:
+    *field::get_ref owner "line_metric_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_quadratic_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner i32 \owner:
+    *field::get_ref owner "quadratic_metric_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_len %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner i32 \owner:
+    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref owner "metrics"
+    vec::len metrics
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner i32 \owner:
+    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref owner "metrics"
+    vec::cap metrics
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind: metric drain start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind:
+    CursorInvariantFailed
+    CursorScalarIndexNotZero
+    CursorEmittedSegmentCountNotZero
+    CursorMoveToCountNotZero
+    CursorLineSegmentCountNotZero
+    CursorQuadraticSegmentCountNotZero
+    CursorHasCurrentPoint
+    CursorCurrentXNotZero
+    CursorCurrentYNotZero
+    MetricStorageAllocFailed
+    MetricStorageInitialLenMismatch
+    MetricStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind
+    cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+    cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError \kind\cursor\cursor_error_kind\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError kind cursor cursor_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError \kind\cursor:
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error kind cursor cursor_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_cursor_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError \cursor\cursor_error_kind_value:
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind some cursor_error_kind_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorInvariantFailed cursor cursor_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError \cursor\storage_error_value:
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::MetricStorageAllocFailed cursor cursor_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_cursor %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor \error:
+    field::get error "cursor"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind: metric rejection segment kind
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind:
+    NoSegment
+    Line
+    Quadratic
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind: metric drain failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind:
+    CursorStepFailed
+    CursorInvariantFailed
+    MetricCountNegative
+    LineMetricCountNegative
+    QuadraticMetricCountNegative
+    MetricCountMismatch
+    MetricCountExceeded
+    LineMetricCountExceeded
+    QuadraticMetricCountExceeded
+    MetricStorageLenMismatch
+    MetricStorageCapacityMismatch
+    MetricPrepareFailed
+    MetricPushFailed
+    CompletionMetricCountMismatch
+    CompletionLineMetricCountMismatch
+    CompletionQuadraticMetricCountMismatch
+    CompletionStorageLenMismatch
+    CompletionStorageCapacityMismatch
+    CompletionTerminalMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError: drain failure recovery payload
+//:
+//: [目的/もくてき]:
+//: - cursor step が source segment を[消費/しょうひ]した[後/あと]の metric prepare / push 失敗では、通常の resumable drain owner ではなく、[進/すす]んだ cursor と returned Vec と pre push count を[明示/めいじ]します。
+//: - push 失敗では拒否された metric value も保持し、どの segment index で[止/と]まったかを[診断/しんだん]できます。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind
+    cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+    completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+    metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric
+    metric_count %i32
+    line_metric_count %i32
+    quadratic_metric_count %i32
+    cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind
+    metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind
+    storage_error %Option StdErrorKind
+    segment_kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind
+    segment_index %i32
+    rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind fn Option StdErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\cursor\completed_plan_owner\metrics\metric_count\line_metric_count\quadratic_metric_count\cursor_error_kind\metric_error_kind\storage_error\segment_kind\segment_index\rejected_metric:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError kind cursor completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_from_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\owner:
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
+    let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get owner "metrics"
+    let metric_count %i32 field::get owner "metric_count"
+    let line_metric_count %i32 field::get owner "line_metric_count"
+    let quadratic_metric_count %i32 field::get owner "quadratic_metric_count"
+    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
+    let storage_error %Option StdErrorKind none
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \owner\cursor_error_kind_value:
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
+    let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get owner "metrics"
+    let metric_count %i32 field::get owner "metric_count"
+    let line_metric_count %i32 field::get owner "line_metric_count"
+    let quadratic_metric_count %i32 field::get owner "quadratic_metric_count"
+    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind some cursor_error_kind_value
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
+    let storage_error %Option StdErrorKind none
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CursorInvariantFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_step_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \cursor_error\metrics\metric_count\line_metric_count\quadratic_metric_count:
+    let cursor_error_kind_value %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_kind &cursor_error
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_cursor cursor_error
+    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind some cursor_error_kind_value
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
+    let storage_error %Option StdErrorKind none
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CursorStepFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \segment_kind\segment_index\metric_error_kind_value\cursor\metrics\metric_count\line_metric_count\quadratic_metric_count:
+    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind some metric_error_kind_value
+    let storage_error %Option StdErrorKind none
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricPrepareFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\segment_kind\segment_index\cursor\metrics\metric_count\line_metric_count\quadratic_metric_count:
+    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
+    let storage_error %Option StdErrorKind none
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \segment_kind\segment_index\metric\cursor\metrics\metric_count\line_metric_count\quadratic_metric_count\storage_error_value:
+    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric some metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricPushFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_completed_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\plan_owner\metrics\metric_count\line_metric_count\quadratic_metric_count:
+    let cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor none
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner some plan_owner
+    let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
+    let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
+    let storage_error %Option StdErrorKind none
+    let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind cursor completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_local_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \owner:
+    let cursor %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get_ref owner "cursor"
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor "plan_owner"
+    let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metric_count owner
+    if lt metric_count 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricCountNegative
+        else:
+            let line_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_line_metric_count owner
+            if lt line_metric_count 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::LineMetricCountNegative
+                else:
+                    let quadratic_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_quadratic_metric_count owner
+                    if lt quadratic_metric_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::QuadraticMetricCountNegative
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_count_checked_add line_metric_count quadratic_metric_count:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok counted_metric_count:
+                                    if ne metric_count counted_metric_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricCountMismatch
+                                        else:
+                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                            if gt metric_count draw_segment_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricCountExceeded
+                                                else:
+                                                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                    if gt line_metric_count plan_line_to_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::LineMetricCountExceeded
+                                                        else:
+                                                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                            if gt quadratic_metric_count plan_quadratic_to_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::QuadraticMetricCountExceeded
+                                                                else:
+                                                                    let metrics_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metrics_len owner
+                                                                    if ne metrics_len metric_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricStorageLenMismatch
+                                                                        else:
+                                                                            let metrics_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metrics_cap owner
+                                                                            if ne metrics_cap draw_segment_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricStorageCapacityMismatch
+                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_completion_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_local_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let cursor %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get_ref owner "cursor"
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor "plan_owner"
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metric_count owner
+            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+            if ne metric_count draw_segment_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionMetricCountMismatch
+                else:
+                    let line_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_line_metric_count owner
+                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                    if ne line_metric_count plan_line_to_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionLineMetricCountMismatch
+                        else:
+                            let quadratic_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_quadratic_metric_count owner
+                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                            if ne quadratic_metric_count plan_quadratic_to_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionQuadraticMetricCountMismatch
+                                else:
+                                    let metrics_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metrics_len owner
+                                    if ne metrics_len draw_segment_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionStorageLenMismatch
+                                        else:
+                                            let metrics_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_metrics_cap owner
+                                            if ne metrics_cap draw_segment_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionStorageCapacityMismatch
+                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError \cursor:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_invariants &cursor:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_cursor_failed cursor error_kind
+        Result::Ok _:
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index &cursor
+            if ne scalar_index 0:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorScalarIndexNotZero cursor
+                else:
+                    let emitted_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_emitted_segment_count &cursor
+                    if ne emitted_segment_count 0:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorEmittedSegmentCountNotZero cursor
+                        else:
+                            let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_move_to_count &cursor
+                            if ne move_to_count 0:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorMoveToCountNotZero cursor
+                                else:
+                                    let line_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_segment_count &cursor
+                                    if ne line_segment_count 0:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorLineSegmentCountNotZero cursor
+                                        else:
+                                            let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_segment_count &cursor
+                                            if ne quadratic_segment_count 0:
+                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorQuadraticSegmentCountNotZero cursor
+                                                else:
+                                                    if gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_has_current_point &cursor:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorHasCurrentPoint cursor
+                                                        else:
+                                                            let current_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_x2 &cursor
+                                                            if ne current_x2 0:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorCurrentXNotZero cursor
+                                                                else:
+                                                                    let current_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_current_y2 &cursor
+                                                                    if ne current_y2 0:
+                                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::CursorCurrentYNotZero cursor
+                                                                        else:
+                                                                            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+                                                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                                                            let metrics_result %Result Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric StdErrorKind vec::with_capacity draw_segment_count
+                                                                            match metrics_result:
+                                                                                Result::Err storage_error:
+                                                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_storage_failed cursor storage_error
+                                                                                Result::Ok metrics:
+                                                                                    let metrics_len %i32 vec::len &metrics
+                                                                                    if ne metrics_len 0:
+                                                                                        then:
+                                                                                            vec::free metrics
+                                                                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::MetricStorageInitialLenMismatch cursor
+                                                                                        else:
+                                                                                            let metrics_cap %i32 vec::cap &metrics
+                                                                                            if ne metrics_cap draw_segment_count:
+                                                                                                then:
+                                                                                                    vec::free metrics
+                                                                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind::MetricStorageCapacityMismatch cursor
+                                                                                                else:
+                                                                                                    let owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner cursor metrics 0 0 0
+                                                                                                    Result::Ok owner
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal: metric drain step terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal:
+    StateUpdated %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner
+    MetricPushed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner
+    Completed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \cursor\metrics\metric_count\line_metric_count\quadratic_metric_count\segment_kind\segment_index\metric\next_metric_count\nnext_line_metric_count\nnext_quadratic_metric_count:
+    match vec::push metrics metric:
+        Result::Ok next_metrics:
+            let next_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner cursor next_metrics next_metric_count next_line_metric_count next_quadratic_metric_count
+            Result::Ok next_owner
+        Result::Err push_error:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+            let returned_metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric vec::vec_push_error_vec push_error
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_push_failed segment_kind segment_index metric cursor returned_metrics metric_count line_metric_count quadratic_metric_count storage_error_value
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_line %impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \metrics\metric_count\line_metric_count\quadratic_metric_count\step:
+    let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_segment &step
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor step
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_segment_index &segment
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line &segment:
+        Result::Err metric_error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index metric_error_kind cursor metrics metric_count line_metric_count quadratic_metric_count
+        Result::Ok metric:
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+            if ge metric_count draw_segment_count:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricCountExceeded GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index cursor metrics metric_count line_metric_count quadratic_metric_count
+                else:
+                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                    if ge line_metric_count plan_line_to_count:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::LineMetricCountExceeded GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index cursor metrics metric_count line_metric_count quadratic_metric_count
+                        else:
+                            let enum_metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric
+                            let next_metric_count %i32 add metric_count 1
+                            let next_line_metric_count %i32 add line_metric_count 1
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric cursor metrics metric_count line_metric_count quadratic_metric_count GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index enum_metric next_metric_count next_line_metric_count quadratic_metric_count:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::MetricPushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_quadratic %impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \metrics\metric_count\line_metric_count\quadratic_metric_count\step:
+    let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_segment &step
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor step
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_segment_index &segment
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic &segment:
+        Result::Err metric_error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index metric_error_kind cursor metrics metric_count line_metric_count quadratic_metric_count
+        Result::Ok metric:
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &cursor "plan_owner"
+            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+            if ge metric_count draw_segment_count:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricCountExceeded GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index cursor metrics metric_count line_metric_count quadratic_metric_count
+                else:
+                    let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                    if ge quadratic_metric_count plan_quadratic_to_count:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::QuadraticMetricCountExceeded GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index cursor metrics metric_count line_metric_count quadratic_metric_count
+                        else:
+                            let enum_metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric
+                            let next_metric_count %i32 add metric_count 1
+                            let next_quadratic_metric_count %i32 add quadratic_metric_count 1
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric cursor metrics metric_count line_metric_count quadratic_metric_count GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index enum_metric next_metric_count line_metric_count next_quadratic_metric_count:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::MetricPushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_step %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \owner:
+    let cursor_ref %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get_ref &owner "cursor"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_invariants cursor_ref:
+        Result::Err cursor_error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_failed owner cursor_error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_local_invariants &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_from_owner error_kind owner
+                Result::Ok _:
+                    let scalar_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_scalar_index cursor_ref
+                    let plan_owner_ref %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor_ref "plan_owner"
+                    let scalar_count %i32 *field::get_ref plan_owner_ref "path_sink_scalar_count"
+                    if eq scalar_index scalar_count:
+                        then:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_completion_invariants &owner:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_from_owner error_kind owner
+                                Result::Ok _:
+                                    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
+                                    let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get owner "metrics"
+                                    let metric_count %i32 field::get owner "metric_count"
+                                    let line_metric_count %i32 field::get owner "line_metric_count"
+                                    let quadratic_metric_count %i32 field::get owner "quadratic_metric_count"
+                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step cursor:
+                                        Result::Err cursor_error:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_step_failed cursor_error metrics metric_count line_metric_count quadratic_metric_count
+                                        Result::Ok terminal:
+                                            match terminal:
+                                                GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::Completed plan_owner:
+                                                    let completed_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner plan_owner metrics metric_count line_metric_count quadratic_metric_count
+                                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::Completed completed_owner
+                                                GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::StateUpdated next_cursor:
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionTerminalMismatch GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 next_cursor metrics metric_count line_metric_count quadratic_metric_count
+                                                GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::LineSegment step:
+                                                    let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_segment &step
+                                                    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_segment_index &segment
+                                                    let next_cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor step
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionTerminalMismatch GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index next_cursor metrics metric_count line_metric_count quadratic_metric_count
+                                                GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::QuadraticSegment step:
+                                                    let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_segment &step
+                                                    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_segment_index &segment
+                                                    let next_cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor step
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionTerminalMismatch GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index next_cursor metrics metric_count line_metric_count quadratic_metric_count
+                        else:
+                            let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
+                            let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get owner "metrics"
+                            let metric_count %i32 field::get owner "metric_count"
+                            let line_metric_count %i32 field::get owner "line_metric_count"
+                            let quadratic_metric_count %i32 field::get owner "quadratic_metric_count"
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step cursor:
+                                Result::Err cursor_error:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_step_failed cursor_error metrics metric_count line_metric_count quadratic_metric_count
+                                Result::Ok terminal:
+                                    match terminal:
+                                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::StateUpdated next_cursor:
+                                            let next_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner next_cursor metrics metric_count line_metric_count quadratic_metric_count
+                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::StateUpdated next_owner
+                                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::LineSegment step:
+                                            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_line metrics metric_count line_metric_count quadratic_metric_count step
+                                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::QuadraticSegment step:
+                                            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_quadratic metrics metric_count line_metric_count quadratic_metric_count step
+                                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::Completed plan_owner:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_completed_owner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CompletionTerminalMismatch plan_owner metrics metric_count line_metric_count quadratic_metric_count
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner unit \owner:
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
+    let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get owner "metrics"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
+    vec::free metrics
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner unit \owner:
+    let plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get owner "plan_owner"
+    let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get owner "metrics"
+    gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
+    vec::free metrics
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError unit \error:
+    let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get error "cursor"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError unit \error:
+    let cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get error "cursor"
+    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get error "completed_plan_owner"
+    let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get error "metrics"
+    match cursor:
+        Option::None:
+            ()
+        Option::Some cursor_value:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor_value
+    match completed_plan_owner:
+        Option::None:
+            ()
+        Option::Some plan_owner:
+            gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
+    vec::free metrics
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::StateUpdated owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::MetricPushed owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:

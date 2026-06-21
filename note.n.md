@@ -104,7 +104,79 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI font F5ku stroke source segment metric owner boundary
 
+## 目的
+
+- F5ks fresh cursor を消費し、F5kt の checked metric value を source segment sequence 順に exact-capacity Vec へ蓄積する owner/drain boundary を追加する。
+- actual offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へは進まない。
+- metric prepare / push 失敗では、進んだ cursor と metric Vec / count を持つ明示的な recovery state を返し、通常再開可能な drain owner と偽らない。
+
+## subagent review
+
+- Epicurus の F5ku plan review は `PLAN_APPROVED`。
+- 条件は、F5ku を source segment metric owner/drain として切ること、fresh cursor を scalar index だけでなく count / current point state まで検査すること、completion で draw / line / quadratic / Vec len/cap を厳密検査すること、push failure で advanced cursor / returned Vec / rejected metric / pre-push count を返すこと、metric failure で segment kind / index を保持すること、source 再読や fill/raster/coverage/render/platform 接続を禁止することだった。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner` と `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner` を追加した。
+- start は F5ks cursor invariant を再実行し、fresh cursor だけを受け入れ、`draw_segment_count` と同じ capacity の metric Vec を 1 回だけ確保する。
+- drain step は MoveTo で state update、Line / Quadratic で F5kt metric prepare と Vec push、completion で F5ks `Completed` 由来の F5kr plan owner を completed metric owner へ移す。
+- drain error は cursor または completed plan owner、metric Vec、pre-push count、cursor / metric / storage lower error、segment kind / index、rejected metric を保持する owner-bearing recovery payload にした。
+- docs、source policy、focused doctest、todo を F5ku に合わせて更新した。
+
+## verification_current
+
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ku_syntax.json -j 1`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_owner_f5ku.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ku.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ku.json`
+- checked JSON: `tmp/playground-editor-tests-f5ku.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Epicurus の implementation review は `REVIEW_APPROVED`。F5ku が source segment metric owner/drain に留まること、fresh cursor revalidation、exact completion count / Vec len/cap check、advanced cursor / returned Vec / rejected metric / pre-push count の push failure recovery、metric error の segment kind / index context、no reread / no render policy に blocker は無いことが確認された。
+
+# 2026-06-21 Agent2 GUI font F5kt stroke source segment metric preparation boundary
+
+## 目的
+
+- F5ks の source segment value を authority として、後続の stroke offset geometry が必要とする checked metric value を準備する。
+- F5ks cursor / terminal owner は消費せず、value-only `Result` helper に留める。
+- join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へは進まない。
+
+## subagent review
+
+- Lorentz の F5kt plan review は `PLAN_APPROVED`。
+- 指摘条件は、F5kt を offset geometry 完了ではなく metric preparation として切ること、F5ks cursor を消費しないこと、i32 delta ではなく i64 cast 後に subtraction すること、`dx * dx` / `dy * dy` と合計を checked にすること、zero-length line と fully degenerate quadratic を typed error にし partial-degenerate quadratic は zero tangent length を value に残すことだった。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric` と `GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric` を追加し、source coordinates、stroke width、delta、squared length を持つ copyable value にした。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric` enum と typed `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind` を追加した。
+- i64 max と safe square operand `3037000499` は小さい literal から構成し、square operand と square sum を fail-closed に検査する helper を追加した。
+- line prepare は cast-before-subtract、checked square / sum、zero-length rejection を行う。
+- quadratic prepare は start-control / control-end tangent metric をそれぞれ checked に作り、fully degenerate のみ拒否し、片側 tangent 0 は value として残す。
+- docs、source policy、focused doctest、todo を F5kt に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_f5kt.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kt.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kt.json`
+- checked JSON: `tmp/playground-editor-tests-f5kt.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Cicero の implementation review は `REVIEW_APPROVED`。value-only metric preparation、checked i64 arithmetic、degenerate policy、F5ks cursor owner / edge / coverage / command / platform 非接続が承認された。
 # 2026-06-21 Agent2 GUI native F5kp Linux X11 keymap projection evidence boundary
 
 ## 目的
@@ -77580,3 +77652,22 @@ MERGE_APPROVED
 - pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kr.json -j 1`
 - implementation review は James が `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5kr 後続として、stroke geometry expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
+
+## 2026-06-21 Agent2 GUI font rendering F5ks stroke source segment cursor boundary
+
+- F5ks では、F5kr の stroke segment plan owner を authority として completed path sink scalar stream を読む source segment cursor boundary を追加した。MoveTo は current point 更新だけにし、LineTo / QuadraticTo だけを stroke width 付き source segment value として emit する。
+- Franklin の plan review は `PLAN_APPROVED`。`GuiStroke` は color / width だけなので、この slice では offset geometry、join / cap / dash / miter policy、stroke edge owner、coverage mask、packed mask、`RenderCommand`、platform API、fallback へ進まない。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine`、`GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic`、`GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor`、owner-bearing start / step error、terminal を追加した。cursor は plan owner、scalar index、read counts、current point を保持し、owner-bearing 型は Clone / Copy にしない。
+- start / step 前に F5kr と同等の writer invariant、stored F5kr owner counts / path sink scalar count / stroke width、cursor progress、completion counts を再検査する。scalar read は path sink scalar storage の index / len / cap / slot missing を typed error に分ける。
+- SkipNoSegment は path command count / skip count には含まれるが scalar stream には record を持たない契約として docs/source policy に固定した。scalar tag `4` は skip terminal ではなく `UnexpectedSkipNoSegmentTag` として fail closed し、skip reason は復元しない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest、`todo.md` を更新した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_cursor_f5ks.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ks.json -j 1`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ks.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- pass with LF/CRLF warnings only: `git diff --check`
+- implementation review は Franklin が `IMPLEMENTATION_BLOCKED`。code boundary / invariant / SkipNoSegment handling / owner recovery に blocker は無いが、`note.n.md` 未記録と新規 focused doctest 未追跡が required fix とされたため、この記録を追加し、新規 doctest を commit 対象に含める。
+- required fix 対応後の re-review は Franklin が `IMPLEMENTATION_APPROVED`。前回 blocker は解消済みで、commit-blocking finding は無い。
+- F5ks 後続として、stroke offset geometry expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
