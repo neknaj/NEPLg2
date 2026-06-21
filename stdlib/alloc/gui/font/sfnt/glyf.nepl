@@ -22458,6 +22458,1052 @@ fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_terminal_free %impure fn 
         GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_stroke_side_edge_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderStrokeCapResolution: stroke cap policy の closure evidence
+//:
+//: [目的/もくてき]:
+//: - simple glyph contour は閉じているため、cap geometry を[生成/せいせい]しないことを typed evidence として[保持/ほじ]します。
+//: - caller が指定した cap policy は owner に[残/のこ]し、cap を silent ignore した状態にしません。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeCapResolution:
+    ClosedContourNoCap
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeCapResolution:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeCapResolution GuiSfntSimpleGlyphRenderStrokeCapResolution \resolution:
+        *resolution
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeCapResolution:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeCapResolution GuiSfntSimpleGlyphRenderStrokeCapResolution \resolution:
+        resolution
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency: side edge closure の隣接 evidence
+//:
+//: [目的/もくてき]:
+//: - closure target が source edge 順で直接隣か、segment の無い source edge 範囲を跨いだか、contour wrap か、self target かを[保持/ほじ]します。
+//: - 座標一致ではなく edge_index order によって復元した接続根拠を後続 boundary へ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency:
+    DirectNeighbor
+    SkippedNoSegmentRange
+    ContourWrap
+    SelfTarget
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency \adjacency:
+        *adjacency
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency \adjacency:
+        adjacency
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence: closure adjacency の count evidence
+//:
+//: [目的/もくてき]:
+//: - adjacency 種別と、from edge から to edge までに跨いだ source edge 数を[束/たば]ねます。
+//: - `source_edge_gap_count` は座標ではなく contour 内 edge_index の距離から[計算/けいさん]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence:
+    adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency
+    source_edge_gap_count %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence \evidence:
+        *evidence
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence \evidence:
+        evidence
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_evidence %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency fn i32 GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence \adjacency\source_edge_gap_count:
+    GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence adjacency source_edge_gap_count
+
+//: GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord: side edge 間の join closure record
+//:
+//: [目的/もくてき]:
+//: - F5ky side edge record の終点から、同じ contour / side の次の boundary side edge の始点へ[接続/せつぞく]する join policy を[保持/ほじ]します。
+//: - miter / bevel / round の形状をここで edge geometry に[近似/きんじ]せず、後続 boundary が解釈する policy record として[残/のこ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:
+    from_side_edge_index %i32
+    to_side_edge_index %i32
+    from_metric_index %i32
+    to_metric_index %i32
+    from_edge_index %i32
+    to_edge_index %i32
+    contour_index %i32
+    from_contour_edge_index %i32
+    to_contour_edge_index %i32
+    contour_start_edge_index %i32
+    contour_end_edge_index %i32
+    contour_edge_count %i32
+    adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency
+    source_edge_gap_count %i32
+    side %GuiSfntSimpleGlyphRenderStrokeEdgeSide
+    join %GuiStrokeJoin
+    miter_limit %f32
+    from_end_x2 %f32
+    from_end_y2 %f32
+    to_start_x2 %f32
+    to_start_y2 %f32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \record:
+        *record
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \record:
+        record
+
+fn gui_sfnt_simple_glyph_render_stroke_join_closure_record %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn GuiStrokeJoin fn f32 fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \from_side_edge_index\to_side_edge_index\from_metric_index\to_metric_index\from_edge_index\to_edge_index\contour_index\from_contour_edge_index\to_contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\adjacency\source_edge_gap_count\side\join\miter_limit\from_end_x2\from_end_y2\to_start_x2\to_start_y2:
+    GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord from_side_edge_index to_side_edge_index from_metric_index to_metric_index from_edge_index to_edge_index contour_index from_contour_edge_index to_contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count adjacency source_edge_gap_count side join miter_limit from_end_x2 from_end_y2 to_start_x2 to_start_y2
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner: stroke closure drain state
+//:
+//: [目的/もくてき]:
+//: - F5ky completed side edge owner を[所有/しょゆう]し、1 step で 1 join closure record だけを Vec へ[積/つ]みます。
+//: - Vec owner を[持/も]つため Clone / Copy は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner:
+    side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner
+    joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+    side_edge_index %i32
+    join_count %i32
+    left_join_count %i32
+    right_join_count %i32
+    cap_policy %GuiStrokeCap
+    cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution
+    join_policy %GuiStrokeJoin
+    miter_limit %f32
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn i32 fn i32 fn i32 fn i32 fn GuiStrokeCap fn GuiSfntSimpleGlyphRenderStrokeCapResolution fn GuiStrokeJoin fn f32 GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner \side_edge_owner\joins\side_edge_index\join_count\left_join_count\right_join_count\cap_policy\cap_resolution\join_policy\miter_limit:
+    GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner side_edge_owner joins side_edge_index join_count left_join_count right_join_count cap_policy cap_resolution join_policy miter_limit
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner i32 \owner:
+    *field::get_ref owner "side_edge_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_join_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner i32 \owner:
+    *field::get_ref owner "join_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_left_join_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner i32 \owner:
+    *field::get_ref owner "left_join_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_right_join_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner i32 \owner:
+    *field::get_ref owner "right_join_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_joins_len %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner i32 \owner:
+    let joins %&Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get_ref owner "joins"
+    vec::len joins
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_joins_cap %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner i32 \owner:
+    let joins %&Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get_ref owner "joins"
+    vec::cap joins
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner: completed stroke closure owner
+//:
+//: [目的/もくてき]:
+//: - F5ky side edge owner と join closure Vec を[束/たば]ね、次の stroke boundary が閉じた contour として[解釈/かいしゃく]できる authority にします。
+//: - 後続の塗りつぶし実体や表示命令はここでは[作/つく]りません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner:
+    side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner
+    joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+    side_edge_count %i32
+    join_count %i32
+    left_join_count %i32
+    right_join_count %i32
+    cap_policy %GuiStrokeCap
+    cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution
+    join_policy %GuiStrokeJoin
+    miter_limit %f32
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn i32 fn i32 fn i32 fn i32 fn GuiStrokeCap fn GuiSfntSimpleGlyphRenderStrokeCapResolution fn GuiStrokeJoin fn f32 GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner \side_edge_owner\joins\side_edge_count\join_count\left_join_count\right_join_count\cap_policy\cap_resolution\join_policy\miter_limit:
+    GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner side_edge_owner joins side_edge_count join_count left_join_count right_join_count cap_policy cap_resolution join_policy miter_limit
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner i32 \owner:
+    *field::get_ref owner "side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner i32 \owner:
+    *field::get_ref owner "join_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_left_join_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner i32 \owner:
+    *field::get_ref owner "left_join_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_right_join_count %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner i32 \owner:
+    *field::get_ref owner "right_join_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_len %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner i32 \owner:
+    let joins %&Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get_ref owner "joins"
+    vec::len joins
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_joins_cap %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner i32 \owner:
+    let joins %&Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get_ref owner "joins"
+    vec::cap joins
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind: stroke closure failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind:
+    SourceSideEdgeOwnerInvariantFailed
+    SourceSideEdgeCountNegative
+    SourceLineSideEdgeCountNegative
+    SourceQuadraticSideEdgeCountNegative
+    SourceLeftSideEdgeCountNegative
+    SourceRightSideEdgeCountNegative
+    SourceSideEdgeCountMismatch
+    SourceLineQuadraticSideEdgeCountMismatch
+    SourceLeftRightSideEdgeCountMismatch
+    SourceLeftSideEdgeCountMismatch
+    SourceRightSideEdgeCountMismatch
+    SourceSideEdgeStorageLenMismatch
+    SourceSideEdgeStorageCapacityMismatch
+    JoinStorageInitialLenMismatch
+    JoinStorageCapacityMismatch
+    SideEdgeIndexNegative
+    SideEdgeIndexOutOfRange
+    SideEdgeSlotMissing
+    JoinCountNegative
+    LeftJoinCountNegative
+    RightJoinCountNegative
+    JoinCountMismatch
+    LeftRightJoinCountMismatch
+    LeftJoinCountExceeded
+    RightJoinCountExceeded
+    JoinStorageLenMismatch
+    JoinStorageCapacityMismatch
+    JoinSuccessorMissing
+    JoinSuccessorReadFailed
+    JoinContourMismatch
+    JoinSideMismatch
+    JoinContourSpanMismatch
+    JoinDirectionMismatch
+    JoinAdjacencyMismatch
+    JoinSourceEdgeGapMismatch
+    JoinSourceEdgeGapNegative
+    JoinPushFailed
+    CompletionSideEdgeIndexMismatch
+    CompletionJoinCountMismatch
+    CompletionLeftJoinCountMismatch
+    CompletionRightJoinCountMismatch
+    CompletionStorageLenMismatch
+    CompletionStorageCapacityMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind: closure start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind:
+    SourceOwnerInvariantFailed
+    JoinStorageAllocFailed
+    JoinStorageInitialLenMismatch
+    JoinStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind
+    side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner
+    closure_error_kind %Option GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn Option GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError \kind\side_edge_owner\closure_error_kind\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError kind side_edge_owner closure_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_source_failed %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError \side_edge_owner\error_kind:
+    let closure_error_kind %Option GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind some error_kind
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind::SourceOwnerInvariantFailed side_edge_owner closure_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError \kind\side_edge_owner:
+    let closure_error_kind %Option GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error kind side_edge_owner closure_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError \side_edge_owner\storage_error_value:
+    let closure_error_kind %Option GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind::JoinStorageAllocFailed side_edge_owner closure_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_side_edge_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner \error:
+    field::get error "side_edge_owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError: drain failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError:
+    kind %GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind
+    owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner
+    storage_error %Option StdErrorKind
+    side_edge_index %i32
+    rejected_join %Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner fn Option StdErrorKind fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \kind\owner\storage_error\side_edge_index\rejected_join:
+    GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError kind owner storage_error side_edge_index rejected_join
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_simple %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \kind\owner:
+    let storage_error %Option StdErrorKind none
+    let rejected_join %Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord none
+    let side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index &owner
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error kind owner storage_error side_edge_index rejected_join
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_with_side_edge %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner fn i32 GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \kind\owner\side_edge_index:
+    let storage_error %Option StdErrorKind none
+    let rejected_join %Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord none
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error kind owner storage_error side_edge_index rejected_join
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner fn GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \owner\join\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    let rejected_join %Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord some join
+    let side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index &owner
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinPushFailed owner storage_error side_edge_index rejected_join
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal: closure drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal:
+    JoinPushed %GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner
+    Completed %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq %fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn GuiSfntSimpleGlyphRenderStrokeEdgeSide bool \left\right:
+    match left:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            match right:
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+                    true
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+                    false
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            match right:
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+                    true
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_eq %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency bool \left\right:
+    match left:
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor:
+            match right:
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor:
+                    true
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget:
+                    false
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange:
+            match right:
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange:
+                    true
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget:
+                    false
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap:
+            match right:
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap:
+                    true
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget:
+                    false
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget:
+            match right:
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap:
+                    false
+                GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget:
+                    true
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_gap_evidence %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \adjacency\source_edge_gap_count:
+    if lt source_edge_gap_count 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSourceEdgeGapNegative
+        else Result::Ok gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_evidence adjacency source_edge_gap_count
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_non_wrap_evidence %fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \distance:
+    if le distance 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinDirectionMismatch
+        else:
+            if eq distance 1:
+                then gui_sfnt_simple_glyph_render_stroke_edge_closure_gap_evidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor 0
+                else:
+                    let source_edge_gap_count %i32 sub distance 1
+                    gui_sfnt_simple_glyph_render_stroke_edge_closure_gap_evidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange source_edge_gap_count
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_wrap_evidence %fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \distance:
+    if le distance 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinDirectionMismatch
+        else:
+            let source_edge_gap_count %i32 sub distance 1
+            gui_sfnt_simple_glyph_render_stroke_edge_closure_gap_evidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap source_edge_gap_count
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeEdgeSide \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "side"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "side"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_metric_index_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "metric_index"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "metric_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_edge_index_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "edge_index"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "edge_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_index_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "contour_index"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "contour_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_index_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "contour_edge_index"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "contour_edge_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_start_edge_index_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "contour_start_edge_index"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "contour_start_edge_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_end_edge_index_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "contour_end_edge_index"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "contour_end_edge_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_count_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord i32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "contour_edge_count"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "contour_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_start_x2_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord f32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "start_x2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "start_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_start_y2_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord f32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "start_y2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "start_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_end_x2_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord f32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "end_x2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "end_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_record_end_y2_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord f32 \edge:
+    match *edge:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line:
+            *field::get_ref &line "end_y2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic:
+            *field::get_ref &quadratic "end_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_records_share_contour_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord bool \left\right:
+    let left_contour_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_index_for_closure left
+    let right_contour_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_index_for_closure right
+    let left_start %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_start_edge_index_for_closure left
+    let right_start %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_start_edge_index_for_closure right
+    let left_end %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_end_edge_index_for_closure left
+    let right_end %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_end_edge_index_for_closure right
+    let left_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_count_for_closure left
+    let right_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_count_for_closure right
+    and eq left_contour_index right_contour_index and eq left_start right_start and eq left_end right_end eq left_count right_count
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_candidate_matches %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord bool \current\candidate:
+    let current_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure current
+    let candidate_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure candidate
+    let same_side %bool gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq current_side candidate_side
+    and same_side gui_sfnt_simple_glyph_render_stroke_side_edge_records_share_contour_for_closure current candidate
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_style_from_side_edge_owner %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner GuiStroke \side_edge_owner:
+    let geometry_owner %&GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get_ref side_edge_owner "geometry_owner"
+    let source_owner %&GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get_ref geometry_owner "source_owner"
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref source_owner "metric_owner"
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+    gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke plan_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner Result unit GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \side_edge_owner:
+    let geometry_owner %&GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get_ref side_edge_owner "geometry_owner"
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge geometry_owner:
+        Result::Err _error_kind:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeOwnerInvariantFailed
+        Result::Ok _:
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+            if lt side_edge_count 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeCountNegative
+                else:
+                    let line_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_line_side_edge_count side_edge_owner
+                    if lt line_side_edge_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceLineSideEdgeCountNegative
+                        else:
+                            let quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_quadratic_side_edge_count side_edge_owner
+                            if lt quadratic_side_edge_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceQuadraticSideEdgeCountNegative
+                                else:
+                                    let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_left_side_edge_count side_edge_owner
+                                    if lt left_side_edge_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceLeftSideEdgeCountNegative
+                                        else:
+                                            let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_right_side_edge_count side_edge_owner
+                                            if lt right_side_edge_count 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceRightSideEdgeCountNegative
+                                                else:
+                                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_count_checked_add line_side_edge_count quadratic_side_edge_count:
+                                                        Result::Err error_kind:
+                                                            Result::Err error_kind
+                                                        Result::Ok counted_kind_edges:
+                                                            if ne counted_kind_edges side_edge_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceLineQuadraticSideEdgeCountMismatch
+                                                                else:
+                                                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_count_checked_add left_side_edge_count right_side_edge_count:
+                                                                        Result::Err error_kind:
+                                                                            Result::Err error_kind
+                                                                        Result::Ok counted_side_edges:
+                                                                            if ne counted_side_edges side_edge_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceLeftRightSideEdgeCountMismatch
+                                                                                else:
+                                                                                    let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count geometry_owner
+                                                                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_count_checked_add geometry_count geometry_count:
+                                                                                        Result::Err error_kind:
+                                                                                            Result::Err error_kind
+                                                                                        Result::Ok expected_side_edge_count:
+                                                                                            if ne side_edge_count expected_side_edge_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeCountMismatch
+                                                                                                else:
+                                                                                                    if ne left_side_edge_count geometry_count:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceLeftSideEdgeCountMismatch
+                                                                                                        else:
+                                                                                                            if ne right_side_edge_count geometry_count:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceRightSideEdgeCountMismatch
+                                                                                                                else:
+                                                                                                                    let edges_len %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_len side_edge_owner
+                                                                                                                    if ne edges_len side_edge_count:
+                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeStorageLenMismatch
+                                                                                                                        else:
+                                                                                                                            let edges_cap %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_cap side_edge_owner
+                                                                                                                            if ne edges_cap side_edge_count:
+                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeStorageCapacityMismatch
+                                                                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_local_invariants %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \owner:
+    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref owner "side_edge_owner"
+    match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure side_edge_owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+            let side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index owner
+            if lt side_edge_index 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeIndexNegative
+                else:
+                    if gt side_edge_index side_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeIndexOutOfRange
+                        else:
+                            let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_join_count owner
+                            if lt join_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinCountNegative
+                                else:
+                                    let left_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_left_join_count owner
+                                    if lt left_join_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::LeftJoinCountNegative
+                                        else:
+                                            let right_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_right_join_count owner
+                                            if lt right_join_count 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::RightJoinCountNegative
+                                                else:
+                                                    if ne join_count side_edge_index:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinCountMismatch
+                                                        else:
+                                                            match gui_sfnt_simple_glyph_render_stroke_edge_closure_count_checked_add left_join_count right_join_count:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok counted_side_joins:
+                                                                    if ne counted_side_joins join_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::LeftRightJoinCountMismatch
+                                                                        else:
+                                                                            let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_left_side_edge_count side_edge_owner
+                                                                            if gt left_join_count left_side_edge_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::LeftJoinCountExceeded
+                                                                                else:
+                                                                                    let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_right_side_edge_count side_edge_owner
+                                                                                    if gt right_join_count right_side_edge_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::RightJoinCountExceeded
+                                                                                        else:
+                                                                                            let joins_len %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_joins_len owner
+                                                                                            if ne joins_len join_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinStorageLenMismatch
+                                                                                                else:
+                                                                                                    let joins_cap %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_joins_cap owner
+                                                                                                    if ne joins_cap side_edge_count:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinStorageCapacityMismatch
+                                                                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_completion_invariants %fn &GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_local_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref owner "side_edge_owner"
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+            let side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index owner
+            if ne side_edge_index side_edge_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::CompletionSideEdgeIndexMismatch
+                else:
+                    let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_join_count owner
+                    if ne join_count side_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::CompletionJoinCountMismatch
+                        else:
+                            let left_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_left_join_count owner
+                            let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_left_side_edge_count side_edge_owner
+                            if ne left_join_count left_side_edge_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::CompletionLeftJoinCountMismatch
+                                else:
+                                    let right_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_right_join_count owner
+                                    let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_right_side_edge_count side_edge_owner
+                                    if ne right_join_count right_side_edge_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::CompletionRightJoinCountMismatch
+                                        else:
+                                            let joins_len %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_joins_len owner
+                                            if ne joins_len side_edge_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::CompletionStorageLenMismatch
+                                                else:
+                                                    let joins_cap %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_joins_cap owner
+                                                    if ne joins_cap side_edge_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::CompletionStorageCapacityMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError \side_edge_owner:
+    match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_invariants_for_closure &side_edge_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_source_failed side_edge_owner error_kind
+        Result::Ok _:
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count &side_edge_owner
+            match vec::with_capacity side_edge_count:
+                Result::Err storage_error_value:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_storage_failed side_edge_owner storage_error_value
+                Result::Ok joins:
+                    let joins_len %i32 vec::len &joins
+                    if ne joins_len 0:
+                        then:
+                            vec::free joins
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind::JoinStorageInitialLenMismatch side_edge_owner
+                        else:
+                            let joins_cap %i32 vec::cap &joins
+                            if ne joins_cap side_edge_count:
+                                then:
+                                    vec::free joins
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartErrorKind::JoinStorageCapacityMismatch side_edge_owner
+                                else:
+                                    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_edge_closure_style_from_side_edge_owner &side_edge_owner
+                                    let cap_policy %GuiStrokeCap gui_stroke_cap &stroke
+                                    let cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution GuiSfntSimpleGlyphRenderStrokeCapResolution::ClosedContourNoCap
+                                    let join_policy %GuiStrokeJoin gui_stroke_join &stroke
+                                    let miter_limit %f32 gui_stroke_miter_limit &stroke
+                                    let owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner side_edge_owner joins 0 0 0 0 cap_policy cap_resolution join_policy miter_limit
+                                    Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_edge_for_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \side_edge_owner\side_edge_index:
+    if lt side_edge_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeIndexNegative
+        else:
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+            if ge side_edge_index side_edge_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeIndexOutOfRange
+                else:
+                    let edges_len %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_len side_edge_owner
+                    if ne edges_len side_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeStorageLenMismatch
+                        else:
+                            let edges_cap %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_cap side_edge_owner
+                            if ne edges_cap side_edge_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SourceSideEdgeStorageCapacityMismatch
+                                else:
+                                    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get_ref side_edge_owner "edges"
+                                    match vec::get edges side_edge_index:
+                                        Option::Some edge:
+                                            Result::Ok edge
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeSlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_find_next_side_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord Result i32 GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \side_edge_owner\current_edge:
+    let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+    let current_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure current_edge
+    let current_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_edge_index_for_closure current_edge
+    let mut scan_index %i32 0
+    let mut primary_found %bool false
+    let mut primary_side_edge_index %i32 -1
+    let mut primary_edge_index %i32 0
+    let mut wrap_found %bool false
+    let mut wrap_side_edge_index %i32 -1
+    let mut wrap_edge_index %i32 0
+    let mut failed %bool false
+    let mut final_error_kind %GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSuccessorMissing
+    let mut done %bool false
+    while not done:
+        do:
+            if ge scan_index side_edge_count:
+                then:
+                    set done true
+                else:
+                    match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_edge_for_closure side_edge_owner scan_index:
+                        Result::Err error_kind:
+                            set failed true
+                            set final_error_kind error_kind
+                            set done true
+                        Result::Ok candidate:
+                            if gui_sfnt_simple_glyph_render_stroke_edge_closure_candidate_matches current_edge &candidate:
+                                then:
+                                    let candidate_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_edge_index_for_closure &candidate
+                                    match current_side:
+                                        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+                                            if gt candidate_edge_index current_edge_index:
+                                                then:
+                                                    if or not primary_found lt candidate_edge_index primary_edge_index:
+                                                        then:
+                                                            set primary_found true
+                                                            set primary_side_edge_index scan_index
+                                                            set primary_edge_index candidate_edge_index
+                                                        else unit
+                                                else:
+                                                    if or not wrap_found lt candidate_edge_index wrap_edge_index:
+                                                        then:
+                                                            set wrap_found true
+                                                            set wrap_side_edge_index scan_index
+                                                            set wrap_edge_index candidate_edge_index
+                                                        else unit
+                                        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+                                            if lt candidate_edge_index current_edge_index:
+                                                then:
+                                                    if or not primary_found gt candidate_edge_index primary_edge_index:
+                                                        then:
+                                                            set primary_found true
+                                                            set primary_side_edge_index scan_index
+                                                            set primary_edge_index candidate_edge_index
+                                                        else unit
+                                                else:
+                                                    if or not wrap_found gt candidate_edge_index wrap_edge_index:
+                                                        then:
+                                                            set wrap_found true
+                                                            set wrap_side_edge_index scan_index
+                                                            set wrap_edge_index candidate_edge_index
+                                                        else unit
+                                else unit
+                            set scan_index add scan_index 1
+    if failed:
+        then Result::Err final_error_kind
+        else:
+            if primary_found:
+                then Result::Ok primary_side_edge_index
+                else:
+                    if wrap_found:
+                        then Result::Ok wrap_side_edge_index
+                        else Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSuccessorMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges %fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn i32 fn i32 fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \side\from_edge_index\to_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count:
+    if lt contour_edge_count 1:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourSpanMismatch
+        else:
+            if or lt from_edge_index contour_start_edge_index gt from_edge_index contour_end_edge_index:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourSpanMismatch
+                else:
+                    if or lt to_edge_index contour_start_edge_index gt to_edge_index contour_end_edge_index:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourSpanMismatch
+                        else:
+                            if eq from_edge_index to_edge_index:
+                                then:
+                                    let source_edge_gap_count %i32 sub contour_edge_count 1
+                                    gui_sfnt_simple_glyph_render_stroke_edge_closure_gap_evidence GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget source_edge_gap_count
+                                else:
+                                    match side:
+                                        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+                                            if gt to_edge_index from_edge_index:
+                                                then:
+                                                    let distance %i32 sub to_edge_index from_edge_index
+                                                    gui_sfnt_simple_glyph_render_stroke_edge_closure_non_wrap_evidence distance
+                                                else:
+                                                    let from_to_end %i32 sub contour_end_edge_index from_edge_index
+                                                    let start_to_to %i32 sub to_edge_index contour_start_edge_index
+                                                    let distance %i32 add add from_to_end start_to_to 1
+                                                    gui_sfnt_simple_glyph_render_stroke_edge_closure_wrap_evidence distance
+                                        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+                                            if lt to_edge_index from_edge_index:
+                                                then:
+                                                    let distance %i32 sub from_edge_index to_edge_index
+                                                    gui_sfnt_simple_glyph_render_stroke_edge_closure_non_wrap_evidence distance
+                                                else:
+                                                    let start_to_from %i32 sub from_edge_index contour_start_edge_index
+                                                    let to_to_end %i32 sub contour_end_edge_index to_edge_index
+                                                    let distance %i32 add add start_to_from to_to_end 1
+                                                    gui_sfnt_simple_glyph_render_stroke_edge_closure_wrap_evidence distance
+
+fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges %fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn GuiStrokeJoin fn f32 Result GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \from_side_edge_index\from_edge\to_side_edge_index\to_edge\join_policy\miter_limit:
+    let from_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure from_edge
+    let to_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure to_edge
+    if not gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq from_side to_side:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSideMismatch
+        else:
+            if not gui_sfnt_simple_glyph_render_stroke_side_edge_records_share_contour_for_closure from_edge to_edge:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourMismatch
+                else:
+                    let contour_start_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_start_edge_index_for_closure from_edge
+                    let contour_end_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_end_edge_index_for_closure from_edge
+                    let contour_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_count_for_closure from_edge
+                    let expected_edge_count %i32 add sub contour_end_edge_index contour_start_edge_index 1
+                    if ne contour_edge_count expected_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourSpanMismatch
+                        else:
+                            let from_metric_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_metric_index_for_closure from_edge
+                            let to_metric_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_metric_index_for_closure to_edge
+                            let from_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_edge_index_for_closure from_edge
+                            let to_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_edge_index_for_closure to_edge
+                            let contour_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_index_for_closure from_edge
+                            let from_contour_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_index_for_closure from_edge
+                            let to_contour_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_contour_edge_index_for_closure to_edge
+                            let from_end_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_end_x2_for_closure from_edge
+                            let from_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_end_y2_for_closure from_edge
+                            let to_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_start_x2_for_closure to_edge
+                            let to_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_start_y2_for_closure to_edge
+                            match gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges from_side from_edge_index to_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok adjacency_evidence:
+                                    let adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency field::get adjacency_evidence "adjacency"
+                                    let source_edge_gap_count %i32 field::get adjacency_evidence "source_edge_gap_count"
+                                    let record %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_closure_record from_side_edge_index to_side_edge_index from_metric_index to_metric_index from_edge_index to_edge_index contour_index from_contour_edge_index to_contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count adjacency source_edge_gap_count from_side join_policy miter_limit from_end_x2 from_end_y2 to_start_x2 to_start_y2
+                                    Result::Ok record
+
+fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn i32 Result unit GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \record\side_edge_count:
+    let from_side_edge_index %i32 *field::get_ref record "from_side_edge_index"
+    if or lt from_side_edge_index 0 ge from_side_edge_index side_edge_count:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeIndexOutOfRange
+        else:
+            let to_side_edge_index %i32 *field::get_ref record "to_side_edge_index"
+            if or lt to_side_edge_index 0 ge to_side_edge_index side_edge_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::SideEdgeIndexOutOfRange
+                else:
+                    let contour_start_edge_index %i32 *field::get_ref record "contour_start_edge_index"
+                    let contour_end_edge_index %i32 *field::get_ref record "contour_end_edge_index"
+                    let contour_edge_count %i32 *field::get_ref record "contour_edge_count"
+                    let expected_edge_count %i32 add sub contour_end_edge_index contour_start_edge_index 1
+                    if ne contour_edge_count expected_edge_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourSpanMismatch
+                        else:
+                            let source_edge_gap_count %i32 *field::get_ref record "source_edge_gap_count"
+                            if lt source_edge_gap_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSourceEdgeGapNegative
+                                else:
+                                    let side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref record "side"
+                                    let from_edge_index %i32 *field::get_ref record "from_edge_index"
+                                    let to_edge_index %i32 *field::get_ref record "to_edge_index"
+                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges side from_edge_index to_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok expected_evidence:
+                                            let expected_adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency field::get expected_evidence "adjacency"
+                                            let expected_gap_count %i32 field::get expected_evidence "source_edge_gap_count"
+                                            let adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency *field::get_ref record "adjacency"
+                                            if not gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_eq expected_adjacency adjacency:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinAdjacencyMismatch
+                                                else:
+                                                    if ne expected_gap_count source_edge_gap_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSourceEdgeGapMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner fn GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn i32 fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \owner\join\next_side_edge_index\next_join_count\next_left_join_count\next_right_join_count:
+    let previous_side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index &owner
+    let previous_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_join_count &owner
+    let previous_left_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_left_join_count &owner
+    let previous_right_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_right_join_count &owner
+    let side_edge_owner_ref %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref &owner "side_edge_owner"
+    let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner_ref
+    match gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants &join side_edge_count:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_with_side_edge error_kind owner previous_side_edge_index
+        Result::Ok _:
+            let side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get owner "side_edge_owner"
+            let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get owner "joins"
+            let cap_policy %GuiStrokeCap field::get owner "cap_policy"
+            let cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution field::get owner "cap_resolution"
+            let join_policy %GuiStrokeJoin field::get owner "join_policy"
+            let miter_limit %f32 field::get owner "miter_limit"
+            match vec::push joins join:
+                Result::Ok next_joins:
+                    let next_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner side_edge_owner next_joins next_side_edge_index next_join_count next_left_join_count next_right_join_count cap_policy cap_resolution join_policy miter_limit
+                    Result::Ok next_owner
+                Result::Err push_error:
+                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                    let returned_joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord vec::vec_push_error_vec push_error
+                    let returned_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner side_edge_owner returned_joins previous_side_edge_index previous_join_count previous_left_join_count previous_right_join_count cap_policy cap_resolution join_policy miter_limit
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_push_failed returned_owner join storage_error_value
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \owner\from_edge:
+    let side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index &owner
+    let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref &owner "side_edge_owner"
+    match gui_sfnt_simple_glyph_render_stroke_edge_closure_find_next_side_edge_index side_edge_owner &from_edge:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_with_side_edge error_kind owner side_edge_index
+        Result::Ok to_side_edge_index:
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_edge_for_closure side_edge_owner to_side_edge_index:
+                Result::Err _error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_with_side_edge GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSuccessorReadFailed owner side_edge_index
+                Result::Ok to_edge:
+                    let join_policy %GuiStrokeJoin *field::get_ref &owner "join_policy"
+                    let miter_limit %f32 *field::get_ref &owner "miter_limit"
+                    match gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges side_edge_index &from_edge to_side_edge_index &to_edge join_policy miter_limit:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_with_side_edge error_kind owner side_edge_index
+                        Result::Ok join:
+                            let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_join_count &owner
+                            let left_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_left_join_count &owner
+                            let right_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_right_join_count &owner
+                            let next_side_edge_index %i32 add side_edge_index 1
+                            let next_join_count %i32 add join_count 1
+                            let from_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_record_side_for_closure &from_edge
+                            match from_side:
+                                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+                                    let next_left_join_count %i32 add left_join_count 1
+                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join owner join next_side_edge_index next_join_count next_left_join_count right_join_count:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok next_owner:
+                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::JoinPushed next_owner
+                                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+                                    let next_right_join_count %i32 add right_join_count 1
+                                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_join owner join next_side_edge_index next_join_count left_join_count next_right_join_count:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok next_owner:
+                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::JoinPushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_step %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner Result GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError \owner:
+    match gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_local_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_simple error_kind owner
+        Result::Ok _:
+            let side_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_side_edge_index &owner
+            let side_edge_owner %&GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get_ref &owner "side_edge_owner"
+            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count side_edge_owner
+            if eq side_edge_index side_edge_count:
+                then:
+                    match gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_completion_invariants &owner:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_simple error_kind owner
+                        Result::Ok _:
+                            let side_edge_owner_value %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get owner "side_edge_owner"
+                            let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get owner "joins"
+                            let join_count %i32 field::get owner "join_count"
+                            let left_join_count %i32 field::get owner "left_join_count"
+                            let right_join_count %i32 field::get owner "right_join_count"
+                            let cap_policy %GuiStrokeCap field::get owner "cap_policy"
+                            let cap_resolution %GuiSfntSimpleGlyphRenderStrokeCapResolution field::get owner "cap_resolution"
+                            let join_policy %GuiStrokeJoin field::get owner "join_policy"
+                            let miter_limit %f32 field::get owner "miter_limit"
+                            let completed_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner gui_sfnt_simple_glyph_render_stroke_edge_closure_owner side_edge_owner_value joins side_edge_count join_count left_join_count right_join_count cap_policy cap_resolution join_policy miter_limit
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::Completed completed_owner
+                else:
+                    match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_edge_for_closure side_edge_owner side_edge_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_with_side_edge error_kind owner side_edge_index
+                        Result::Ok from_edge:
+                            gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_push_current owner from_edge
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner unit \owner:
+    let side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get owner "side_edge_owner"
+    let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get owner "joins"
+    vec::free joins
+    gui_sfnt_simple_glyph_render_stroke_side_edge_owner_free side_edge_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner unit \owner:
+    let side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get owner "side_edge_owner"
+    let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get owner "joins"
+    vec::free joins
+    gui_sfnt_simple_glyph_render_stroke_side_edge_owner_free side_edge_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwnerStartError unit \error:
+    let side_edge_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner field::get error "side_edge_owner"
+    gui_sfnt_simple_glyph_render_stroke_side_edge_owner_free side_edge_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::JoinPushed owner:
+            gui_sfnt_simple_glyph_render_stroke_edge_closure_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:
