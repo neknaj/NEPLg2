@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI native F5km Linux X11 setup-owned keyboard mapping request boundary
+
+## 目的
+
+- X11 setup success response body の `min-keycode` / `max-keycode` を setup resource info に保持する。
+- setup-owned range から `GetKeyboardMapping` request owner を導出し、F5kl の caller-supplied request builder に委譲する。
+- reader state、fd IO、reply correlation、pending keymap、event decode、IME / text input、shortcut、runner、queue、fallback、support gate 有効化は扱わない。
+
+## 実装内容
+
+- `NativeWindowLinuxX11SetupResourceInfo` に `min_keycode` / `max_keycode` と accessor を追加した。
+- setup parser は offset 26 / 27 を読み、`min_keycode < 8` と `max_keycode < min_keycode` を typed error として拒否する。
+- `NativeWindowLinuxX11SetupKeyboardMappingRequest` と build error を追加し、`max - min + 1` を checked arithmetic と `u8::try_from` で求めるようにした。
+- setup-owned request helper は F5kl の `native_window_linux_x11_get_keyboard_mapping_request` へ委譲し、byte encoding を重複実装しない。
+- F5km の仕様、実装計画、native behavior notes、source-policy、todo を更新した。
+
+## subagent review
+
+- Goodall は計画レビューで `CHANGES_REQUESTED`。主な指摘は validation の明文化であり、F5km では `NativeWindowLinuxX11SetupResourceInfo` parse 時点で `min_keycode < 8` と `max_keycode < min_keycode` を typed error にすること、count 計算は checked arithmetic / `u8::try_from` にすること、reader / event decode / keymap / fallback へ進まないことだった。
+- 指摘に従い、setup parser validation、F5km helper source-policy、negative guard を追加した。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_resource_info -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_keyboard_mapping -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_get_keyboard_mapping -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- pass with existing dead_code warnings: `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- pass: `git diff --check`
+- pass with existing warnings: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- existing warnings: `nodesrc/test_stdlib_documentation_contract.js` の doc gap、`nodesrc/test_doctest_diag_code_metadata.js` の既存 GUI render2d compile_fail metadata、`nodesrc/test_nepl_doc_report_metadata_policy.js` の既存 render_command report metadata。
+- Mendel implementation review: `REVIEW_APPROVED`。typed setup keycode parse error、checked count derivation、F5kl builder delegation、reader / event decode / fallback 非接続を確認した。
+
 # 2026-06-21 Agent2 GUI native F5kl Linux X11 GetKeyboardMapping request/reply owner boundary
 
 ## 目的
