@@ -1,0 +1,270 @@
+//: # alloc/gui/render2d/compositor_tile_rle_count_step
+//: RGBA8888 compositor tile RLE count step bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mf の `GuiRgba8888CompositorTileRleCountOwner` を lower row tile RLE count step へ[渡/わた]します。
+//: - lower count step の status と next owner を compositor metadata [付/つ]きで[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - count owner を lower count owner へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_rle_count_step_budget` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower count error では continuation count owner を[作/つく]らず、cursor を payload owner へ[戻/もど]して caller に[返/かえ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - completed count、encode、storage、packet、std present、host / platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op は[含/ふく]めません。
+//: - completed evidence と encoded transport は後続 boundary で[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_count" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTileRleCountStepErrorKind: compositor tile RLE count step の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower count step error kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRleCountStepErrorKind:
+    CountStepFailed %GuiRgba8888RowTileRleCountErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRleCountStepErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRleCountStepErrorKind GuiRgba8888CompositorTileRleCountStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRleCountStepErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRleCountStepErrorKind GuiRgba8888CompositorTileRleCountStepErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRleCountStep: lower step status と compositor count owner の terminal
+//:
+//: lower step が[返/かえ]した Pending / Completed status と、metadata [付/つ]き next count owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleCountStep:
+    status %GuiRgba8888RowTileRleCountStepStatus
+    owner %GuiRgba8888CompositorTileRleCountOwner
+
+//: GuiRgba8888CompositorTileRleCountStepError: payload owner を[回収/かいしゅう]できる count step error
+//:
+//: lower kind / category / count progress と、metadata [付/つ]き compositor tile payload owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleCountStepError:
+    kind %GuiRgba8888CompositorTileRleCountStepErrorKind
+    category %Option GuiError
+    accumulated_run_count %i32
+    cursor_next_pixel_index %i32
+    payload %GuiRgba8888CompositorTilePayloadOwner
+
+//: gui_rgba8888_compositor_tile_rle_count_step_new: step terminal を[作/つく]る
+//:
+//: lower count step が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_count_step_new %fn GuiRgba8888RowTileRleCountStepStatus fn GuiRgba8888CompositorTileRleCountOwner GuiRgba8888CompositorTileRleCountStep \status\owner:
+    GuiRgba8888CompositorTileRleCountStep status owner
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_new: step error payload を[作/つく]る
+//:
+//: lower kind、category、progress、回収用 payload owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_count_step_error_new %fn GuiRgba8888CompositorTileRleCountStepErrorKind fn Option GuiError fn i32 fn i32 fn GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTileRleCountStepError \kind\category\accumulated_run_count\cursor_next_pixel_index\payload:
+    GuiRgba8888CompositorTileRleCountStepError kind category accumulated_run_count cursor_next_pixel_index payload
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_from_lower: lower count step error を compositor payload error へ[写/うつ]す
+//:
+//: lower kind / category / progress を[読/よ]んでから lower cursor owner を payload owner へ[戻/もど]します。
+//: continuation count owner は[作/つく]らず、caller が free または restart を[選/えら]べる payload owner に[正規化/せいきか]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_count_step_error_from_lower %fn GuiRgba8888RowTileRleCountError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleCountStepError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRleCountErrorKind gui_rgba8888_row_tile_rle_count_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_count_error_category_value &lower
+    let accumulated_run_count %i32 gui_rgba8888_row_tile_rle_count_error_accumulated_run_count &lower
+    let cursor_next_pixel_index %i32 gui_rgba8888_row_tile_rle_count_error_cursor_next_pixel_index &lower
+    let lower_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_count_error_finish_cursor lower
+    let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor
+    let payload %GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+    let kind %GuiRgba8888CompositorTileRleCountStepErrorKind GuiRgba8888CompositorTileRleCountStepErrorKind::CountStepFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_count_step_error_new kind category accumulated_run_count cursor_next_pixel_index payload
+
+//: gui_rgba8888_compositor_tile_rle_count_step_status: step status を[返/かえ]す
+//:
+//: lower count step status を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_status %fn &GuiRgba8888CompositorTileRleCountStep GuiRgba8888RowTileRleCountStepStatus \step:
+    *field::get_ref step "status"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_finish_owner: step から next count owner を[取/と]り[出/だ]す
+//:
+//: caller が次の count step または completed count boundary へ[渡/わた]す owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_finish_owner %fn GuiRgba8888CompositorTileRleCountStep GuiRgba8888CompositorTileRleCountOwner \step:
+    field::get step "owner"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_budget: compositor count owner を budget 内で 1 slice [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower count owner を[取/と]り[出/だ]します。
+//: - lower count step を 1 [回/かい]だけ[呼/よ]び、success では status と next owner を[包/つつ]みます。
+//: - lower error では fake continuation owner を[作/つく]らず、cursor を payload owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_budget %fn GuiRgba8888CompositorTileRleCountOwner fn i32 Result GuiRgba8888CompositorTileRleCountStep GuiRgba8888CompositorTileRleCountStepError \owner\remaining_steps:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_count_owner_metadata &owner
+    let lower_count %GuiRgba8888RowTileRleCountOwner field::get owner "count"
+    match gui_rgba8888_row_tile_rle_count_step_budget lower_count remaining_steps:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_count_step_error_from_lower lower metadata
+        Result::Ok lower_step:
+            let status %GuiRgba8888RowTileRleCountStepStatus gui_rgba8888_row_tile_rle_count_step_status &lower_step
+            let count %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_step_finish_owner lower_step
+            let next_owner %GuiRgba8888CompositorTileRleCountOwner GuiRgba8888CompositorTileRleCountOwner count metadata
+            Result::Ok gui_rgba8888_compositor_tile_rle_count_step_new status next_owner
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_kind: step error kind を[返/かえ]す
+//:
+//: lower count step failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_kind %fn &GuiRgba8888CompositorTileRleCountStepError GuiRgba8888CompositorTileRleCountStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_category_value: step error の coarse category を[返/かえ]す
+//:
+//: lower count step error の category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_category_value %fn &GuiRgba8888CompositorTileRleCountStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_accumulated_run_count: error [発生/はっせい][前/まえ]の累積 run 数を[返/かえ]す
+//:
+//: lower error が[保持/ほじ]する prior count を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_accumulated_run_count %fn &GuiRgba8888CompositorTileRleCountStepError i32 \error:
+    *field::get_ref error "accumulated_run_count"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_cursor_next_pixel_index: error cursor の next pixel index を[返/かえ]す
+//:
+//: lower error が[保持/ほじ]していた cursor progress を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRleCountStepError i32 \error:
+    *field::get_ref error "cursor_next_pixel_index"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_payload: step error から tile payload owner を[取/と]り[出/だ]す
+//:
+//: count owner を[偽造/ぎぞう]せず、metadata [付/つ]き payload owner を caller に[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_payload %fn GuiRgba8888CompositorTileRleCountStepError GuiRgba8888CompositorTilePayloadOwner \error:
+    field::get error "payload"
+
+//: gui_rgba8888_compositor_tile_rle_count_step_finish_entry: step の next count owner を entry owner へ[戻/もど]す
+//:
+//: success step は F5mf count owner finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_finish_entry %fn GuiRgba8888CompositorTileRleCountStep Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTileRleCountFinishError \step:
+    let owner %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_step_finish_owner step
+    gui_rgba8888_compositor_tile_rle_count_owner_finish_entry owner
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_finish_entry: error payload owner を entry owner へ[戻/もど]す
+//:
+//: error step には count owner がないため、F5me payload finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_finish_entry %fn GuiRgba8888CompositorTileRleCountStepError Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePayloadFinishError \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_count_step_error_payload error
+    gui_rgba8888_compositor_tile_payload_owner_finish_entry payload
+
+//: gui_rgba8888_compositor_tile_rle_count_step_free: step の next count owner を[閉/と]じて entry owner まで[破棄/はき]する
+//:
+//: F5mf count owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_free %fn GuiRgba8888CompositorTileRleCountStep Result unit GuiRgba8888CompositorTileRleCountFreeErrorKind \step:
+    let owner %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_step_finish_owner step
+    gui_rgba8888_compositor_tile_rle_count_owner_free owner
+
+//: gui_rgba8888_compositor_tile_rle_count_step_error_free: step error の tile payload owner を[破棄/はき]する
+//:
+//: error には count owner がないため、F5me payload free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_count_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_count_step_error_free %fn GuiRgba8888CompositorTileRleCountStepError Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_count_step_error_payload error
+    gui_rgba8888_compositor_tile_payload_owner_free payload

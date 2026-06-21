@@ -8366,6 +8366,24 @@ Finish errors are normalized back to the compositor entry owner boundary. `owner
 
 F5mf must not expose row tile RLE drain, count step, completed count, encode cursor, writer plan, encoded storage, packet, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no drain / encode / present compositor tile RLE count bridge; payload transport and std present remain later compositor continuation boundaries.
 
+## Render2d compositor tile RLE count step boundary
+
+F5mg is the compositor-side count continuation after F5mf. It consumes `GuiRgba8888CompositorTileRleCountOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleCountOwner`, and calls `gui_rgba8888_row_tile_rle_count_step_budget` exactly once. It returns `GuiRgba8888CompositorTileRleCountStep`, which stores the lower `GuiRgba8888RowTileRleCountStepStatus` and the next `GuiRgba8888CompositorTileRleCountOwner`.
+
+```text
+metadata = copy compositor count owner metadata
+lower_count = move lower row tile RLE count owner
+step_or_error = gui_rgba8888_row_tile_rle_count_step_budget lower_count remaining_steps
+success = copy lower step status, move lower next count owner, wrap it with metadata
+error = copy lower kind/category/progress, move cursor back to payload, wrap it with metadata
+```
+
+The error path deliberately does not recreate a count owner. The lower count boundary documents that some failures may have advanced the cursor while only preserving the prior accumulated count. F5mg therefore treats lower count errors as fatal to the current count continuation: it reads `kind`, `category`, `accumulated_run_count`, and `cursor_next_pixel_index`, then finishes the lower cursor back to the row tile payload and reconstructs `GuiRgba8888CompositorTilePayloadOwner`. This avoids a fake continuation while preserving recovery authority for free, finish, or restart decisions.
+
+Success finish and free helpers delegate to F5mf `gui_rgba8888_compositor_tile_rle_count_owner_finish_entry` and `gui_rgba8888_compositor_tile_rle_count_owner_free`. Error finish and free helpers delegate to F5me `gui_rgba8888_compositor_tile_payload_owner_finish_entry` and `gui_rgba8888_compositor_tile_payload_owner_free`, because an error has only payload recovery authority, not a count owner.
+
+F5mg must not expose direct row tile RLE drain, completed count, encode cursor, writer plan, encoded storage, packet, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no completed / encode / present compositor tile RLE count step bridge; completed count evidence and encoded transport remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
