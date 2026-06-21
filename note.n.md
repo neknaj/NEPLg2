@@ -77241,3 +77241,40 @@ MERGE_APPROVED
 - production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
 - real Resource IR traversal producer から供給された source table を source-derived witness bundle helper へ渡し、stage0 fixture ではなく producer-owned accepted actual traversal bundle として request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound availability traversal bundle checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、future real body reader の `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` を context-bound traversal bundle へ渡す helper を追加した。
+- `selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result` は、`Ok output` の場合だけ既存 `context_bound_reader_traversal_bundle_from_output_result` へ委譲し、source validation と source-derived witness helper の順序を維持する。
+- `Err availability_error` の場合は split output owner、source table owner、fresh witness table owner、bundle owner を作らず、`actual_traversal_body_adapter_bridge_error_from_availability_error` 経由で `Stage0SourceRejected` を返す。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` に `producer_not_connected_availability_rejected` と `missing_reader_availability_rejected` を追加し、availability error が accepted bundle path へ進まない representative smoke を固定した。
+- source adapter の production fallback では `ProducerNotConnected` を unavailable source table へ写すが、bundle helper では accepted proof に到達させない。この違いを doccomment と source policy に明記した。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に context-bound availability traversal bundle checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、subagent 指摘、反映内容、検証、残件を追記した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、availability helper 経由、Err availability から bundle 非到達、direct output helper bypass 禁止、split output fixture 非生成、private helper 非公開、GraphInput / proof push / backend bytes / effect mask / artifact record 非生成を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針に沿って、契約、現状、owner lifecycle、fail-closed taxonomy をコメントと文書で明示した。
+
+### subagent review
+
+- Locke review は `CHANGES_REQUESTED`。source-derived witness へ閉じること、bundle helper で `ProducerNotConnected` を unavailable source table にしないこと、helper 非公開、Ok output だけの委譲、Err availability の owner-free typed rejection、ProducerNotConnected / Missing の representative smoke、GraphInput / proof push / backend bytes / effect mask / artifact key 非生成の固定が要求された。
+- 指摘を受け、現行 `from_output_result` が source-derived witness helper へ閉じていることを確認しつつ、`ProducerNotConnected` と bridge error 表現の混同を避ける field 名へ変更し、doccomment / source policy に bundle path 非到達を追記した。
+- Locke implementation review は `REVIEW_APPROVED`。Err availability path が split output / source table / witness table / bundle を作らないこと、Ok output path が context-bound source validation と source-derived witness helper を迂回しないこと、`ProducerNotConnected` と source adapter fallback の差が doccomment / summary comment で明確であること、helper 非公開、GraphInput / proof push / backend / effect / artifact 合成禁止、行数制限や doccomment 抑制検査の非追加が確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-availability-doctest.json; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`。17/17。
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound availability helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。

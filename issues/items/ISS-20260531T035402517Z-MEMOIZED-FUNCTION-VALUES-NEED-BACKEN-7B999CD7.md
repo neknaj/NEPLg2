@@ -899,3 +899,35 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
 - producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する境界。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
+## 2026-06-21 selfhost memo_call backend context-bound availability traversal bundle checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、future real body reader の availability result を context-bound traversal bundle へ渡す module-private helper を追加した。
+
+`context_bound_reader_traversal_bundle_from_availability_result` は `Result::Ok ActualWalkerEventSplitOutput` の場合だけ既存 `context_bound_reader_traversal_bundle_from_output_result` へ渡す。これにより、available output は context-bound source validation、source-derived witness generation、actual traversal bundle request-evidence gate の順序を必ず通る。`Result::Err AvailabilityErrorKind` の場合は split output owner、source table owner、fresh witness table owner、bundle owner を作らず、bridge error へ写したうえで `Stage0SourceRejected` として返す。
+
+`ProducerNotConnected` は source adapter の production fallback では unavailable source table へ写るが、accepted bundle path では proof に到達させない。この違いを doccomment と source policy に固定した。bridge error 上では `ActualTraversalBodyInputUnavailable` に畳まれるため、public stage0 summary の field は `producer_not_connected_availability_rejected` とし、availability 入力条件が rejected になったことを明示した。
+
+public stage0 summary には `producer_not_connected_availability_rejected` と `missing_reader_availability_rejected` を追加した。これらは owner-free typed `Result` payload であり、reader context、split output、source table、fresh witness table、bundle、Resource proof table、GraphInput、backend bytes、effect mask、artifact key は public API に出さない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。availability helper 経由、Err availability から bundle 非到達、direct output helper bypass 禁止、availability rejection runner が split output fixture を作らないこと、private helper 非公開、GraphInput / proof push / backend bytes / effect mask / artifact record 非生成を固定した。行数や doc comment 量を制限する検査は追加していない。
+
+subagent review:
+
+- Locke review は `CHANGES_REQUESTED`。source-derived witness へ閉じること、bundle helper で `ProducerNotConnected` を unavailable source table にしないこと、helper 非公開、Ok output だけの委譲、Err availability の owner-free typed rejection、ProducerNotConnected / Missing の代表 smoke、GraphInput / proof push / backend bytes / effect mask / artifact key 非生成の固定が要求された。
+- 指摘に対して、現在の `from_output_result` は source-derived witness helper へ閉じていることを確認しつつ、`ProducerNotConnected` と bridge error 表現の混同を避けるため summary field 名を `producer_not_connected_availability_rejected` に変更し、doccomment / source policy に bundle path 非到達を追記した。
+- Locke implementation review は `REVIEW_APPROVED`。Err availability path が split output / source table / witness table / bundle を作らないこと、Ok output path が context-bound source validation と source-derived witness helper を迂回しないこと、`ProducerNotConnected` と source adapter fallback の差が doccomment / summary comment で明確であること、helper 非公開、GraphInput / proof push / backend / effect / artifact 合成禁止、行数制限や doccomment 抑制検査の非追加が確認された。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-availability-doctest.json`。17/17。
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound availability helper へ渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する境界。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。

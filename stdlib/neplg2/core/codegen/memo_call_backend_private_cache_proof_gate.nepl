@@ -484,7 +484,9 @@
 //:             let checks2 checks_push checks1 check_eq_i32 1 summary.accepted_proof_count
 //:             let checks3 checks_push checks2 check context_bound_reader_bundle_i32_result_is_err summary.context_key_mismatch_rejected
 //:             let checks4 checks_push checks3 check context_bound_reader_bundle_i32_result_is_err summary.context_graph_mismatch_rejected
-//:             let shown checks_print_report checks4
+//:             let checks5 checks_push checks4 check context_bound_reader_bundle_i32_result_is_err summary.producer_not_connected_availability_rejected
+//:             let checks6 checks_push checks5 check context_bound_reader_bundle_i32_result_is_err summary.missing_reader_availability_rejected
+//:             let shown checks_print_report checks6
 //:             checks_exit_code shown
 //:         Result::Err _setup:
 //:             let checks0 checks_new
@@ -2092,6 +2094,8 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary
 //: [契約/けいやく]:
 //: - summary は request / proof count と typed `Result` payload だけを公開します。reader context、split output、source table、fresh witness table、bundle、candidate、Resource proof table は公開しません。
 //: - context mismatch は source validation 境界の拒否として保持します。source validation に失敗した場合は fresh witness owner を作らず、`Stage0SourceRejected` に包んだ typed error だけを返します。
+//: - availability error は bundle 作成へ進めません。`ProducerNotConnected` と `Missing` の代表 case を typed rejection として公開し、reader 未接続や body 欠落を accepted proof と混同しないことを固定します。
+//: - `ProducerNotConnected` は bridge error 上では `ActualTraversalBodyInputUnavailable` に写りますが、この summary の field 名は availability 入力条件が reject されたことを表します。
 //: - accepted count は executable backend plan ではありません。available reader output が context-bound source table になり、その source table から抽出した candidate 由来の witness と束ねられて request-evidence gate へ到達したことだけを表します。
 //: - `RequestEvidenceProven` は request occurrence と no-escape proof の照合結果であり、PrivateCache / PrivateState の pure mask や backend 完了を意味しません。
 //: - actual Resource IR traversal、production availability 接続、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
@@ -2100,6 +2104,8 @@ pub struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleS
     accepted_proof_count %i32
     context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    producer_not_connected_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    missing_reader_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary: collector output bundle 接続 smoke の代表結果
 //:
@@ -3013,6 +3019,8 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summ
 //:
 //: [契約/けいやく]:
 //: - summary は owner を持たない count と Result payload だけを保持します。reader context、split output、source table、fresh witness table、bundle、proof table は private helper 内で閉じます。
+//: - availability rejection の代表 Result も owner を持ちません。reader が未接続または body missing のときは、bundle owner を作らないまま typed error として保持します。
+//: - `producer_not_connected_availability_rejected` は availability 入力が `ProducerNotConnected` であったことを表す smoke です。bridge error の表示名とは一致させません。
 impl Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary \self:
         *self
@@ -10702,14 +10710,34 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result: availability result を context-bound traversal bundle へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - future real body reader が返す `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` を、context-bound source validation と source-derived witness bundle の入口へ接続します。
+//:
+//: [契約/けいやく]:
+//: - `Ok` の場合だけ split output owner を既存 output helper へ渡します。source validation、source-derived witness、bundle lifecycle は output helper とその先の helper が担当します。
+//: - `Err` の場合は owner-bearing output、source table、fresh witness table、bundle を一切作りません。availability error は bridge error へ写し、`Stage0SourceRejected` として返します。
+//: - この helper は production availability を成功に変えません。actual Resource IR body reader が未接続の間は、caller が渡す `ProducerNotConnected` は accepted source ではなく typed rejection になります。
+//: - source adapter の production fallback では `ProducerNotConnected` を unavailable source table に写しますが、この bundle helper では proof に到達させません。unavailable smoke と accepted bundle path の責務を分けるためです。
+//: - HIR root、request table、Resource graph、backend bytes、effect mask、artifact key は受け取らず、ここで合成しません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context\availability_result:
+    match availability_result:
+        Result::Ok output:
+            selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output
+        Result::Err e:
+            let bridge %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected bridge
+
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result: context-bound reader bundle を request-evidence gate へ[渡/わた]す
 //:
 //: [目的/もくてき]:
-//: - stage0 module から request table と reader context を再構築し、available reader output fixture を context-bound source helper、source-derived witness helper、actual traversal bundle gate の順に通します。
+//: - stage0 module から request table と reader context を再構築し、available reader output fixture を availability `Ok` として context-bound availability helper、source-derived witness helper、actual traversal bundle gate の順に通します。
 //:
 //: [契約/けいやく]:
 //: - request table は HIR root から内部再構築します。caller-supplied request table、caller-supplied source table、caller-supplied witness table は受け取りません。
 //: - split output は context 作成成功後だけ作ります。context creation failure では owner-bearing output を作らないため、cleanup 対象を増やしません。
+//: - available output は必ず `context_bound_reader_traversal_bundle_from_availability_result` を通します。stage0 fixture でも production reader と同じ availability 境界を使い、後続で real reader output を差し替える位置を固定します。
 //: - source validation failure は `Stage0SourceRejected` へ写し、fresh witness owner を作らないまま返します。source-derived witness helper へ進んだ場合は、candidate failure / witness failure でも source owner を閉じます。
 //: - production availability はこの helper では変更しません。これは stage0 smoke であり、HIR-root production path は `ProducerNotConnected` fallback のままです。
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result %impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index:
@@ -10727,7 +10755,7 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
                                 Result::Ok context:
                                     match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_empty_observations_result:
                                         Result::Ok output:
-                                            match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output:
+                                            match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context Result::Ok output:
                                                 Result::Ok bundle:
                                                     selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle
                                                 Result::Err e:
@@ -10755,10 +10783,54 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result: availability rejection が bundle に[進/すす]まないことを[数/かぞ]える
+//:
+//: [目的/もくてき]:
+//: - request context の再構築には成功するが body reader availability が `Err` である場合に、source table や fresh witness owner を作らず typed rejection へ落ちることを確認します。
+//:
+//: [契約/けいやく]:
+//: - availability error は owner を持ちません。したがって、この helper は split output、source table、fresh witness table、bundle を作らず、`context_bound_reader_traversal_bundle_from_availability_result` の Err path だけを通します。
+//: - `ProducerNotConnected` は production adapter では unavailable source table fallback として使われますが、bundle accepted path では proof に進めません。この差は、旧 production fallback と future real reader accepted path を混同しないための境界です。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result %impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index\availability_error:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
+                Result::Ok table:
+                    let result %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index:
+                                Result::Ok context:
+                                    match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context Result::Err availability_error:
+                                        Result::Ok bundle:
+                                            match selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle:
+                                                Result::Ok summary:
+                                                    Result::Ok summary.proven_request_count
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+                        Option::None:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing 0
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0: context-bound reader output bundle 接続 contract の代表 smoke
 //:
 //: [目的/もくてき]:
 //: - context-bound available reader output が source table になった後、その source table から fresh witness owner が作られて request-evidence gate へ到達することを確認します。
+//: - availability error がある場合は、context が正しくても source table や fresh witness owner を作らず typed rejection になることを確認します。
 //:
 //: [現状/げんじょう]:
 //: - real Resource IR body traversal はまだ接続していません。この public smoke は stage0 fixture の available output だけを使い、production HIR-root path は `ProducerNotConnected` fallback を維持します。
@@ -10768,7 +10840,11 @@ pub fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_b
         Result::Ok accepted:
             let context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 78 0
             let context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 77 1
-            Result::Ok SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary accepted.request_count accepted.proven_request_count context_key_mismatch_rejected context_graph_mismatch_rejected
+            let producer_not_connected_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 77
+            let producer_not_connected_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected producer_not_connected_key
+            let missing_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 77
+            let missing_reader_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key
+            Result::Ok SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary accepted.request_count accepted.proven_request_count context_key_mismatch_rejected context_graph_mismatch_rejected producer_not_connected_availability_rejected missing_reader_availability_rejected
         Result::Err e:
             Result::Err e
 

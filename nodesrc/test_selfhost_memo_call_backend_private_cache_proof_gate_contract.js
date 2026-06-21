@@ -2268,13 +2268,30 @@ assert.doesNotMatch(
     "context-bound reader traversal bundle helper must not bypass the context-bound source adapter, call the external-metadata fixture helper, or synthesize proof, GraphInput, backend, effect, or artifact records",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result"),
+    [
+        "match availability_result:",
+        "Result::Ok output:",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e",
+        "Stage0SourceRejected bridge",
+    ],
+    "context-bound reader traversal bundle availability helper must only pass Ok output to the context-bound output helper and must turn Err availability into typed rejection",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result")),
+    /actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-bound availability helper must not bypass output context validation, must not turn ProducerNotConnected into an accepted bundle path, and must not synthesize lower proof, backend, effect, or artifact records",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result"),
     [
         "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
-        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context Result::Ok output",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
@@ -2283,8 +2300,25 @@ assertOrdered(
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result")),
-    /actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    /context_bound_reader_traversal_bundle_from_output_result context output|actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "context-bound reader traversal bundle stage0 runner must not bypass source validation or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result"),
+    [
+        "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context Result::Err availability_error",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_request_table_free table",
+        "selfhost_hir_module_free module",
+    ],
+    "context-bound reader traversal bundle availability rejection runner must rebuild request authority and route Err availability through the availability helper without making split output fixtures",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result")),
+    /actual_traversal_body_reader_split_output_from_parts_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "availability rejection runner must not create split output fixtures, bypass the availability helper, or synthesize lower proof/backend artifacts",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0"),
@@ -2294,10 +2328,14 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 78 0",
         "context_graph_mismatch_rejected",
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 77 1",
+        "producer_not_connected_availability_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected producer_not_connected_key",
+        "missing_reader_availability_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key",
         "accepted.request_count",
         "accepted.proven_request_count",
     ],
-    "context-bound reader traversal bundle stage0 must cover accepted source-derived witness output, context key mismatch, and context graph mismatch",
+    "context-bound reader traversal bundle stage0 must cover accepted source-derived witness output, context mismatch, and availability rejection paths",
 );
 assert.doesNotMatch(
     code,
