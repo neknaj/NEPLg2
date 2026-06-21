@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI font F5lj shadow source coverage config boundary
+
+## 目的
+
+- F5li の shadow request owner と caller supplied coverage config を結びつけ、後続 shadow source mask が使う検査済み source coverage plan を作る。
+- F5bd と同じく coverage 寸法を path edge から推測せず、`gui_sfnt_simple_glyph_raster_coverage_shape_from_config` によって `source_shape` へ固定する。
+- 成功 owner では `source_shape` を唯一の coverage authority とし、`coverage_config` は success owner に残さない。
+- raster edge drain、coverage mask allocation、scan conversion、packed mask、blur kernel、render command、resource table、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig`、source coverage owner、start error、request owner + config recovery payload、owner/start-error/recovery free path を追加した。
+- owner は F5li request owner、canonical `source_shape`、検査済み source fill/stroke metadata、checked `source_placement_origin`、shadow offset / blur / spread / extent / paint、blend を保持する。
+- start は blur / spread 非負、source metadata presence、optional stroke width、SourceOver、coverage config shape、checked placement origin、checked shadow extent の順に検査する。
+- `source_placement_origin` は request origin と shadow offset を i64 roundtrip checked add で合成し、`gui_point_new` の前に overflow を検査する。
+- `shadow_extent = spread + blur_radius` は checked add で検査し、成功 owner に保存する。
+- Darwin の plan review 1 は `CHANGES_REQUESTED`。`shadow_extent` 未保存、source metadata 再検査不足、success owner の coverage authority 二重化を指摘されたため修正した。
+- Darwin の revised plan review は `PLAN_APPROVED`。
+- Darwin の implementation review 1 は `CHANGES_REQUESTED`。F5lj 実装本体の問題はなく、検証欄が pending のままだったため実行済み検証へ更新した。
+- Darwin の implementation re-review は `REVIEW_APPROVED`。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_config.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_f5lj.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md --no-tree -o tmp_gui_font_render_shadow_request_f5lj_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lj.json -j 1` は 1275 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lj.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lj.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5lj 後続として、shadow source edge drain / mask scan / blur / packing / composition、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5li shadow request boundary
 
 ## 目的

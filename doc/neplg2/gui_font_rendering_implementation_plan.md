@@ -3343,6 +3343,53 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5li.json
 ```
 
+## Phase F5lj: sfnt simple glyph render shadow source coverage config boundary
+
+目的:
+
+- F5li の shadow request owner と caller supplied `GuiSfntSimpleGlyphRasterCoverageConfig` を結びつけ、後続 shadow source mask が使う検査済み source coverage plan を作る。
+- F5bd と同じく coverage 寸法は edge owner から推測せず、caller supplied config を `source_shape` へ固定する。
+- 成功 owner では `source_shape` を唯一の coverage authority とし、`coverage_config` は成功 owner に保持しない。
+- raster edge drain、coverage mask allocation、scan conversion、packed mask、blur kernel、spread geometry mutation、render command、resource table、pixel write、software surface、platform API、font fallback、2D compositor へ進まない。
+
+plan review:
+
+- Darwin plan review 1 は `CHANGES_REQUESTED`。
+- `shadow_extent` を検査しても owner に保持しなければ後続がその検査済み値に依存できないと指摘された。
+- 新しい trust boundary なので source fill/stroke metadata と optional stroke width を再検査する必要があると指摘された。
+- `coverage_config` と `source_shape` を成功 owner に両方保持すると coverage authority が二重化するため、`source_shape` を正本にし、config は recovery / audit 用に限定する必要があると指摘された。
+- revised plan では success owner に `shadow_extent`、`source_fill`、`source_stroke`、`source_placement_origin`、`source_shape` を保持し、`coverage_config` を success owner から外す。Darwin revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig` を追加する。caller supplied `GuiSfntSimpleGlyphRasterCoverageConfig` だけを保持する value-only config とする。
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner` を追加する。F5li request owner、canonical `source_shape`、検査済み source fill/stroke metadata、checked `source_placement_origin`、shadow offset / blur / spread / extent / paint、blend を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind`、start error、recovery payload、owner/start-error/recovery free helper を追加する。
+- F5lj start は blur / spread 非負、source metadata presence、optional stroke width、SourceOver、coverage config shape、checked placement origin、checked shadow extent の順に検査する。
+- coverage lower error は `shape_from_config` 由来の shape/config error だけを typed error に写し、想定外 lower error は `CoverageUnexpectedLowerError` に畳む。
+- docs / source policy / focused doctest label / todo / note を F5lj に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Darwin revised approval、config `Clone` / `Copy`、owner/error/recovery no `Clone` / `Copy`、private boundary、success owner に `coverage_config` が無いこと、canonical `source_shape`、coverage lower error mapping、source metadata revalidation、checked source placement origin before `gui_point_new`、stored `shadow_extent`、request owner + config recovery/free、no raster edge/mask writer/scan/packed mask/resource/render/platform/fallback/shadow raster/compositor、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_config.n.md` に config、shape validation、lower error mapping、source metadata revalidation、canonical source shape、checked source placement origin、stored shadow extent、recovery/free、no mask/resource/platform/compositor policy の coverage label を追加する。
+- implementation review で F5lj が rasterization / blur / resource / platform / compositor へ進んでいないこと、coverage authority が `source_shape` に一本化されていること、F5li request owner の forged metadata を再検査していることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lj 後の shadow source edge/mask scan/blur/packing/composition、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_config.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_f5lj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md --no-tree -o tmp_gui_font_render_shadow_request_f5lj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lj.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lj.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

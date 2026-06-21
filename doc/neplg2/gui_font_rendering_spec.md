@@ -6407,6 +6407,50 @@ GuiSfntSimpleGlyphRenderShadowRequestOwner:
 
 owner、start error、recovery payload は path command writer authority を所有するため `Clone` / `Copy` を実装しない。start error は writer と config を同時に返す recovery payload を持つ。F5li は既存の F5bh / F5kq が shadow-bearing paint を引き続き拒否する contract を変更しない。
 
+### SFNT simple glyph render shadow source coverage config boundary
+
+F5lj は F5li の shadow request owner に caller supplied coverage config を結びつけ、後続の shadow source mask boundary が使う source coverage plan を作る境界である。この phase は raster edge drain、coverage mask allocation、scan conversion、packed mask、blur kernel、spread geometry mutation、render command、alpha mask resource、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5bd と同じく、coverage 寸法は path edge から推測しない。caller は `GuiSfntSimpleGlyphRasterCoverageConfig` を渡し、F5lj は `gui_sfnt_simple_glyph_raster_coverage_shape_from_config` で検査済み `source_shape` に固定する。成功 owner では `source_shape` が唯一の coverage authority であり、`coverage_config` は成功 owner に残さない。`coverage_config` は start error / recovery のための入力 config としてだけ保持する。
+
+成功 owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner:
+    request_owner
+    source_shape
+    source_fill
+    source_stroke
+    source_placement_origin
+    shadow_offset
+    shadow_blur_radius
+    shadow_spread
+    shadow_extent
+    shadow_paint
+    blend
+```
+
+`source_fill` / `source_stroke` は F5lj で再検査した source metadata である。fill と stroke が両方 `None` なら `MissingShadowSourcePaint`、stroke が `Some` かつ `stroke.width <= 0` なら `StrokeWidthInvalid` を返す。F5li の検査を信用して通過せず、新しい owner boundary として再検査する。
+
+`source_shape.origin_x2/y2` は source mask sampling origin であり、shadow offset では変更しない。`source_placement_origin = request_origin + shadow.offset` は pixel placement metadata であり、x / y それぞれを i64 roundtrip で i32 overflow 検査してから `gui_point_new` する。`gui_point_add` は使わない。
+
+`shadow_extent = shadow.spread + shadow.blur_radius` は non-negative shadow padding metadata である。F5lj は blur / spread を非負として再検査し、checked addition に失敗したら `ShadowExtentOverflow` を返す。まだ shape を拡張したり blur kernel を作ったりはしない。
+
+coverage config error は `shape_from_config` が返す shape/config 系だけを F5lj error kind へ写す。
+
+```text
+InvalidWidth -> CoverageInvalidWidth
+InvalidHeight -> CoverageInvalidHeight
+InvalidSampleScale -> CoverageInvalidSampleScale
+InvalidMaxCellCount -> CoverageInvalidMaxCellCount
+CoverageMaxOverflow -> CoverageMaxOverflow
+CellCountOverflow -> CoverageCellCountOverflow
+CellCountLimitExceeded -> CoverageCellCountLimitExceeded
+otherwise -> CoverageUnexpectedLowerError
+```
+
+`CoverageUnexpectedLowerError` は `shape_from_config` contract が将来変わった場合の fail-closed guard である。F5lj は edge count、edge storage、cell storage allocation を扱わない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
