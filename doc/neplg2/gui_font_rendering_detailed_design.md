@@ -8283,6 +8283,25 @@ wrap lower range owner with metadata
 
 F5mb must call `gui_rgba8888_row_batch_cursor_next_batch` exactly once and `gui_rgba8888_row_batch_range_prepare` exactly once. It must not call `gui_rgba8888_row_batch_cursor_status`, row byte storage, row tile plan/payload, RLE encode, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
 
+## Render2d compositor byte storage boundary
+
+F5mc is the compositor-side bridge from F5mb range metadata to F5bz copied byte storage. It consumes `GuiRgba8888CompositorBatchRangeOwner`, copies the compositor metadata first, extracts the lower `GuiRgba8888RowBatchRangeOwner`, and then calls `gui_rgba8888_row_byte_storage_prepare` exactly once. The result is `GuiRgba8888CompositorByteStorageOwner`, which keeps the lower `GuiRgba8888RowByteStorageOwner` and copied `GuiRgba8888CompositorFrameEntryMetadata`.
+
+```text
+metadata = copy range owner metadata
+lower_range = finish compositor range owner to lower range owner
+storage_or_error = gui_rgba8888_row_byte_storage_prepare lower_range
+wrap lower byte storage owner with metadata
+```
+
+Prepare errors are normalized back to the compositor range owner boundary. `GuiRgba8888CompositorByteStoragePrepareError` reads the lower row byte storage prepare kind and category before consuming the lower error owner, then reconstructs `GuiRgba8888CompositorBatchRangeOwner` from the lower range owner plus copied metadata. It stores `kind/category/range`, not the lower owner-bearing error.
+
+Finish errors are normalized back to the compositor entry owner boundary. `owner_finish_entry` copies metadata before consuming the lower byte storage owner. If `gui_rgba8888_row_byte_storage_finish_cursor` fails, F5mc reads the lower finish kind, consumes the lower finish error cursor, reconstructs `GuiRgba8888CompositorFrameEntryOwner`, and maps the category to `GuiError::BackendFailure`. It stores `kind/category/entry`, not the lower owner-bearing error.
+
+`owner_free` delegates to `owner_finish_entry` and then `gui_rgba8888_compositor_frame_entry_owner_free`. It distinguishes `FinishFailed lower_finish_kind` from `EntryFreeFailed entry_free_kind`, where `entry_free_kind` is the `GuiRgba8888SoftwareSurfaceErrorKind` returned by frame entry teardown. A successful byte-storage finish followed by entry free failure is not collapsed into the storage finish path.
+
+F5mc may expose checked byte count and checked byte read helpers by borrowing the lower copied byte storage owner. It must not expose `RegionToken`, `MemPtr`, source storage, destination raw storage, `row_byte_storage_validate_authority`, row tile plan/payload, RLE encode, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

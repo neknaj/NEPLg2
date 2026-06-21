@@ -1,3 +1,50 @@
+# 2026-06-22 GUI render2d F5mc compositor byte storage bridge checkpoint
+
+## 目的
+
+- F5mb の `GuiRgba8888CompositorBatchRangeOwner` を、F5bz の `gui_rgba8888_row_byte_storage_prepare` へ compositor metadata 付きで接続する。
+- copied row byte storage owner を compositor metadata と束ね、success / prepare error / finish error のどの経路でも compositor range owner または frame entry owner へ戻せるようにする。
+- row tile / RLE / std present / host / platform / fallback には進まない。
+
+## subagent review
+
+- Hilbert plan review は `PLAN_APPROVED`。
+- prepare error は lower kind / category を読んでから lower owner を消費し、`kind/category/range` に正規化する方針が承認された。
+- finish error は metadata を storage 消費前に Copy し、lower finish kind と returned cursor から `kind/category/entry` に正規化する方針が承認された。
+- `owner_free` は finish failure と finish 成功後の entry free failure を分ける必要があると指摘され、free error kind に反映した。
+- Hilbert implementation review 1 は `REVIEW_CHANGES_REQUESTED`。実装順序・責務には blocker はなく、untracked implementation/test file と detailed design の `EntryFreeFailed lower_kind` 表現が指摘された。
+- 指摘対応として新規 implementation / focused doctest を stage し、detailed design は `FinishFailed lower_finish_kind` と `EntryFreeFailed entry_free_kind` の別種 error として記述を修正した。
+- Hilbert follow-up implementation review は `REVIEW_APPROVED`。staged new files、detailed design の error kind 表現、cached diff check が確認された。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_byte_storage.nepl` を追加した。
+- `GuiRgba8888CompositorByteStorageOwner`、prepare / finish / free error kind、owner-bearing prepare / finish error を追加した。
+- `gui_rgba8888_compositor_byte_storage_prepare` は metadata を Copy してから lower range owner を取り出し、lower row byte storage prepare を 1 回だけ呼ぶ。
+- prepare error は lower prepare error の kind / category を読んでから range owner を `GuiRgba8888CompositorBatchRangeOwner` へ戻す。
+- finish error は lower finish error の kind を読んでから cursor を `GuiRgba8888CompositorFrameEntryOwner` へ戻し、category は `GuiError::BackendFailure` に写す。
+- checked byte count / byte read helper、finish entry recovery、prepare / finish error free、owner free を追加した。
+- facade、focused doctest、source policy、spec / detailed design / standard spec / implementation plan、`todo.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_byte_storage.n.md --no-tree -o tmp_gui_render2d_compositor_byte_storage_f5mc_probe2.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_byte_storage.nepl --no-tree -o tmp_gui_render2d_compositor_byte_storage_module_f5mc_probe.json -j 1`。1/1。
+- pass: `git pull --ff-only origin main`。already up to date。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_range.n.md --no-tree -o tmp_gui_render2d_compositor_batch_range_f5mc_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_byte_storage.n.md --no-tree -o tmp_gui_render2d_row_byte_storage_f5mc_regression.json -j 1`。2/2。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5mc_compositor_byte_storage.json`
+- checked JSON: `output/playground_editor_f5mc_compositor_byte_storage.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- follow-up: selfhost event producer convergence branch で F5mb `compositor_batch_range` の宣言 doc / doctest marker 不足を補い、`node nodesrc/test_stdlib_documentation_contract.js` は `declarationNoDoc: 2756` / `declarationNoDoctest: 1826` で baseline に戻った。F5mc の新規 `stdlib/alloc/gui/render2d/compositor_byte_storage.nepl` 単体は同じ判定で declaration doc / doctest gap 0。
+
+## 未接続
+
+- F5mc 後続として、row tile / RLE と std present への payload transport / present continuation を別 boundary として進める。
+
 # 2026-06-22 selfhost memo_call backend body HIR source reader checkpoint
 
 ## 目的
@@ -79681,3 +79728,10 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_event_producer_convergence.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
 - pass: `node nodesrc/run_source_policy_regressions.js`
+- post-`origin/main` `2eb20c5a7` merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- post-merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-event-producer-convergence-merged.json`。17/17。
+- post-merge pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- post-merge pass: `node nodesrc/issues.js check --dir issues`
+- post-merge pass with LF/CRLF warning only: `git diff --check`
+- post-merge pass: `trunk build`
+- post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_event_producer_convergence_merged.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
