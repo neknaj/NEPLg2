@@ -30,11 +30,11 @@
 //: - Actual walker event producer bridge stage0 は、HIR root から request authority を再収集し、producer-owned unified event stream を normalizer へ渡します。actual traversal 本体はまだ接続せず、request ごとの closed body と typed unsupported event によって fail-closed になることを確認します。
 //: - Actual walker operation classifier stage0 は、actual Resource IR traversal が将来列挙する最小 operation vocabulary を module-private record として受け、body event と同じ request key / graph id / ordinal を保ったまま unified stream へ分類します。accepted graph を作る case は classifier 接続確認に限り、sealed backend representation や PrivateCache effect masking の完了として扱いません。
 //: - Actual walker traversal source stage0 は、HIR root から request authority を再収集し、actual Resource IR traversal がまだ未接続であることを module-private source table に記録します。source table は operation table そのものではなく、後続の actual walker が差し替える producer boundary です。
-//: - Actual walker operation producer bridge stage0 は、traversal source table を operation table へ投影して operation classifier へ渡します。actual traversal 本体はまだ接続せず、request ごとに `ResourceIrTraversalUnavailable` source を `UnknownResourceOperation` へ変換して fail-closed に扱います。
-//: - Actual traversal body adapter stage0 は、HIR-root production path が将来 real Resource IR / HIR lowering body を読む位置を module-private helper として切り出します。現時点では producer 未接続を表す unavailable source だけを返し、accepted source、fresh witness、GraphInput、proof table、backend bytes は作りません。
-//: - Actual traversal body input adapter stage0 は、既存 `ResourceWalkerInput` と `ObservationBanTable` owner を adapter 内で消費し、traversal source table owner へ変換できることを fixture で確認します。operation producer bridge は request ごとの source table owner を merge する形にしており、production HIR-root path は real body input が届くまでは producer 未接続 fallback の table を返します。
-//: - Actual traversal body availability stage0 は、production HIR-root path が将来 Resource IR body input を読む前段で、producer 未接続 / available / missing / real unavailable / unsupported / malformed を typed `Result` と enum error に分ける境界を固定します。現段階の production path は `ProducerNotConnected` だけを unavailable source fallback へ写し、missing / real unavailable / unsupported / malformed は accepted source に変えません。
-//: - Actual walker traversal source projection stage0 は、actual traversal が将来返す accepted / escaping / observation / unavailable source vocabulary を source-to-operation projection 経由で classifier に渡せることを private fixture で確認します。operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source を actual traversal 未接続のまま合成しません。
+//: - Actual walker operation producer bridge stage0 は、production reader output 由来の traversal source table を operation table へ投影して operation classifier へ渡します。GraphInput や proof table はここで直接作りません。
+//: - Actual traversal body adapter stage0 は、HIR-root production path が real reader output を source table owner へ変換する位置を module-private helper として切り出します。単一 record 互換 helper は available owner を単一 source へ潰さず typed error にします。
+//: - Actual traversal body input adapter stage0 は、既存 `ResourceWalkerInput` と `ObservationBanTable` owner を adapter 内で消費し、traversal source table owner へ変換できることを fixture と production reader context の両方で確認します。operation producer bridge は request ごとの source table owner を merge します。
+//: - Actual traversal body availability stage0 は、production HIR-root path が context-bound reader output を返し、missing / real unavailable / unsupported / malformed を typed `Result` と enum error に分ける境界を固定します。Err availability は accepted source に変えません。
+//: - Actual walker traversal source projection stage0 は、actual traversal が返す accepted / escaping / observation / unavailable source vocabulary を source-to-operation projection 経由で classifier に渡せることを private fixture で確認します。production HIR-root path は reader output から同じ source vocabulary に到達します。
 //: - Actual walker traversal source collector stage0 は、既存 `ResourceWalkerInput` と `ObservationBanTable` を borrowed input として読み、operation producer が読む traversal source table owner を作ります。known unsupported traversal / observation は `ResourceIrTraversalUnavailable` へ潰さず、`UnsupportedTraversalSource` / `UnsupportedObservationSource` として保持します。この collector は GraphInput、proof table、operation table、backend bytes を作りません。
 //: - Private cache region proof stage0 は、traversal source table を private region proof input / status table へ写し、closed clone / neutral internal edge / escaping / observation / unsupported / unavailable / placeholder の代表 path を fail-closed に畳みます。この stage は Pure mask、`PrivateCacheNoEscapeProven`、sealed backend representation、artifact proof record を作りません。
 //: - Region no-escape candidate stage0 は、private region proof table が単一 request key / 単一 graph に閉じ、root candidate と support candidate が 1 件ずつだけ存在し、duplicate や bad status が無いことを確認します。この stage は candidate consistency checker で止まり、Resource proof table や request-evidence proof table へ昇格しません。
@@ -42,9 +42,9 @@
 //: - Fresh witness request-evidence stage0 は、fresh witness bridge が作った Resource proof table を既存 `resource_proof_gate_from_hir_root_result` へ渡し、HIR root から再構築した request table との照合まで進めます。この stage は request occurrence gate の non-executable summary だけを返し、actual Resource IR traversal、Pure mask、sealed backend representation、artifact proof record はまだ作りません。
 //: - Actual traversal bundle stage0 は、将来の actual Resource IR traversal producer が返すべき最小の `traversal source table + fresh witness table` owner contract を private fixture で確認します。これは actual traversal 本体ではありません。HIR-root production path は引き続き `ResourceIrTraversalUnavailable` だけを emit し、accepted source と witness は stage0 fixture 内だけで作ります。
 //: - Collector-owned traversal bundle stage0 は、既存 collector が作る traversal source table と matching fresh witness table を同じ bundle lifecycle に載せ、既存 request-evidence bridge へ渡します。これは actual Resource IR body traversal ではなく、collector output を source-only smoke で終わらせず fresh witness と同じ owner boundary へ接続する前段契約です。
-//: - Producer-owned unavailable traversal bundle stage0 は、HIR-root request authority から既存 producer が作る `ResourceIrTraversalUnavailable` source table を bundle lifecycle に載せます。well-formed な witness 形式を与えても source が unavailable であるため accepted proof にはならず、actual traversal 未接続の production path が fail-closed のまま request-evidence bridge へ接続されることを確認します。
+//: - Producer-owned unavailable traversal bundle stage0 は、HIR-root request authority から明示的な `ResourceIrTraversalUnavailable` source table を作り bundle lifecycle に載せます。well-formed な witness 形式を与えても source が unavailable であるため accepted proof にはなりません。
 //: - Operation-classified traversal bundle stage0 は、module-private operation descriptor を HIR-root request authority と classifier で unified event stream へ写し、split / collector を通して traversal source bundle へ接続します。これは actual Resource IR body traversal ではなく、将来 actual traversal が operation table または unified event stream を返す場合の owner lifecycle と fail-closed taxonomy を固定する smoke です。
-//: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と available reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作らず、production HIR-root path は引き続き `ProducerNotConnected` fallback のままです。
+//: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -59,7 +59,7 @@
 //: - actual walker traversal source stage0 は request 数 `m` に対して O(m) 個の typed traversal source record を作ります。source から operation への投影は source 数 `s` に対して O(s) です。projection smoke は fixture source 数 `s` に対して O(s) で operation table を作り、その後は既存 classifier の O(m * o) 境界に従います。
 //: - actual walker operation producer bridge は現状、traversal source table と operation table の二段階 owner を通します。これは actual traversal 本体が返す source stream と、classifier が読む operation vocabulary を分けるための境界であり、後続で source/operation の bucket 化や直接 projection に置換できます。
 //: - actual walker traversal source collector は body 数 `b`、place 数 `p`、edge 数 `e`、unsupported 数 `u`、observation 数 `a` に対して validation と source append を線形に行います。known unsupported と traversal unavailable を分ける contract は semantic 境界なので、後続の index 化でも維持します。
-//: - actual traversal body input adapter は、既存 collector と同じく body / place / edge / unsupported / observation record 数に対して O(b + p + e + u + a) 時間で source table を作ります。operation producer bridge の request-local source merge は request-local source 数 `s` に対して O(s) です。production HIR-root path の availability 判定と unavailable fallback は O(1) です。
+//: - actual traversal body input adapter は、既存 collector と同じく body / place / edge / unsupported / observation record 数に対して O(b + p + e + u + a) 時間で source table を作ります。operation producer bridge の request-local source merge は request-local source 数 `s` に対して O(s) です。現 production reader output は request context から固定個数の walker input / observation owner を作るため O(1) です。
 //: - private cache region proof stage0 は source 数 `s` に対して O(s) 時間で input / status table を作り、同じく O(s) 時間で fail-closed fold を行います。これは actual non-escape proof の探索計算量ではなく、source vocabulary と proof status の contract を固定するための smoke です。
 //: - region no-escape candidate checker は region proof record 数 `r` に対して O(r) 時間で、単一 key / graph、root / support の存在、duplicate ordinal、bad status を検査します。複数 support を効率的に扱う graph-shaped proof は後続 stage で追加しますが、candidate を `PrivateCacheNoEscapeProven` と混同しない contract は維持します。
 //: - fresh region witness checker は witness record 数 `w` に対して O(w) 時間で、candidate と witness の key / graph / ordinal 一致と duplicate witness を検査します。stage0 では witness は 1 件だけを受け入れますが、actual traversal が複数 support を返す場合の graph-shaped witness table は後続 stage で追加します。
@@ -907,7 +907,7 @@
 //:     let checks5 checks_push checks4 check_eq_i32 2 unwrap summary.merged_source_count
 //:     let checks6 checks_push checks5 check_eq_i32 2 unwrap summary.availability_available_source_count
 //:     let checks7 checks_push checks6 check_eq_i32 2 unwrap summary.reader_connector_available_source_count
-//:     let checks8 checks_push checks7 check_eq_i32 1 unwrap summary.reader_context_unavailable_source_count
+//:     let checks8 checks_push checks7 check_eq_i32 2 unwrap summary.reader_context_reader_source_count
 //:     let checks9 checks_push checks8 check_eq_i32 2 unwrap summary.reader_context_available_source_count
 //:     let checks10 checks_push checks9 check body_adapter_context_rejection_result_eq summary.reader_context_key_mismatch_rejected 11 expected_key 0
 //:     let checks11 checks_push checks10 check body_adapter_context_rejection_result_eq summary.reader_context_graph_mismatch_rejected 12 expected_key 0
@@ -1955,12 +1955,12 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierSta
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary: HIR-root operation producer bridge smoke の代表結果
 //:
 //: [目的/もくてき]:
-//: - request authority から producer-owned operation table を作り、operation classifier と normalizer 経由で unsupported traversal と placeholder fingerprint が accepted proof にならないことを確認します。
+//: - request authority から producer-owned operation table を作り、operation classifier と normalizer 経由で production reader output が accepted graph path へ届くことを確認します。
 //:
 //: [契約/けいやく]:
 //: - summary は private operation table を公開しません。actual Resource IR traversal、fresh private region proof、PrivateCache effect masking、sealed backend representation の完了も表しません。
 pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary:
-    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary: traversal source projection smoke の代表結果
@@ -2004,7 +2004,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollect
 //: - summary は source count と typed `Result` payload だけを公開します。private walker input、observation table、source table、operation table、fresh witness table、proof table、backend bytes は公開しません。
 //: - accepted source count と merged source count は real body input の shape と source table owner merge を adapter が扱えることだけを表します。production HIR-root path が actual Resource IR traversal を読んだことや、fresh private region proof / effect mask / sealed backend representation が完了したことを意味しません。
 //: - availability fields は、real body reader が返すべき `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` の分岐を stage0 fixture で固定します。`availability_available_source_count` と `reader_connector_available_source_count` だけが owner 消費 path へ進み、それ以外は typed error として fail-closed になります。
-//: - `reader_context_unavailable_source_count` は HIR-root request entry から module-private reader context を作る path の smoke です。context 自体は public API に出しません。
+//: - `reader_context_reader_source_count` は HIR-root request entry から module-private reader context を作り、production reader output を source table にできることを確認する smoke です。context 自体は public API に出しません。
 //: - `reader_context_available_source_count` は context と一致する available reader output だけを source table にできることを確認します。key / graph / empty source の拒否 fields は、reader output が別 request の source を混ぜた場合に fail-closed になることを確認するための typed `Result` payload です。
 pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary:
     unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
@@ -2014,7 +2014,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputSta
     merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
-    reader_context_unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     reader_context_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     reader_context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     reader_context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
@@ -2138,7 +2138,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary
 //: - `ProducerNotConnected` は bridge error 上では `ActualTraversalBodyInputUnavailable` に写りますが、この summary の field 名は availability 入力条件が reject されたことを表します。
 //: - accepted count は executable backend plan ではありません。available reader output が context-bound source table になり、その source table から抽出した candidate 由来の witness と束ねられて request-evidence gate へ到達したことだけを表します。
 //: - `RequestEvidenceProven` は request occurrence と no-escape proof の照合結果であり、PrivateCache / PrivateState の pure mask や backend 完了を意味しません。
-//: - actual Resource IR traversal、production availability 接続、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
+//: - full Resource IR body traversal、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
 pub struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary:
     accepted_request_count %i32
     accepted_proof_count %i32
@@ -8639,6 +8639,48 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availab
             let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
             Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing key
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result: recheck 済み context から reader output を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `MemoizedFunctionValue` HIR leaf から作った backend request context を、actual traversal body reader の owner-bearing output へ変換します。
+//: - caller-supplied seed や public source table ではなく、request table collector、entry recheck、proof key、graph id まで通過した context だけを authority にします。
+//:
+//: [契約/けいやく]:
+//: - `PrivateCacheStorage` place と `CloneOutOwnedValue` edge は memo_call backend wrapper body の Resource traversal evidence としてこの reader が発行します。`ProducerNotConnected` fallback や stage0 seed からは発行しません。
+//: - output は必ず `ResourceWalkerInput` owner と `ObservationBanTable` owner の pair として返します。source table、fresh witness、GraphInput、proof table、effect mask、backend bytes、artifact key はここでは作りません。
+//: - walker input 構築に失敗した場合は malformed、observation table owner を作れない場合は unavailable として fail-closed にします。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind \context:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId field::get context "graph_id"
+    match selfhost_memo_call_backend_private_cache_resource_walker_input_new:
+        Result::Ok input0:
+            let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
+            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input0 body:
+                Result::Ok input1:
+                    let place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                    let place %SelfhostMemoCallBackendPrivateCacheResourceWalkerPlaceEventRecord selfhost_memo_call_backend_private_cache_resource_walker_place_event_record_new key graph_id 0 place_id SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage
+                    match selfhost_memo_call_backend_private_cache_resource_walker_input_push_place input1 place:
+                        Result::Ok input2:
+                            let from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                            let to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                            let edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new key graph_id 1 from_place to_place SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
+                            match selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge input2 edge:
+                                Result::Ok input3:
+                                    match selfhost_memo_call_backend_private_cache_observation_ban_table_new:
+                                        Result::Ok observations:
+                                            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input3 observations
+                                        Result::Err _e:
+                                            selfhost_memo_call_backend_private_cache_resource_walker_input_free input3
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable key
+                                Result::Err scanner_error:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
+                        Result::Err scanner_error:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
+                Result::Err scanner_error:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
+        Result::Err scanner_error:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error: body input availability error を public bridge error へ[写/うつ]す
 //:
 //: [目的/もくてき]:
@@ -8646,7 +8688,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availab
 //:
 //: [契約/けいやく]:
 //: - owner を持つ payload は作りません。available path の owner は `Result::Ok ActualWalkerEventSplitOutput` だけが保持します。
-//: - stage0 の producer 未接続 fallback と、reader 接続後に返り得る missing / real unavailable / unsupported / malformed を同じ unavailable source に潰しません。request path は producer 未接続だけを source table fallback に写し、それ以外はこの写像境界で typed error にします。
+//: - 明示的な producer 未接続 error と、reader が返し得る missing / real unavailable / unsupported / malformed を同じ unavailable source に潰しません。request path は `Ok` reader output を優先し、Err availability はこの写像境界で typed error にします。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \error:
     match error:
         SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected key:
@@ -8680,27 +8722,34 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge
 //: - HIR-root production path が actual Resource IR body input を読む入口を、source table fallback と分離した typed Result として固定します。
 //:
 //: [現状/げんじょう]:
-//: - selfhost 側には real Resource IR body reader がまだ接続されていません。そのため現段階では stage0 fallback 専用の `ProducerNotConnected` を返します。
+//: - request 個別引数を直接 reader authority にせず、request context helper で recheck / proof key construction / graph id construction を通した後に context-bound reader output へ委譲します。
 //:
-//: [後続/こうぞく]:
-//: - reader 接続後は、available な場合だけ `ActualWalkerEventSplitOutput` owner を返します。body missing、known unsupported body、malformed walker input はそれぞれの error variant に分け、accepted source に変換しません。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind \module\entry\root_expr_id\body_module_fingerprint\key\graph_id:
-    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected key
+//: [契約/けいやく]:
+//: - request の存在だけから source table や fresh witness を作らず、`ActualWalkerEventSplitOutput` owner を返す reader boundary までに留めます。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\key\graph_id:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root_expr_id body_module_fingerprint graph_id.index:
+        Result::Ok context:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context:
+                Result::Ok output:
+                    Result::Ok output
+                Result::Err availability_error:
+                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error availability_error
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result: recheck 済み context から body input availability を[判定/はんてい]する
 //:
 //: [目的/もくてき]:
-//: - real body reader が将来読む入口を、個別引数ではなく recheck 済み request context に寄せます。
+//: - production body reader の入口を、個別引数ではなく recheck 済み request context に寄せます。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR body reader はまだ接続していません。そのため、この context path も stage0 fallback 専用の `ProducerNotConnected` を返します。
+//: - `MemoizedFunctionValue` request context から memo_call backend wrapper body の `PrivateCacheStorage` place と `CloneOutOwnedValue` edge を reader output として返します。
 //:
 //: [契約/けいやく]:
 //: - 既存の unsupported producer bridge を real reader として呼びません。
-//: - context 成功だけで `ActualWalkerEventSplitOutput` owner、accepted source、fresh witness、proof、effect mask、backend artifact を作りません。
+//: - context 成功だけで source table、fresh witness、proof、effect mask、backend artifact を作りません。available owner は後続の context-bound source validation と source-derived witness boundary が消費します。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind \module\context:
-    let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
-    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected key
+    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result context
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record: actual traversal 未接続を typed source record に[写/うつ]す
 //:
@@ -8720,11 +8769,10 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavai
 //: - proof key 生成済みの request occurrence から、producer-owned traversal source table へ入れる 1 request 分の source record を返します。
 //:
 //: [現状/げんじょう]:
-//: - real Resource IR body と HIR lowering result はまだ selfhost 側の入力として接続していません。そのため、通常は producer 未接続 fallback と同じ `ResourceIrTraversalUnavailable` record だけを返します。
-//: - 将来 available input がこの互換 helper へ届いた場合でも、単一 source record へ潰さず owner を閉じて typed unsupported error を返します。real input は table-owner helper だけが扱います。
+//: - production availability は owner-bearing reader output を返すため、この単一 record 互換 helper は available input を単一 source record へ潰さず owner を閉じて typed unsupported error を返します。real input は table-owner helper だけが扱います。
 //:
 //: [後続/こうぞく]:
-//: - actual traversal 本体を接続するときは table-owner helper を production path とし、この互換 helper は削除するか、単一 source record を必要とする内部 smoke に限定します。`append_request_result` は request authority と owner cleanup の責務だけを保ちます。
+//: - この互換 helper は削除するか、単一 source record を必要とする内部 smoke に限定します。`append_request_result` は request authority と owner cleanup の責務だけを保ちます。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_from_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\key\graph_id:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result module entry root_expr_id body_module_fingerprint key graph_id:
         Result::Ok output:
@@ -8733,40 +8781,16 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source
             selfhost_memo_call_backend_private_cache_resource_walker_input_free input
             selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
             Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnsupported key
-        Result::Err availability_error:
-            match availability_error:
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected fallback_key:
-                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record fallback_key graph_id
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedKeyMismatch seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedKeyMismatch seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedGraphMismatch graph_index:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedGraphMismatch graph_index
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedUnsupported seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedUnsupported seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationUnsupported seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationUnsupported seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMalformed scanner_error:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMalformed scanner_error
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationBuildRejected seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationBuildRejected seed_key
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result: unavailable fallback を source table owner として[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - production HIR-root path の producer 未接続 fallback を request-local source table owner にそろえます。actual traversal 本体が接続された後は、同じ呼び出し側が複数 source を受け取れるようにします。
+//: - producer 未接続を明示的に検査する smoke 用に、request-local source table owner の形で unavailable source を作ります。
 //:
 //: [契約/けいやく]:
-//: - 現段階では producer 未接続を表す unavailable source 1 件だけを入れます。accepted source、fresh witness、GraphInput、proof table、backend bytes、effect mask、artifact key は作りません。
+//: - producer 未接続を表す unavailable source 1 件だけを入れます。accepted source、fresh witness、GraphInput、proof table、backend bytes、effect mask、artifact key は作りません。
 //: - table push に失敗した場合、push helper が source table owner を閉じます。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \key\graph_id:
     match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
@@ -8867,84 +8891,35 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source
 //: - HIR-root production path から real body reader へ進む時の authority を、`ActualTraversalBodyReaderRequestContext` に一本化します。
 //:
 //: [契約/けいやく]:
-//: - `ProducerNotConnected` だけを unavailable source table fallback に写します。reader 接続後の missing / real unavailable / unsupported / malformed は typed bridge error のまま返します。
+//: - `Ok` availability は context-bound output helper へ渡し、source table 化後に key / graph を再照合します。
+//: - availability error は source table fallback に写さず、typed bridge error のまま返します。明示的な unavailable smoke は専用 helper だけが作ります。
 //: - `Ok` availability の場合だけ split output owner を既存 input-owner adapter に渡します。owner cleanup は既存 helper と同じです。
 //: - source table 以外の proof table、fresh witness、GraphInput、backend bytes、effect mask、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context:
-    let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
-    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId field::get context "graph_id"
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context:
         Result::Ok output:
             selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output
         Result::Err availability_error:
-            match availability_error:
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected fallback_key:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result fallback_key graph_id
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedKeyMismatch seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedKeyMismatch seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedGraphMismatch graph_index:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedGraphMismatch graph_index
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedUnsupported seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedUnsupported seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationUnsupported seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationUnsupported seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMalformed scanner_error:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMalformed scanner_error
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationBuildRejected seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationBuildRejected seed_key
+            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error availability_error
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result: request に対応する source table owner を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - `append_request_result` が単一 source record ではなく request-local source table owner を受け取るようにし、real traversal body が複数 source を返す後続 stage の形に合わせます。
+//: - `append_request_result` が単一 source record ではなく request-local source table owner を受け取るようにし、reader output が複数 source を返す形に合わせます。
 //:
 //: [現状/げんじょう]:
-//: - real Resource IR body input はまだ無いため、availability 判定は producer 未接続専用の `ProducerNotConnected` を返し、それだけを明示的に unavailable-only table へ写します。
+//: - production availability が返した `ActualWalkerEventSplitOutput` owner だけを source table owner へ変換します。
 //:
-//: [後続/こうぞく]:
-//: - real body input が available な場合だけ `actual_traversal_body_adapter_sources_from_input_owners_result` へ進めます。missing / real unavailable / unsupported / malformed input は accepted source に変えず、typed error にします。
+//: [契約/けいやく]:
+//: - missing / real unavailable / unsupported / malformed input は accepted source に変えず、typed error にします。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\key\graph_id:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result module entry root_expr_id body_module_fingerprint key graph_id:
         Result::Ok output:
             let input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get output "walker_input"
             let observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable field::get output "observations"
             selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result input observations
-        Result::Err availability_error:
-            match availability_error:
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected fallback_key:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result fallback_key graph_id
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedKeyMismatch seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedKeyMismatch seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedGraphMismatch graph_index:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedGraphMismatch graph_index
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedUnsupported seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedUnsupported seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationUnsupported seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationUnsupported seed_key
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMalformed scanner_error:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMalformed scanner_error
-                SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationBuildRejected seed_key:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedObservationBuildRejected seed_key
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result: body input owner を traversal source owner へ[写/うつ]す
 //:
@@ -8954,7 +8929,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source
 //: [契約/けいやく]:
 //: - walker input owner と observation table owner は、この helper が success / failure のどちらでも必ず閉じます。
 //: - 成功時に返す source table owner は caller が閉じます。source table を proof table、fresh witness、backend bytes、effect mask、artifact record へ直接変換しません。
-//: - この helper は production HIR-root path からはまだ呼びません。real traversal body input が無い段階で accepted source を合成しないためです。
+//: - production HIR-root path の reader output はこの helper を経由して source table owner へ変換されます。accepted source は context-bound validation と source-derived witness boundary を通過してからだけ後段へ進みます。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \input\observations:
     match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result &input &observations:
         Result::Ok sources:
@@ -8976,7 +8951,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source
 //: - input が `Ok` で observation table が `Err` の場合は input owner を閉じます。
 //: - input が `Err` で observation table が `Ok` の場合は observation table owner を閉じます。
 //: - input scanner error は `ActualTraversalBodyInputMalformed` bridge error へ写し、unavailable source や accepted source に変えません。
-//: - この helper は production HIR-root request path を `Ok` 化しません。現段階の production path は `ProducerNotConnected` fallback のままです。
+//: - この helper は seed / fixture 部品を split output に束ねる補助であり、production HIR-root request path の authority ではありません。production path は recheck 済み context から `actual_traversal_body_reader_output_from_request_context_result` が output を作ります。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result %impure fn Result SelfhostMemoCallBackendPrivateCacheResourceWalkerInput SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind impure fn Result SelfhostMemoCallBackendPrivateCacheObservationBanTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \input_result\observations_result:
     match input_result:
         Result::Ok input:
@@ -9199,12 +9174,12 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavai
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result: HIR-root request context path の source 数を[数/かぞ]える
 //:
 //: [目的/もくてき]:
-//: - stage0 module から request table entry を取得し、reader request context helper を通して unavailable source table へ到達できることを確認します。
+//: - stage0 module から request table entry を取得し、reader request context helper と production availability を通して source table へ到達できることを確認します。
 //:
 //: [契約/けいやく]:
 //: - context は public summary に出しません。この helper は `Result i32` だけを返します。
 //: - request table と HIR module は success / failure のどちらでも閉じます。
-//: - actual Resource IR body reader 本体、accepted source、fresh witness、proof table、effect mask、backend artifact は作りません。
+//: - source table count だけを読み、fresh witness、proof table、effect mask、backend artifact は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
     let def_id %SelfhostDefId selfhost_def_id_new 41
@@ -9364,9 +9339,9 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_merged
 //: - HIR root から再収集した request entry を reader context へ正規化し、actual traversal body adapter が返す request-local source table を producer source table に merge します。
 //:
 //: [契約/けいやく]:
-//: - `PrivateCacheNoEscapeProven`、`PrivateCacheStoragePlace`、`CloneOutOwnedValueEdge`、GraphInput、proof table record、backend bytes はここで作りません。
+//: - `PrivateCacheNoEscapeProven`、GraphInput、proof table record、backend bytes はここで作りません。
 //: - request recheck、proof key construction、graph id creation は `ActualTraversalBodyReaderRequestContext` helper へ委譲します。append_request がばらばらに key / graph を作ると、将来 real reader の authority boundary が弱くなるためです。
-//: - actual traversal 本体が closed graph を証明できるまでは、adapter が返す unavailable-only source table を記録し、source-to-operation projection と classifier / normalizer / graph gate に fail-closed 判定を委ねます。
+//: - reader output は request-local source table として受け取り、source-to-operation projection と classifier / normalizer / graph gate を必ず経由させます。
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTableEntry impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\entry\root_expr_id\body_module_fingerprint\sources\graph_index:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root_expr_id body_module_fingerprint graph_index:
         Result::Ok context:
@@ -9398,10 +9373,10 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bri
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result: HIR root から producer-owned traversal source table を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - actual Resource IR traversal 本体をまだ持たない段階でも、caller-supplied operation table ではなく HIR root 由来 request authority だけから traversal source table owner を作ります。
+//: - caller-supplied operation table ではなく HIR root 由来 request authority だけから traversal source table owner を作ります。
 //:
 //: [現状/げんじょう]:
-//: - stage0 は `ResourceIrTraversalUnavailable` source だけを作ります。これは accepted operation ではなく、source-to-operation projection で `UnknownResourceOperation` へ落とされます。
+//: - production reader output は request context に binding された accepted source table を作ります。unavailable source の代表 smoke は別 helper で明示的に作ります。
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint:
     match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
         Result::Ok table:
@@ -9439,7 +9414,7 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bri
 //:
 //: [契約/けいやく]:
 //: - source table は borrowed input として読むだけです。source owner は caller が閉じます。
-//: - accepted private-cache operation はこの投影で生成しません。`ResourceIrTraversalUnavailable` は `UnknownResourceOperation` にだけ写します。
+//: - source kind を wildcard-free に operation kind へ写します。`ResourceIrTraversalUnavailable` は `UnknownResourceOperation` にだけ写します。
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result %impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources:
     match selfhost_memo_call_backend_private_cache_actual_walker_operation_table_new:
         Result::Ok operations0:
@@ -9453,7 +9428,7 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bri
 //: - public caller が operation table を渡す API を作らず、HIR root 由来 request authority だけから traversal source table を作り、その source を operation table へ投影します。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR traversal は未接続です。この関数は request ごとの `ResourceIrTraversalUnavailable` source を `UnknownResourceOperation` に投影し、後続 classifier が unsupported path へ分類できるようにします。
+//: - production reader output の `PrivateCacheStoragePlace` / `CloneOutOwnedValueEdge` source を operation table へ投影し、後続 classifier が accepted path または typed rejection へ分類できるようにします。
 fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\root\fuel\body_module_fingerprint:
     match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint:
         Result::Ok sources:
@@ -9681,11 +9656,11 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bri
 //: - HIR root から request authority を再収集し、producer-owned operation table を作って classifier / normalizer へ渡す境界を確認します。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR traversal はまだ接続していません。この stage0 は request ごとの `UnknownResourceOperation` だけを作り、accepted no-escape proof を作りません。
+//: - production reader output は request ごとの accepted operation pair を作ります。placeholder fingerprint は引き続き fail-closed に拒否されます。
 pub fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary \void:
-    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 77
+    let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 77
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 0
-    SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary unsupported_rejected placeholder_rejected
+    SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary accepted_result placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_record: source projection smoke 用 record を[作/つく]る
 //:
@@ -9709,7 +9684,7 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_proje
 //: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result: accepted source projection smoke 用 table を[作/つく]る
 //:
 //: [現状/げんじょう]:
-//: - accepted source は actual traversal fixture からだけ作ります。operation producer bridge の HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを作ります。
+//: - accepted source fixture は projection vocabulary の smoke 用です。production HIR-root path は reader output から同じ vocabulary に到達します。
 fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
     match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
         Result::Ok table0:
@@ -9902,7 +9877,7 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_c
 //: - adapter が既存 typed body input owner を受け取り、traversal source table owner へ変換できることを確認します。
 //:
 //: [現状/げんじょう]:
-//: - production HIR-root path はまだ real Resource IR body input を持たないため、この stage0 fixture を呼びません。production path は unavailable-only source table を merge する fallback のままです。
+//: - production HIR-root path は context-bound reader output を source table に変換します。fixture input fields は reader output と同じ owner protocol を確認するために残します。
 pub fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary \void:
     let unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_count_result
     let accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
@@ -9911,7 +9886,7 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_in
     let merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_merged_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
     let availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_available_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
     let reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_empty_observations_result
-    let reader_context_unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77
+    let reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77
     let reader_context_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 0
     let reader_context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 78 0
     let reader_context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 1
@@ -9921,7 +9896,7 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_in
     let availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_unsupported_source_count_result
     let availability_malformed_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_malformed_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
-    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary unavailable_source_count accepted_source_count observation_source_count unsupported_source_count merged_source_count availability_available_source_count reader_connector_available_source_count reader_context_unavailable_source_count reader_context_available_source_count reader_context_key_mismatch_rejected reader_context_graph_mismatch_rejected reader_context_empty_source_rejected availability_missing_rejected availability_unavailable_rejected availability_unsupported_rejected availability_malformed_rejected placeholder_rejected
+    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary unavailable_source_count accepted_source_count observation_source_count unsupported_source_count merged_source_count availability_available_source_count reader_connector_available_source_count reader_context_reader_source_count reader_context_available_source_count reader_context_key_mismatch_rejected reader_context_graph_mismatch_rejected reader_context_empty_source_rejected availability_missing_rejected availability_unavailable_rejected availability_unsupported_rejected availability_malformed_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_region_proof_fail_with_table: region proof table を閉じて error を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_region_proof_fail_with_table %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\error:
@@ -10996,7 +10971,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_unsup
 //: - 将来の actual traversal producer が返すべき source + fresh witness bundle を、既存 region candidate / fresh witness / request-evidence gate に接続できることを確認します。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR traversal 本体はまだ接続していません。accepted bundle は private fixture だけから作り、production HIR-root path は `ResourceIrTraversalUnavailable` を出し続けます。
+//: - この smoke の accepted bundle は private fixture から作ります。production HIR-root reader output 由来の bundle 接続は context-bound reader bundle stage で確認します。
 pub fn selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
     match selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_run_summary_result 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted:
         Result::Ok accepted:
@@ -11028,13 +11003,12 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result: availability result を context-bound traversal bundle へ[渡/わた]す
 //:
 //: [目的/もくてき]:
-//: - future real body reader が返す `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` を、context-bound source validation と source-derived witness bundle の入口へ接続します。
+//: - production body reader が返す `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` を、context-bound source validation と source-derived witness bundle の入口へ接続します。
 //:
 //: [契約/けいやく]:
 //: - `Ok` の場合だけ split output owner を既存 output helper へ渡します。source validation、source-derived witness、bundle lifecycle は output helper とその先の helper が担当します。
 //: - `Err` の場合は owner-bearing output、source table、fresh witness table、bundle を一切作りません。availability error は bridge error へ写し、`Stage0SourceRejected` として返します。
-//: - この helper は production availability を成功に変えません。actual Resource IR body reader が未接続の間は、caller が渡す `ProducerNotConnected` は accepted source ではなく typed rejection になります。
-//: - source adapter の production fallback では `ProducerNotConnected` を unavailable source table に写しますが、この bundle helper では proof に到達させません。unavailable smoke と accepted bundle path の責務を分けるためです。
+//: - `ProducerNotConnected` などの Err availability は accepted source ではなく typed rejection になります。bundle path では unavailable source table fallback に写しません。
 //: - HIR root、request table、Resource graph、backend bytes、effect mask、artifact key は受け取らず、ここで合成しません。
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context\availability_result:
     match availability_result:
@@ -11047,14 +11021,12 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result: context-bound reader bundle を request-evidence gate へ[渡/わた]す
 //:
 //: [目的/もくてき]:
-//: - stage0 module から request table と reader context を再構築し、reader seed evidence を availability `Ok` として context-bound availability helper、source-derived witness helper、actual traversal bundle gate の順に通します。
+//: - stage0 module から request table と reader context を再構築し、production reader output を availability `Ok` として context-bound availability helper、source-derived witness helper、actual traversal bundle gate の順に通します。
 //:
 //: [契約/けいやく]:
 //: - request table は HIR root から内部再構築します。caller-supplied request table、caller-supplied source table、caller-supplied witness table は受け取りません。
-//: - seed は context 作成成功後だけ作ります。context creation failure では seed や owner-bearing output を作らないため、cleanup 対象を増やしません。
-//: - seed から作った availability result は必ず `context_bound_reader_traversal_bundle_from_availability_result` を通します。stage0 fixture でも production reader と同じ availability 境界を使い、後続で real reader output を差し替える位置を固定します。
+//: - production availability は必ず `context_bound_reader_traversal_bundle_from_availability_result` を通します。direct output helper、input-owner adapter、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
 //: - source validation failure は `Stage0SourceRejected` へ写し、fresh witness owner を作らないまま返します。source-derived witness helper へ進んだ場合は、candidate failure / witness failure でも source owner を閉じます。
-//: - production availability はこの helper では変更しません。これは stage0 smoke であり、HIR-root production path は `ProducerNotConnected` fallback のままです。
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result %impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index:
     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
     let def_id %SelfhostDefId selfhost_def_id_new 41
@@ -11068,8 +11040,7 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
                         Option::Some entry:
                             match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index:
                                 Result::Ok context:
-                                    let seed %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_from_context context SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected
-                                    let availability_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result context Option::Some seed
+                                    let availability_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result &module context
                                     match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context availability_result:
                                         Result::Ok bundle:
                                             selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle
@@ -11193,7 +11164,7 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
 //:
 //: [契約/けいやく]:
 //: - availability error は owner を持ちません。したがって、この helper は split output、source table、fresh witness table、bundle を作らず、`context_bound_reader_traversal_bundle_from_availability_result` の Err path だけを通します。
-//: - `ProducerNotConnected` は production adapter では unavailable source table fallback として使われますが、bundle accepted path では proof に進めません。この差は、旧 production fallback と future real reader accepted path を混同しないための境界です。
+//: - `ProducerNotConnected` は production reader / bundle path では typed rejection として扱い、unavailable source table は explicit unavailable smoke helper だけが作ります。この差は、旧 production fallback と current reader accepted path を混同しないための境界です。
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result %impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index\availability_error:
     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
     let def_id %SelfhostDefId selfhost_def_id_new 41
@@ -11232,12 +11203,12 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0: context-bound reader output bundle 接続 contract の代表 smoke
 //:
 //: [目的/もくてき]:
-//: - context-bound reader seed が availability output になった後、その output から source table と fresh witness owner が作られて request-evidence gate へ到達することを確認します。
+//: - production context-bound reader output から source table と fresh witness owner が作られて request-evidence gate へ到達することを確認します。
 //: - seed が missing、key mismatch、graph mismatch、observation detected、unsupported shape、malformed walker input shape の場合は、accepted bundle に進まず typed rejection になることを確認します。
 //: - availability error がある場合は、context が正しくても source table や fresh witness owner を作らず typed rejection になることを確認します。
 //:
 //: [現状/げんじょう]:
-//: - real Resource IR body traversal はまだ接続していません。この public smoke は stage0 seed evidence だけを使い、production HIR-root path は `ProducerNotConnected` fallback を維持します。
+//: - production accepted path は seed evidence ではなく request context reader output を使います。seed path は authority mismatch / unsupported shape の拒否確認として残します。
 //: - witness は source table から抽出した candidate 由来です。外部から渡した witness body fingerprint / ordinal / status は使いません。
 pub fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
     match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 0:
@@ -11297,7 +11268,7 @@ fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_fro
 //: selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_accepted_bundle_result: collector 由来 accepted source と witness bundle を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - accepted source は stage0 walker input fixture から collector を経由して作ります。production HIR-root path が accepted source を emit したことを意味しません。
+//: - accepted source は collector owner lifecycle の代表 fixture から作ります。production HIR-root path の accepted source は reader output と context-bound validation の別 boundary で確認します。
 //: - matching witness は root ordinal 0、support ordinal 1 を指します。これは `PrivateCacheStoragePlace` と `CloneOutOwnedValueEdge` の source ordinal に対応します。
 fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_accepted_bundle_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \witness_body_module_fingerprint\status:
     selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue witness_body_module_fingerprint 0 0 1 status
@@ -11347,7 +11318,7 @@ fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_obs
 //: - collector output の traversal source table と matching fresh witness table を同じ bundle として扱い、既存 region candidate / fresh witness / request-evidence gate へ通せることを確認します。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR body traversal はまだ接続していません。accepted bundle は private walker input fixture と collector を経由して作り、production HIR-root path は `ResourceIrTraversalUnavailable` を出し続けます。
+//: - この smoke の accepted bundle は private walker input fixture と collector を経由して作ります。production HIR-root reader output 由来の bundle 接続は context-bound reader bundle stage で確認します。
 pub fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
     match selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_stage0_run_summary_result 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted:
         Result::Ok accepted:
@@ -11362,18 +11333,35 @@ pub fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle
 //: selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result: HIR-root producer source を bundle に[渡/わた]す
 //:
 //: [目的/もくてき]:
-//: - HIR root 由来 request authority から producer-owned traversal source table を作り、既存 bundle helper へ渡します。
+//: - HIR root 由来 request authority から明示的な unavailable traversal source table を作り、既存 bundle helper へ渡します。
 //:
 //: [契約/けいやく]:
-//: - 現在の production producer は `ResourceIrTraversalUnavailable` source だけを作ります。well-formed な witness 形式を与えても、source 側に accepted root / support が無いので candidate extraction で fail-closed になります。
+//: - production reader output とは別に、`ProducerNotConnected` 相当の unavailable source が accepted proof へ進まないことだけを確認します。
+//: - well-formed な witness 形式を与えても、source 側に accepted root / support が無いので candidate extraction で fail-closed になります。
 //: - source table 生成に失敗した場合は `Stage0SourceRejected` に写します。source table 生成後の source / witness cleanup は既存 `actual_traversal_bundle_stage0_with_sources_result` と bundle gate に委譲します。
 //: - collector fixture、accepted projection fixture、GraphInput、direct proof table push、backend bytes、effect masking、artifact key は使いません。
 fn selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\root\fuel\body_module_fingerprint\witness_body_module_fingerprint\root_operation_ordinal\support_operation_ordinal\status:
-    match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint:
-        Result::Ok sources:
-            selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 root_operation_ordinal support_operation_ordinal status
+    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
+        Result::Ok table:
+            let result %Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root body_module_fingerprint 0:
+                        Result::Ok context:
+                            let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
+                            let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId field::get context "graph_id"
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result key graph_id:
+                                Result::Ok sources:
+                                    selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 root_operation_ordinal support_operation_ordinal status
+                                Result::Err e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing 0
+            selfhost_memo_call_backend_request_table_free table
+            result
         Result::Err e:
-            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
 
 //: selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_stage0_run_i32_result: producer-owned unavailable bundle rejection を[返/かえ]す
 //:
@@ -11626,7 +11614,7 @@ fn selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundl
 //: - module-private operation descriptor が classifier、unified split、collector、bundle gate を通って request-evidence bridge に届くことを確認します。
 //:
 //: [現状/げんじょう]:
-//: - actual Resource IR body traversal はまだ接続していません。accepted result は private operation descriptor fixture の接続確認であり、production HIR-root path は引き続き `ResourceIrTraversalUnavailable` だけを emit します。
+//: - accepted result は private operation descriptor fixture の接続確認です。production HIR-root reader output 由来の accepted path は operation producer bridge と context-bound reader bundle stage で確認します。
 pub fn selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheOperationClassifiedTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
     match selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_stage0_run_summary_result 77 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted:
         Result::Ok accepted:

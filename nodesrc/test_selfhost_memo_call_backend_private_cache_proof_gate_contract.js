@@ -1333,7 +1333,7 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary"),
     [
-        "unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
     ],
     "actual walker operation producer bridge stage0 summary must expose only typed result payloads and not private operation tables",
@@ -2398,19 +2398,18 @@ assertOrdered(
         "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_from_context context SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_from_seed_result context Option::Some seed",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result &module context",
         "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context availability_result",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
     ],
-    "context-bound reader traversal bundle stage0 runner must rebuild request authority, derive a context-bound seed, route seed availability through the bundle helper, delegate bundle gate, and close request/module owners",
+    "context-bound reader traversal bundle stage0 runner must rebuild request authority, route production reader availability through the bundle helper, delegate bundle gate, and close request/module owners",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result")),
-    /actual_traversal_body_reader_split_output_from_parts_result|context_bound_reader_traversal_bundle_from_output_result context output|actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
-    "context-bound reader traversal bundle stage0 runner must not bypass seed availability/source validation or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
+    /actual_traversal_body_reader_seed_from_context|actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_reader_split_output_from_parts_result|context_bound_reader_traversal_bundle_from_output_result context output|actual_traversal_body_adapter_sources_from_input_owners_result|witness_body_module_fingerprint|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-bound reader traversal bundle stage0 runner must not use seed availability, bypass source validation, or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result"),
@@ -2452,17 +2451,37 @@ assertOrdered(
         "accepted.request_count",
         "accepted.proven_request_count",
     ],
-    "context-bound reader traversal bundle stage0 must cover accepted seed output, seed mismatch, missing seed, observation/unsupported/malformed seed, and availability rejection paths",
+    "context-bound reader traversal bundle stage0 must cover accepted production reader output, seed mismatch, missing seed, observation/unsupported/malformed seed, and availability rejection paths",
 );
 assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_(?!stage0\b)/m,
     "context-bound reader traversal bundle helpers must stay module-private; only the typed stage0 summary function may be public",
 );
-assert.match(
-    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result")),
-    /ProducerNotConnected/,
-    "production context availability must remain the ProducerNotConnected fallback until a real Resource IR body reader is connected",
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result"),
+    [
+        "field::get context \"key\"",
+        "field::get context \"graph_id\"",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_new",
+        "selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_body input0 body",
+        "SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_place input1 place",
+        "SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_push_edge input2 edge",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_new",
+        "Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input3 observations",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input3",
+        "ActualTraversalBodyInputUnavailable key",
+        "ActualTraversalBodyInputMalformed scanner_error",
+    ],
+    "production actual traversal body reader must build owner-bearing output from the rechecked request context and close partial owners on fail-closed paths",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result")),
+    /ActualTraversalBodyReaderSeed|actual_traversal_body_reader_seed|resource_walker_stage0_closed_place_edge_input_result|resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "production actual traversal body reader must not use seed fixtures, existing unsupported producer bridges, or synthesize proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_with_owners_result"),
@@ -2559,11 +2578,17 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_traversal_sources_from_hir_root_result module root fuel body_module_fingerprint",
+        "selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel",
+        "selfhost_memo_call_backend_request_table_get_entry &table 0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root body_module_fingerprint 0",
+        "field::get context \"key\"",
+        "field::get context \"graph_id\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result key graph_id",
         "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint 0 root_operation_ordinal support_operation_ordinal status",
-        "Stage0SourceRejected e",
+        "SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e",
+        "selfhost_memo_call_backend_request_table_free table",
     ],
-    "producer-owned unavailable traversal bundle helper must use HIR-root producer source table and delegate source/witness cleanup to the existing bundle helper",
+    "producer-owned unavailable traversal bundle helper must rebuild HIR-root request authority, explicitly build unavailable sources, and delegate source/witness cleanup to the existing bundle helper",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_producer_owned_unavailable_traversal_bundle_from_hir_root_result")),
@@ -2895,29 +2920,36 @@ assertOrdered(
         "SelfhostMemoCallBackendRequestTableEntry",
         "SelfhostHirExprId",
         "body_module_fingerprint",
-        "ActualTraversalBodyInputProducerNotConnected key",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result module entry root_expr_id body_module_fingerprint graph_id.index",
+        "Result::Ok context:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context",
+        "Result::Ok output:",
+        "Result::Ok output",
+        "Result::Err availability_error:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error availability_error",
+        "Result::Err e:",
+        "Result::Err e",
     ],
-    "actual traversal body input availability boundary must exist on the production request path and use producer-not-connected fallback until the real Resource IR body reader is connected",
+    "actual traversal body input availability boundary must derive reader authority through the recheck/proof-key context helper and delegate only rechecked contexts to the production reader boundary",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_result")),
-    /resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
-    "production body availability helper must not reuse the existing unsupported producer bridge as if it were the real Resource IR body reader",
+    /ActualTraversalBodyReaderRequestContext\s+entry\s+root_expr_id\s+body_module_fingerprint\s+key\s+graph_id|resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
+    "production body availability helper must not construct context from caller-supplied key/graph or reuse an existing unsupported producer bridge as if it were the real Resource IR body reader",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result"),
     [
         "SelfhostHirModule",
         "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
-        "field::get context \"key\"",
-        "ActualTraversalBodyInputProducerNotConnected key",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result context",
     ],
-    "actual traversal body context availability boundary must accept the rechecked context and keep production fallback at producer-not-connected until the real reader is connected",
+    "actual traversal body context availability boundary must accept the rechecked context and return production reader output",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result")),
-    /resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
-    "context availability helper must not reuse existing unsupported producer bridges as the real body reader",
+    /ProducerNotConnected|ActualTraversalBodyReaderSeed|actual_traversal_body_reader_seed|resource_walker_stage0_closed_place_edge_input_result|resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result/,
+    "context availability helper must not keep the old ProducerNotConnected fallback, use seed fixtures, or reuse existing unsupported producer bridges as the real body reader",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record"),
@@ -2942,10 +2974,10 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
         "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
         "SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnsupported key",
-        "ActualTraversalBodyInputProducerNotConnected fallback_key",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_source_record fallback_key graph_id",
+        "Result::Err e:",
+        "Result::Err e",
     ],
-    "actual traversal body adapter single-source compatibility helper must pass through the availability boundary and keep accepted real input out of the singular record path",
+    "actual traversal body adapter single-source compatibility helper must pass through the rechecked availability boundary, keep accepted real input out of the singular record path, and preserve typed bridge errors",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result"),
@@ -2961,24 +2993,18 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result"),
     [
         "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
-        "field::get context \"key\"",
-        "field::get context \"graph_id\"",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context",
         "Result::Ok output:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output",
-        "ActualTraversalBodyInputProducerNotConnected fallback_key",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result fallback_key graph_id",
-        "ActualTraversalBodyInputMissing missing_key",
-        "ActualTraversalBodyInputUnavailable unavailable_key",
-        "ActualTraversalBodyInputUnsupported unsupported_key",
-        "ActualTraversalBodyInputMalformed scanner_error",
+        "Result::Err availability_error:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error availability_error",
     ],
-    "actual traversal body context source helper must consume available owners through the context-bound output helper, keep producer-not-connected as the only unavailable fallback, and preserve all real reader rejections as typed errors",
+    "actual traversal body context source helper must consume available owners through the context-bound output helper and preserve all availability rejections as typed bridge errors without source fallback",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result")),
-    /actual_traversal_body_adapter_sources_from_input_owners_result/,
-    "actual traversal body request context helper must not bypass context-bound source validation by calling the input-owner adapter directly",
+    /actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_body_adapter_unavailable_sources_from_request_result|ActualTraversalBodyInputProducerNotConnected/,
+    "actual traversal body request context helper must not bypass context-bound source validation or translate producer-not-connected into an unavailable source table",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_source_record_validate_result"),
@@ -3031,18 +3057,10 @@ assertOrdered(
         "field::get output \"walker_input\"",
         "field::get output \"observations\"",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result input observations",
-        "ActualTraversalBodyInputProducerNotConnected fallback_key",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result fallback_key graph_id",
-        "ActualTraversalBodyInputMissing missing_key",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key",
-        "ActualTraversalBodyInputUnavailable unavailable_key",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnavailable unavailable_key",
-        "ActualTraversalBodyInputUnsupported unsupported_key",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputUnsupported unsupported_key",
-        "ActualTraversalBodyInputMalformed scanner_error",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMalformed scanner_error",
+        "Result::Err e:",
+        "Result::Err e",
     ],
-    "actual traversal body adapter request boundary must pass through typed availability, consume available owners, keep unavailable fallback explicit, and reject missing/unsupported/malformed body inputs as typed bridge errors",
+    "actual traversal body adapter request boundary must pass through rechecked typed availability, consume available owners, and preserve bridge errors without unavailable fallback",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result"),
@@ -3178,7 +3196,7 @@ assertOrdered(
         "merged_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
-        "reader_context_unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -3208,7 +3226,7 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_available_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "reader_connector_available_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
-        "reader_context_unavailable_source_count",
+        "reader_context_reader_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77",
         "reader_context_available_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 0",
@@ -3229,7 +3247,7 @@ assertOrdered(
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
     ],
-    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, typed availability, reader connector, reader context fallback, context-bound available output, context mismatch rejections, and malformed placeholder body inputs",
+    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, typed availability, reader connector, production reader context output, context-bound available output, context mismatch rejections, and malformed placeholder body inputs",
 );
 assert.doesNotMatch(
     code,
@@ -3315,12 +3333,12 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0"),
     [
-        "unsupported_rejected",
+        "accepted_result",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 77",
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 0",
     ],
-    "actual walker operation producer bridge stage0 must cover unsupported traversal and placeholder fingerprint rejection without exposing private operation tables",
+    "actual walker operation producer bridge stage0 must cover production accepted traversal and placeholder fingerprint rejection without exposing private operation tables",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_walker_producer_bridge_append_observation_result"),

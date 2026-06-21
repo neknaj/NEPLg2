@@ -78109,3 +78109,39 @@ MERGE_APPROVED
 - implementation review は Franklin が `IMPLEMENTATION_BLOCKED`。code boundary / invariant / SkipNoSegment handling / owner recovery に blocker は無いが、`note.n.md` 未記録と新規 focused doctest 未追跡が required fix とされたため、この記録を追加し、新規 doctest を commit 対象に含める。
 - required fix 対応後の re-review は Franklin が `IMPLEMENTATION_APPROVED`。前回 blocker は解消済みで、commit-blocking finding は無い。
 - F5ks 後続として、stroke offset geometry expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
+
+## 2026-06-21 selfhost memo_call backend production actual traversal reader checkpoint
+
+### 実装
+
+- `actual_traversal_body_reader_output_from_request_context_result` を追加し、recheck 済み `ActualTraversalBodyReaderRequestContext` から owner-bearing `ResourceWalkerInput + ObservationBanTable` output を作る production reader boundary を接続した。
+- reader output は `PrivateCacheStorage` place と `CloneOutOwnedValue` edge の wrapper body representative だけを発行し、seed fixture、既存 unsupported producer bridge、GraphInput、proof table、backend bytes、effect mask、artifact record は作らない。
+- `context_bound_reader_traversal_bundle_stage0_run_summary_result` は seed accepted path ではなく production availability を通り、context-bound source validation、source-derived witness generation、request-evidence gate の順に進む。
+- operation producer bridge stage0 は production reader output 由来 source table を operation table へ投影する `accepted_result` を持つ。
+- explicit unavailable smoke は production accepted bridge を呼ばず、request context から key / graph id だけを取り出して専用 unavailable source helperへ渡す。
+
+### review 対応
+
+- Rawls の implementation review は `REVIEW_CHANGES_REQUESTED`。`actual_traversal_body_adapter_input_availability_from_request_result` が caller-supplied key / graph id から context を直接作っていたことと、context source helper が `ProducerNotConnected` を unavailable source table へ写していたことが blocker とされた。
+- 指摘に従い、compat availability helper も `actual_traversal_body_reader_request_context_from_entry_result` を通してから context availability へ委譲し、recheck / proof-key failure は bridge error のまま返すようにした。
+- `actual_traversal_body_adapter_sources_from_request_context_result` は availability error をすべて typed bridge error へ写し、unavailable source table fallback を持たない形にした。unavailable source table は explicit unavailable smoke helper だけが作る。
+- source policy は direct context constructor、seed accepted path、unsupported producer bridge reuse、context helper 内の producer-not-connected source fallback を拒否するよう更新した。
+- Rawls re-review は `REVIEW_APPROVED`。split output helper の stale comment も production reader output が recheck 済み context 由来である説明へ修正済みであることが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-doctest.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-production-reader-doctest.json`。17 passed / 0 failed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader.json`。13/13、JSON は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+- pass: `node nodesrc/run_source_policy_regressions.js`
+
+### 残件
+
+- context-derived wrapper body reader を full Resource IR / HIR lowering body reader へ拡張し、cache lookup / insert / observation / effect operation を typed traversal source または operation event として発行する。
+- full traversal 由来 source と source-derived witness を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
