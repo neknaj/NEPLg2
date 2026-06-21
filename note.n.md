@@ -36,6 +36,79 @@
 - pass with LF/CRLF warnings only: `git diff --check`
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mg.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- post-`origin/main` merge pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- post-`origin/main` merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- post-`origin/main` merge pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- post-`origin/main` merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_module_f5mg_merge.json -j 1`。19/19。
+- post-`origin/main` merge pass with LF/CRLF warnings only: `git diff --check` / `git diff --cached --check`
+- post-`origin/main` merge pass: `trunk build`
+- post-`origin/main` merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_f5mg_merge.json -j 1`。2/2。
+- post-`origin/main` merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mg-merge.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+
+# 2026-06-22 selfhost memo_call backend body reader source state checkpoint
+
+## 目的
+
+- HIR body reader 内部で、source table owner の record 数と problem source 件数の意味を分離する。
+- wrapper representative pair の追加判定を source table length ではなく `problem_source_count` に寄せる。
+- full Resource IR / HIR lowering traversal、accepted source emission、fresh witness table producer、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はこの checkpoint では作らない。
+
+## subagent review
+
+- Hooke plan review は `PLAN_APPROVED`。
+- source table length を「problem source なし」の意味に使う現状は、将来 accepted / neutral source が traversal 中に入ると semantic classification と owner container length が結合するため、`ActualTraversalBodyReaderSourceState` へ分ける方針が妥当と確認された。
+- 指摘に従い、`problem_source_count` は wrapper 判定専用にし、operation ordinal は引き続き state 内 source table length から決める。source push failure は既存 push helper が owner を消費するため、state append helper では二重 cleanup しない。
+
+## 実装
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState` を追加し、source table owner と `problem_source_count` を保持する module-private state にした。
+- HIR body traversal helper は raw source table owner ではなく source state を受け渡すようにした。
+- `actual_traversal_body_reader_append_problem_source_kind_result` は source table length から operation ordinal を決め、append 成功後だけ `problem_source_count` を増やす。
+- finalizer は `problem_source_count == 0` の場合だけ wrapper representative pair を追加し、source table length を problem 判定に使わない。
+- contract test は source state 非公開、state owner cleanup、problem append の成功後 increment、finalizer の table-length predicate 禁止、GraphInput / proof / backend / effect / artifact 合成禁止を固定した。
+
+## 検証
+
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-reader-source-state.json`。17/17。
+- checked JSON: `tmp/selfhost-memo-call-backend-body-reader-source-state.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_body_reader_source_state.json`
+- checked JSON: `output/playground_editor_selfhost_body_reader_source_state.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- 実 traversal が accepted source を finalizer 前に発行する段階では、accepted source と wrapper pair が重複しないように state field を追加する。
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+# 2026-06-22 selfhost memo_call backend body reader typed event producer checkpoint
+
+## 目的
+
+- actual body reader の source table validation、source-to-operation projection、context-owned unified event build を `actual_traversal_body_reader_events_from_context_sources_result` に集約する。
+- request context から event table owner を作る入口を `actual_traversal_body_reader_events_from_request_context_result` として分け、output path と bundle path は event owner を split するだけにする。
+- full Resource IR / HIR lowering body traversal、fresh witness table producer、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はこの checkpoint では作らない。
+
+## subagent review
+
+- Zeno plan review は `PLAN_APPROVED`。重複している validate / projection / event build を event producer helper に集約する方針は、前回の operation-classified collector path から後退しないと確認された。
+- 指摘に従い、event helper は split / collector / witness を持たず、source owner と operation owner の cleanup だけを所有する。request-context helper は raw reader source helper から context-source event helperへ渡し、validation は event helper 内に 1 回だけ集約した。
+
+## 実装
+
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result` を追加し、context validation、operation projection、source owner close、context-owned event build、operation owner close までを 1 境界にした。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result` を追加し、resolver-bound HIR body reader source plan から event producer 境界へ渡すだけにした。
+- `actual_traversal_body_reader_output_from_context_sources_result` / `actual_traversal_body_reader_output_from_request_context_result` / `actual_traversal_body_reader_bundle_from_context_sources_result` / `actual_traversal_body_reader_bundle_from_request_context_result` は event helper -> split へ薄くした。
+- contract test は event helper が split / collector / source-derived witness / root-wide classifier / fixture witness / GraphInput / proof / backend / effect / artifact を持たないこと、output / bundle helper が validate / projection / event build を重複実装しないことを固定した。
+
+## 残件
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
 
 # 2026-06-22 GUI render2d F5mf compositor tile RLE count bridge checkpoint
 
@@ -80001,7 +80074,7 @@ MERGE_APPROVED
 - `Unit` は neutral leaf とし、body 全体で problem source が 0 件だった場合だけ finalizer が wrapper representative の `PrivateCacheStoragePlace` + `CloneOutOwnedValueEdge` を 1 回だけ追加する。`Block(Unit, PrivateCache call)` は wrapper 2 件ではなく private-effect problem source 1 件になる。
 - problem source の operation ordinal は source table 長から決め、traversal order で一意にした。wrapper source は clean result の 0 / 1 ordinal pair のまま維持する。
 - body reader 専用 error として `ActualWalkerTraversalBodyChildRangeInvalid`、`ActualWalkerTraversalBodyChildReadFailed`、`ActualWalkerTraversalBodyFuelExhausted` を追加し、availability error との往復変換にも保持した。missing expr は従来通り `ActualWalkerTraversalBodyReadFailed` に残す。
-- source table owner は traversal failure で `actual_traversal_body_reader_fail_with_sources` が 1 回だけ閉じる。source push failure は既存 push helper の cleanup に任せ、append helper では二重 free しない contract にした。
+- 現在は source table owner を body reader source state が保持し、traversal failure では `actual_traversal_body_reader_fail_with_source_state` が 1 回だけ閉じる。source push failure は既存 push helper の cleanup に任せ、append helper では二重 free しない contract にしている。
 - stage0 summary に `hir_body_block_unit_source_count` と `hir_body_block_private_cache_effect_source_count` を追加し、clean block は wrapper 2 件、problem を含む block は wrapper を混ぜず 1 件であることを smoke にした。
 - Curie の plan review は `PLAN_CHANGES_REQUESTED`。required 指摘は `Unit` neutral leaf と final wrapper append、body-reader-specific failure taxonomy、source table owner の単一 cleanup、deterministic ordinal だった。今回の実装で対応した。
 - この checkpoint は full Resource IR traversal、fresh-region witness table、Resource proof / GraphInput、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key を作らない。

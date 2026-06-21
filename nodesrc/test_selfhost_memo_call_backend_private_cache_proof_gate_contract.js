@@ -2590,38 +2590,41 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
-        "Result::Ok sources:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result context sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result module context resolutions",
+        "Result::Ok events:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
+        "Result::Ok output:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output",
+        "Result::Err e:",
+        "Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e",
         "Result::Err e:",
         "Stage0SourceRejected e",
     ],
-    "actual body reader bundle producer must derive source owners from request context and then pass them through the per-context operation-classified bundle producer",
+    "actual body reader bundle producer must derive event owners from request context and then split them before the operation-classified collector bundle producer",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result")),
-    /actual_traversal_bundle_source_derived_witness_result sources|actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    /actual_traversal_body_reader_sources_from_request_context_result|actual_traversal_body_adapter_sources_from_request_context_result|actual_traversal_body_reader_bundle_from_context_sources_result|actual_traversal_bundle_source_derived_witness_result sources|actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual body reader bundle producer must not bypass the operation-classified collector path, roundtrip through availability/output owners, inject witness metadata, call fixture witness helper, or synthesize proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources",
-        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
-        "Result::Ok operations:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result context sources",
         "Result::Ok events:",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
         "Result::Ok output:",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output",
+        "Result::Err e:",
+        "Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e",
+        "Result::Err e:",
+        "Stage0SourceRejected e",
     ],
-    "actual body reader context-source bundle helper must validate sources, project them to operations, build context-owned events, split the events, close operation owner, and only then build the bundle from split output",
+    "actual body reader context-source bundle helper must delegate source validation and event build to the event producer, split the events, and only then build the bundle from split output",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result")),
-    /actual_traversal_bundle_source_derived_witness_result sources|actual_traversal_bundle_stage0_with_sources_result|actual_walker_operation_classifier_events_from_hir_root_result|request_table_from_hir_root|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheRegionFreshWitnessCandidateAccepted|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    /actual_traversal_body_context_sources_validate_result|actual_walker_operation_producer_bridge_operations_from_sources_result|actual_traversal_body_reader_events_from_context_operations_result|actual_traversal_bundle_source_derived_witness_result sources|actual_traversal_bundle_stage0_with_sources_result|actual_walker_operation_classifier_events_from_hir_root_result|request_table_from_hir_root|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheRegionFreshWitnessCandidateAccepted|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual body reader context-source bundle helper must not use root-wide classifier, direct witness derivation, fixture witness metadata, or lower proof/backend/effect/artifact synthesis",
 );
 assertOrdered(
@@ -2804,20 +2807,34 @@ assert.doesNotMatch(
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_/m,
     "actual body reader bundle producer helpers must stay module-private until full Resource IR traversal owns the public boundary",
 );
+assert.doesNotMatch(
+    code,
+    /^pub\s+struct\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState/m,
+    "actual body reader source state must stay module-private",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_(source_state|append_problem_source_kind|fail_with_source_state|finalize_hir_body_sources|hir_body_sources)/m,
+    "HIR body reader source-state helpers must stay module-private",
+);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions",
-        "Result::Ok sources:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result context sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result module context resolutions",
+        "Result::Ok events:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
+        "Result::Ok output:",
+        "Result::Ok output",
+        "Result::Err e:",
+        "ActualTraversalBodyNormalizerRejected e",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_error_from_bridge_error context e",
     ],
-    "production actual traversal body reader must build owner-bearing output through the context-bound reader source plan",
+    "production actual traversal body reader must build owner-bearing output through the request-context event producer and split helper",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result")),
-    /ActualTraversalBodyReaderSeed|actual_traversal_body_reader_seed|resource_walker_stage0_closed_place_edge_input_result|resource_walker_input_new|resource_walker_input_push_|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue|resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    /ActualTraversalBodyReaderSeed|actual_traversal_body_reader_seed|actual_traversal_body_reader_sources_from_request_context_result|actual_traversal_body_reader_output_from_context_sources_result|resource_walker_stage0_closed_place_edge_input_result|resource_walker_input_new|resource_walker_input_push_|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue|resource_walker_producer_bridge_input_from_hir_root_result|actual_walker_event_producer_bridge_from_hir_root_result|resource_walker_producer_bridge_from_hir_root_result|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "production actual traversal body reader must not hard-code walker events, use seed fixtures, existing unsupported producer bridges, or synthesize proof/backend/effect/artifact records",
 );
 assertOrdered(
@@ -2836,11 +2853,34 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
         "Result::Ok sources0:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources0 body_root 64",
-        "Result::Ok sources1:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result sources1 context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new sources0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context state0 body_root 64",
+        "Result::Ok state1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result state1 context",
     ],
-    "HIR body reader root helper must allocate one source table, traverse the resolver-provided body root, and finalize wrapper sources only after traversal",
+    "HIR body reader root helper must allocate one source table, wrap it in source state, traverse the resolver-provided body root, and finalize wrapper sources only after traversal",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState"),
+    [
+        "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
+        "problem_source_count %i32",
+    ],
+    "HIR body reader source state must keep source table owner separate from problem source count",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState sources 0",
+    ],
+    "HIR body reader source state must start with zero problem sources",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free field::get state \"sources\"",
+    ],
+    "HIR body reader source state free must close the owned source table",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result"),
@@ -2849,7 +2889,7 @@ assertOrdered(
         "ActualWalkerTraversalBodyFuelExhausted idx",
         "selfhost_hir_module_get_expr module expr_id",
         "Option::Some expr:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context sources expr fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context state expr fuel",
         "Option::None:",
         "ActualWalkerTraversalBodyReadFailed idx",
     ],
@@ -2862,17 +2902,17 @@ assertOrdered(
         "SelfhostHirExprPayload::Error:",
         "UnsupportedTraversalSource",
         "SelfhostHirExprPayload::Unit:",
-        "Result::Ok sources",
+        "Result::Ok state",
         "SelfhostHirExprPayload::FnValue _identity:",
         "FunctionIdentityObservation",
         "SelfhostHirExprPayload::MemoizedFunctionValue _identity:",
         "FunctionIdentityObservation",
         "SelfhostHirExprPayload::Call call:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context sources call fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context state call fuel",
         "SelfhostHirExprPayload::Block children:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources children fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state children fuel",
         "SelfhostHirExprPayload::If branches:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources branches fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state branches fuel",
     ],
     "HIR body reader must classify typed payloads directly, treat Unit as a neutral leaf, and recurse through Call args, Block children, and If branches",
 );
@@ -2885,9 +2925,9 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind call",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context source_kind",
-        "Result::Ok sources1:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources1 call.args fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context source_kind",
+        "Result::Ok state1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state1 call.args fuel",
     ],
     "HIR call source traversal must emit the typed effect source before traversing argument children",
 );
@@ -2910,8 +2950,8 @@ assertOrdered(
         "ActualWalkerTraversalBodyFuelExhausted idx",
         "selfhost_hir_module_get_child module children idx",
         "Option::Some child_expr_id:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources child_expr_id child_fuel",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_sources children add idx 1 n fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context state child_expr_id child_fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_state children add idx 1 n fuel",
         "Option::None:",
         "ActualWalkerTraversalBodyChildReadFailed idx",
     ],
@@ -2920,12 +2960,18 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
-        "eq source_count 0",
+        "field::get state \"problem_source_count\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources state",
+        "eq problem_source_count 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources context",
         "Result::Ok sources",
     ],
-    "HIR body source finalizer must append wrapper sources only when traversal emitted no problem source",
+    "HIR body source finalizer must append wrapper sources based on problem source count, not source table length",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result")),
+    /actual_walker_traversal_source_table_len|\bsource_count\b/,
+    "HIR body source finalizer must not use source table length as the problem-source predicate",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind"),
@@ -2962,18 +3008,63 @@ assertOrdered(
     "reader source output bridge must reuse the existing operation classifier path when turning source-derived operations into split-output events",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Ok operations:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
-        "ActualTraversalBodyNormalizerRejected e",
         "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
+        "event_result",
+        "Result::Err e:",
+        "Result::Err e",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Err e",
+    ],
+    "reader event producer from context sources must validate sources, project operations, close source owner, build context-owned events, close operation owner, and return only event owner or typed bridge error",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result")),
+    /actual_walker_event_split_result|actual_walker_traversal_source_collect_from_walker_input_result|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_stage0_with_sources_result|actual_walker_operation_classifier_events_from_hir_root_result|request_table_from_hir_root|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheRegionFreshWitnessCandidateAccepted|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "reader event producer from context sources must not split events, collect sources, derive witnesses, use root-wide classifier, or synthesize lower proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result context sources",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "request-context reader event producer must use the resolver-bound source reader once and delegate validation/projection/event build to the context-source event producer",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result")),
+    /actual_traversal_body_adapter_sources_from_request_context_result|actual_traversal_body_context_sources_validate_result|actual_walker_operation_producer_bridge_operations_from_sources_result|actual_walker_event_split_result|actual_walker_traversal_source_collect_from_walker_input_result|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_stage0_with_sources_result|actual_walker_operation_classifier_events_from_hir_root_result|request_table_from_hir_root|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheRegionFreshWitnessCandidateAccepted|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "request-context reader event producer must not duplicate validation/projection, split events, collect sources, derive witnesses, use root-wide classifier, or synthesize lower proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_sources_result context sources",
+        "Result::Ok events:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
+        "Result::Ok output:",
+        "Result::Ok output",
+        "Result::Err e:",
+        "ActualTraversalBodyNormalizerRejected e",
+        "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availability_error_from_bridge_error context e",
     ],
-    "reader source output bridge must validate context-bound sources, project through operation/event tables, split owners, and preserve typed fail-closed errors",
+    "reader source output bridge must delegate validation/projection/event build to the event producer, split event owner, and preserve typed fail-closed errors",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result")),
+    /actual_traversal_body_context_sources_validate_result|actual_walker_operation_producer_bridge_operations_from_sources_result|actual_traversal_body_reader_events_from_context_operations_result|actual_walker_traversal_source_collect_from_walker_input_result|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_stage0_with_sources_result|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "reader source output bridge must not duplicate event producer work, collect sources, derive witnesses, or synthesize lower proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_with_owners_result"),
@@ -3532,17 +3623,36 @@ assert.doesNotMatch(
     "production reader policy source helper must not synthesize lower proof tables, backend bytes, effect masks, or artifact records",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free state",
         "Result::Err error",
     ],
-    "HIR body reader must close the source table exactly at non-push traversal failure boundaries",
+    "HIR body reader must close the source state exactly at non-push traversal failure boundaries",
 );
 assert.doesNotMatch(
-    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result")),
-    /fail_with_sources|traversal_source_table_free/,
-    "HIR body reader source append helper must rely on source table push cleanup and must not double-free on push failure",
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result")),
+    /fail_with_source_state|source_state_free|traversal_source_table_free/,
+    "HIR body reader problem source append helper must rely on source table push cleanup and must not double-free on push failure",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result"),
+    [
+        "field::get state \"problem_source_count\"",
+        "field::get state \"sources\"",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal 0 0 source_kind",
+        "Result::Ok next_sources:",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources add problem_source_count 1",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "HIR body reader problem source append helper must use source table length for traversal ordinal and increment problem count only after successful append",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result")),
+    /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "HIR body reader source state append helper must not synthesize proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error"),
