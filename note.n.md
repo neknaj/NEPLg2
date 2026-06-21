@@ -39,11 +39,71 @@
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5mf_compositor_tile_rle_count.json`
 - checked JSON: `output/playground_editor_f5mf_compositor_tile_rle_count.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
-- pending: remote/main が `98a04e535` まで進んでおり、`git pull --ff-only origin main` は `todo.md` の local change 保護で停止した。checkpoint commit 後に main を取り込み、selfhost 側 note/todo 更新と F5mf 更新を統合する。
+- pass after merging origin/main `98a04e535`: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after merging origin/main `98a04e535`: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after merging origin/main `98a04e535`: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_f5mf_after_merge.json -j 1`。1/1。
+- pass after merging origin/main `98a04e535`: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_module_f5mf_after_merge.json -j 1`。29/29。
+- pass after merging origin/main `98a04e535`: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after merging origin/main `98a04e535`: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after merging origin/main `98a04e535`: `node nodesrc/test_stdlib_documentation_contract.js`。baseline ok。
+- pass after merging origin/main `98a04e535`: `git diff --check`
+- pass after merging origin/main `98a04e535`: `trunk build`
+- pass after merging origin/main `98a04e535`: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5mf_compositor_tile_rle_count_after_merge.json`
+- checked JSON after merging origin/main `98a04e535`: `output/playground_editor_f5mf_compositor_tile_rle_count_after_merge.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 
 ## 未接続
 
 - F5mf 後続として、RLE count step / completed count / encode / storage / packet と std present への payload transport / present continuation を別 boundary として進める。
+
+# 2026-06-22 selfhost memo_call backend actual body reader bundle producer checkpoint
+
+## 目的
+
+- resolver-bound body reader が作る request-local source table と、source-derived fresh witness owner を同じ actual body reader bundle producer boundary で束ねる。
+- context-bound facade は actual body reader bundle producer へ委譲するだけにし、source table / witness table の生成順序を重複実装しない。
+- full Resource IR traversal、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はまだ作らない。
+
+## subagent review
+
+- Bacon plan review は `PLAN_APPROVED`。
+- actual body reader bundle producer は `actual_traversal_body_adapter_sources_from_request_context_result` から `actual_traversal_bundle_source_derived_witness_result` へ進む module-private helper とし、source helper の失敗だけを `Stage0SourceRejected` に写す方針が承認された。
+- source-derived witness 以降の `RegionProofUnsupported` / `RegionProofObservationRejected` / `RegionProofMayEscape` は包み直さず返すよう指摘された。
+- context-bound helper は新 helper へ委譲するだけにし、summary field は `actual_body_reader_bundle_accepted_proof_count` のように意味が曖昧でない名前にするよう指摘された。
+- Bacon implementation review は `REVIEW_APPROVED`。source helper の `Err` だけを `Stage0SourceRejected` に写していること、source-derived witness 以降の typed rejection を包み直していないこと、context-bound facade が委譲だけになっていること、direct runner の owner cleanup と contract/doc/note/todo の整合性が確認された。
+
+## 実装
+
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result` を追加し、request context 由来 source table から fresh witness bundle を作る順序を固定した。
+- `selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result` は actual body reader bundle producer へ委譲するだけにした。
+- direct body-reader bundle stage0 runner を追加し、context-bound facade を通さず produced bundle を request-evidence gate へ渡せることを確認するようにした。
+- stage0 summary に `actual_body_reader_bundle_accepted_proof_count` を追加した。
+- contract test と `doc/neplg2/self_host_neplg21_compiler_design.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-reader-bundle-producer.json`。17/17。
+- checked JSON: `tmp/selfhost-memo-call-backend-body-reader-bundle-producer.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_body_reader_bundle_producer.json`
+- checked JSON: `output/playground_editor_selfhost_body_reader_bundle_producer.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`, `erroredCount: 0`。
+- pass after `git pull --rebase origin main`: `git diff --check HEAD~1..HEAD`
+- pass after `git pull --rebase origin main`: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after `git pull --rebase origin main`: `node nodesrc/issues.js check --dir issues`
+- pass after `git pull --rebase origin main`: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after `git pull --rebase origin main`: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-reader-bundle-producer-after-rebase.json`。17/17。
+- checked JSON after `git pull --rebase origin main`: `tmp/selfhost-memo-call-backend-body-reader-bundle-producer-after-rebase.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass after `git pull --rebase origin main`: `trunk build`
+- pass after `git pull --rebase origin main`: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_body_reader_bundle_producer_after_rebase.json`
+- checked JSON after `git pull --rebase origin main`: `output/playground_editor_selfhost_body_reader_bundle_producer_after_rebase.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`, `erroredCount: 0`。
+
+## 未接続
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、backend bytes、`.neplobj` / `.neplproof` stable key projection。
 
 # 2026-06-22 GUI render2d F5me compositor tile payload bridge checkpoint
 
