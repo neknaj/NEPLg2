@@ -1,3 +1,39 @@
+# 2026-06-22 selfhost memo_call backend body resolution resolver checkpoint
+
+## 目的
+
+- `MemoizedFunctionValue` の `DefId` から body HIR root / body module fingerprint / lowering availability を解決する module-private resolver を追加する。
+- production source / output / operation producer path は resolver で body identity を再照合し、`BodyLoweringAvailable` だけを既存 shared reader source plan へ進める。
+- source text、span、display name、diagnostic、HIR arena id の偶然一致、public surface hash を body resolution authority にしない。
+
+## 実装
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionRecord` / `ResolutionTable` / `BodyLoweringAvailabilityStatus` を追加した。
+- resolver lookup は request context と `DefId`、function type、request kind、source effect、type argument count、body module fingerprint を照合し、body root expr が borrowed `SelfhostHirModule` に存在することを検査する。
+- missing / unavailable / unsupported / key mismatch / fingerprint mismatch / root missing / duplicate を typed error として availability error と bridge error に通した。duplicate `DefId` は first-wins にせず fail-closed にする。
+- stage0 fixture は memoized function value expr と body root expr を別 id に分け、request root を body root と偽装しない形にした。
+- `actual_traversal_body_reader_sources_from_request_context_result` から resolver lookup を必ず通し、output helper、context-bound bundle helper、operation producer bridge まで resolver table を引き回すようにした。
+- contract test、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md` を更新し、残件を resolver output から actual Resource IR / HIR lowering body reader へ進む境界に寄せた。
+
+## 検証
+
+- pass: `git pull --ff-only origin main`。up to date。
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-resolver-final.json`。17/17。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_body_resolver.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## 未接続
+
+- resolver が返す body root を読んで actual Resource IR / HIR lowering body reader から source / operation event / fresh witness を生成する境界。
+- full traversal 由来 source と fresh witness table を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projection。
+
 # 2026-06-22 selfhost memo_call backend context-owned reader bundle bridge
 
 ## 目的
