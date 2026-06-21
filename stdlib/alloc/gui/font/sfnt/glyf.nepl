@@ -26548,6 +26548,160 @@ fn gui_sfnt_simple_glyph_render_glyph_paint_composition_order_start_error_recove
     gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free fill_owner
     gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner
 
+//: GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner: stroke-only glyph paint [順序/じゅんじょ] owner
+//:
+//: [目的/もくてき]:
+//: - 完成済み stroke packed mask owner を、fill を[持/も]たない glyph paint の stroke-only [順序/じゅんじょ]として[固定/こてい]します。
+//: - fill+stroke の owner と[混/ま]ぜず、後続境界が読む stroke metadata と stroke mask owner だけを[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner:
+    stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    origin %GuiPoint
+    stroke %GuiStroke
+    blend %GuiBlendMode
+    stroke_order %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner %fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner fn GuiPoint fn GuiStroke fn GuiBlendMode fn i32 GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner \stroke_owner\origin\stroke\blend\stroke_order:
+    GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner stroke_owner origin stroke blend stroke_order
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_origin %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner GuiPoint \owner:
+    *field::get_ref owner "origin"
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_stroke %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner GuiStroke \owner:
+    *field::get_ref owner "stroke"
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_blend %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner GuiBlendMode \owner:
+    *field::get_ref owner "blend"
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_stroke_order %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner i32 \owner:
+    *field::get_ref owner "stroke_order"
+
+//: GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind: stroke-only composition order start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind:
+    StrokeShapeInvalidWidth
+    StrokeShapeInvalidHeight
+    StrokeShapeInvalidSampleScale
+    StrokeShapeCoverageMaxMismatch
+    StrokeShapeCellCountMismatch
+    StrokeAlphaMaxInvalid
+    StrokeAlphaCellCountMismatch
+    StrokeAlphaStorageLenMismatch
+    StrokeAlphaStorageCapacityMismatch
+    StrokeJoinGeometryInvariantFailed
+    UnexpectedStrokeFillMetadata
+    UnsupportedBlendMode
+    StrokeInvariantUnexpectedErrorKind
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError: stroke-only composition order start の owner recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind
+    stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind
+
+struct GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery:
+    stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error %fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner fn Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError \kind\stroke_owner\lower_join_error:
+    GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError kind stroke_owner lower_join_error
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError \kind\stroke_owner:
+    let lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error kind stroke_owner lower_join_error
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_join_failed %fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError \stroke_owner\lower_join_error_value:
+    let lower_join_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind some lower_join_error_value
+    gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeJoinGeometryInvariantFailed stroke_owner lower_join_error
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_lower_join_error %fn &GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \error:
+    *field::get_ref error "lower_join_error"
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery %fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery \error:
+    let stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner field::get error "stroke_owner"
+    GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery stroke_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_error_kind_from_glyph_paint %fn GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeInvalidWidth:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeShapeInvalidWidth
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeInvalidHeight:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeShapeInvalidHeight
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeInvalidSampleScale:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeShapeInvalidSampleScale
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeCoverageMaxMismatch:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeShapeCoverageMaxMismatch
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeShapeCellCountMismatch:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeShapeCellCountMismatch
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaMaxInvalid:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeAlphaMaxInvalid
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaCellCountMismatch:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeAlphaCellCountMismatch
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaStorageLenMismatch:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeAlphaStorageLenMismatch
+        GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderStartErrorKind::StrokeAlphaStorageCapacityMismatch:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeAlphaStorageCapacityMismatch
+        _:
+            GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::StrokeInvariantUnexpectedErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_owner_invariants %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner Result unit GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_owner_invariants owner:
+        Result::Err stroke_error:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_error_kind_from_glyph_paint stroke_error
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_start %fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner Result GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError \stroke_owner:
+    match gui_sfnt_simple_glyph_render_stroke_only_composition_order_stroke_owner_invariants &stroke_owner:
+        Result::Err stroke_error:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_simple stroke_error stroke_owner
+        Result::Ok _:
+            let join_geometry_owner %&GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get_ref &stroke_owner "join_geometry_owner"
+            match gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner:
+                Result::Err lower_join_error:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_join_failed stroke_owner lower_join_error
+                Result::Ok _:
+                    let stroke_plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner gui_sfnt_simple_glyph_render_glyph_paint_composition_order_stroke_plan_owner &stroke_owner
+                    let stroke_fill %Option GuiPaint gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_fill stroke_plan_owner
+                    match stroke_fill:
+                        Option::Some _stroke_fill_paint:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_simple GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::UnexpectedStrokeFillMetadata stroke_owner
+                        Option::None:
+                            let stroke_blend %GuiBlendMode gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_blend stroke_plan_owner
+                            if not gui_sfnt_simple_glyph_render_glyph_paint_composition_order_blend_supported stroke_blend:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_simple GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorKind::UnsupportedBlendMode stroke_owner
+                                else:
+                                    let origin %GuiPoint gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_origin stroke_plan_owner
+                                    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke stroke_plan_owner
+                                    let owner %GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner stroke_owner origin stroke stroke_blend 0
+                                    Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner unit \owner:
+    let stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner field::get owner "stroke_owner"
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartError unit \error:
+    let recovery %GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery error
+    gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery_free recovery
+
+fn gui_sfnt_simple_glyph_render_stroke_only_composition_order_start_error_recovery_free %impure fn GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderStartErrorRecovery unit \recovery:
+    let stroke_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner field::get recovery "stroke_owner"
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free stroke_owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:

@@ -1,3 +1,38 @@
+# 2026-06-21 Agent2 GUI font F5lh stroke-only composition order
+
+## 目的
+
+- F5lf の completed stroke packed mask owner を direct authority とし、stroke-only glyph paint の order owner を作る。
+- fill owner や fake fill metadata を作らず、nested stroke metadata の `fill == None` を stroke-only の authority とする。
+- `fill == Some` は `UnexpectedStrokeFillMetadata` として拒否し、fill+stroke は F5lg の責務に残す。
+- render command、alpha mask resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrderOwner`、start error、single stroke-owner recovery payload、owner/start-error/recovery free path を追加した。
+- stroke packed owner invariant は既存の completed stroke packed owner checks を再利用しつつ、F5lh 固有の typed error kind へ写す。
+- stroke packed owner の nested chain `join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner` から origin / fill / stroke / blend を読み、stroke join geometry invariant 失敗時は lower error kind を保持する。
+- stroke metadata の fill は `None` のみ受理し、`Some` は `UnexpectedStrokeFillMetadata` として拒否する。blend は SourceOver だけを受理する。
+- owner / error / recovery free path は stroke packed mask owner を一度だけ解放する。
+- source policy は F5lg region の終端を F5lh 開始 marker に分割し、F5lh 専用 region と focused doctest labels を追加した。
+- Euclid の plan review は `PLAN_APPROVED`。
+- Euclid の implementation review は `REVIEW_APPROVED`。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_only_composition_order.n.md --no-tree -o tmp_gui_font_render_stroke_only_composition_order_f5lh.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lh_probe.json -j 1` は 1265 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lh.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lh.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5lh 後続として、shadow rasterization、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lg glyph paint composition order
 
 ## 目的
