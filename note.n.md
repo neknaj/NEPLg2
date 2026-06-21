@@ -223,6 +223,38 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI font F5le quadratic side edge scan policy
+
+## 目的
+
+- F5lb stroke coverage scan converter で quadratic side edge を endpoint chord や 0 coverage にせず、明示 config による deterministic flattening として scan する。
+- F5ky の quadratic side edge record が保持する source start/control/end、endpoint normal、side、boundary direction を authority とし、exact quadratic offset curve は主張しない。
+- F5lc/F5la の completed join geometry invariant で quadratic side edge 全体を拒否せず、quadratic を含む miter / round join は `quadratic_bevel` 付き bevel connector として閉境界にする。
+- packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderStrokeCoverageScanConfig` を追加し、`quadratic_side_edge_segment_count > 0` を start で検査する形にした。
+- quadratic side edge scan は source quadratic point に start/end endpoint normal offset の線形補間を足し、left は `+normal`、right は `-normal`、right は `SourceReverse` に従う directed segment order で crossing helper へ渡す。
+- F5lc bevel record に `quadratic_bevel` evidence を追加し、quadratic side edge を含む miter / round join は F5kz connector chord を bevel geometry として materialize する。
+- Hubble の plan review は `CHANGES_REQUESTED`。主指摘は F5lb だけの変更では F5lc/F5la invariant で quadratic side edge が拒否されること、right side の向きと offset 符号を仕様に固定することだった。F5lc/F5la invariant 更新、quadratic bevel connector、right-side reverse order source policy で対応した。
+- Euclid の implementation review は `CHANGES_REQUESTED`。残っていた F5lc owner comment と source policy の旧 quadratic fail-closed 表現を直し、line 専用 helper の defensive error は `LineSideEdgeRequired` に改めた。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は Euclid 指摘対応後も pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は Euclid 指摘対応後も pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_join_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_join_geometry_f5le_euclid_fix.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_scan_f5le_euclid_fix.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5le_euclid_fix.json -j 1` は 1251 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5le-euclid-fix.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5le-euclid-fix.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5le 完了後は packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を別 boundary として進める。
 
 # 2026-06-21 Agent2 GUI font F5ld round join geometry policy
 
@@ -261,12 +293,13 @@
 
 ## 残件
 
-- F5ld は `origin/main` 側で merge 済み。この作業 branch では latest `origin/main` merge として統合し、production actual traversal reader 変更との同居を検証した。
-- quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain は引き続き別 boundary として進める。
+- F5ld の commit / push / main merge は完了済み。
+- F5le 作業開始時点では quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain が残件だった。F5le 後は packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を別 boundary として進める。
+- この作業 branch では latest `origin/main` merge として F5ld/F5le を統合し、production actual traversal reader 変更との同居を検証した。
 
 # 2026-06-21 Agent2 GUI font F5lc stroke join geometry boundary
 
-この節は F5ld 前の履歴です。F5ld 後の現在は round join geometry が source-center two-chord policy として接続済みで、quadratic side edge は引き続き fail-closed です。
+この節は F5le 前の履歴です。F5ld 後から F5le 前までは round join geometry が source-center two-chord policy として接続済みで、quadratic side edge は fail-closed でした。
 
 ## 目的
 
@@ -313,11 +346,11 @@
 ## 残件
 
 - F5ld 前の残件として round join geometry と quadratic side edge scan policy を残していた。
-- F5ld 後の現在は quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を引き続き別 boundary として進める。
+- F5le 前の残件として quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を別 boundary として残していた。
 
 # 2026-06-21 Agent2 GUI font F5lb stroke coverage scan converter boundary
 
-この節は F5ld 前の履歴です。F5ld 後の現在は F5lb が F5lc bevel / miter / round join geometry を scan し、quadratic side edge だけを fail-closed にします。
+この節は F5le 前の履歴です。F5ld 後から F5le 前までは F5lb が F5lc bevel / miter / round join geometry を scan し、quadratic side edge だけを fail-closed にしていました。
 
 ## 目的
 
@@ -333,7 +366,7 @@
 - Archimedes の F5lb plan review は `PLAN_REVIEWED`。
 - 指摘は、F5lb を F5la writer owner を消費する stroke coverage scan converter とし、join/cap geometry 拡張を先に挟まないことだった。
 - 指摘に従い、初期版では bevel connector chord 以外の join policy と quadratic side edge を fail-closed にし、F5la `push_cell` を唯一の cell 書き込み経路にした。
-- F5lc 接続後の source policy は F5la writer authority、F5lc join geometry revalidation、cell bounds、line side edge、bevel / miter join geometry、quadratic fail-closed、push / budget / completion recovery、fill scan / packed / render / platform へ進まないことを検査する。
+- F5lc 接続後から F5le 前までの source policy は F5la writer authority、F5lc join geometry revalidation、cell bounds、line side edge、bevel / miter join geometry、quadratic fail-closed、push / budget / completion recovery、fill scan / packed / render / platform へ進まないことを検査していた。
 
 ## implementation_current
 
@@ -365,7 +398,7 @@
 - 指摘対応として、実際に通過した検証コマンドと playground-editor JSON 件数をこの note に反映した。
 - Archimedes の re-review は `REVIEW_APPROVED`。
 - F5ld 前の残リスクは、F5lc 後も round join geometry と quadratic side edge approximation が未定義で、後続 boundary で追加する必要がある点だった。
-- F5ld 後の現在は quadratic side edge scan policy、packed stroke mask owner をそれぞれ別 boundary として追加する。
+- F5le 前の残件として quadratic side edge scan policy、packed stroke mask owner をそれぞれ別 boundary として追加する予定だった。
 
 # 2026-06-21 Agent2 GUI font F5la stroke coverage mask writer owner boundary
 
@@ -78307,6 +78340,20 @@ MERGE_APPROVED
 - pass after latest `origin/main` F5ld merge fix: `node nodesrc/issues.js check --dir issues`
 - pass after latest `origin/main` F5ld merge fix: `git diff --check`。CRLF warning のみ。
 - pass after latest `origin/main` F5ld merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5le merge fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_final_after_f5le_merge.json -j 1`。1643/1643。
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_join_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_join_geometry_f5le_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_scan_f5le_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5le merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-after-f5le-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5le merge fix: `trunk build`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader-after-f5le-merge.json`
+- checked JSON after latest `origin/main` F5le merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5le merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5le merge fix: `git diff --check`。CRLF warning のみ。
 
 ### 残件
 

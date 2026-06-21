@@ -1,6 +1,6 @@
 # GUI font SFNT glyf outline point stream item collection render stroke coverage scan converter
 
-このファイルは、F5lb の render stroke coverage scan converter が F5la writer owner を authority とし、line side edge と F5lc bevel / miter / round join geometry を scan し、quadratic side edge を fail-closed にし、packed mask / render command / platform へ進まないことを固定する。
+このファイルは、F5le の render stroke coverage scan converter が F5la writer owner を authority とし、line side edge、明示 config で分割する quadratic side edge、F5lc bevel / miter / round join geometry を scan し、packed mask / render command / platform へ進まないことを固定する。
 
 source policy coverage labels:
 
@@ -9,7 +9,7 @@ source policy coverage labels:
 - render_stroke_coverage_scan_cell_bounds_ok
 - render_stroke_coverage_scan_line_side_edge_ok
 - render_stroke_coverage_scan_join_geometry_bevel_miter_round_ok
-- render_stroke_coverage_scan_quadratic_fail_closed_ok
+- render_stroke_coverage_scan_quadratic_explicit_policy_ok
 - render_stroke_coverage_scan_push_budget_completion_ok
 - render_stroke_coverage_scan_no_fill_scan_packed_render_platform
 
@@ -28,7 +28,7 @@ neplg2:test[skip]
 // render_stroke_coverage_scan_cell_bounds_ok
 // render_stroke_coverage_scan_line_side_edge_ok
 // render_stroke_coverage_scan_join_geometry_bevel_miter_round_ok
-// render_stroke_coverage_scan_quadratic_fail_closed_ok
+// render_stroke_coverage_scan_quadratic_explicit_policy_ok
 // render_stroke_coverage_scan_push_budget_completion_ok
 // render_stroke_coverage_scan_no_fill_scan_packed_render_platform
 
