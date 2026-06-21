@@ -7532,6 +7532,63 @@ F5lj maps only shape/config coverage errors. Since `shape_from_config` does not 
 
 F5lj must not call raster edge owner start/drain, coverage mask writer start, scan conversion, packed mask conversion, fill/stroke composition owners, alpha-mask resource reservation, render command constructors, software drain, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
 
+## SFNT simple glyph render shadow source edge drain owner boundary
+
+F5lk consumes the F5lj shadow source coverage owner and creates a shadow-specific raster edge owner. It is intentionally not the generic raster edge drain boundary. The generic raster edge drain owner is not reused because it requires a completed raster mask writer owner and validates raster mask scalar len/count. At the F5lj boundary the only completed geometry stream is `path_sink_scalars`; no raster mask scalar writer exists yet.
+
+Laplace plan review 1 was `CHANGES_REQUESTED`. The first plan tried to route through the generic raster edge drain, which would require a completed raster mask writer and would fail the F5lj writer state where raster mask scalar len is still 0. The revised plan moved to a shadow-specific path-sink scalar drain, but still treated `SkipNoSegment` as if it had a scalar record. Laplace revised plan 1 was `CHANGES_REQUESTED` because skip commands have no `path_sink_scalars` record. Laplace revised plan 2 is `PLAN_APPROVED`: F5lk reads only `MoveTo=1`, `LineTo=2`, and `QuadraticTo=3`, rejects tag 4 with `UnexpectedSkipNoSegmentTag`, keeps skip progress out of the drain owner, and allows zero drawable edges.
+
+The value-only context duplicates the request metadata and F5lj canonical metadata so later drain steps can revalidate without retaining the F5lj request owner:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:
+    request_origin GuiPoint
+    request_fill Option GuiPaint
+    request_stroke Option GuiStroke
+    request_shadow GuiShadow
+    request_blend GuiBlendMode
+    source_shape GuiSfntSimpleGlyphRasterCoverageShape
+    source_fill Option GuiPaint
+    source_stroke Option GuiStroke
+    source_placement_origin GuiPoint
+    shadow_offset GuiPoint
+    shadow_blur_radius i32
+    shadow_spread i32
+    shadow_extent i32
+    shadow_paint GuiPaint
+    blend GuiBlendMode
+```
+
+The drain owner owns the completed writer and edge storage:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner:
+    writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    context GuiSfntSimpleGlyphRenderShadowSourceEdgeContext
+    edges Vec GuiSfntSimpleGlyphRasterEdge
+    scalar_index i32
+    edge_count i32
+    line_edge_count i32
+    quadratic_edge_count i32
+    move_to_count i32
+    has_current_point bool
+    current_x2 i32
+    current_y2 i32
+```
+
+Start validation borrows the F5lj owner, builds the context, revalidates source fill/stroke, SourceOver blend, shadow offset/blur/spread/paint, checked placement origin, checked extent, and shape arithmetic. It then validates the shared writer authority and checks `line_to_count + quadratic_to_count == raster_edge_capacity`. The edge Vec is allocated before the F5lj owner is consumed, so allocation failure returns the original owner in the start error. Only after successful allocation does start split the nested request owner and move out the path command writer.
+
+The drain reads `path_sink_scalars` directly:
+
+- `MoveTo`: requires three scalars and updates current point.
+- `LineTo`: requires a current point and three scalars, then pushes one line raster edge.
+- `QuadraticTo`: requires a current point and five scalars, then pushes one quadratic raster edge.
+- `SkipNoSegment`: is never valid in `path_sink_scalars`; tag 4 returns `UnexpectedSkipNoSegmentTag`.
+
+Completion requires `scalar_index == path_sink_scalar_count`, move/line/quadratic counts equal the writer plan, `edge_count == raster_edge_capacity`, and Vec len/cap match exactly. `line_to_count + quadratic_to_count == 0` completes as an empty exact-capacity owner rather than an error.
+
+F5lk must not call coverage mask writer start, mask scan conversion, packed mask conversion, blur kernel construction, render command constructors, resource table, software surface, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

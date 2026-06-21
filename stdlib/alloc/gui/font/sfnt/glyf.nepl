@@ -18622,6 +18622,1142 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery_free
     let request_owner %GuiSfntSimpleGlyphRenderShadowRequestOwner field::get recovery "request_owner"
     gui_sfnt_simple_glyph_render_shadow_request_owner_free request_owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeContext: shadow source edge drain が[保持/ほじ]する value-only context
+//:
+//: [目的/もくてき]:
+//: - F5lj owner と nested request owner の metadata を value として[写/うつ]し、writer authority と storage owner から[分/わ]けます。
+//: - drain 中は request owner が残らないため、shadow / source / placement / shape の[整合性/せいごうせい]をこの context だけで再検査します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:
+    request_origin %GuiPoint
+    request_fill %Option GuiPaint
+    request_stroke %Option GuiStroke
+    request_shadow %GuiShadow
+    request_blend %GuiBlendMode
+    source_shape %GuiSfntSimpleGlyphRasterCoverageShape
+    source_fill %Option GuiPaint
+    source_stroke %Option GuiStroke
+    source_placement_origin %GuiPoint
+    shadow_offset %GuiPoint
+    shadow_blur_radius %i32
+    shadow_spread %i32
+    shadow_extent %i32
+    shadow_paint %GuiPaint
+    blend %GuiBlendMode
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeContext GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \context:
+        *context
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeContext GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \context:
+        context
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_context %fn GuiPoint fn Option GuiPaint fn Option GuiStroke fn GuiShadow fn GuiBlendMode fn GuiSfntSimpleGlyphRasterCoverageShape fn Option GuiPaint fn Option GuiStroke fn GuiPoint fn GuiPoint fn i32 fn i32 fn i32 fn GuiPaint fn GuiBlendMode GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \request_origin\request_fill\request_stroke\request_shadow\request_blend\source_shape\source_fill\source_stroke\source_placement_origin\shadow_offset\shadow_blur_radius\shadow_spread\shadow_extent\shadow_paint\blend:
+    GuiSfntSimpleGlyphRenderShadowSourceEdgeContext request_origin request_fill request_stroke request_shadow request_blend source_shape source_fill source_stroke source_placement_origin shadow_offset shadow_blur_radius shadow_spread shadow_extent shadow_paint blend
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner: path sink scalar から shadow source edge を[生成/せいせい]する owner
+//:
+//: [目的/もくてき]:
+//: - completed path sink writer authority と edge Vec を 1 つの owner に[束/たば]ねます。
+//: - `MoveTo` は current point だけを[更新/こうしん]し、`LineTo` / `QuadraticTo` だけを raster edge として[追加/ついか]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner:
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext
+    edges %Vec GuiSfntSimpleGlyphRasterEdge
+    scalar_index %i32
+    edge_count %i32
+    line_edge_count %i32
+    quadratic_edge_count %i32
+    move_to_count %i32
+    has_current_point %bool
+    current_x2 %i32
+    current_y2 %i32
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeContext fn Vec GuiSfntSimpleGlyphRasterEdge fn i32 fn i32 fn i32 fn i32 fn i32 fn bool fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner \writer\context\edges\scalar_index\edge_count\line_edge_count\quadratic_edge_count\move_to_count\has_current_point\current_x2\current_y2:
+    GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner writer context edges scalar_index edge_count line_edge_count quadratic_edge_count move_to_count has_current_point current_x2 current_y2
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "scalar_index"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "edge_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "line_edge_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "quadratic_edge_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "move_to_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner bool \owner:
+    *field::get_ref owner "has_current_point"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "current_x2"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "current_y2"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner: completed shadow source raster edge owner
+//:
+//: [目的/もくてき]:
+//: - path sink scalar をすべて[読/よ]み、edge Vec の len/cap と plan count が一致した状態を[表/あらわ]します。
+//: - edge が 0 件の glyph も正当な empty owner として[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner:
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext
+    edges %Vec GuiSfntSimpleGlyphRasterEdge
+    scalar_count %i32
+    edge_count %i32
+    line_edge_count %i32
+    quadratic_edge_count %i32
+    move_to_count %i32
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeContext fn Vec GuiSfntSimpleGlyphRasterEdge fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner \writer\context\edges\scalar_count\edge_count\line_edge_count\quadratic_edge_count\move_to_count:
+    GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner writer context edges scalar_count edge_count line_edge_count quadratic_edge_count move_to_count
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner i32 \owner:
+    *field::get_ref owner "edge_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_len %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRasterEdge field::get_ref owner "edges"
+    vec::len edges
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_cap %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRasterEdge field::get_ref owner "edges"
+    vec::cap edges
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind: shadow source edge boundary の typed failure
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind:
+    OwnerPlanRejected
+    StoredCapacityMismatch
+    PathSinkScalarCapacityMismatch
+    RasterMaskScalarCapacityMismatch
+    PathSinkScalarLenMismatch
+    RasterMaskScalarLenNotZero
+    InnerWrittenCountMismatch
+    InnerPathSinkScalarCountMismatch
+    InnerMoveToCountMismatch
+    InnerLineToCountMismatch
+    InnerQuadraticToCountMismatch
+    InnerSkipNoSegmentCountMismatch
+    InnerLastPathCommandIndexMismatch
+    SourceFillMismatch
+    SourceStrokeMismatch
+    BlendMismatch
+    UnsupportedBlendMode
+    ShadowOffsetMismatch
+    ShadowBlurMismatch
+    ShadowSpreadMismatch
+    ShadowPaintMismatch
+    SourcePlacementOriginMismatch
+    ShadowExtentMismatch
+    MissingShadowSourcePaint
+    StrokeWidthInvalid
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxOverflow
+    ShapeCoverageMaxMismatch
+    ShapeCellCountOverflow
+    ShapeCellCountMismatch
+    ShadowOffsetXOverflow
+    ShadowOffsetYOverflow
+    ShadowExtentOverflow
+    RasterEdgeCapacityMismatch
+    EdgeStorageAllocFailed
+    EdgeStorageInitialLenMismatch
+    EdgeStorageCapacityMismatch
+    ScalarIndexNegative
+    ScalarIndexOutOfRange
+    ScalarStorageLengthMismatch
+    ScalarStorageCapacityMismatch
+    ScalarSlotMissing
+    MoveRecordTruncated
+    LineRecordTruncated
+    QuadraticRecordTruncated
+    PathSinkTagUnknown
+    UnexpectedSkipNoSegmentTag
+    CurrentPointMissing
+    EdgePushFailed
+    MoveToCountNegative
+    LineEdgeCountNegative
+    QuadraticEdgeCountNegative
+    EdgeCountNegative
+    MoveToCountExceeded
+    LineEdgeCountExceeded
+    QuadraticEdgeCountExceeded
+    EdgeCountExceeded
+    EdgeCountMismatch
+    CompletionMoveToCountMismatch
+    CompletionLineEdgeCountMismatch
+    CompletionQuadraticEdgeCountMismatch
+    CompletionEdgeCountMismatch
+    CompletionScalarIndexMismatch
+    CompletionStorageLenMismatch
+    CompletionStorageCapacityMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind
+    source_owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner
+    capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
+    derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \kind\source_owner\capacity_error\derived_capacity\storage_error:
+    GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError kind source_owner capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \kind\source_owner:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_edge_start_error kind source_owner capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_source_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner \error:
+    field::get error "source_owner"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_capacity_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner\capacity_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_edge_start_error GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::OwnerPlanRejected source_owner capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \kind\source_owner\derived_capacity_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_edge_start_error kind source_owner capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner\derived_capacity_value\storage_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_edge_start_error GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeStorageAllocFailed source_owner capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::OwnerPlanRejected
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::StoredCapacityMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::StoredCapacityMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::PathSinkScalarCapacityMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::PathSinkScalarCapacityMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::RasterMaskScalarCapacityMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::RasterMaskScalarCapacityMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::PathSinkScalarLenMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::PathSinkScalarLenMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::RasterMaskScalarLenNotZero:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::RasterMaskScalarLenNotZero
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerWrittenCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerWrittenCountMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerPathSinkScalarCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerPathSinkScalarCountMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerMoveToCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerMoveToCountMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLineToCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerLineToCountMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerQuadraticToCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerQuadraticToCountMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerSkipNoSegmentCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerSkipNoSegmentCountMismatch
+        GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLastPathCommandIndexMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerLastPathCommandIndexMismatch
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_from_writer_authority %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner\writer_error:
+    let writer_error_kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error
+    let kind %GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority writer_error_kind
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_error &writer_error
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_path_command_writer_authority_error_derived_capacity &writer_error
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_edge_start_error kind source_owner capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err overflow_kind
+                else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \left\right\overflow_kind:
+    let sum %i64 add %i64 cast left %i64 cast right
+    let narrowed %i32 cast sum
+    let round_trip %i64 %i64 cast narrowed
+    if ne round_trip sum:
+        then Result::Err overflow_kind
+        else Result::Ok narrowed
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_mul_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \left\right\overflow_kind:
+    let product %i64 mul %i64 cast left %i64 cast right
+    let narrowed %i32 cast product
+    let round_trip %i64 %i64 cast narrowed
+    if ne round_trip product:
+        then Result::Err overflow_kind
+        else Result::Ok narrowed
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal %fn GuiPoint fn GuiPoint bool \left\right:
+    let x_matches %bool eq gui_point_x &left gui_point_x &right
+    let y_matches %bool eq gui_point_y &left gui_point_y &right
+    and x_matches y_matches
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
+    let left_r %i32 cast rgba8888_r &left
+    let left_g %i32 cast rgba8888_g &left
+    let left_b %i32 cast rgba8888_b &left
+    let left_a %i32 cast rgba8888_a &left
+    let right_r %i32 cast rgba8888_r &right
+    let right_g %i32 cast rgba8888_g &right
+    let right_b %i32 cast rgba8888_b &right
+    let right_a %i32 cast rgba8888_a &right
+    and and eq left_r right_r eq left_g right_g and eq left_b right_b eq left_a right_a
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal %fn GuiPaint fn GuiPaint bool \left\right:
+    let left_color %Rgba8888 gui_paint_color &left
+    let right_color %Rgba8888 gui_paint_color &right
+    gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal left_color right_color
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_cap_equal %fn GuiStrokeCap fn GuiStrokeCap bool \left\right:
+    match left:
+        GuiStrokeCap::Butt:
+            match right:
+                GuiStrokeCap::Butt:
+                    true
+                _:
+                    false
+        GuiStrokeCap::Square:
+            match right:
+                GuiStrokeCap::Square:
+                    true
+                _:
+                    false
+        GuiStrokeCap::Round:
+            match right:
+                GuiStrokeCap::Round:
+                    true
+                _:
+                    false
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_join_equal %fn GuiStrokeJoin fn GuiStrokeJoin bool \left\right:
+    match left:
+        GuiStrokeJoin::Miter:
+            match right:
+                GuiStrokeJoin::Miter:
+                    true
+                _:
+                    false
+        GuiStrokeJoin::Bevel:
+            match right:
+                GuiStrokeJoin::Bevel:
+                    true
+                _:
+                    false
+        GuiStrokeJoin::Round:
+            match right:
+                GuiStrokeJoin::Round:
+                    true
+                _:
+                    false
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_dash_equal %fn GuiStrokeDash fn GuiStrokeDash bool \left\right:
+    match left:
+        GuiStrokeDash::Solid:
+            match right:
+                GuiStrokeDash::Solid:
+                    true
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_stroke_equal %fn GuiStroke fn GuiStroke bool \left\right:
+    let left_color %Rgba8888 gui_stroke_color &left
+    let right_color %Rgba8888 gui_stroke_color &right
+    let color_ok %bool gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal left_color right_color
+    let width_ok %bool eq gui_stroke_width &left gui_stroke_width &right
+    let left_cap %GuiStrokeCap gui_stroke_cap &left
+    let right_cap %GuiStrokeCap gui_stroke_cap &right
+    let cap_ok %bool gui_sfnt_simple_glyph_render_shadow_source_edge_cap_equal left_cap right_cap
+    let left_join %GuiStrokeJoin gui_stroke_join &left
+    let right_join %GuiStrokeJoin gui_stroke_join &right
+    let join_ok %bool gui_sfnt_simple_glyph_render_shadow_source_edge_join_equal left_join right_join
+    let miter_ok %bool eq gui_stroke_miter_limit &left gui_stroke_miter_limit &right
+    let left_dash %GuiStrokeDash gui_stroke_dash &left
+    let right_dash %GuiStrokeDash gui_stroke_dash &right
+    let dash_ok %bool gui_sfnt_simple_glyph_render_shadow_source_edge_dash_equal left_dash right_dash
+    and and color_ok width_ok and cap_ok join_ok and miter_ok dash_ok
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_option_paint_equal %fn Option GuiPaint fn Option GuiPaint bool \left\right:
+    match left:
+        Option::None:
+            is_none right
+        Option::Some left_paint:
+            match right:
+                Option::None:
+                    false
+                Option::Some right_paint:
+                    gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal left_paint right_paint
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_option_stroke_equal %fn Option GuiStroke fn Option GuiStroke bool \left\right:
+    match left:
+        Option::None:
+            is_none right
+        Option::Some left_stroke:
+            match right:
+                Option::None:
+                    false
+                Option::Some right_stroke:
+                    gui_sfnt_simple_glyph_render_shadow_source_edge_stroke_equal left_stroke right_stroke
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal %fn GuiBlendMode fn GuiBlendMode bool \left\right:
+    match left:
+        GuiBlendMode::SourceOver:
+            match right:
+                GuiBlendMode::SourceOver:
+                    true
+                _:
+                    false
+        GuiBlendMode::Copy:
+            match right:
+                GuiBlendMode::Copy:
+                    true
+                _:
+                    false
+        GuiBlendMode::Multiply:
+            match right:
+                GuiBlendMode::Multiply:
+                    true
+                _:
+                    false
+        GuiBlendMode::Screen:
+            match right:
+                GuiBlendMode::Screen:
+                    true
+                _:
+                    false
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported %fn GuiBlendMode bool \blend:
+    match blend:
+        GuiBlendMode::SourceOver:
+            true
+        GuiBlendMode::Copy:
+            false
+        GuiBlendMode::Multiply:
+            false
+        GuiBlendMode::Screen:
+            false
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_source_has_paint %fn Option GuiPaint fn Option GuiStroke bool \fill\stroke:
+    not and is_none fill is_none stroke
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_source_stroke_is_valid %fn Option GuiStroke bool \stroke_option:
+    match stroke_option:
+        Option::None:
+            true
+        Option::Some stroke:
+            gt gui_stroke_width &stroke 0
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_placement_origin %fn &GuiPoint fn &GuiPoint Result GuiPoint GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \origin\offset:
+    let origin_x %i32 gui_point_x origin
+    let origin_y %i32 gui_point_y origin
+    let offset_x %i32 gui_point_x offset
+    let offset_y %i32 gui_point_y offset
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 origin_x offset_x GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowOffsetXOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok x:
+            match gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 origin_y offset_y GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowOffsetYOverflow:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok y:
+                    Result::Ok gui_point_new x y
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_extent %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \spread\blur_radius:
+    gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 spread blur_radius GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowExtentOverflow
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_shape_invariants %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_shadow_source_edge_checked_mul_i32 sample_scale sample_scale GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeCoverageMaxOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_shadow_source_edge_checked_mul_i32 width_px height_px GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeCellCountOverflow:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeContext Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \context:
+    let request_fill %Option GuiPaint *field::get_ref context "request_fill"
+    let source_fill %Option GuiPaint *field::get_ref context "source_fill"
+    if not gui_sfnt_simple_glyph_render_shadow_source_edge_option_paint_equal request_fill source_fill:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::SourceFillMismatch
+        else:
+            let request_stroke %Option GuiStroke *field::get_ref context "request_stroke"
+            let source_stroke %Option GuiStroke *field::get_ref context "source_stroke"
+            if not gui_sfnt_simple_glyph_render_shadow_source_edge_option_stroke_equal request_stroke source_stroke:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::SourceStrokeMismatch
+                else:
+                    if not gui_sfnt_simple_glyph_render_shadow_source_edge_source_has_paint source_fill source_stroke:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::MissingShadowSourcePaint
+                        else:
+                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_source_stroke_is_valid source_stroke:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::StrokeWidthInvalid
+                                else:
+                                    let request_blend %GuiBlendMode *field::get_ref context "request_blend"
+                                    let blend %GuiBlendMode *field::get_ref context "blend"
+                                    if not gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal request_blend blend:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::BlendMismatch
+                                        else:
+                                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported blend:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::UnsupportedBlendMode
+                                                else:
+                                                    let request_shadow %GuiShadow *field::get_ref context "request_shadow"
+                                                    let expected_offset %GuiPoint gui_shadow_offset &request_shadow
+                                                    let shadow_offset %GuiPoint *field::get_ref context "shadow_offset"
+                                                    if not gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal expected_offset shadow_offset:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowOffsetMismatch
+                                                        else:
+                                                            let expected_blur %i32 gui_shadow_blur_radius &request_shadow
+                                                            let shadow_blur_radius %i32 *field::get_ref context "shadow_blur_radius"
+                                                            if ne expected_blur shadow_blur_radius:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowBlurMismatch
+                                                                else:
+                                                                    let expected_spread %i32 gui_shadow_spread &request_shadow
+                                                                    let shadow_spread %i32 *field::get_ref context "shadow_spread"
+                                                                    if ne expected_spread shadow_spread:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowSpreadMismatch
+                                                                        else:
+                                                                            let expected_paint %GuiPaint gui_shadow_paint &request_shadow
+                                                                            let shadow_paint %GuiPaint *field::get_ref context "shadow_paint"
+                                                                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal expected_paint shadow_paint:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowPaintMismatch
+                                                                                else:
+                                                                                    let request_origin %GuiPoint *field::get_ref context "request_origin"
+                                                                                    match gui_sfnt_simple_glyph_render_shadow_source_edge_checked_placement_origin &request_origin &shadow_offset:
+                                                                                        Result::Err error_kind:
+                                                                                            Result::Err error_kind
+                                                                                        Result::Ok expected_origin:
+                                                                                            let source_placement_origin %GuiPoint *field::get_ref context "source_placement_origin"
+                                                                                            if not gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal expected_origin source_placement_origin:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::SourcePlacementOriginMismatch
+                                                                                                else:
+                                                                                                    match gui_sfnt_simple_glyph_render_shadow_source_edge_checked_extent shadow_spread shadow_blur_radius:
+                                                                                                        Result::Err error_kind:
+                                                                                                            Result::Err error_kind
+                                                                                                        Result::Ok expected_extent:
+                                                                                                            let shadow_extent %i32 *field::get_ref context "shadow_extent"
+                                                                                                            if ne expected_extent shadow_extent:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowExtentMismatch
+                                                                                                                else:
+                                                                                                                    let source_shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref context "source_shape"
+                                                                                                                    gui_sfnt_simple_glyph_render_shadow_source_edge_shape_invariants &source_shape
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_context_from_source_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeContext GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \source_owner:
+    let request_owner %&GuiSfntSimpleGlyphRenderShadowRequestOwner field::get_ref source_owner "request_owner"
+    let request_origin %GuiPoint gui_sfnt_simple_glyph_render_shadow_request_owner_origin request_owner
+    let request_fill %Option GuiPaint gui_sfnt_simple_glyph_render_shadow_request_owner_fill request_owner
+    let request_stroke %Option GuiStroke gui_sfnt_simple_glyph_render_shadow_request_owner_stroke request_owner
+    let request_shadow %GuiShadow gui_sfnt_simple_glyph_render_shadow_request_owner_shadow request_owner
+    let request_blend %GuiBlendMode gui_sfnt_simple_glyph_render_shadow_request_owner_blend request_owner
+    let source_shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref source_owner "source_shape"
+    let source_fill %Option GuiPaint *field::get_ref source_owner "source_fill"
+    let source_stroke %Option GuiStroke *field::get_ref source_owner "source_stroke"
+    let source_placement_origin %GuiPoint *field::get_ref source_owner "source_placement_origin"
+    let shadow_offset %GuiPoint *field::get_ref source_owner "shadow_offset"
+    let shadow_blur_radius %i32 *field::get_ref source_owner "shadow_blur_radius"
+    let shadow_spread %i32 *field::get_ref source_owner "shadow_spread"
+    let shadow_extent %i32 *field::get_ref source_owner "shadow_extent"
+    let shadow_paint %GuiPaint *field::get_ref source_owner "shadow_paint"
+    let blend %GuiBlendMode *field::get_ref source_owner "blend"
+    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext gui_sfnt_simple_glyph_render_shadow_source_edge_context request_origin request_fill request_stroke request_shadow request_blend source_shape source_fill source_stroke source_placement_origin shadow_offset shadow_blur_radius shadow_spread shadow_extent shadow_paint blend
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants &context:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            Result::Ok context
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_context_from_source_owner &source_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_simple error_kind source_owner
+        Result::Ok context:
+            let request_owner_ref %&GuiSfntSimpleGlyphRenderShadowRequestOwner field::get_ref &source_owner "request_owner"
+            let writer_ref %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref request_owner_ref "writer"
+            match gui_sfnt_simple_glyph_render_path_command_writer_authority writer_ref:
+                Result::Err writer_error:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_from_writer_authority source_owner writer_error
+                Result::Ok _:
+                    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer_ref "owner"
+                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+                        Result::Err capacity_error:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_capacity_failed source_owner capacity_error
+                        Result::Ok derived_capacity:
+                            let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                            let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                            match gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add plan_line_to_count plan_quadratic_to_count GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ProgressInvariantInvalid:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity error_kind source_owner derived_capacity
+                                Result::Ok expected_edge_capacity:
+                                    let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &derived_capacity
+                                    if ne expected_edge_capacity raster_edge_capacity:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::RasterEdgeCapacityMismatch source_owner derived_capacity
+                                        else:
+                                            match vec::with_capacity raster_edge_capacity:
+                                                Result::Err storage_error:
+                                                    let storage_error_kind %StdErrorKind vec::vec_alloc_error_kind &storage_error
+                                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_storage_failed source_owner derived_capacity storage_error_kind
+                                                Result::Ok edges:
+                                                    let edges_len %i32 vec::len &edges
+                                                    if ne edges_len 0:
+                                                        then:
+                                                            vec::free edges
+                                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeStorageInitialLenMismatch source_owner derived_capacity
+                                                        else:
+                                                            let edges_cap %i32 vec::cap &edges
+                                                            if ne edges_cap raster_edge_capacity:
+                                                                then:
+                                                                    vec::free edges
+                                                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeStorageCapacityMismatch source_owner derived_capacity
+                                                                else:
+                                                                    let request_owner %GuiSfntSimpleGlyphRenderShadowRequestOwner field::get source_owner "request_owner"
+                                                                    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get request_owner "writer"
+                                                                    let drain_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner writer context edges 0 0 0 0 0 false 0 0
+                                                                    Result::Ok drain_owner
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError: drain failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind
+    owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
+    scalar_index %i32
+    tag %Option i32
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 fn Option i32 fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \kind\owner\scalar_index\tag\storage_error:
+    GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError kind owner scalar_index tag storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner \error:
+    field::get error "owner"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \kind\owner:
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+    let tag %Option i32 none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error kind owner scalar_index tag storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_with_tag %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \kind\owner\tag_value:
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+    let tag %Option i32 some tag_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error kind owner scalar_index tag storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\storage_error_value:
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+    let tag %Option i32 none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgePushFailed owner scalar_index tag storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan \owner:
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
+    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \owner:
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
+    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner:
+    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext *field::get_ref owner "context"
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants &context:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
+            match gui_sfnt_simple_glyph_render_path_command_writer_authority writer:
+                Result::Err writer_error:
+                    let writer_error_kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority writer_error_kind
+                Result::Ok _:
+                    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+                        Result::Err _capacity_error:
+                            Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::OwnerPlanRejected
+                        Result::Ok derived_capacity:
+                            let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner
+                            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches &stored_capacity &derived_capacity:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::StoredCapacityMismatch
+                                else:
+                                    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index owner
+                                    if lt scalar_index 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarIndexNegative
+                                        else:
+                                            let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &derived_capacity
+                                            if gt scalar_index scalar_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarIndexOutOfRange
+                                                else:
+                                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count owner
+                                                    if lt move_to_count 0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::MoveToCountNegative
+                                                        else:
+                                                            let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                                                            if gt move_to_count plan_move_to_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::MoveToCountExceeded
+                                                                else:
+                                                                    let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count owner
+                                                                    if lt line_edge_count 0:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::LineEdgeCountNegative
+                                                                        else:
+                                                                            let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                                                                            if gt line_edge_count plan_line_to_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::LineEdgeCountExceeded
+                                                                                else:
+                                                                                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count owner
+                                                                                    if lt quadratic_edge_count 0:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::QuadraticEdgeCountNegative
+                                                                                        else:
+                                                                                            let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                                                                            if gt quadratic_edge_count plan_quadratic_to_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::QuadraticEdgeCountExceeded
+                                                                                                else:
+                                                                                                    let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count owner
+                                                                                                    if lt edge_count 0:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeCountNegative
+                                                                                                        else:
+                                                                                                            let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &derived_capacity
+                                                                                                            if gt edge_count raster_edge_capacity:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeCountExceeded
+                                                                                                                else:
+                                                                                                                    match gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add line_edge_count quadratic_edge_count GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ProgressInvariantInvalid:
+                                                                                                                        Result::Err error_kind:
+                                                                                                                            Result::Err error_kind
+                                                                                                                        Result::Ok counted_edges:
+                                                                                                                            if ne edge_count counted_edges:
+                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeCountMismatch
+                                                                                                                                else:
+                                                                                                                                    let edges %&Vec GuiSfntSimpleGlyphRasterEdge field::get_ref owner "edges"
+                                                                                                                                    let edges_len %i32 vec::len edges
+                                                                                                                                    if ne edges_len edge_count:
+                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageLenMismatch
+                                                                                                                                        else:
+                                                                                                                                            let edges_cap %i32 vec::cap edges
+                                                                                                                                            if ne edges_cap raster_edge_capacity:
+                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageCapacityMismatch
+                                                                                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner\record_width\truncated_kind:
+    let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner owner
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index owner
+    let remaining %i32 sub scalar_count scalar_index
+    if lt remaining record_width:
+        then Result::Err truncated_kind
+        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner\index:
+    let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner owner
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
+    if lt index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarIndexNegative
+        else:
+            if ge index scalar_count:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarIndexOutOfRange
+                else:
+                    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
+                    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len sink_owner
+                    if ne path_sink_scalars_len scalar_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarStorageLengthMismatch
+                        else:
+                            let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap sink_owner
+                            if ne path_sink_scalars_cap scalar_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarStorageCapacityMismatch
+                                else:
+                                    let scalars %&Vec i32 field::get_ref sink_owner "path_sink_scalars"
+                                    match vec::get scalars index:
+                                        Option::Some scalar:
+                                            Result::Ok scalar
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarSlotMissing
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner impure fn GuiSfntSimpleGlyphRasterEdge impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn bool impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\edge\next_scalar_index\next_edge_count\next_line_edge_count\next_quadratic_edge_count\next_move_to_count\nnext_has_current_point\nnext_current_x2\nnext_current_y2:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
+    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get owner "context"
+    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+    match vec::push edges edge:
+        Result::Ok next_edges:
+            let next_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner writer context next_edges next_scalar_index next_edge_count next_line_edge_count next_quadratic_edge_count next_move_to_count next_has_current_point next_current_x2 next_current_y2
+            Result::Ok next_owner
+        Result::Err push_error:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+            let returned_edges %Vec GuiSfntSimpleGlyphRasterEdge vec::vec_push_error_vec push_error
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+            let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &owner
+            let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &owner
+            let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &owner
+            let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
+            let has_current_point %bool gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner
+            let current_x2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 &owner
+            let current_y2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 &owner
+            let returned_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner writer context returned_edges scalar_index edge_count line_edge_count quadratic_edge_count move_to_count has_current_point current_x2 current_y2
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_push_failed returned_owner storage_error_value
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep: 1 path-sink record の drain 結果
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep:
+    StateUpdated %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
+    PushedLineEdge %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
+    PushedQuadraticEdge %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_move_to %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room &owner 3 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::MoveRecordTruncated:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+        Result::Ok _:
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+            let x_index %i32 add scalar_index 1
+            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner x_index:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                Result::Ok x2:
+                    let y_index %i32 add scalar_index 2
+                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner y_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                        Result::Ok y2:
+                            let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner &owner
+                            let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
+                            let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                            if ge move_to_count plan_move_to_count:
+                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::MoveToCountExceeded owner
+                                else:
+                                    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
+                                    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get owner "context"
+                                    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+                                    let edge_count %i32 field::get owner "edge_count"
+                                    let line_edge_count %i32 field::get owner "line_edge_count"
+                                    let quadratic_edge_count %i32 field::get owner "quadratic_edge_count"
+                                    let next_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner writer context edges add scalar_index 3 edge_count line_edge_count quadratic_edge_count add move_to_count 1 true x2 y2
+                                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::StateUpdated next_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_line_to %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
+    if not gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner:
+        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CurrentPointMissing owner
+        else:
+            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room &owner 3 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::LineRecordTruncated:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                Result::Ok _:
+                    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+                    let x_index %i32 add scalar_index 1
+                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner x_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                        Result::Ok end_x2:
+                            let y_index %i32 add scalar_index 2
+                            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner y_index:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                                Result::Ok end_y2:
+                                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner &owner
+                                    let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &owner
+                                    let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                                    if ge line_edge_count plan_line_to_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::LineEdgeCountExceeded owner
+                                        else:
+                                            let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &owner
+                                            let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner &owner
+                                            let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &capacity
+                                            if ge edge_count raster_edge_capacity:
+                                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeCountExceeded owner
+                                                else:
+                                                    let start_x2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 &owner
+                                                    let start_y2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 &owner
+                                                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &owner
+                                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
+                                                    let line_edge %GuiSfntSimpleGlyphRasterLineEdge gui_sfnt_simple_glyph_raster_line_edge start_x2 start_y2 end_x2 end_y2
+                                                    let edge %GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRasterEdge::Line line_edge
+                                                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance owner edge add scalar_index 3 add edge_count 1 add line_edge_count 1 quadratic_edge_count move_to_count true end_x2 end_y2:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok next_owner:
+                                                            Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::PushedLineEdge next_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_quadratic_to %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
+    if not gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner:
+        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CurrentPointMissing owner
+        else:
+            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room &owner 5 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::QuadraticRecordTruncated:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                Result::Ok _:
+                    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+                    let control_x_index %i32 add scalar_index 1
+                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner control_x_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                        Result::Ok control_x2:
+                            let control_y_index %i32 add scalar_index 2
+                            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner control_y_index:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                                Result::Ok control_y2:
+                                    let end_x_index %i32 add scalar_index 3
+                                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner end_x_index:
+                                        Result::Err error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                                        Result::Ok end_x2:
+                                            let end_y_index %i32 add scalar_index 4
+                                            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner end_y_index:
+                                                Result::Err error_kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                                                Result::Ok end_y2:
+                                                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner &owner
+                                                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &owner
+                                                    let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                                    if ge quadratic_edge_count plan_quadratic_to_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::QuadraticEdgeCountExceeded owner
+                                                        else:
+                                                            let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &owner
+                                                            let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner &owner
+                                                            let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &capacity
+                                                            if ge edge_count raster_edge_capacity:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeCountExceeded owner
+                                                                else:
+                                                                    let start_x2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 &owner
+                                                                    let start_y2 %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 &owner
+                                                                    let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &owner
+                                                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
+                                                                    let quadratic_edge %GuiSfntSimpleGlyphRasterQuadraticEdge gui_sfnt_simple_glyph_raster_quadratic_edge start_x2 start_y2 control_x2 control_y2 end_x2 end_y2
+                                                                    let edge %GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRasterEdge::Quadratic quadratic_edge
+                                                                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance owner edge add scalar_index 5 add edge_count 1 line_edge_count add quadratic_edge_count 1 move_to_count true end_x2 end_y2:
+                                                                        Result::Err error:
+                                                                            Result::Err error
+                                                                        Result::Ok next_owner:
+                                                                            Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::PushedQuadraticEdge next_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+        Result::Ok _:
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar &owner scalar_index:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+                Result::Ok tag_scalar:
+                    match gui_sfnt_simple_glyph_path_command_tag_from_scalar_value tag_scalar:
+                        Option::None:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_with_tag GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::PathSinkTagUnknown owner tag_scalar
+                        Option::Some tag:
+                            match tag:
+                                GuiSfntSimpleGlyphPathCommandTag::MoveTo:
+                                    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_move_to owner
+                                GuiSfntSimpleGlyphPathCommandTag::LineTo:
+                                    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_line_to owner
+                                GuiSfntSimpleGlyphPathCommandTag::QuadraticTo:
+                                    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_quadratic_to owner
+                                GuiSfntSimpleGlyphPathCommandTag::SkipNoSegment:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_with_tag GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::UnexpectedSkipNoSegmentTag owner tag_scalar
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_completion_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner owner
+            let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
+            let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index owner
+            if ne scalar_index scalar_count:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionScalarIndexMismatch
+                else:
+                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner owner
+                    let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count owner
+                    let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                    if ne move_to_count plan_move_to_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionMoveToCountMismatch
+                        else:
+                            let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count owner
+                            let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                            if ne line_edge_count plan_line_to_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionLineEdgeCountMismatch
+                                else:
+                                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count owner
+                                    let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                    if ne quadratic_edge_count plan_quadratic_to_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionQuadraticEdgeCountMismatch
+                                        else:
+                                            let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count owner
+                                            let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &capacity
+                                            if ne edge_count raster_edge_capacity:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionEdgeCountMismatch
+                                                else:
+                                                    let edges %&Vec GuiSfntSimpleGlyphRasterEdge field::get_ref owner "edges"
+                                                    let edges_len %i32 vec::len edges
+                                                    if ne edges_len edge_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageLenMismatch
+                                                        else:
+                                                            let edges_cap %i32 vec::cap edges
+                                                            if ne edges_cap raster_edge_capacity:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageCapacityMismatch
+                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_complete %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_completion_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple error_kind owner
+        Result::Ok _:
+            let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
+            let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get owner "context"
+            let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+            let scalar_count %i32 field::get owner "scalar_index"
+            let edge_count %i32 field::get owner "edge_count"
+            let line_edge_count %i32 field::get owner "line_edge_count"
+            let quadratic_edge_count %i32 field::get owner "quadratic_edge_count"
+            let move_to_count %i32 field::get owner "move_to_count"
+            Result::Ok gui_sfnt_simple_glyph_render_shadow_source_edge_owner writer context edges scalar_count edge_count line_edge_count quadratic_edge_count move_to_count
+
+//: GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal: bounded drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal:
+    Completed %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\remaining_steps:
+    let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
+    let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner &owner
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
+    if eq scalar_index scalar_count:
+        then:
+            match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_complete owner:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok completed_owner:
+                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal::Completed completed_owner
+        else:
+            if le remaining_steps 0:
+                then Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal::StepBudgetExhausted owner
+                else:
+                    let edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &owner
+                    let line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &owner
+                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &owner
+                    let move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &owner
+                    match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok step:
+                            match step:
+                                GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::StateUpdated next_owner:
+                                    let next_scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &next_owner
+                                    let required_scalar_index %i32 add scalar_index 3
+                                    let next_move_to_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count &next_owner
+                                    let required_move_to_count %i32 add move_to_count 1
+                                    if or ne next_scalar_index required_scalar_index ne next_move_to_count required_move_to_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ProgressInvariantInvalid next_owner
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget next_owner next_remaining_steps
+                                GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::PushedLineEdge next_owner:
+                                    let next_scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &next_owner
+                                    let required_scalar_index %i32 add scalar_index 3
+                                    let next_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &next_owner
+                                    let required_edge_count %i32 add edge_count 1
+                                    let next_line_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count &next_owner
+                                    let required_line_edge_count %i32 add line_edge_count 1
+                                    if or or ne next_scalar_index required_scalar_index ne next_edge_count required_edge_count ne next_line_edge_count required_line_edge_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ProgressInvariantInvalid next_owner
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget next_owner next_remaining_steps
+                                GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::PushedQuadraticEdge next_owner:
+                                    let next_scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &next_owner
+                                    let required_scalar_index %i32 add scalar_index 5
+                                    let next_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count &next_owner
+                                    let required_edge_count %i32 add edge_count 1
+                                    let next_quadratic_edge_count %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count &next_owner
+                                    let required_quadratic_edge_count %i32 add quadratic_edge_count 1
+                                    if or or ne next_scalar_index required_scalar_index ne next_edge_count required_edge_count ne next_quadratic_edge_count required_quadratic_edge_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ProgressInvariantInvalid next_owner
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget next_owner next_remaining_steps
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner unit \owner:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
+    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+    vec::free edges
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner unit \owner:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
+    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+    vec::free edges
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError unit \error:
+    let source_owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner field::get error "source_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_free source_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free owner
+        GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal::StepBudgetExhausted owner:
+            gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
