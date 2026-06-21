@@ -1,3 +1,43 @@
+# 2026-06-22 selfhost memo_call backend body reader accepted source count checkpoint
+
+## 目的
+
+- HIR body reader source state に accepted source record 数を追加し、実 traversal が accepted source を発行した場合に default wrapper pair を重ねないようにする。
+- default wrapper pair は accepted source record 2 件として扱い、source table length と accepted/problem classification を分離したままにする。
+- full Resource IR / HIR lowering traversal、fresh witness table producer、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はこの checkpoint では作らない。
+
+## subagent review
+
+- Avicenna plan review は `PLAN_APPROVED`。
+- `accepted_source_count` を source record 数として扱い、wrapper pair 成功後は `+2` する方針が承認された。
+- 指摘に従い、accepted wrapper state helper は push failure で state/source を二重 free せず、finalizer は `problem_source_count == 0 && accepted_source_count == 0` の時だけ default wrapper pair を追加する。
+
+## 実装
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState` に `accepted_source_count` を追加した。
+- problem append helper は accepted count を保持したまま、append 成功後に problem count だけを増やす。
+- wrapper append helper は現在の source table length から ordinal pair を開始するようにした。
+- `actual_traversal_body_reader_append_accepted_wrapper_sources_result` を追加し、wrapper pair 成功時に accepted count を 2 増やす。
+- finalizer は accepted source がすでにある場合、default wrapper pair を追加せず source table owner を返す。
+- contract test は accepted count field、constructor の `0 0`、problem append の accepted count 保持、accepted wrapper helper の `+2`、finalizer の二重条件、GraphInput / proof / backend / effect / artifact 合成禁止を固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-reader-accepted-count.json`。17/17。
+- checked JSON: `tmp/selfhost-memo-call-backend-body-reader-accepted-count.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_body_reader_accepted_count.json`
+- checked JSON: `output/playground_editor_selfhost_body_reader_accepted_count.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 # 2026-06-22 selfhost memo_call backend body reader source state checkpoint
 
 ## 目的
@@ -34,7 +74,7 @@
 
 ## 残件
 
-- 実 traversal が accepted source を finalizer 前に発行する段階では、accepted source と wrapper pair が重複しないように state field を追加する。
+- 実 traversal が accepted source を finalizer 前に発行する段階では、accepted source count を更新する state helper 経由で通し、default wrapper pair と重複させない。
 - full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
 

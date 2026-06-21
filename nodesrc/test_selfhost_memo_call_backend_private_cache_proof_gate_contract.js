@@ -2814,7 +2814,7 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_(source_state|append_problem_source_kind|fail_with_source_state|finalize_hir_body_sources|hir_body_sources)/m,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_(source_state|append_problem_source_kind|append_accepted_wrapper_sources|fail_with_source_state|finalize_hir_body_sources|hir_body_sources)/m,
     "HIR body reader source-state helpers must stay module-private",
 );
 assertOrdered(
@@ -2865,15 +2865,16 @@ assertOrdered(
     [
         "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
         "problem_source_count %i32",
+        "accepted_source_count %i32",
     ],
-    "HIR body reader source state must keep source table owner separate from problem source count",
+    "HIR body reader source state must keep source table owner separate from problem and accepted source counts",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new"),
     [
-        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState sources 0",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState sources 0 0",
     ],
-    "HIR body reader source state must start with zero problem sources",
+    "HIR body reader source state must start with zero problem and accepted sources",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free"),
@@ -2961,12 +2962,15 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result"),
     [
         "field::get state \"problem_source_count\"",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources state",
+        "field::get state \"accepted_source_count\"",
         "eq problem_source_count 0",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources context",
-        "Result::Ok sources",
+        "eq accepted_source_count 0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_wrapper_sources_result state context",
+        "Result::Ok accepted_state:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources accepted_state",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources state",
     ],
-    "HIR body source finalizer must append wrapper sources based on problem source count, not source table length",
+    "HIR body source finalizer must append wrapper sources only when no problem or accepted source was emitted",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result")),
@@ -3611,11 +3615,13 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result"),
     [
-        "sources context 0 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperPrivateCacheStorage",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
+        "add first_operation_ordinal 1",
+        "sources context first_operation_ordinal 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperPrivateCacheStorage",
         "Result::Ok sources1:",
-        "sources1 context 1 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperCloneOutOwnedValue",
+        "sources1 context second_operation_ordinal 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperCloneOutOwnedValue",
     ],
-    "HIR body reader wrapper append helper must build exactly the accepted wrapper source pair with ordinals 0 and 1",
+    "HIR body reader wrapper append helper must build exactly the accepted wrapper source pair starting from the current source table length",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result")),
@@ -3639,20 +3645,45 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result"),
     [
         "field::get state \"problem_source_count\"",
+        "field::get state \"accepted_source_count\"",
         "field::get state \"sources\"",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal 0 0 source_kind",
         "Result::Ok next_sources:",
-        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources add problem_source_count 1",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources add problem_source_count 1 accepted_source_count",
         "Result::Err e:",
         "Result::Err e",
     ],
-    "HIR body reader problem source append helper must use source table length for traversal ordinal and increment problem count only after successful append",
+    "HIR body reader problem source append helper must use source table length for traversal ordinal, preserve accepted count, and increment problem count only after successful append",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_wrapper_sources_result")),
+    /fail_with_source_state|source_state_free|traversal_source_table_free/,
+    "HIR body reader accepted wrapper append helper must rely on wrapper source push cleanup and must not double-free on push failure",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_wrapper_sources_result"),
+    [
+        "field::get state \"problem_source_count\"",
+        "field::get state \"accepted_source_count\"",
+        "field::get state \"sources\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources context",
+        "Result::Ok next_sources:",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources problem_source_count add accepted_source_count 2",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "HIR body reader accepted wrapper append helper must count the wrapper pair as two accepted source records after successful append",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result")),
     /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "HIR body reader source state append helper must not synthesize proof/backend/effect/artifact records",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_wrapper_sources_result")),
+    /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "HIR body reader accepted wrapper state helper must not synthesize proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error"),

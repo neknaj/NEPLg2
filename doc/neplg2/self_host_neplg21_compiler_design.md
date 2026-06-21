@@ -3054,7 +3054,9 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 2026-06-22 third follow-up では、HIR body reader 内部に `ActualTraversalBodyReaderSourceState` を追加し、source table owner と `problem_source_count` を分離した。problem append helper は state 内の source table length から operation ordinal を決め、source push が成功した後だけ `problem_source_count` を増やす。finalizer は source table length を「problem source なし」の意味に使わず、`problem_source_count == 0` の場合だけ wrapper representative pair を追加する。
 
-この state は module-private で、event producer / bundle producer / output producer の外部 API は従来どおり source table owner を受け渡す。現 checkpoint の HIR reader は finalizer 前に accepted source を発行しないため、wrapper pair は accepted representative のままである。実 traversal が accepted source を発行し始める段階では、accepted source と wrapper pair が重複しないように state field を追加して判定を分ける。
+2026-06-22 fourth follow-up では、同じ state に `accepted_source_count` を追加した。problem append helper は accepted count を保持し、default wrapper pair は accepted source record 2 件として数える。finalizer は `problem_source_count == 0` かつ `accepted_source_count == 0` の場合だけ default wrapper pair を追加し、実 traversal が accepted source を先に発行した body では wrapper pair を重ねない。
+
+この state は module-private で、event producer / bundle producer / output producer の外部 API は従来どおり source table owner を受け渡す。現 checkpoint の HIR reader は finalizer 前に accepted source を発行しないため、wrapper pair は accepted representative のままである。実 traversal が accepted source を発行し始める段階では、同じ state count を使い、accepted source と default wrapper pair の重複を避ける。
 
 この follow-up も full Resource IR walker 本体ではない。現時点では HIR body reader source plan が operation-classified collector path へ収束しただけであり、actual Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する boundary は後続に残る。
 
