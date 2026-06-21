@@ -520,6 +520,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceBlurMaskTests
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourcePackedMaskTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
@@ -614,6 +615,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourcePackedMaskTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCursorTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
@@ -18184,8 +18186,9 @@ assert(
         spec.includes("CompositionOrderInvariantFailed"),
     "GUI font docs must pin F5lq approved plan, F5lp authority, position formula, and lower order evidence",
 );
-const renderShadowSourceSampleCursorEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceSampleCursorStartIndex);
-assert(renderShadowSourceSampleCursorStartIndex >= 0 && renderShadowSourceSampleCursorEndIndex > renderShadowSourceSampleCursorStartIndex, "alloc/gui/font/sfnt/glyf F5lq shadow source sample cursor region must exist before stroke segment plan");
+const renderShadowSourceSampleCommandBridgeStartIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind:", renderShadowSourceSampleCursorStartIndex);
+const renderShadowSourceSampleCursorEndIndex = renderShadowSourceSampleCommandBridgeStartIndex;
+assert(renderShadowSourceSampleCursorStartIndex >= 0 && renderShadowSourceSampleCursorEndIndex > renderShadowSourceSampleCursorStartIndex, "alloc/gui/font/sfnt/glyf F5lq shadow source sample cursor region must exist before shadow source sample command bridge");
 const renderShadowSourceSampleCursorRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceSampleCursorStartIndex, renderShadowSourceSampleCursorEndIndex);
 const renderShadowSourceSampleCursorSampleType = textSliceBetween(
     renderShadowSourceSampleCursorRegion,
@@ -18469,6 +18472,255 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCursorTests.includes("render_shadow_source_sample_cursor_recovery_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCursorTests.includes("render_shadow_source_sample_cursor_no_command_resource_platform"),
     "F5lq render shadow source sample cursor focused doctest must cover F5lp authority, lower order evidence, shadow shape/storage, checked position, alpha read, order metadata, terminal, recovery/free, and no command/resource/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render shadow source sample command bridge boundary"), "GUI font spec must document F5lr render shadow source sample command bridge boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render shadow source sample command bridge boundary"), "GUI font detailed design must document F5lr render shadow source sample command bridge boundary");
+assert(implementationPlan.includes("## Phase F5lr: sfnt simple glyph render shadow source sample command bridge boundary"), "GUI font implementation plan must include F5lr phase");
+assert(
+    implementationPlan.includes("Aristotle plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("shadow contribution command") &&
+        detailedDesign.includes("does not encode final shadow/source composition ordering") &&
+        detailedDesign.includes("conversion succeeds before the cursor advances") &&
+        detailedDesign.includes("order_error") &&
+        spec.includes("shadow contribution command") &&
+        spec.includes("FillRectCommand は blend mode を payload に持たない"),
+    "GUI font docs must pin F5lr approved plan, SourceOver-only shadow command bridge, lower order evidence, and conversion-before-advance rule",
+);
+const renderShadowSourceSampleCommandBridgeEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceSampleCommandBridgeStartIndex);
+assert(renderShadowSourceSampleCommandBridgeStartIndex >= 0 && renderShadowSourceSampleCommandBridgeEndIndex > renderShadowSourceSampleCommandBridgeStartIndex, "alloc/gui/font/sfnt/glyf F5lr shadow source sample command bridge region must exist before stroke segment plan");
+const renderShadowSourceSampleCommandBridgeRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceSampleCommandBridgeStartIndex, renderShadowSourceSampleCommandBridgeEndIndex);
+const renderShadowSourceSampleCommandErrorKindType = textSliceBetween(
+    renderShadowSourceSampleCommandBridgeRegion,
+    "enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind:",
+    "impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind:",
+);
+const renderShadowSourceSampleCommandErrorType = textSliceBetween(
+    renderShadowSourceSampleCommandBridgeRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:",
+    "impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:",
+);
+const renderShadowSourceSampleCommandCursorErrorKindType = textSliceBetween(
+    renderShadowSourceSampleCommandBridgeRegion,
+    "enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind:",
+    "impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind:",
+);
+const renderShadowSourceSampleCommandCursorErrorType = textSliceBetween(
+    renderShadowSourceSampleCommandBridgeRegion,
+    "struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError:",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error ",
+);
+const renderShadowSourceSampleCommandCursorTerminalType = textSliceBetween(
+    renderShadowSourceSampleCommandBridgeRegion,
+    "enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal:",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step ",
+);
+for (const fragment of [
+    "InvalidAlphaMax",
+    "AlphaNegative",
+    "AlphaExceedsMax",
+    "PaintAlphaMultiplyOverflow",
+    "ScaledAlphaOutOfRange",
+    "UnsupportedBlendMode",
+]) {
+    assert(renderShadowSourceSampleCommandErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lr sample command error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind",
+    "rejected_sample %GuiSfntSimpleGlyphRenderShadowSourceSample",
+]) {
+    assert(renderShadowSourceSampleCommandErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lr sample command error must include ${fragment}`);
+}
+for (const fragment of [
+    "SampleCursorFailed %GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind",
+    "CommandFailed %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind",
+]) {
+    assert(renderShadowSourceSampleCommandCursorErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lr cursor command error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind",
+    "cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor",
+    "rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample",
+    "order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind",
+]) {
+    assert(renderShadowSourceSampleCommandCursorErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lr cursor command error must include ${fragment}`);
+}
+for (const fragment of [
+    "Command %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand",
+    "Completed %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner",
+]) {
+    assert(renderShadowSourceSampleCommandCursorTerminalType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lr cursor command terminal must include ${fragment}`);
+}
+assertNoMatch(
+    renderShadowSourceSampleCommandCursorTerminalType,
+    /^\s*Command\s+%RenderCommand\s+%GuiSfntSimpleGlyphRenderShadowSourceSampleCursor\b/m,
+    "alloc/gui/font/sfnt/glyf F5lr command terminal must use an owner-bearing payload struct instead of a multi-payload enum variant",
+);
+assertMatch(
+    renderShadowSourceSampleCommandBridgeRegion,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind\b/,
+    "alloc/gui/font/sfnt/glyf F5lr sample command error kind must implement Clone/Copy",
+);
+assertMatch(
+    renderShadowSourceSampleCommandBridgeRegion,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError\b/,
+    "alloc/gui/font/sfnt/glyf F5lr sample command error is value-only and must implement Clone/Copy",
+);
+assertMatch(
+    renderShadowSourceSampleCommandBridgeRegion,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind\b/,
+    "alloc/gui/font/sfnt/glyf F5lr cursor command error kind must implement Clone/Copy",
+);
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError",
+    "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand",
+    "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal",
+]) {
+    assertNoMatch(
+        renderShadowSourceSampleCommandBridgeRegion,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lr ${typeName} owns cursor authority and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderShadowSourceSampleCommandBridgeRegion,
+    /pub struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:|pub enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal:|pub fn gui_sfnt_simple_glyph_render_shadow_source_sample_render_command\b|pub fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step\b/,
+    "alloc/gui/font/sfnt/glyf F5lr boundary types and functions must remain private",
+);
+const renderShadowSourceSampleCommandValidateBlend = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend");
+const renderShadowSourceSampleCommandScaleAlpha = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha");
+const renderShadowSourceSampleCommandPaint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint");
+const renderShadowSourceSampleRenderCommand = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_render_command");
+const renderShadowSourceSampleCommandCursorStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step");
+const renderShadowSourceSampleCommandCursorErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_free");
+const renderShadowSourceSampleCommandCursorTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_terminal_free");
+assertOrderedFragments(
+    renderShadowSourceSampleCommandValidateBlend,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_blend sample",
+        "GuiBlendMode::SourceOver",
+        "Result::Ok unit",
+        "UnsupportedBlendMode",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lr blend validation must accept SourceOver only and reject unsupported blend modes",
+);
+assertOrderedFragments(
+    renderShadowSourceSampleCommandScaleAlpha,
+    [
+        "le alpha_max 0",
+        "InvalidAlphaMax",
+        "lt alpha 0",
+        "AlphaNegative",
+        "gt alpha alpha_max",
+        "AlphaExceedsMax",
+        "eq alpha 0",
+        "eq paint_alpha 0",
+        "let max_i32 %i32 2147483647",
+        "let max_alpha %i32 div_s max_i32 paint_alpha",
+        "gt alpha max_alpha",
+        "PaintAlphaMultiplyOverflow",
+        "let scaled_alpha %i32 div_s mul alpha paint_alpha alpha_max",
+        "lt scaled_alpha 0",
+        "gt scaled_alpha 255",
+        "ScaledAlphaOutOfRange",
+        "Result::Ok scaled_alpha",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lr alpha scale must be checked before i32-to-u8 cast",
+);
+assertOrderedFragments(
+    renderShadowSourceSampleCommandPaint,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend sample",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_shadow_paint sample",
+        "gui_paint_color &shadow_paint",
+        "rgba8888_a &base_color",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha sample_alpha alpha_max paint_alpha",
+        "cast scaled_alpha",
+        "rgba8888_new",
+        "gui_paint_solid command_color",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lr command paint must preserve shadow RGB, scale alpha, and construct paint through core accessor/constructor",
+);
+assertOrderedFragments(
+    renderShadowSourceSampleRenderCommand,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint sample",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_error error_kind *sample",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_position sample",
+        "gui_rect_new",
+        "render_command_fill_rect command_rect command_paint",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lr sample render command must convert exactly one shadow sample to one FillRect contribution command",
+);
+assertOrderedFragments(
+    renderShadowSourceSampleCommandCursorStep,
+    [
+        "field::get_ref &cursor \"owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner_ref",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_with_order",
+        "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::SampleCursorFailed GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CompositionOrderInvariantFailed",
+        "order_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants owner_ref",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple",
+        "let cell_index %i32",
+        "gt cell_index cell_count",
+        "eq cell_index cell_count",
+        "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Completed owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_read &cursor",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_render_command &sample",
+        "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::CommandFailed command_error_kind",
+        "cursor",
+        "rejected_sample",
+        "let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get cursor \"owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command command next_cursor",
+        "GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Command command_payload",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lr cursor command step must preserve lower order evidence only at F5lp precheck failure, complete before read, convert before advancing, and keep recovery payloads",
+);
+assertNoMatch(
+    renderShadowSourceSampleCommandCursorStep,
+    /\bgui_sfnt_simple_glyph_render_shadow_source_sample_cursor_step\b/,
+    "alloc/gui/font/sfnt/glyf F5lr cursor command step must not consume F5lq step before command conversion succeeds",
+);
+assert(renderShadowSourceSampleCommandCursorErrorFree.includes("gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor"), "alloc/gui/font/sfnt/glyf F5lr cursor command error free must close recovered cursor");
+assertOrderedFragments(
+    renderShadowSourceSampleCommandCursorTerminalFree,
+    [
+        "Command command_payload",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_cursor command_payload",
+        "gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor",
+        "Completed owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lr cursor command terminal free must close the owner through the active terminal variant",
+);
+assertNoMatch(
+    renderShadowSourceSampleCommandBridgeRegion,
+    /\b(?:GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrder|gui_sfnt_simple_glyph_render_glyph_paint_composition_order|GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrder|gui_sfnt_simple_glyph_render_stroke_only_composition_order|GuiSfntSimpleGlyphRenderStrokePackedMask|gui_sfnt_simple_glyph_render_stroke_packed_mask|GuiSfntSimpleGlyphRenderStrokeCoverageMask|gui_sfnt_simple_glyph_render_stroke_coverage_mask|AlphaMaskId|ResourceTable|resource_table|ResourceReservation|resource_reservation|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|shadow_raster|compositor|vec::push|vec::with_capacity)\b/,
+    "alloc/gui/font/sfnt/glyf F5lr region must stay at shadow source sample command bridge and not use fill/stroke composition, resource, platform, compositor, fallback, or allocation paths",
+);
+for (const [slice, name] of [
+    [renderShadowSourceSampleCommandValidateBlend, "sample command blend validation"],
+    [renderShadowSourceSampleCommandScaleAlpha, "sample command alpha scale"],
+    [renderShadowSourceSampleCommandPaint, "sample command paint"],
+    [renderShadowSourceSampleRenderCommand, "sample render command"],
+    [renderShadowSourceSampleCommandCursorStep, "sample command cursor step"],
+    [renderShadowSourceSampleCommandCursorErrorFree, "sample command cursor error free"],
+    [renderShadowSourceSampleCommandCursorTerminalFree, "sample command cursor terminal free"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lr ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_f5lq_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_order_error_evidence_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_source_over_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_alpha_scale_checked_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_alpha_zero_transparent_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_fill_rect_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_conversion_before_advance_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_rejected_sample_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_terminal_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceSampleCommandBridgeTests.includes("render_shadow_source_sample_command_no_resource_platform_compositor"),
+    "F5lr render shadow source sample command bridge focused doctest must cover F5lq authority, lower order evidence, SourceOver-only, checked alpha, transparent zero alpha, FillRect emission, conversion-before-advance, recovery/free, and no resource/platform/compositor policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");

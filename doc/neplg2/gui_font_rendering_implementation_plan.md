@@ -3722,6 +3722,57 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lq.json
 ```
 
+## Phase F5lr: sfnt simple glyph render shadow source sample command bridge boundary
+
+目的:
+
+- F5lq の sample cursor を authority とし、1 shadow sample を 1 typed `RenderCommand::FillRect` へ変換する command bridge を追加する。
+- これは shadow contribution command を作る correctness boundary であり、最終的な shadow/source composition order、resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterizer、2D compositor へ進まない。
+- 現行 `FillRectCommand` は blend payload を持たないため、`GuiBlendMode::SourceOver` だけを受理し、それ以外は `UnsupportedBlendMode` で fail closed にする。
+- command conversion が成功する前に cursor を進めず、失敗時は元 cursor と rejected sample、または lower F5lp order error evidence を error から回収できるようにする。
+
+plan review:
+
+- Aristotle plan review は `PLAN_APPROVED`。
+- command payload owner も next cursor を所有するため `Clone` / `Copy` を実装しない。
+- F5lr は F5lq owning `sample_cursor_step` を呼ばず、`read &cursor`、command conversion、owner handoff to next cursor の順に進める。
+- `order_error = Some lower` は F5lp composition-order invariant precheck failure のみに限定し、storage / read / command failure は `order_error = None` とする。
+- emitted `FillRect` は shadow contribution command だけであり、final shadow/source composition ordering は encode しない。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind` を追加する。`InvalidAlphaMax`、`AlphaNegative`、`AlphaExceedsMax`、`PaintAlphaMultiplyOverflow`、`ScaledAlphaOutOfRange`、`UnsupportedBlendMode` を持つ。
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError` を追加し、value-only rejected sample を保持する。
+- sample command paint helper を追加し、`gui_paint_color` で shadow paint の RGB と paint alpha を読み、checked alpha scaling の後にだけ `cast i32 u8` を行う。
+- sample render command helper を追加し、absolute sample position から 1x1 `GuiRect` を作って `render_command_fill_rect` を返す。
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind` を追加し、F5lq cursor/read failure と command conversion failure を typed に区別する。
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError` を追加し、cursor、`Option rejected_sample`、`Option order_error` を保持する。
+- command cursor terminal を追加し、owner-bearing payload `Command RenderCommand next_cursor` と `Completed owner` を表す。
+- command cursor step を追加する。F5lp invariant、F5lq storage invariant、bounds、borrowed read、command conversion、owner handoff、progress check の順に進める。
+- error / terminal free helper を追加する。
+- docs / source policy / focused doctest label / todo / note を F5lr に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Aristotle approval、F5lq authority、SourceOver-only validation、unsupported blend error、checked alpha scale before cast、transparent zero alpha command、exact one shadow sample to one FillRect contribution command、conversion-before-advance、lower `order_error` evidence の限定、rejected sample recovery、owner-bearing error/command payload/terminal no `Clone` / `Copy`、free helpers、no F5lq `step` / resource / platform / fallback / shadow rasterizer / compositor / allocation、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md` に F5lq authority、order error evidence、SourceOver-only、checked alpha scale、transparent zero alpha、FillRect emission、conversion-before-advance、rejected sample recovery、terminal free、no resource / platform / compositor policy の coverage label を追加する。
+- implementation review で F5lr が resource / platform / compositor に進んでいないこと、blend semantic loss と partial completion がないこと、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lr 後の shadow source resource bridge、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_command_bridge_f5lr.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lr_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lr.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lr.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
