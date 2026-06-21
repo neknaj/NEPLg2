@@ -1423,6 +1423,14 @@ raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection i
 
 F5kl は `GetKeyboardMapping` request/reply owner と raw keysym table validation だけを担当する。`native_window_linux_x11_event_packet_to_observation`、`NativeWindowLinuxX11EventSourceObservationReader` の state、raw fd write / read、reply correlation、pending keymap state、runner、queue、IME / text input、shortcut policy、Wayland concrete keyboard decoding、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness へは接続しない。
 
+## F5km Native Linux X11 setup-owned keyboard mapping request boundary
+
+F5km は、X11 setup success response body から得た `min-keycode` / `max-keycode` を `NativeWindowLinuxX11SetupResourceInfo` に保持し、その範囲から `GetKeyboardMapping` request owner を導出する boundary である。setup parser は offset 26 の `min-keycode` と offset 27 の `max-keycode` を読み、`min-keycode < 8` と `max-keycode < min-keycode` を typed error として拒否する。`max-keycode > 255` は wire field が `u8` なのでこの boundary の runtime branch としては持たない。
+
+`NativeWindowLinuxX11SetupKeyboardMappingRequest` は setup-owned `min_keycode` / `max_keycode` と、既存 F5kl の `NativeWindowLinuxX11GetKeyboardMappingRequest` を同時に保持する。`keycode_count` は `max - min + 1` を `u16` の checked arithmetic で求め、`u8::try_from` で X11 request の `CARD8 count` に落とす。計算には `wrapping_*`、`saturating_*`、unchecked `as u8` を使わない。最後の byte encoding は F5kl request builder へ委譲し、F5kl 側へ setup range validation を戻さない。
+
+F5km は setup-owned request derivation だけを担当する。`NativeWindowLinuxX11EventSourceObservationReader` への state 追加、raw fd write / read、reply sequence correlation、pending keymap state、raw keysym selection、portable key projection、event decode、IME / text input、shortcut policy、runner、queue、support gate `Ok` 化、fallback key、silent no-op、synthetic readiness へは接続しない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

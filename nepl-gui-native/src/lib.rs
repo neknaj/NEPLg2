@@ -7592,6 +7592,8 @@ pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_RESOURCE_ID_MASK_OFFSET: usize =
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_VENDOR_LENGTH_OFFSET: usize = 16;
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_ROOT_COUNT_OFFSET: usize = 20;
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_PIXMAP_FORMAT_COUNT_OFFSET: usize = 21;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_MIN_KEYCODE_OFFSET: usize = 26;
+pub const NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_MAX_KEYCODE_OFFSET: usize = 27;
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_PIXMAP_FORMAT_BYTE_LEN: usize = 8;
 pub const NATIVE_WINDOW_LINUX_X11_SETUP_SCREEN_FIXED_BYTE_LEN: usize = 40;
 pub const NATIVE_WINDOW_LINUX_X11_EVENT_PACKET_BYTE_LEN: usize = 32;
@@ -7621,6 +7623,7 @@ pub const NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_WORD_LEN: u16 = 2
 pub const NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN: usize =
     (NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_WORD_LEN as usize) * 4;
 pub const NATIVE_WINDOW_LINUX_X11_KEYSYM_BYTE_LEN: usize = 4;
+pub const NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN: u8 = 8;
 pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_REPLACE_MODE: u8 = 0;
 pub const NATIVE_WINDOW_LINUX_X11_CHANGE_PROPERTY_FORMAT_32: u8 = 32;
 pub const NATIVE_WINDOW_LINUX_X11_ATOM_TYPE_ATOM_ID: u32 = 4;
@@ -8251,6 +8254,30 @@ pub enum NativeWindowLinuxX11GetKeyboardMappingRequestBuildError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11SetupKeyboardMappingRequest {
+    min_keycode: u8,
+    max_keycode: u8,
+    request: NativeWindowLinuxX11GetKeyboardMappingRequest,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError {
+    MaxKeycodeBelowMinKeycode {
+        min_keycode: u8,
+        max_keycode: u8,
+    },
+    KeycodeCountTooLarge {
+        min_keycode: u8,
+        max_keycode: u8,
+        keycode_count: u16,
+        max_keycode_count: u16,
+    },
+    GetKeyboardMappingRequestBuildFailed {
+        error: NativeWindowLinuxX11GetKeyboardMappingRequestBuildError,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowLinuxX11KeyboardMappingReplyHeader {
     keysyms_per_keycode: u8,
     sequence: u16,
@@ -8459,6 +8486,8 @@ pub struct NativeWindowLinuxX11SetupResourceInfo {
     resource_id_base: u32,
     resource_id_mask: u32,
     first_root_window_id: u32,
+    min_keycode: u8,
+    max_keycode: u8,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -8505,6 +8534,14 @@ pub enum NativeWindowLinuxX11SetupResourceInfoParseError {
         resource_id_base: u32,
         resource_id_mask: u32,
         unused_high_bits: u32,
+    },
+    MinKeycodeBelowProtocolMinimum {
+        min_keycode: u8,
+        min_protocol_keycode: u8,
+    },
+    MaxKeycodeBelowMinKeycode {
+        min_keycode: u8,
+        max_keycode: u8,
     },
     FirstRootWindowIdZero,
 }
@@ -9611,6 +9648,32 @@ impl NativeWindowLinuxX11GetKeyboardMappingRequest {
     }
 }
 
+impl NativeWindowLinuxX11SetupKeyboardMappingRequest {
+    pub fn min_keycode(&self) -> u8 {
+        self.min_keycode
+    }
+
+    pub fn max_keycode(&self) -> u8 {
+        self.max_keycode
+    }
+
+    pub fn keycode_count(&self) -> u8 {
+        self.request.keycode_count()
+    }
+
+    pub fn request(&self) -> NativeWindowLinuxX11GetKeyboardMappingRequest {
+        self.request
+    }
+
+    pub fn as_bytes(&self) -> &[u8; NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_REQUEST_BYTE_LEN] {
+        self.request.as_bytes()
+    }
+
+    pub fn len(&self) -> usize {
+        self.request.len()
+    }
+}
+
 impl NativeWindowLinuxX11KeyboardMappingReplyHeader {
     pub fn keysyms_per_keycode(&self) -> u8 {
         self.keysyms_per_keycode
@@ -9675,6 +9738,60 @@ pub fn native_window_linux_x11_get_keyboard_mapping_request(
         first_keycode,
         keycode_count,
         bytes,
+    })
+}
+
+fn native_window_linux_x11_setup_keyboard_mapping_keycode_count(
+    min_keycode: u8,
+    max_keycode: u8,
+) -> Result<u8, NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError> {
+    if max_keycode < min_keycode {
+        return Err(
+            NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError::MaxKeycodeBelowMinKeycode {
+                min_keycode,
+                max_keycode,
+            },
+        );
+    }
+    let keycode_count = u16::from(max_keycode)
+        .checked_sub(u16::from(min_keycode))
+        .and_then(|span| span.checked_add(1))
+        .ok_or(
+            NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError::MaxKeycodeBelowMinKeycode {
+                min_keycode,
+                max_keycode,
+            },
+        )?;
+    u8::try_from(keycode_count).map_err(|_| {
+        NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError::KeycodeCountTooLarge {
+            min_keycode,
+            max_keycode,
+            keycode_count,
+            max_keycode_count: u16::from(u8::MAX),
+        }
+    })
+}
+
+pub fn native_window_linux_x11_setup_keyboard_mapping_request(
+    setup_resource_info: NativeWindowLinuxX11SetupResourceInfo,
+) -> Result<
+    NativeWindowLinuxX11SetupKeyboardMappingRequest,
+    NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError,
+> {
+    let min_keycode = setup_resource_info.min_keycode();
+    let max_keycode = setup_resource_info.max_keycode();
+    let keycode_count =
+        native_window_linux_x11_setup_keyboard_mapping_keycode_count(min_keycode, max_keycode)?;
+    let request = native_window_linux_x11_get_keyboard_mapping_request(min_keycode, keycode_count)
+        .map_err(|error| {
+            NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError::GetKeyboardMappingRequestBuildFailed {
+                error,
+            }
+        })?;
+    Ok(NativeWindowLinuxX11SetupKeyboardMappingRequest {
+        min_keycode,
+        max_keycode,
+        request,
     })
 }
 
@@ -10498,6 +10615,14 @@ impl NativeWindowLinuxX11SetupResourceInfo {
     pub fn first_root_window_id(&self) -> u32 {
         self.first_root_window_id
     }
+
+    pub fn min_keycode(&self) -> u8 {
+        self.min_keycode
+    }
+
+    pub fn max_keycode(&self) -> u8 {
+        self.max_keycode
+    }
 }
 
 fn native_window_linux_x11_pad4(byte_len: usize) -> usize {
@@ -10545,6 +10670,29 @@ fn native_window_linux_x11_setup_resource_info_validate_client_id_space(
     Ok(())
 }
 
+fn native_window_linux_x11_setup_resource_info_validate_keycode_range(
+    min_keycode: u8,
+    max_keycode: u8,
+) -> Result<(), NativeWindowLinuxX11SetupResourceInfoParseError> {
+    if min_keycode < NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::MinKeycodeBelowProtocolMinimum {
+                min_keycode,
+                min_protocol_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            },
+        );
+    }
+    if max_keycode < min_keycode {
+        return Err(
+            NativeWindowLinuxX11SetupResourceInfoParseError::MaxKeycodeBelowMinKeycode {
+                min_keycode,
+                max_keycode,
+            },
+        );
+    }
+    Ok(())
+}
+
 pub fn native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
     body: &[u8],
 ) -> Result<
@@ -10574,6 +10722,9 @@ pub fn native_window_linux_x11_setup_resource_info_from_little_endian_success_bo
         resource_id_base,
         resource_id_mask,
     )?;
+    let min_keycode = body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_MIN_KEYCODE_OFFSET];
+    let max_keycode = body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_MAX_KEYCODE_OFFSET];
+    native_window_linux_x11_setup_resource_info_validate_keycode_range(min_keycode, max_keycode)?;
 
     let vendor_byte_len = usize::from(native_window_linux_x11_u16_le(
         body,
@@ -10651,6 +10802,8 @@ pub fn native_window_linux_x11_setup_resource_info_from_little_endian_success_bo
         resource_id_base,
         resource_id_mask,
         first_root_window_id,
+        min_keycode,
+        max_keycode,
     }))
 }
 
@@ -21386,6 +21539,22 @@ mod tests {
         resource_id_mask: u32,
         first_root_window_id: u32,
     ) -> Vec<u8> {
+        scripted_x11_setup_success_resource_body_with_keycode_range(
+            resource_id_base,
+            resource_id_mask,
+            first_root_window_id,
+            NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            u8::MAX,
+        )
+    }
+
+    fn scripted_x11_setup_success_resource_body_with_keycode_range(
+        resource_id_base: u32,
+        resource_id_mask: u32,
+        first_root_window_id: u32,
+        min_keycode: u8,
+        max_keycode: u8,
+    ) -> Vec<u8> {
         let vendor = b"NEP";
         let vendor_padded_byte_len = vendor.len() + native_window_linux_x11_pad4(vendor.len());
         let mut body = vec![0_u8; NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN];
@@ -21400,6 +21569,8 @@ mod tests {
             .copy_from_slice(&(vendor.len() as u16).to_le_bytes());
         body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_ROOT_COUNT_OFFSET] = 1;
         body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_PIXMAP_FORMAT_COUNT_OFFSET] = 1;
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_MIN_KEYCODE_OFFSET] = min_keycode;
+        body[NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_MAX_KEYCODE_OFFSET] = max_keycode;
         body.extend_from_slice(vendor);
         body.resize(
             NATIVE_WINDOW_LINUX_X11_SETUP_SUCCESS_FIXED_BODY_BYTE_LEN + vendor_padded_byte_len,
@@ -23866,6 +24037,8 @@ mod tests {
             resource_id_base: 0x0020_0000,
             resource_id_mask: 0x001f_ffff,
             first_root_window_id: 0xe000_0123,
+            min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            max_keycode: u8::MAX,
         };
         let input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
             setup_resource_info,
@@ -23908,6 +24081,8 @@ mod tests {
             resource_id_base: 0x0020_0000,
             resource_id_mask: 0x001f_ffff,
             first_root_window_id: 0xe000_0123,
+            min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            max_keycode: u8::MAX,
         };
         let input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
             setup_resource_info,
@@ -23936,6 +24111,8 @@ mod tests {
             resource_id_base: 0x0020_0000,
             resource_id_mask: 0x001f_ffff,
             first_root_window_id: 0xe000_0123,
+            min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            max_keycode: u8::MAX,
         };
         let zero_width_input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
             setup_resource_info,
@@ -23962,6 +24139,8 @@ mod tests {
             resource_id_base: 0x0020_0000,
             resource_id_mask: 0x001f_ffff,
             first_root_window_id: 0,
+            min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            max_keycode: u8::MAX,
         };
         let zero_root_input = NativeWindowLinuxX11SetupBackedTopLevelWindowCreateInput::new(
             zero_root_setup_resource_info,
@@ -24216,6 +24395,74 @@ mod tests {
             native_window_linux_x11_get_keyboard_mapping_request(8, 0).unwrap_err(),
             NativeWindowLinuxX11GetKeyboardMappingRequestBuildError::KeycodeCountInvalid {
                 keycode_count: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_keyboard_mapping_request_uses_setup_keycode_range() {
+        let setup_resource_info = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0xe000_0123,
+            min_keycode: 12,
+            max_keycode: 15,
+        };
+
+        let request =
+            native_window_linux_x11_setup_keyboard_mapping_request(setup_resource_info).unwrap();
+
+        assert_eq!(request.min_keycode(), 12);
+        assert_eq!(request.max_keycode(), 15);
+        assert_eq!(request.keycode_count(), 4);
+        assert_eq!(request.request().first_keycode(), 12);
+        assert_eq!(request.request().keycode_count(), 4);
+        assert_eq!(
+            request.as_bytes(),
+            &[
+                NATIVE_WINDOW_LINUX_X11_GET_KEYBOARD_MAPPING_OPCODE,
+                0,
+                2,
+                0,
+                12,
+                4,
+                0,
+                0,
+            ]
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_keyboard_mapping_request_rejects_invalid_internal_range() {
+        let reversed_range = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0xe000_0123,
+            min_keycode: 20,
+            max_keycode: 19,
+        };
+        assert_eq!(
+            native_window_linux_x11_setup_keyboard_mapping_request(reversed_range).unwrap_err(),
+            NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError::MaxKeycodeBelowMinKeycode {
+                min_keycode: 20,
+                max_keycode: 19,
+            }
+        );
+
+        let too_wide_range = NativeWindowLinuxX11SetupResourceInfo {
+            resource_id_base: 0x0020_0000,
+            resource_id_mask: 0x001f_ffff,
+            first_root_window_id: 0xe000_0123,
+            min_keycode: 0,
+            max_keycode: u8::MAX,
+        };
+        assert_eq!(
+            native_window_linux_x11_setup_keyboard_mapping_request(too_wide_range).unwrap_err(),
+            NativeWindowLinuxX11SetupKeyboardMappingRequestBuildError::KeycodeCountTooLarge {
+                min_keycode: 0,
+                max_keycode: u8::MAX,
+                keycode_count: 256,
+                max_keycode_count: u16::from(u8::MAX),
             }
         );
     }
@@ -24994,6 +25241,69 @@ mod tests {
         assert_eq!(setup_resource_info.resource_id_base(), 0x0020_0000);
         assert_eq!(setup_resource_info.resource_id_mask(), 0x001f_ffff);
         assert_eq!(setup_resource_info.first_root_window_id(), 0xe000_0123);
+        assert_eq!(
+            setup_resource_info.min_keycode(),
+            NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN
+        );
+        assert_eq!(setup_resource_info.max_keycode(), u8::MAX);
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_resource_info_preserves_keycode_range() {
+        let body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            12,
+            15,
+        );
+
+        let setup_resource_info =
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(&body)
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(setup_resource_info.min_keycode(), 12);
+        assert_eq!(setup_resource_info.max_keycode(), 15);
+    }
+
+    #[test]
+    fn native_window_linux_x11_setup_resource_info_rejects_invalid_keycode_range() {
+        let below_min_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            7,
+            15,
+        );
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &below_min_body,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::MinKeycodeBelowProtocolMinimum {
+                min_keycode: 7,
+                min_protocol_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            }
+        );
+
+        let reversed_body = scripted_x11_setup_success_resource_body_with_keycode_range(
+            0x0020_0000,
+            0x001f_ffff,
+            0xe000_0123,
+            20,
+            19,
+        );
+        assert_eq!(
+            native_window_linux_x11_setup_resource_info_from_little_endian_success_body(
+                &reversed_body,
+            )
+            .unwrap_err(),
+            NativeWindowLinuxX11SetupResourceInfoParseError::MaxKeycodeBelowMinKeycode {
+                min_keycode: 20,
+                max_keycode: 19,
+            }
+        );
     }
 
     #[test]
@@ -25090,6 +25400,8 @@ mod tests {
             resource_id_base: 0x1000,
             resource_id_mask: 0x000a,
             first_root_window_id: 0x123,
+            min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            max_keycode: u8::MAX,
         };
 
         assert_eq!(
@@ -25120,6 +25432,8 @@ mod tests {
             resource_id_base: 0,
             resource_id_mask: 1,
             first_root_window_id: 0x123,
+            min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+            max_keycode: u8::MAX,
         };
 
         assert_eq!(
@@ -27391,6 +27705,8 @@ mod tests {
                     resource_id_base: 0x0020_0000,
                     resource_id_mask: 0x001f_ffff,
                     first_root_window_id: 0xe000_0123,
+                    min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+                    max_keycode: u8::MAX,
                 }),
             )
             .unwrap();
@@ -27631,6 +27947,8 @@ mod tests {
                 resource_id_base: 0x0020_0000,
                 resource_id_mask: 0x001f_ffff,
                 first_root_window_id: 0x123,
+                min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+                max_keycode: u8::MAX,
             })
         );
         assert_eq!(provider.provider().call_count, 1);
@@ -28090,6 +28408,8 @@ mod tests {
                 resource_id_base: 0x0020_0000,
                 resource_id_mask: 0x001f_ffff,
                 first_root_window_id: 0x123,
+                min_keycode: NATIVE_WINDOW_LINUX_X11_MIN_KEYCODE_PROTOCOL_MIN,
+                max_keycode: u8::MAX,
             })
         );
     }
