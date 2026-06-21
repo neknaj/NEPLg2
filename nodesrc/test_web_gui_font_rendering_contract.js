@@ -101,6 +101,8 @@ const allocRender2dDirtySurface = read("stdlib/alloc/gui/render2d/dirty_surface.
 const allocRender2dDirtySurfaceImpl = withoutComments(allocRender2dDirtySurface);
 const allocRender2dBitmapFrame = read("stdlib/alloc/gui/render2d/bitmap_frame.nepl");
 const allocRender2dBitmapFrameImpl = withoutComments(allocRender2dBitmapFrame);
+const allocRender2dCompositorFrameEntry = read("stdlib/alloc/gui/render2d/compositor_frame_entry.nepl");
+const allocRender2dCompositorFrameEntryImpl = withoutComments(allocRender2dCompositorFrameEntry);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -344,6 +346,7 @@ const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
+const guiRender2dCompositorFrameEntryTests = read("tests/stdlib/gui_render2d_compositor_frame_entry.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -26124,6 +26127,148 @@ assert(
         implementationPlan.includes("dirty aggregation は completed owner の `finish_surface` より先") &&
         implementationPlan.includes("F5bu 以降、host present、row byte copy、tile / RLE、unchecked dirty push、dirty merge、fallback は禁止する"),
     "F5ly implementation plan must retain subagent approval and dirty-before-finish / no transport conditions",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5lz") &&
+            doc.includes("compositor frame entry") &&
+            doc.includes("GuiRgba8888CompositorFrameEntryOwner") &&
+            doc.includes("gui_rgba8888_bitmap_frame_prepare") &&
+            doc.includes("gui_rgba8888_row_batch_plan_prepare") &&
+            doc.includes("gui_rgba8888_row_batch_cursor_start") &&
+            doc.includes("row byte") &&
+            doc.includes("fallback"),
+        `F5lz ${name} must document compositor frame entry order, lower owner recovery, deferred row byte/tile transport, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5lz") &&
+        implementationPlan.includes("Rawls plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("ownerless error へ逃がさず") &&
+        implementationPlan.includes("success metadata は row batch cursor start の前"),
+    "F5lz implementation plan must retain plan review approval and ownerless-config / metadata-before-start refinements",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_frame_entry" as *'), "alloc/gui/render2d facade must export F5lz compositor frame entry owner");
+assert(
+    allocRender2dCompositorFrameEntryImpl.includes("pub enum GuiRgba8888CompositorFrameEntryPrepareErrorKind:") &&
+        allocRender2dCompositorFrameEntryImpl.includes("BitmapFramePrepareFailed %GuiRgba8888BitmapFramePrepareErrorKind") &&
+        allocRender2dCompositorFrameEntryImpl.includes("RowBatchPlanPrepareFailed %GuiRgba8888RowBatchPlanPrepareErrorKind") &&
+        allocRender2dCompositorFrameEntryImpl.includes("RowBatchCursorStartFailed %GuiRgba8888RowBatchCursorErrorKind") &&
+        allocRender2dCompositorFrameEntryImpl.includes("pub struct GuiRgba8888CompositorFrameEntryOwner:") &&
+        allocRender2dCompositorFrameEntryImpl.includes("cursor %GuiRgba8888RowBatchCursorOwner") &&
+        allocRender2dCompositorFrameEntryImpl.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorFrameEntryImpl.includes("pub struct GuiRgba8888CompositorFrameEntryPrepareError:") &&
+        allocRender2dCompositorFrameEntryImpl.includes("kind %GuiRgba8888CompositorFrameEntryPrepareErrorKind") &&
+        allocRender2dCompositorFrameEntryImpl.includes("owner %GuiRgba8888SoftwareSurfaceDirtyOwner"),
+    "alloc/gui/render2d/compositor_frame_entry F5lz must define typed lower error kind variants, entry owner, and dirty-owner-bearing prepare error",
+);
+assertNoMatch(
+    allocRender2dCompositorFrameEntryImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorFrameEntryOwner|GuiRgba8888CompositorFrameEntryPrepareError)\b/,
+    "alloc/gui/render2d/compositor_frame_entry F5lz owner and owner-bearing prepare error must not implement Clone or Copy",
+);
+const compositorFrameEntryPrepare = functionSlice(allocRender2dCompositorFrameEntryImpl, "gui_rgba8888_compositor_frame_entry_prepare");
+assertOrderedFragments(
+    compositorFrameEntryPrepare,
+    [
+        "let frame_id %i32 gui_rgba8888_compositor_frame_entry_config_frame_id &config",
+        "let frame_config %GuiRgba8888BitmapFrameConfig GuiRgba8888BitmapFrameConfig frame_id",
+        "match gui_rgba8888_bitmap_frame_prepare owner frame_config:",
+        "Result::Err gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new lower",
+        "let max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_config_max_rows_per_batch &config",
+        "let plan_config %GuiRgba8888RowBatchPlanConfig GuiRgba8888RowBatchPlanConfig max_rows_per_batch",
+        "match gui_rgba8888_row_batch_plan_prepare frame plan_config:",
+        "Result::Err gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new lower",
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata_from_plan &plan",
+        "match gui_rgba8888_row_batch_cursor_start plan:",
+        "Result::Err gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new lower",
+        "Result::Ok gui_rgba8888_compositor_frame_entry_owner_new cursor metadata",
+    ],
+    "alloc/gui/render2d/compositor_frame_entry F5lz prepare must call bitmap frame, row plan, and cursor start in order with metadata before cursor start",
+);
+assertNoMatch(
+    compositorFrameEntryPrepare,
+    /\b(?:config_checked|row_batch_drain|row_batch_range|row_byte|row_tile|rle|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_frame_entry F5lz prepare must not use ownerless config rejection, row byte/tile/RLE, host/platform/present, or fallback APIs",
+);
+assertNoMatch(
+    compositorFrameEntryPrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_frame_entry F5lz prepare must preserve NEPL prefix style without parentheses",
+);
+const compositorFrameEntryBitmapError = functionSlice(allocRender2dCompositorFrameEntryImpl, "gui_rgba8888_compositor_frame_entry_bitmap_frame_prepare_error_new");
+assertOrderedFragments(
+    compositorFrameEntryBitmapError,
+    [
+        "let lower_kind %GuiRgba8888BitmapFramePrepareErrorKind gui_rgba8888_bitmap_frame_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_bitmap_frame_prepare_error_category_value &lower",
+        "let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_bitmap_frame_prepare_error_owner lower",
+        "GuiRgba8888CompositorFrameEntryPrepareErrorKind::BitmapFramePrepareFailed lower_kind",
+        "gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner",
+    ],
+    "alloc/gui/render2d/compositor_frame_entry F5lz bitmap lower error wrapper must read kind/category before recovering dirty owner",
+);
+const compositorFrameEntryPlanError = functionSlice(allocRender2dCompositorFrameEntryImpl, "gui_rgba8888_compositor_frame_entry_row_batch_plan_prepare_error_new");
+assertOrderedFragments(
+    compositorFrameEntryPlanError,
+    [
+        "let lower_kind %GuiRgba8888RowBatchPlanPrepareErrorKind gui_rgba8888_row_batch_plan_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_batch_plan_prepare_error_category_value &lower",
+        "let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_prepare_error_frame lower",
+        "let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_bitmap_frame_finish_dirty_owner frame",
+        "GuiRgba8888CompositorFrameEntryPrepareErrorKind::RowBatchPlanPrepareFailed lower_kind",
+        "gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner",
+    ],
+    "alloc/gui/render2d/compositor_frame_entry F5lz row plan lower error wrapper must read kind/category before recovering dirty owner from frame",
+);
+const compositorFrameEntryCursorError = functionSlice(allocRender2dCompositorFrameEntryImpl, "gui_rgba8888_compositor_frame_entry_row_batch_cursor_start_error_new");
+assertOrderedFragments(
+    compositorFrameEntryCursorError,
+    [
+        "let lower_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_start_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_batch_cursor_start_error_category_value &lower",
+        "let plan %GuiRgba8888RowBatchPlanOwner gui_rgba8888_row_batch_cursor_start_error_plan lower",
+        "let owner %GuiRgba8888SoftwareSurfaceDirtyOwner gui_rgba8888_row_batch_plan_finish_dirty_owner plan",
+        "GuiRgba8888CompositorFrameEntryPrepareErrorKind::RowBatchCursorStartFailed lower_kind",
+        "gui_rgba8888_compositor_frame_entry_prepare_error_new kind category owner",
+    ],
+    "alloc/gui/render2d/compositor_frame_entry F5lz cursor lower error wrapper must read kind/category before recovering dirty owner from plan",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dBitmapFrameImpl, "gui_rgba8888_bitmap_frame_finish_dirty_owner"),
+    [
+        "let dirty %DirtyRegionSet gui_rgba8888_bitmap_frame_dirty &frame",
+        "let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_bitmap_frame_finish_surface frame",
+        "GuiRgba8888SoftwareSurfaceDirtyOwner surface dirty",
+    ],
+    "alloc/gui/render2d/bitmap_frame must recover dirty metadata before consuming frame surface",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowBatchPlanImpl, "gui_rgba8888_row_batch_plan_finish_dirty_owner"),
+    [
+        "let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_finish_frame plan",
+        "gui_rgba8888_bitmap_frame_finish_dirty_owner frame",
+    ],
+    "alloc/gui/render2d/row_batch_plan must recover dirty owner through embedded bitmap frame",
+);
+assertNoMatch(
+    allocRender2dCompositorFrameEntryImpl,
+    /\bgui_rgba8888_compositor_frame_entry_(?:row_batch_drain|row_batch_range|row_byte|row_tile|rle|present|publish|host|platform|video_memory)\b/,
+    "alloc/gui/render2d/compositor_frame_entry F5lz must not expose row byte, tile, RLE, present, host, or platform APIs",
+);
+assert(
+    guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_facade_ok") &&
+        guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_empty_dirty_complete_ok") &&
+        guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_full_dirty_metadata_ok") &&
+        guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_invalid_frame_id_recovery_ok") &&
+        guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_invalid_max_rows_recovery_ok") &&
+        guiRender2dCompositorFrameEntryTests.includes("render2d_compositor_frame_entry_no_transport_no_platform_no_fallback"),
+    "F5lz compositor frame entry focused doctest must cover facade, empty/full success metadata, invalid frame/max-row owner recovery, and no transport/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

@@ -247,6 +247,16 @@ pub fn gui_rgba8888_bitmap_frame_prepare %fn GuiRgba8888SoftwareSurfaceDirtyOwne
 pub fn gui_rgba8888_bitmap_frame_finish_surface %fn GuiRgba8888BitmapFrameOwner GuiRgba8888SoftwareSurfaceOwner \frame:
     field::get frame "surface"
 
+//: gui_rgba8888_bitmap_frame_finish_dirty_owner: frame の dirty metadata と surface owner を dirty owner へ[戻/もど]す
+//:
+//: [目的/もくてき]:
+//: - bitmap frame [以降/いこう]の boundary で[失敗/しっぱい]したとき、元の dirty metadata を[失/うしな]わずに F5ly 後の owner boundary へ[戻/もど]します。
+//: - `finish_surface` の[前/まえ]に Copy dirty metadata を[読/よ]み、surface owner と[再結合/さいけつごう]します。
+pub fn gui_rgba8888_bitmap_frame_finish_dirty_owner %fn GuiRgba8888BitmapFrameOwner GuiRgba8888SoftwareSurfaceDirtyOwner \frame:
+    let dirty %DirtyRegionSet gui_rgba8888_bitmap_frame_dirty &frame
+    let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_bitmap_frame_finish_surface frame
+    GuiRgba8888SoftwareSurfaceDirtyOwner surface dirty
+
 //: gui_rgba8888_bitmap_frame_free: frame owner が[持/も]つ surface storage を[解放/かいほう]する
 pub fn gui_rgba8888_bitmap_frame_free %fn GuiRgba8888BitmapFrameOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \frame:
     let surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_bitmap_frame_finish_surface frame
