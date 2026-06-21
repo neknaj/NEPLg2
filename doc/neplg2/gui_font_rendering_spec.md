@@ -6219,6 +6219,28 @@ Miter / Bevel / Round は F5kz では connector geometry にせず、`GuiStrokeJ
 
 F5kz は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
 
+### SFNT simple glyph render stroke coverage mask writer owner boundary
+
+F5la は completed F5kz stroke edge closure owner を消費し、stroke coverage cell writer owner を作る境界である。F5la の direct authority は completed F5kz owner だけであり、F5ba/F5az scalar stream、byte-backed glyph lookup、F5ku metric owner 単独、F5kw cursor/drain、F5kx geometry drain、F5ky side edge drain、F5kz closure drain を再実行しない。
+
+F5la writer owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner:
+    edge_closure_owner GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+    shape GuiSfntSimpleGlyphRasterCoverageShape
+    cells Vec i32
+    written_cell_count i32
+```
+
+F5la completed owner は raw stroke coverage cells が `shape.cell_count` まで完全に埋まった状態だけを保持し、`cell_count` と Vec len/cap が一致することを要求する。`cells` は alpha-packed mask ではなく、sample-scale coverage value の i32 cell buffer である。
+
+F5la start は既存の shared raster coverage config / shape validation helper を再利用するが、fill coverage writer owner を直接呼び出さない。さらに completed F5kz owner について、F5ky side edge invariant、side edge / join / left-right count、join Vec len/cap、`ClosedContourNoCap`、nested stroke style 由来の cap / join / miter policy 一致を再検査する。
+
+F5la start error は shape validation error、F5kz closure invariant error、Vec storage error を別 payload として保持する。push error は rejected coverage value、owner、lower Vec push failure を保持し、push failure では returned Vec と pre-push `written_cell_count` を復元する。
+
+F5la は coverage scan conversion、stroke join/cap geometry generation、packed mask conversion、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。packed stroke mask owner の前に、F5la writer を消費する stroke coverage scan converter を別 boundary として挟む。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

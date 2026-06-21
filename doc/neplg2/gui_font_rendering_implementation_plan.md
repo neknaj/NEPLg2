@@ -3003,6 +3003,55 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gu
 git diff --check
 ```
 
+## Phase F5la: sfnt simple glyph render stroke coverage mask writer owner boundary
+
+目的:
+
+- completed F5kz stroke edge closure owner を authority とし、stroke coverage cell writer owner を追加する。
+- F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、F5kx geometry drain 再実行、F5ky side edge drain 再実行、F5kz closure drain 再実行へ戻らない。
+- 既存 shared raster coverage config / shape validation helper を再利用するが、fill coverage writer / scan converter / packed mask owner を直接使わない。
+- start で F5kz completed owner の F5ky invariant、side edge / join / left-right count、join Vec len/cap、`ClosedContourNoCap`、nested stroke style 由来の cap/join/miter policy を再検査する。
+- raw i32 stroke coverage cell Vec を exact capacity で 1 回だけ確保し、`written_cell_count` を持つ writer owner と exact full の completed owner を分ける。
+- coverage scan conversion、join/cap geometry generation、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。packed stroke mask の前に stroke coverage scan converter を別 phase として挟む。
+
+plan review:
+
+- Anscombe plan review は `PLAN_REVIEWED`。
+- F5la は F5bd 相当の stroke coverage mask writer / buffer owner に限定し、scan computation は次 phase に送る。
+- docs/todo には packed stroke mask の前に `stroke coverage scan converter` を明示する。
+- start error は shape validation error、F5kz invariant error、storage error を別 payload にする。
+- source policy は `vec::with_capacity` と `vec::push` を 1 か所ずつに限定し、push recovery、zero-fill / F5bd / F5be direct reuse / stroke scan / flatten / join-cap geometry / packed / render / platform / fallback / shadow / compositor 禁止を検査する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner` と completed `GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner` を追加する。
+- `GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind` と F5la start / push / completion error を追加する。
+- `gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage` で completed F5kz owner を再検査する。
+- start は shared coverage shape validation helper を通し、F5kz owner invariant を通し、cell Vec exact capacity を確保する。
+- push は cell len/cap、full、coverage range を検査し、Vec push failure では returned Vec と pre-push progress を保持する。
+- completion は exact full のときだけ completed owner を返し、未完了は writer owner として返す。
+- docs / source policy / focused doctest label / todo / note を F5la に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Anscombe review result、F5kz completed owner authority、shared shape helper reuse、F5kz closure invariant 再検査、cell Vec exact capacity、push failure recovery、exact full completion、owner-bearing type no Clone/Copy、no scan/packed/render/platform/fallback 接続を検査する。
+- focused doctest label が F5kz authority、shape reuse、closure revalidation、exact capacity、push recovery、exact completion、no scan/geometry/packed/render policy を固定する。
+- implementation review で F5la が coverage cell writer owner に留まり、scan converter / packed mask / render command / pixel write / platform API / font fallback へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke coverage mask writer owner 接続済み、後続の stroke coverage scan converter、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_mask_writer_f5la.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5la.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5la.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
