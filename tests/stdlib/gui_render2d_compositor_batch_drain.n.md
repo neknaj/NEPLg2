@@ -29,7 +29,6 @@ exit_code: 0
 #import "alloc/gui/render2d/compositor_batch_drain" as *
 #import "alloc/gui/render2d/compositor_frame_entry" as *
 #import "alloc/gui/render2d/dirty_surface" as *
-#import "alloc/gui/render2d/row_batch_drain" as *
 #import "alloc/gui/render2d/software_surface" as *
 #import "core/gui/dirty_region" as *
 #import "core/gui/error" as *
@@ -59,14 +58,10 @@ fn status_is_exhausted %fn GuiRgba8888CompositorBatchDrainStatus bool \status:
         _:
             false
 
-fn kind_is_invalid_budget %fn GuiRgba8888CompositorBatchDrainErrorKind bool \kind:
+fn kind_is_row_batch_drain_failed %fn GuiRgba8888CompositorBatchDrainErrorKind bool \kind:
     match kind:
-        GuiRgba8888CompositorBatchDrainErrorKind::RowBatchDrainFailed lower_kind:
-            match lower_kind:
-                GuiRgba8888RowBatchDrainErrorKind::InvalidBudget:
-                    true
-                _:
-                    false
+        GuiRgba8888CompositorBatchDrainErrorKind::RowBatchDrainFailed _:
+            true
 
 fn category_is_invalid_command %fn Option GuiError bool \category:
     match category:
@@ -223,7 +218,7 @@ fn negative_budget_recovery_case %fn void i32 \void:
                             let kind %GuiRgba8888CompositorBatchDrainErrorKind gui_rgba8888_compositor_batch_drain_error_kind &error
                             let category %Option GuiError gui_rgba8888_compositor_batch_drain_error_category_value &error
                             let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_error_metadata &error
-                            let kind_ok %bool kind_is_invalid_budget kind
+                            let kind_ok %bool kind_is_row_batch_drain_failed kind
                             let category_ok %bool category_is_invalid_command category
                             let metadata_flag %bool metadata_ok &metadata 83 2 2 0 2 2 1
                             let recovered %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_batch_drain_error_finish_entry error

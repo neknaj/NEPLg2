@@ -4214,7 +4214,7 @@ plan review:
 ```powershell
 node --check nodesrc/test_web_gui_font_rendering_contract.js
 node nodesrc/test_web_gui_font_rendering_contract.js
-$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5ma.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5ma.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_batch_drain.nepl --no-tree -o tmp_gui_render2d_compositor_batch_drain_module_f5ma.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp_gui_render2d_compositor_frame_entry_f5ma_regression.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5ma_regression.json -j 1

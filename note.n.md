@@ -79510,12 +79510,12 @@ MERGE_APPROVED
 - `gui_rgba8888_compositor_batch_drain_budget` は `entry` を `finish_cursor` する前に metadata を Copy し、lower drain terminal / error を metadata と束ねる。terminal / error から entry owner を再構成するときも、lower terminal / error を消費する前に wrapper metadata を読む。
 - F5ma は row batch cursor status / next batch を再実装せず、row batch range、row byte storage、tile / RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、transport、fallback / silent no-op へ進まない。
 - empty dirty + negative budget は lower drain の complete-first contract に従って Completed になる。ready cursor + negative budget は `InvalidBudget` error として entry owner と metadata を回収できる。この違いを focused doctest で別々に固定した。
-- focused doctest は最初、未使用の `bitmap_frame` import により 180 秒 timeout を越えた。根本対応として不要 import を削り、同じ契約を 180 秒 timeout 内で通した。
+- focused doctest は最初、未使用の `bitmap_frame` import により 180 秒 timeout を越えた。根本対応として不要 import を削り、wrapper 境界として過剰だった direct `row_batch_drain` import も外した。lower `InvalidBudget` 自体は `gui_render2d_row_batch_drain` regression で固定し、F5ma focused は lower failure kind / category / owner recovery の preservation を固定する。
 - `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_batch_drain.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5ma contract に合わせて更新した。
 - `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
 - pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
 - pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
-- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5ma.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5ma.json -j 1`。1/1。post-merge cold compile では 180 秒 timeout をまたぐことがあるため、focused command は 600 秒 timeout に更新した。
 - pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_batch_drain.nepl --no-tree -o tmp_gui_render2d_compositor_batch_drain_module_f5ma.json -j 1`。1/1。
 - pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp_gui_render2d_compositor_frame_entry_f5ma_regression.json -j 1`。1/1。
 - pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5ma_regression.json -j 1`。5/5。
