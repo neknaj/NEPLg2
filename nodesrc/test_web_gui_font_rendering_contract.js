@@ -511,6 +511,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTest
 const guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -582,6 +583,8 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -15911,7 +15914,7 @@ assert(
     "GUI font docs must pin F5kr approved plan, count-only owner, and no-drawable-segment semantics",
 );
 const renderStrokeSegmentPlanStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:");
-const renderStrokeSegmentPlanEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSegmentPlanStartIndex);
+const renderStrokeSegmentPlanEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:", renderStrokeSegmentPlanStartIndex);
 const renderStrokeSegmentPlanRegion = allocFontSfntGlyfImpl.slice(renderStrokeSegmentPlanStartIndex, renderStrokeSegmentPlanEndIndex);
 const renderStrokeSegmentPlanOwnerType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:"),
@@ -15925,7 +15928,7 @@ const renderStrokeSegmentPlanStartErrorType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartError:"),
     allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_segment_plan_start_error "),
 );
-assert(renderStrokeSegmentPlanStartIndex >= 0 && renderStrokeSegmentPlanEndIndex > renderStrokeSegmentPlanStartIndex, "alloc/gui/font/sfnt/glyf F5kr stroke segment plan region must exist before fill alpha sample cursor");
+assert(renderStrokeSegmentPlanStartIndex >= 0 && renderStrokeSegmentPlanEndIndex > renderStrokeSegmentPlanStartIndex, "alloc/gui/font/sfnt/glyf F5kr stroke segment plan region must exist before stroke source segment cursor");
 for (const fragment of [
     "request_owner %GuiSfntSimpleGlyphRenderStrokeRequestOwner",
     "origin %GuiPoint",
@@ -16063,6 +16066,395 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests.includes("render_stroke_segment_plan_owner_recovery_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests.includes("render_stroke_segment_plan_no_geometry_no_mask_no_command_no_platform"),
     "F5kr render stroke segment plan focused doctest must cover request authority, count-only owner, invariant revalidation, width/draw-count/no-drawable rejects, recovery, and no geometry/mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke source segment cursor boundary"), "GUI font spec must document F5ks render stroke source segment cursor boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke source segment cursor boundary"), "GUI font detailed design must document F5ks render stroke source segment cursor boundary");
+assert(implementationPlan.includes("## Phase F5ks: sfnt simple glyph render stroke source segment cursor boundary"), "GUI font implementation plan must include F5ks phase");
+assert(
+    implementationPlan.includes("Franklin plan review は `PLAN_APPROVED`") &&
+        spec.includes("scalar stream に tag `4` が現れた場合は skip terminal ではなく `UnexpectedSkipNoSegmentTag`") &&
+        detailedDesign.includes("SkipNoSegment participates in the lower path command count and skip count, but it has no scalar record in this stream") &&
+        detailedDesign.includes("stored F5kr owner counts equal plan counts"),
+    "GUI font docs must pin F5ks approved plan, path sink scalar authority, SkipNoSegment no-scalar rule, and stored-owner revalidation",
+);
+const renderStrokeSourceSegmentCursorStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:");
+const renderStrokeSourceSegmentCursorEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSourceSegmentCursorStartIndex);
+const renderStrokeSourceSegmentCursorRegion = allocFontSfntGlyfImpl.slice(renderStrokeSourceSegmentCursorStartIndex, renderStrokeSourceSegmentCursorEndIndex);
+const renderStrokeSourceSegmentLineType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:"),
+);
+const renderStrokeSourceSegmentQuadraticType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:"),
+);
+const renderStrokeSourceSegmentCursorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor "),
+);
+const renderStrokeSourceSegmentCursorErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind:"),
+);
+const renderStrokeSourceSegmentCursorStartErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error "),
+);
+const renderStrokeSourceSegmentCursorStepErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error "),
+);
+const renderStrokeSourceSegmentCursorTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_count_checked_add "),
+);
+assert(renderStrokeSourceSegmentCursorStartIndex >= 0 && renderStrokeSourceSegmentCursorEndIndex > renderStrokeSourceSegmentCursorStartIndex, "alloc/gui/font/sfnt/glyf F5ks stroke source segment cursor region must exist before fill alpha sample cursor");
+for (const fragment of [
+    "segment_index %i32",
+    "start_x2 %i32",
+    "start_y2 %i32",
+    "end_x2 %i32",
+    "end_y2 %i32",
+    "stroke_width %i32",
+]) {
+    assert(renderStrokeSourceSegmentLineType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks line source segment must include ${fragment}`);
+}
+for (const fragment of [
+    "segment_index %i32",
+    "start_x2 %i32",
+    "start_y2 %i32",
+    "control_x2 %i32",
+    "control_y2 %i32",
+    "end_x2 %i32",
+    "end_y2 %i32",
+    "stroke_width %i32",
+]) {
+    assert(renderStrokeSourceSegmentQuadraticType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks quadratic source segment must include ${fragment}`);
+}
+for (const fragment of [
+    "plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner",
+    "scalar_index %i32",
+    "emitted_segment_count %i32",
+    "move_to_count %i32",
+    "line_segment_count %i32",
+    "quadratic_segment_count %i32",
+    "has_current_point %bool",
+    "current_x2 %i32",
+    "current_y2 %i32",
+]) {
+    assert(renderStrokeSourceSegmentCursorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks cursor must include ${fragment}`);
+}
+assert(allocFontSfntGlyfImpl.includes("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:"), "alloc/gui/font/sfnt/glyf F5ks line source segment value must implement Clone");
+assert(allocFontSfntGlyfImpl.includes("impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:"), "alloc/gui/font/sfnt/glyf F5ks line source segment value must implement Copy");
+assert(allocFontSfntGlyfImpl.includes("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:"), "alloc/gui/font/sfnt/glyf F5ks quadratic source segment value must implement Clone");
+assert(allocFontSfntGlyfImpl.includes("impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:"), "alloc/gui/font/sfnt/glyf F5ks quadratic source segment value must implement Copy");
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5ks ${typeName} owns or carries owner authority and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError:|pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal:|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step\b/,
+    "alloc/gui/font/sfnt/glyf F5ks owner-bearing boundary types and cursor start/step must remain private",
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenNotZero",
+    "InnerWrittenCountMismatch",
+    "InnerPathSinkScalarCountMismatch",
+    "InnerMoveToCountMismatch",
+    "InnerLineToCountMismatch",
+    "InnerQuadraticToCountMismatch",
+    "InnerSkipNoSegmentCountMismatch",
+    "InnerLastPathCommandIndexMismatch",
+    "StrokeWidthInvalid",
+    "DrawSegmentCountOverflow",
+    "DrawSegmentCountMismatch",
+    "RasterEdgeCapacityMismatch",
+    "NoDrawableStrokeSegments",
+    "OwnerPathCommandCountMismatch",
+    "OwnerMoveToCountMismatch",
+    "OwnerLineToCountMismatch",
+    "OwnerQuadraticToCountMismatch",
+    "OwnerSkipNoSegmentCountMismatch",
+    "OwnerDrawSegmentCountMismatch",
+    "OwnerPathSinkScalarCountMismatch",
+    "OwnerStrokeWidthMismatch",
+    "ScalarIndexNegative",
+    "ScalarIndexOutOfRange",
+    "ScalarStorageLengthMismatch",
+    "ScalarStorageCapacityMismatch",
+    "ScalarSlotMissing",
+    "CursorEmittedSegmentCountNegative",
+    "CursorMoveToCountNegative",
+    "CursorLineSegmentCountNegative",
+    "CursorQuadraticSegmentCountNegative",
+    "CursorEmittedCountMismatch",
+    "CursorMoveToCountExceeded",
+    "CursorLineSegmentCountExceeded",
+    "CursorQuadraticSegmentCountExceeded",
+    "CursorEmittedSegmentCountExceeded",
+    "MoveRecordTruncated",
+    "LineRecordTruncated",
+    "QuadraticRecordTruncated",
+    "PathSinkTagUnknown",
+    "UnexpectedSkipNoSegmentTag",
+    "CurrentPointMissing",
+    "CompletionMoveToCountMismatch",
+    "CompletionLineSegmentCountMismatch",
+    "CompletionQuadraticSegmentCountMismatch",
+    "CompletionDrawSegmentCountMismatch",
+    "ProgressInvariantInvalid",
+]) {
+    assert(renderStrokeSourceSegmentCursorErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind",
+    "plan_owner %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner",
+]) {
+    assert(renderStrokeSourceSegmentCursorStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks start error must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind",
+    "cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor",
+]) {
+    assert(renderStrokeSourceSegmentCursorStepErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks step error must include ${fragment}`);
+}
+for (const fragment of [
+    "StateUpdated %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor",
+    "LineSegment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep",
+    "QuadraticSegment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep",
+    "Completed %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner",
+]) {
+    assert(renderStrokeSourceSegmentCursorTerminalType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ks terminal must include ${fragment}`);
+}
+const renderStrokeSourceSegmentCursorPlanInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorPlanInvariants,
+    [
+        "field::get_ref plan_owner \"request_owner\"",
+        "field::get_ref request_owner \"writer\"",
+        "field::get_ref writer \"owner\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "PathSinkScalarCapacityMismatch",
+        "RasterMaskScalarCapacityMismatch",
+        "PathSinkScalarLenMismatch",
+        "RasterMaskScalarLenNotZero",
+        "InnerWrittenCountMismatch",
+        "InnerPathSinkScalarCountMismatch",
+        "InnerMoveToCountMismatch",
+        "InnerLineToCountMismatch",
+        "InnerQuadraticToCountMismatch",
+        "InnerSkipNoSegmentCountMismatch",
+        "InnerLastPathCommandIndexMismatch",
+        "if le stroke_width 0",
+        "StrokeWidthInvalid",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_count_checked_add plan_line_to_count plan_quadratic_to_count",
+        "DrawSegmentCountMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &derived_capacity",
+        "RasterEdgeCapacityMismatch",
+        "NoDrawableStrokeSegments",
+        "OwnerPathCommandCountMismatch",
+        "OwnerMoveToCountMismatch",
+        "OwnerLineToCountMismatch",
+        "OwnerQuadraticToCountMismatch",
+        "OwnerSkipNoSegmentCountMismatch",
+        "OwnerDrawSegmentCountMismatch",
+        "OwnerPathSinkScalarCountMismatch",
+        "OwnerStrokeWidthMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks plan invariants must revalidate F5kr authority, writer state, draw count, raster-edge capacity, and stored plan fields",
+);
+const renderStrokeSourceSegmentCursorInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_invariants");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants plan_owner",
+        "if lt scalar_index 0",
+        "ScalarIndexNegative",
+        "if gt scalar_index scalar_count",
+        "ScalarIndexOutOfRange",
+        "CursorEmittedSegmentCountNegative",
+        "CursorMoveToCountNegative",
+        "CursorMoveToCountExceeded",
+        "CursorLineSegmentCountNegative",
+        "CursorLineSegmentCountExceeded",
+        "CursorQuadraticSegmentCountNegative",
+        "CursorQuadraticSegmentCountExceeded",
+        "CursorEmittedSegmentCountExceeded",
+        "CursorEmittedCountMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks cursor invariants must validate scalar bounds and read-count progress",
+);
+const renderStrokeSourceSegmentCursorReadScalar = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorReadScalar,
+    [
+        "if lt index 0",
+        "ScalarIndexNegative",
+        "if ge index scalar_count",
+        "ScalarIndexOutOfRange",
+        "field::get_ref plan_owner \"request_owner\"",
+        "field::get_ref request_owner \"writer\"",
+        "field::get_ref writer \"owner\"",
+        "path_sink_scalars_len",
+        "ScalarStorageLengthMismatch",
+        "path_sink_scalars_cap",
+        "ScalarStorageCapacityMismatch",
+        "field::get_ref sink_owner \"path_sink_scalars\"",
+        "vec::get scalars index",
+        "ScalarSlotMissing",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks scalar reader must use path sink scalar storage with typed bounds/len/cap/missing errors",
+);
+const renderStrokeSourceSegmentCursorCompletion = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_completion_invariants");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorCompletion,
+    [
+        "CompletionMoveToCountMismatch",
+        "CompletionLineSegmentCountMismatch",
+        "CompletionQuadraticSegmentCountMismatch",
+        "CompletionDrawSegmentCountMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks completion must compare read MoveTo/Line/Quadratic counts and emitted segment count with the plan",
+);
+const renderStrokeSourceSegmentCursorStepMove = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_move_to");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorStepMove,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room &cursor 3",
+        "MoveRecordTruncated",
+        "read_scalar &cursor x_index",
+        "read_scalar &cursor y_index",
+        "CursorMoveToCountExceeded",
+        "next_move_to_count",
+        "true x2 y2",
+        "StateUpdated next_cursor",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks MoveTo step must update current point without emitting source geometry",
+);
+const renderStrokeSourceSegmentCursorStepLine = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_line_to");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorStepLine,
+    [
+        "CurrentPointMissing",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room &cursor 3",
+        "LineRecordTruncated",
+        "CursorLineSegmentCountExceeded",
+        "CursorEmittedSegmentCountExceeded",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_line emitted_segment_count start_x2 start_y2 end_x2 end_y2 stroke_width",
+        "true end_x2 end_y2",
+        "LineSegment step",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks LineTo step must emit source line geometry and advance current point",
+);
+const renderStrokeSourceSegmentCursorStepQuadratic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step_quadratic_to");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorStepQuadratic,
+    [
+        "CurrentPointMissing",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_record_has_room &cursor 5",
+        "QuadraticRecordTruncated",
+        "CursorQuadraticSegmentCountExceeded",
+        "CursorEmittedSegmentCountExceeded",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic emitted_segment_count start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width",
+        "true end_x2 end_y2",
+        "QuadraticSegment step",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks QuadraticTo step must emit source quadratic geometry and advance current point",
+);
+const renderStrokeSourceSegmentCursorStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step");
+assertOrderedFragments(
+    renderStrokeSourceSegmentCursorStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_invariants &cursor",
+        "if eq scalar_index scalar_count",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_completion_invariants &cursor",
+        "Completed plan_owner",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_read_scalar &cursor scalar_index",
+        "gui_sfnt_simple_glyph_path_command_tag_from_scalar_value tag_scalar",
+        "PathSinkTagUnknown",
+        "GuiSfntSimpleGlyphPathCommandTag::MoveTo",
+        "GuiSfntSimpleGlyphPathCommandTag::LineTo",
+        "GuiSfntSimpleGlyphPathCommandTag::QuadraticTo",
+        "GuiSfntSimpleGlyphPathCommandTag::SkipNoSegment",
+        "UnexpectedSkipNoSegmentTag",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ks step must use path sink tag scalar, complete on scalar count, and reject SkipNoSegment tag as corruption",
+);
+const renderStrokeSourceSegmentCursorStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start");
+const renderStrokeSourceSegmentCursorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free");
+const renderStrokeSourceSegmentCursorStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error_free");
+const renderStrokeSourceSegmentCursorErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_free");
+const renderStrokeSourceSegmentCursorTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_terminal_free");
+assert(renderStrokeSourceSegmentCursorStart.includes("gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants &plan_owner"), "alloc/gui/font/sfnt/glyf F5ks start must revalidate plan owner before cursor creation");
+for (const slice of [
+    renderStrokeSourceSegmentCursorFree,
+    renderStrokeSourceSegmentCursorStartErrorFree,
+    renderStrokeSourceSegmentCursorErrorFree,
+    renderStrokeSourceSegmentCursorTerminalFree,
+]) {
+    assert(
+        slice.includes("gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free") ||
+            slice.includes("gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free"),
+        "alloc/gui/font/sfnt/glyf F5ks free paths must close the held F5kr plan owner",
+    );
+}
+for (const [slice, name] of [
+    [renderStrokeSourceSegmentCursorPlanInvariants, "plan invariants"],
+    [renderStrokeSourceSegmentCursorInvariants, "cursor invariants"],
+    [renderStrokeSourceSegmentCursorReadScalar, "scalar read"],
+    [renderStrokeSourceSegmentCursorCompletion, "completion invariants"],
+    [renderStrokeSourceSegmentCursorStart, "start"],
+    [renderStrokeSourceSegmentCursorStepMove, "move step"],
+    [renderStrokeSourceSegmentCursorStepLine, "line step"],
+    [renderStrokeSourceSegmentCursorStepQuadratic, "quadratic step"],
+    [renderStrokeSourceSegmentCursorStep, "step"],
+    [renderStrokeSourceSegmentCursorFree, "cursor free"],
+    [renderStrokeSourceSegmentCursorStartErrorFree, "start error free"],
+    [renderStrokeSourceSegmentCursorErrorFree, "step error free"],
+    [renderStrokeSourceSegmentCursorTerminalFree, "terminal free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderFillAlphaMask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor|vec::push|vec::with_capacity|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5ks ${name} must not use offset expansion, fill mask, raster edge owner, coverage, command/target/platform APIs, fallback, rasterizer/compositor, or owner-bearing vec operations`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5ks ${name} must preserve NEPL prefix style without parentheses`);
+}
+assertNoMatch(
+    renderStrokeSourceSegmentCursorRegion,
+    /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderFillAlphaMask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor|vec::push|vec::with_capacity|vec::clone|vec::copy)\b/,
+    "alloc/gui/font/sfnt/glyf F5ks region must stay before fill mask, stroke edge owner, coverage, command/target/platform APIs, fallback, rasterizer/compositor, and owner-bearing vec operations",
+);
+assertNoMatch(renderStrokeSourceSegmentCursorRegion, /[()]/, "alloc/gui/font/sfnt/glyf F5ks region must preserve NEPL prefix style without parentheses");
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_plan_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_move_to_state_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_line_geometry_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_quadratic_geometry_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_reject_missing_current_point_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_reject_skip_scalar_tag_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_reject_truncated_record_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_completion_counts_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_owner_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_no_offset_edge_mask_command_platform"),
+    "F5ks render stroke source segment cursor focused doctest must cover plan authority, move state, line/quadratic source geometry, reject paths, completion counts, recovery, and no offset/edge/mask/command/platform policy",
 );
 assert(spec.includes("### SFNT simple glyph render fill alpha mask sample cursor boundary"), "GUI font spec must document F5bi render fill alpha mask sample cursor boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render fill alpha mask sample cursor boundary"), "GUI font detailed design must document F5bi render fill alpha mask sample cursor boundary");

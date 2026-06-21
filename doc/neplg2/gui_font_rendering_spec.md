@@ -6049,6 +6049,25 @@ start は request owner 内の completed path command stream writer invariant �
 
 `line_to_count + quadratic_to_count == 0` は `NoDrawableStrokeSegments` として fail closed する。これは empty / skip-only glyph の parse/topology が不正という意味ではない。F5az の owner boundary では skip-only completed output は valid だが、F5kr の success owner は後続 stroke expansion の drawable segment plan なので、drawable segment が 0 件の request に success owner を発行しない。
 
+### SFNT simple glyph render stroke source segment cursor boundary
+
+F5ks は F5kr の stroke segment plan owner を authority として、completed path sink scalar stream から stroke expansion 前の source segment を順に読み出す cursor boundary である。この境界では stroke offset geometry、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+path sink scalar stream は writer contract により次の record だけを持つ。
+
+```text
+MoveTo: tag, x2, y2
+LineTo: tag, x2, y2
+QuadraticTo: tag, control_x2, control_y2, end_x2, end_y2
+SkipNoSegment: no scalar record
+```
+
+F5ks は `path_command_count` を cursor step 数として使わず、`path_sink_scalar_count` までだけを進む。MoveTo は source segment として emit せず、cursor の current point だけを更新する。LineTo / QuadraticTo は現在の current point を start point とし、record 内の end / control point と F5kr で検査済みの `stroke_width` を持つ source segment value を返す。
+
+F5ks は start / step の前に F5kr と同等の authority invariant を再検査する。さらに cursor progress として scalar index、MoveTo count、line segment count、quadratic segment count、emitted segment count を検査し、completion では読み出した MoveTo / LineTo / QuadraticTo count が plan と一致することを確認する。
+
+`SkipNoSegment` は path command count / skip count には含まれるが、path sink scalar stream には record を持たない。したがって scalar stream に tag `4` が現れた場合は skip terminal ではなく `UnexpectedSkipNoSegmentTag` として stream corruption を返す。skip reason を scalar stream から復元しない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

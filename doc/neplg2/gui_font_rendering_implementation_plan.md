@@ -2642,6 +2642,49 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5ks: sfnt simple glyph render stroke source segment cursor boundary
+
+目的:
+
+- F5kr の stroke segment plan owner を authority として、completed path sink scalar stream から source segment を順に読む cursor boundary を追加する。
+- MoveTo は current point 更新だけにし、LineTo / QuadraticTo だけを source geometry value として emit する。
+- actual stroke offset geometry、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+
+plan review:
+
+- Franklin plan review は `PLAN_APPROVED`。
+- F5ks は F5kr の count-only plan の自然な後続であり、現在の `GuiStroke` が color / width のみであるため、この段階で offset geometry や join / cap policy を暗黙に選ばない。
+- F5kr start と同等の writer invariant を F5ks start / step 前に再検査する。
+- SkipNoSegment は path command count / skip count には含まれるが path sink scalar stream には record を持たないため、scalar tag `4` は skip terminal ではなく corrupt stream error とする。
+- cursor は `path_sink_scalar_count` まで進み、`path_command_count` を step 数として使わない。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine` と `GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic` を追加する。segment index、doubled start/control/end coordinates、stroke width を保持する value-only 型にする。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor` を追加する。plan owner、scalar index、emitted segment count、MoveTo / Line / Quadratic read count、current point state を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind`、start error、step error、terminal を追加する。start error は plan owner、step error は cursor を recovery payload とする。
+- plan invariant revalidation は F5kr と同等に、capacity derivation、stored capacity、path sink scalar len/cap、raster mask len 0、writer counts、stroke width、checked draw count、plan draw count / derived raster edge capacity、stored owner counts を検査する。
+- scalar read helper は index range、storage len/cap、`vec::get` missing を typed error に分ける。
+- step は MoveTo / LineTo / QuadraticTo の record width を payload read 前に検査し、unknown tag と SkipNoSegment tag を fail closed にする。
+- focused doctest label と source policy を追加し、path sink scalar read 以外の geometry expansion / fill alpha mask / raster edge owner / coverage / RenderCommand / DrawTarget / RenderTarget / platform / fallback / compositor 禁止、owner 型の非 Clone / 非 Copy、括弧なし prefix style を検査する。
+
+完了条件:
+
+- source policy が docs、Franklin plan approval、MoveTo state update、Line/Quadratic source segment emission、SkipNoSegment no-scalar rule、path sink scalar stream authority、completion count validation、owner recovery/free、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md` に plan authority、move state、line/quadratic geometry、missing current point、skip scalar tag、truncated record、completion counts、owner recovery、no offset / edge / mask / command / platform policy の coverage label を追加する。
+- implementation review で F5ks が offset geometry / edge / coverage / command / platform へ進んでいないこと、F5kr plan owner を authority として保っていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke source segment cursor boundary 接続済み、後続の stroke offset geometry / stroke edge / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_cursor_f5ks.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

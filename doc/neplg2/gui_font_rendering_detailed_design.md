@@ -6825,6 +6825,92 @@ Every failure is owner-bearing and returns the original request owner. The succe
 
 F5kr must not call path command value lookup, stroke geometry expansion, fill alpha mask helpers, raster edge helpers, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke rasterizers, shadow rasterizers, or compositor APIs.
 
+## SFNT simple glyph render stroke source segment cursor boundary
+
+F5ks consumes the F5kr stroke segment plan owner and exposes a cursor over the completed path sink scalar stream. It is still before actual stroke offset geometry. It does not choose join, cap, dash, or miter behavior, and it does not allocate stroke edges, coverage masks, packed masks, commands, pixels, or platform resources.
+
+The scalar stream authority is the completed path command stream writer owner inside the F5kq request owner held by F5kr. F5ks reads `path_sink_scalars` only after revalidating the F5kr plan invariants:
+
+```text
+request writer plan/capacity derivation
+stored capacity equality
+path sink scalar capacity equality
+raster mask scalar capacity equality
+path sink scalar len equality
+raster mask scalar len == 0
+writer written_count equals plan.total_count
+writer path_sink_scalar_count equals capacity.path_sink_scalar_capacity
+writer kind counts equal plan kind counts
+writer last index equals plan.last_path_command_index
+stroke.width > 0
+checked line_to_count + quadratic_to_count
+draw_segment_count equals plan.draw_count
+draw_segment_count equals derived raster edge capacity
+draw_segment_count > 0
+stored F5kr owner counts equal plan counts
+stored F5kr path_sink_scalar_count and stroke_width equal the rederived values
+```
+
+The source segment values are copyable:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:
+    segment_index i32
+    start_x2 i32
+    start_y2 i32
+    end_x2 i32
+    end_y2 i32
+    stroke_width i32
+
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic:
+    segment_index i32
+    start_x2 i32
+    start_y2 i32
+    control_x2 i32
+    control_y2 i32
+    end_x2 i32
+    end_y2 i32
+    stroke_width i32
+```
+
+The cursor owns the plan owner and tracks scalar progress plus read counts:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor:
+    plan_owner GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+    scalar_index i32
+    emitted_segment_count i32
+    move_to_count i32
+    line_segment_count i32
+    quadratic_segment_count i32
+    has_current_point bool
+    current_x2 i32
+    current_y2 i32
+```
+
+Step behavior:
+
+```text
+scalar_index == path_sink_scalar_count:
+    validate read counts against F5kr plan counts and return Completed
+MoveTo record:
+    update current point, increment move_to_count, emit StateUpdated
+LineTo record:
+    require current point, emit LineSegment with current point as start, update current point to end
+QuadraticTo record:
+    require current point, emit QuadraticSegment with current point as start, update current point to end
+unknown tag:
+    PathSinkTagUnknown
+SkipNoSegment tag:
+    UnexpectedSkipNoSegmentTag
+truncated record:
+    typed record truncation error before reading payload scalars
+```
+
+SkipNoSegment participates in the lower path command count and skip count, but it has no scalar record in this stream. F5ks must not use `path_command_count` as a cursor bound and must not reconstruct skip reason from scalar storage.
+
+Every failure is owner-bearing. Start errors return the plan owner, step errors return the cursor, and terminal/free helpers close the held F5kr plan owner exactly once.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
