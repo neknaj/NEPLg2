@@ -1114,11 +1114,18 @@ pub struct NativeWindowLinuxX11KeysymProjection {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeWindowLinuxX11KeyboardMappingProjectionEvidence {
+    selection: NativeWindowLinuxX11KeyboardMappingSelection,
+    keysym_projection: Option<NativeWindowLinuxX11KeysymProjection>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeWindowKeyboardEvent {
     kind: NativeWindowKeyboardEventKind,
     raw_keycode: u8,
     modifier_state: NativeWindowKeyboardModifierState,
     portable_modifiers: NativeWindowPortableKeyboardModifiers,
+    x11_keymap_projection: Option<NativeWindowLinuxX11KeyboardMappingProjectionEvidence>,
 }
 
 const NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK: u16 = 0x0001;
@@ -1159,7 +1166,13 @@ const NATIVE_WINDOW_X11_KEYSYM_DELETE: u32 = 0xffff;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NativeWindowEventPumpError {
     InvalidPointerSample,
-    InvalidKeyboardKeycode { raw_keycode: u8 },
+    InvalidKeyboardKeycode {
+        raw_keycode: u8,
+    },
+    KeyboardMappingProjectionKeycodeMismatch {
+        raw_keycode: u8,
+        projection_raw_keycode: u8,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -9913,6 +9926,16 @@ impl NativeWindowLinuxX11KeyboardMappingSelectedKeysym {
 }
 
 impl NativeWindowLinuxX11KeyboardMappingSelection {
+    pub fn raw_keycode(self) -> u8 {
+        match self {
+            Self::BaseColumn { selected } | Self::ShiftColumn { selected } => {
+                selected.raw_keycode()
+            }
+            Self::ShiftNoSymbolBaseColumn { base, .. } => base.raw_keycode(),
+            Self::UnsupportedModifierState { raw_keycode, .. } => raw_keycode,
+        }
+    }
+
     pub fn final_raw_keysym(self) -> Option<NativeWindowLinuxX11KeysymValue> {
         match self {
             Self::BaseColumn { selected } | Self::ShiftColumn { selected } => {
@@ -16431,6 +16454,35 @@ impl NativeWindowLinuxX11KeysymProjection {
     }
 }
 
+impl NativeWindowLinuxX11KeyboardMappingProjectionEvidence {
+    pub fn from_selection(selection: NativeWindowLinuxX11KeyboardMappingSelection) -> Self {
+        let keysym_projection = selection
+            .final_raw_keysym()
+            .map(NativeWindowLinuxX11KeysymValue::project_portable_key);
+        Self {
+            selection,
+            keysym_projection,
+        }
+    }
+
+    pub fn selection(self) -> NativeWindowLinuxX11KeyboardMappingSelection {
+        self.selection
+    }
+
+    pub fn keysym_projection(self) -> Option<NativeWindowLinuxX11KeysymProjection> {
+        self.keysym_projection
+    }
+
+    pub fn final_portable_key(self) -> Option<NativeWindowPortableKey> {
+        self.keysym_projection
+            .map(NativeWindowLinuxX11KeysymProjection::portable_key)
+    }
+
+    pub fn raw_keycode(self) -> u8 {
+        self.selection.raw_keycode()
+    }
+}
+
 impl NativeWindowKeyboardEvent {
     pub fn new(
         kind: NativeWindowKeyboardEventKind,
@@ -16448,8 +16500,42 @@ impl NativeWindowKeyboardEvent {
         raw_keycode: u8,
         modifier_state: NativeWindowKeyboardModifierState,
     ) -> Result<Self, NativeWindowEventPumpError> {
+        Self::new_with_optional_x11_keymap_projection(kind, raw_keycode, modifier_state, None)
+    }
+
+    pub fn new_with_modifier_state_and_x11_keymap_projection(
+        kind: NativeWindowKeyboardEventKind,
+        raw_keycode: u8,
+        modifier_state: NativeWindowKeyboardModifierState,
+        x11_keymap_projection: NativeWindowLinuxX11KeyboardMappingProjectionEvidence,
+    ) -> Result<Self, NativeWindowEventPumpError> {
+        Self::new_with_optional_x11_keymap_projection(
+            kind,
+            raw_keycode,
+            modifier_state,
+            Some(x11_keymap_projection),
+        )
+    }
+
+    fn new_with_optional_x11_keymap_projection(
+        kind: NativeWindowKeyboardEventKind,
+        raw_keycode: u8,
+        modifier_state: NativeWindowKeyboardModifierState,
+        x11_keymap_projection: Option<NativeWindowLinuxX11KeyboardMappingProjectionEvidence>,
+    ) -> Result<Self, NativeWindowEventPumpError> {
         if raw_keycode == 0 {
             return Err(NativeWindowEventPumpError::InvalidKeyboardKeycode { raw_keycode });
+        }
+        if let Some(projection) = x11_keymap_projection {
+            let projection_raw_keycode = projection.raw_keycode();
+            if projection_raw_keycode != raw_keycode {
+                return Err(
+                    NativeWindowEventPumpError::KeyboardMappingProjectionKeycodeMismatch {
+                        raw_keycode,
+                        projection_raw_keycode,
+                    },
+                );
+            }
         }
         let portable_modifiers =
             NativeWindowPortableKeyboardModifiers::from_x11_core_state(modifier_state);
@@ -16458,6 +16544,7 @@ impl NativeWindowKeyboardEvent {
             raw_keycode,
             modifier_state,
             portable_modifiers,
+            x11_keymap_projection,
         })
     }
 
@@ -16475,6 +16562,12 @@ impl NativeWindowKeyboardEvent {
 
     pub fn portable_modifiers(self) -> NativeWindowPortableKeyboardModifiers {
         self.portable_modifiers
+    }
+
+    pub fn x11_keymap_projection(
+        self,
+    ) -> Option<NativeWindowLinuxX11KeyboardMappingProjectionEvidence> {
+        self.x11_keymap_projection
     }
 }
 
@@ -25669,6 +25762,186 @@ mod tests {
     }
 
     #[test]
+    fn native_window_linux_x11_keyboard_mapping_projection_evidence_projects_selected_keysyms() {
+        let range = native_window_linux_x11_keyboard_mapping_range(10, 3).unwrap();
+        let raw_keysyms = NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+            keycode_count: 3,
+            keysyms_per_keycode: 2,
+            raw_keysyms: vec![
+                NativeWindowLinuxX11KeysymValue::new(0x0061),
+                NativeWindowLinuxX11KeysymValue::new(0x0041),
+                NativeWindowLinuxX11KeysymValue::new(0x0062),
+                NativeWindowLinuxX11KeysymValue::new(0x0042),
+                NativeWindowLinuxX11KeysymValue::new(0x0063),
+                NativeWindowLinuxX11KeysymValue::new(0x0043),
+            ],
+        };
+        let base = native_window_linux_x11_keyboard_mapping_select_raw_keysym(
+            range,
+            &raw_keysyms,
+            11,
+            NativeWindowKeyboardModifierState::empty(),
+        )
+        .unwrap();
+        let shift = native_window_linux_x11_keyboard_mapping_select_raw_keysym(
+            range,
+            &raw_keysyms,
+            11,
+            NativeWindowKeyboardModifierState::new(NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK),
+        )
+        .unwrap();
+
+        let base_evidence =
+            NativeWindowLinuxX11KeyboardMappingProjectionEvidence::from_selection(base);
+        let shift_evidence =
+            NativeWindowLinuxX11KeyboardMappingProjectionEvidence::from_selection(shift);
+
+        assert_eq!(base_evidence.selection(), base);
+        assert_eq!(base_evidence.raw_keycode(), 11);
+        assert_eq!(
+            base_evidence.keysym_projection().unwrap().raw_keysym(),
+            NativeWindowLinuxX11KeysymValue::new(0x0062)
+        );
+        assert_eq!(
+            base_evidence.final_portable_key(),
+            Some(NativeWindowPortableKey::Ascii { byte: b'b' })
+        );
+        assert_eq!(shift_evidence.selection(), shift);
+        assert_eq!(
+            shift_evidence.keysym_projection().unwrap().raw_keysym(),
+            NativeWindowLinuxX11KeysymValue::new(0x0042)
+        );
+        assert_eq!(
+            shift_evidence.final_portable_key(),
+            Some(NativeWindowPortableKey::Ascii { byte: b'B' })
+        );
+    }
+
+    #[test]
+    fn native_window_linux_x11_keyboard_mapping_projection_evidence_handles_nosymbol_and_unsupported(
+    ) {
+        let range = native_window_linux_x11_keyboard_mapping_range(30, 1).unwrap();
+        let shift_nosymbol_table = NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+            keycode_count: 1,
+            keysyms_per_keycode: 2,
+            raw_keysyms: vec![
+                NativeWindowLinuxX11KeysymValue::new(0x0061),
+                NativeWindowLinuxX11KeysymValue::new(NATIVE_WINDOW_X11_KEYSYM_NO_SYMBOL),
+            ],
+        };
+        let unsupported_table = NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+            keycode_count: 1,
+            keysyms_per_keycode: 2,
+            raw_keysyms: vec![
+                NativeWindowLinuxX11KeysymValue::new(0x0062),
+                NativeWindowLinuxX11KeysymValue::new(0x0042),
+            ],
+        };
+        let shifted = native_window_linux_x11_keyboard_mapping_select_raw_keysym(
+            range,
+            &shift_nosymbol_table,
+            30,
+            NativeWindowKeyboardModifierState::new(NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK),
+        )
+        .unwrap();
+        let unsupported = native_window_linux_x11_keyboard_mapping_select_raw_keysym(
+            range,
+            &unsupported_table,
+            30,
+            NativeWindowKeyboardModifierState::new(NATIVE_WINDOW_X11_CORE_STATE_LOCK_MASK),
+        )
+        .unwrap();
+
+        let shifted_evidence =
+            NativeWindowLinuxX11KeyboardMappingProjectionEvidence::from_selection(shifted);
+        let unsupported_evidence =
+            NativeWindowLinuxX11KeyboardMappingProjectionEvidence::from_selection(unsupported);
+
+        assert_eq!(shifted_evidence.raw_keycode(), 30);
+        assert_eq!(
+            shifted_evidence.keysym_projection().unwrap().raw_keysym(),
+            NativeWindowLinuxX11KeysymValue::new(0x0061)
+        );
+        assert_eq!(
+            shifted_evidence.final_portable_key(),
+            Some(NativeWindowPortableKey::Ascii { byte: b'a' })
+        );
+        assert_eq!(unsupported_evidence.selection(), unsupported);
+        assert_eq!(unsupported_evidence.keysym_projection(), None);
+        assert_eq!(unsupported_evidence.final_portable_key(), None);
+    }
+
+    #[test]
+    fn native_window_keyboard_event_stores_x11_keymap_projection_evidence() {
+        let range = native_window_linux_x11_keyboard_mapping_range(50, 1).unwrap();
+        let raw_keysyms = NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+            keycode_count: 1,
+            keysyms_per_keycode: 2,
+            raw_keysyms: vec![
+                NativeWindowLinuxX11KeysymValue::new(0x0063),
+                NativeWindowLinuxX11KeysymValue::new(0x0043),
+            ],
+        };
+        let selection = native_window_linux_x11_keyboard_mapping_select_raw_keysym(
+            range,
+            &raw_keysyms,
+            50,
+            NativeWindowKeyboardModifierState::new(NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK),
+        )
+        .unwrap();
+        let evidence =
+            NativeWindowLinuxX11KeyboardMappingProjectionEvidence::from_selection(selection);
+
+        let event = NativeWindowKeyboardEvent::new_with_modifier_state_and_x11_keymap_projection(
+            NativeWindowKeyboardEventKind::Pressed,
+            50,
+            NativeWindowKeyboardModifierState::new(NATIVE_WINDOW_X11_CORE_STATE_SHIFT_MASK),
+            evidence,
+        )
+        .unwrap();
+
+        assert_eq!(event.raw_keycode(), 50);
+        assert_eq!(event.x11_keymap_projection(), Some(evidence));
+        assert_eq!(
+            event.x11_keymap_projection().unwrap().final_portable_key(),
+            Some(NativeWindowPortableKey::Ascii { byte: b'C' })
+        );
+    }
+
+    #[test]
+    fn native_window_keyboard_event_rejects_mismatched_x11_keymap_projection_keycode() {
+        let range = native_window_linux_x11_keyboard_mapping_range(60, 1).unwrap();
+        let raw_keysyms = NativeWindowLinuxX11KeyboardMappingRawKeysyms {
+            keycode_count: 1,
+            keysyms_per_keycode: 1,
+            raw_keysyms: vec![NativeWindowLinuxX11KeysymValue::new(0x0064)],
+        };
+        let selection = native_window_linux_x11_keyboard_mapping_select_raw_keysym(
+            range,
+            &raw_keysyms,
+            60,
+            NativeWindowKeyboardModifierState::empty(),
+        )
+        .unwrap();
+        let evidence =
+            NativeWindowLinuxX11KeyboardMappingProjectionEvidence::from_selection(selection);
+
+        assert_eq!(
+            NativeWindowKeyboardEvent::new_with_modifier_state_and_x11_keymap_projection(
+                NativeWindowKeyboardEventKind::Pressed,
+                61,
+                NativeWindowKeyboardModifierState::empty(),
+                evidence,
+            )
+            .unwrap_err(),
+            NativeWindowEventPumpError::KeyboardMappingProjectionKeycodeMismatch {
+                raw_keycode: 61,
+                projection_raw_keycode: 60,
+            }
+        );
+    }
+
+    #[test]
     fn native_window_linux_x11_setup_backed_keyboard_mapping_missing_setup_resource_info_fails() {
         let input = NativeWindowEventPumpInput {
             previous_size: NativeWindowSize::new(320, 240),
@@ -28524,6 +28797,7 @@ mod tests {
                     alt: false,
                     meta: false,
                 },
+                x11_keymap_projection: None,
             })
         );
         assert_eq!(
@@ -28558,6 +28832,7 @@ mod tests {
                     alt: false,
                     meta: false,
                 },
+                x11_keymap_projection: None,
             })
         );
         assert_eq!(
@@ -28595,6 +28870,7 @@ mod tests {
             NativeWindowPortableKeyboardModifiers::empty()
         );
         assert_eq!(empty_event.modifier_state().raw_state(), 0);
+        assert_eq!(empty_event.x11_keymap_projection(), None);
     }
 
     #[test]

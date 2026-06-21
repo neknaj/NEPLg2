@@ -559,6 +559,8 @@ F5kn では、F5km の setup-owned `GetKeyboardMapping` request を X11 observat
 
 F5ko では、F5kl / F5kn の raw keymap table を、range owner、raw keycode、modifier evidence から raw keysym selection evidence へ写す pure selector を追加する。range owner は first keycode、keycode count、last keycode を保持し、raw table の keycode count と一致することを検査する。Shift だけを column selection に使い、Lock / Caps、AltGr / Mod bit、group は unsupported evidence として raw modifier state を保持する。Shift column が存在しない場合は typed `ColumnOutOfRange` error とし、Shift column が `NoSymbol` の場合だけ attempted column と base candidate を持つ dedicated evidence にする。F5ko は event packet decoder、reader path、portable projection、IME / text input、shortcut policy、Wayland concrete decoding、Linux runner / CLI dispatch、queue、fallback、support gate `Ok` 化には接続しない。
 
+F5kp では、F5ko selection evidence と F5kk keysym projection を `NativeWindowLinuxX11KeyboardMappingProjectionEvidence` として合成する。evidence は `from_selection` だけで作り、selection と projection を別々の public input として受け取らない。unsupported modifier selection は projection `None`、Shift `NoSymbol` selection は base candidate 由来の projection になる。`NativeWindowKeyboardEvent` には optional `x11_keymap_projection` slot を追加するが、既存 constructor と X11 event decoder は `None` のままにする。F5kp 専用 constructor は raw keycode が一致する evidence だけを受理し、不一致は typed error とする。F5kp は event decoder / reader path 接続、pending keymap と key event packet の照合、IME / text input、shortcut、runner、queue、fallback、support gate `Ok` 化には進まない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。

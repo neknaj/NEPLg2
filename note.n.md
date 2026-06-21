@@ -1,3 +1,38 @@
+# 2026-06-21 Agent2 GUI native F5kp Linux X11 keymap projection evidence boundary
+
+## 目的
+
+- F5ko の raw keysym selection evidence と F5kk の keysym projection evidence を pure evidence として束ねる。
+- `NativeWindowKeyboardEvent` に optional evidence slot を持たせるが、既存 X11 event decoder / reader path からは作らず `None` のままにする。
+- IME / text input、shortcut、pending keymap と key event packet の照合、runner、queue、fallback、support gate `Ok` 化には進まない。
+
+## subagent review
+
+- Planck の F5kp plan review は `PLAN_APPROVED`。
+- 指摘は、evidence fields を private にし、`from_selection` 以外で selection と keysym projection を別々に注入できない形にすること、keycode mismatch 判定は selection / evidence 側の total raw-keycode accessor を使い constructor 側で variant match を重複させないことだった。
+- Planck の implementation review は `REVIEW_APPROVED`。from_selection-only evidence、optional event slot、event decoder / reader 非接続、docs / source policy に blocker は無いことが確認された。
+
+## implementation_current
+
+- `NativeWindowLinuxX11KeyboardMappingProjectionEvidence` を追加し、selection -> final_raw_keysym() -> project_portable_key() の一方向合成だけで projection evidence を作るようにした。
+- unsupported modifier selection は projection `None` のまま selection evidence を保持し、Shift `NoSymbol` selection は base candidate 由来の projection を保持する。
+- `NativeWindowKeyboardEvent` に optional `x11_keymap_projection` slot を追加し、既存 constructor と X11 event decoder は `None` を入れるままにした。
+- F5kp 専用 constructor は event raw keycode と evidence raw keycode の一致を検査し、不一致は typed `KeyboardMappingProjectionKeycodeMismatch` error にする。
+- docs、todo、source policy、focused Rust tests を F5kp に合わせて更新した。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --lib --tests`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_projection -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_keyboard_event -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_selection -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
 # 2026-06-21 Agent2 GUI native F5ko Linux X11 raw keymap selection boundary
 
 ## 目的

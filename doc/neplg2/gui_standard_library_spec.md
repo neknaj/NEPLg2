@@ -1455,6 +1455,16 @@ selection evidence は success と unsupported を区別する。Shift だけを
 
 F5ko は `NativeWindowPortableKey` への projection、`NativeWindowKeyboardEvent` への格納、`native_window_linux_x11_event_packet_to_observation` への接続、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、queue、support gate `Ok` 化、fallback keymap、silent no-op、synthetic readiness は扱わない。
 
+## F5kp Native Linux X11 keymap projection evidence boundary
+
+F5kp は、F5ko の raw keysym selection evidence と F5kk の keysym projection evidence を合成する pure boundary である。`NativeWindowLinuxX11KeyboardMappingProjectionEvidence` は selection と、selection の `final_raw_keysym()` が存在する場合の `NativeWindowLinuxX11KeysymProjection` を同時に保持する。`NativeWindowLinuxX11KeyboardMappingProjectionEvidence` は selection と keysym projection を別々の public input として受け取らない。`from_selection` が selection -> final_raw_keysym() -> project_portable_key() を一方向に実行する。
+
+unsupported modifier selection は selection evidence と raw modifier state を保持したまま、keysym projection を `None` とする。Shift column `NoSymbol` selection は final raw keysym として base candidate を使うため、projection も base candidate 由来になる。selection evidence には total な raw keycode accessor を持たせ、event 側は selection variant match を重複実装しない。
+
+`NativeWindowKeyboardEvent` は optional `x11_keymap_projection` slot を持つ。既存 constructor は `None` を入れるため、既存 X11 event decoder は projection evidence を生成しない。F5kp 専用 constructor は `NativeWindowLinuxX11KeyboardMappingProjectionEvidence` を受け取り、event raw keycode と evidence raw keycode が一致する場合だけ `Some` を保持する。raw keycode が一致しない projection evidence は typed error として拒否し、silent drop や fallback success にしない。
+
+F5kp は event decoder / reader path への keymap projection 接続ではない。pending keymap state と key event packet の照合、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、queue、support gate `Ok` 化、fallback keymap、silent no-op、synthetic readiness は扱わない。
+
 ## F5ew Native and Bare scheduler executor one-step bridge boundary
 
 2026-06-18 の F5ew では、Native and Bare scheduler executor one-step bridge boundary を追加する。これは backend-facing one-step bridge であり、not long-running scheduler backend である。Native は `GuiNativeSchedulerExecutorInputReady`、Bare は `GuiBareSchedulerExecutorInputReady` と borrowed F5ek policy を受ける。ready payload から original `ExecuteHostAction` と packaged `RealLoopStepInput::ExecutorOutcome` を取り出し、`LoopAction::ExecuteHostAction` と input を F5ek `real_loop_step` へ 1 回だけ渡す。戻り値は F5ek の `Result RealLoopStepResult RealLoopStepError` をそのまま返す。F5ew は host action executor、action sink / driver、support validation、clock / timer helper、queue、while loop、present、minifb、Canvas、DOM、video memory、fallback、silent no-op を実装しない。

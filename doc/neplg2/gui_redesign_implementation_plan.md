@@ -3246,3 +3246,38 @@ Phase F5ko では、F5kl / F5kn で得た raw keymap table を、X11 keycode と
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で range owner、checked indexing、unsupported modifier evidence、no event decode / no portable projection / no runner / no fallback が承認される。
+
+## Phase F5kp: Native Linux X11 keymap projection evidence boundary
+
+Phase F5kp では、F5ko の raw keysym selection evidence と F5kk の caller-supplied keysym projection を束ねる pure evidence boundary を追加する。これは selection -> final_raw_keysym() -> project_portable_key() の合成だけを扱い、X11 event decoder は F5kp では projection evidence を作らず `None` のままにする。
+
+実装:
+
+- `NativeWindowLinuxX11KeyboardMappingProjectionEvidence` を追加し、F5ko selection evidence と、final raw keysym が存在する場合の `NativeWindowLinuxX11KeysymProjection` を同時に保持する。
+- evidence は `from_selection` からだけ作り、selection と keysym projection を別々の public input として受け取る constructor は作らない。
+- unsupported modifier selection は raw modifier state を保持した selection のまま残し、portable projection は `None` にする。
+- `NativeWindowLinuxX11KeyboardMappingSelection::raw_keycode` を追加し、event 側の keycode 整合性検査が selection variant match を重複実装しないようにする。
+- `NativeWindowKeyboardEvent` に optional `x11_keymap_projection` slot を追加する。既存 `new` / `new_with_modifier_state` は `None` を入れ、F5kp 専用 constructor は evidence の raw keycode と event raw keycode が一致する場合だけ `Some` を保持する。
+- raw keycode が一致しない projection evidence は typed `KeyboardMappingProjectionKeycodeMismatch` error とし、silent drop や fallback success にしない。
+- source-policy は F5kp evidence surface、event optional slot、event decoder / reader path が projection evidence を作らないこと、IME / text input / shortcut / runner / queue / fallback へ接続しないことを検査する。
+
+非目標:
+
+- `native_window_linux_x11_event_packet_to_observation` や `NativeWindowLinuxX11EventSourceObservationReader` から keymap projection evidence を作らない。
+- pending keymap state と key event packet の照合、IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化は扱わない。
+- fallback keymap、synthetic readiness、silent no-op、raw keysym と portable key の別入力 constructor は作らない。
+
+完了条件:
+
+- base / shift selection が final raw keysym から portable key へ projection される tests を追加する。
+- shift `NoSymbol` selection が base candidate 由来の projection を保持する tests を追加する。
+- unsupported modifier selection が projection `None` のまま selection evidence を保持する tests を追加する。
+- `NativeWindowKeyboardEvent` の F5kp constructor が evidence を保持し、raw keycode mismatch を typed error にする tests を追加する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo check -p nepl-gui-native --lib --tests`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_projection -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_selection -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で from_selection-only evidence、optional event slot、no event decoder / reader / IME / runner / fallback connection が承認される。
