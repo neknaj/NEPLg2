@@ -1,3 +1,42 @@
+# 2026-06-21 Agent2 GUI font F5lk shadow source edge drain owner boundary
+
+## 目的
+
+- F5lj の shadow source coverage owner を direct authority とし、completed `path_sink_scalars` から shadow source 用 raster edge owner を作る。
+- generic raster edge drain は completed raster mask writer owner を要求するため使わず、F5lj の writer state に合う shadow 専用 path sink scalar drain とする。
+- `SkipNoSegment` は path sink scalar record を持たないため、scalar stream 内の tag 4 は `UnexpectedSkipNoSegmentTag` として fail closed にする。
+- zero drawable edges を empty exact-capacity edge owner として完了できるようにする。
+- source mask allocation、mask scan、blur、packing、composition、resource、render command、pixel write、platform API、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceEdgeContext`、drain owner、completed edge owner、start error、drain error、bounded terminal、free/recovery helper を追加した。
+- context は F5lj owner と nested request owner の source/shadow/placement/shape metadata を value-only に写し、`Clone` / `Copy` を許可する。
+- drain/completed/error/terminal は writer authority と edge Vec を所有または保持するため `Clone` / `Copy` を実装しない。
+- start は context metadata、shape arithmetic、shared writer authority、`line_to_count + quadratic_to_count == raster_edge_capacity`、edge Vec exact allocation を検査し、allocation 成功後に request owner から writer authority を split する。
+- drain は `path_sink_scalars` だけを読み、MoveTo で current point を更新し、LineTo / QuadraticTo で raster edge を push する。tag 4 は `UnexpectedSkipNoSegmentTag` として拒否する。
+- Laplace の plan review 1 は `CHANGES_REQUESTED`。generic raster edge drain 経由では completed raster mask writer が必要になり、F5lj の writer state と契約が合わないため修正した。
+- Laplace の revised plan review 1 は `CHANGES_REQUESTED`。`SkipNoSegment` を scalar record として扱う案が誤りだったため、tag 4 rejection に修正した。
+- Laplace revised plan 2 は `PLAN_APPROVED`。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_edge_f5lk.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_config.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_f5lk_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lk.json -j 1` は 1283 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lk.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lk.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Laplace の implementation review 1 は `CHANGES_REQUESTED`。F5lk 実装本体の blocker はなく、検証欄が pending のままだったことと focused doctest file が untracked であることを指摘されたため修正した。
+- Laplace の implementation re-review は `REVIEW_APPROVED`。
+
+## 残件
+
+- F5lk 後続として、shadow source mask scan / blur / packing / composition、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lj shadow source coverage config boundary
 
 ## 目的
