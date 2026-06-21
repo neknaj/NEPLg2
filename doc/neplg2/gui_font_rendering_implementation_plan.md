@@ -4434,6 +4434,66 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5me.json
 ```
 
+## Phase F5mf: render2d compositor tile RLE count bridge boundary
+
+目的:
+
+- F5me の `GuiRgba8888CompositorTilePayloadOwner` を authority とし、既存 lower `gui_rgba8888_row_tile_rle_cursor_start` と `gui_rgba8888_row_tile_rle_count_start` を compositor metadata 付きで接続する。
+- lower cursor start と lower count start をそれぞれ 1 回だけ呼び、`GuiRgba8888CompositorTileRleCountOwner` として lower row tile RLE count owner と copied metadata を束ねる。
+- success / start error / finish error recovery のどれでも compositor metadata を保持し、tile payload owner または frame entry owner へ戻せるようにする。
+- この phase では drain、count step、completed count、encode、storage、packet、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no drain / encode / present の compositor tile RLE count bridge で止める。
+
+plan review:
+
+- Kant plan review は `PLAN_APPROVED`。
+- F5mf は F5me の compositor tile payload owner と lower row tile RLE count owner をつなぐ bridge として承認された。
+- start error は `kind/category/payload` を持ち、cursor start failure では lower kind / category を読んだ後で lower payload owner を `GuiRgba8888CompositorTilePayloadOwner` へ戻す。
+- count start failure でも start error は `kind/category/payload` を持ち、lower count kind / category を読んだ後で lower cursor owner を payload owner へ戻す。
+- finish error は `kind/category/entry` を持ち、F5me の tile payload finish error から lower finish kind / category を読んだ後で returned entry owner を保持する。
+- accessor は lower count owner に委譲し、count evidence を作るために drain や count step を呼ばない。
+- owner_finish_payload は metadata を Copy してから lower count owner を消費する。
+- owner_free は finish failure と entry free failure を分ける。tile RLE count finish が成功した後に entry free が失敗した場合を失わず、finish failure では original lower finish kind を保持する。
+- source policy で lower `gui_rgba8888_row_tile_rle_cursor_start` / `gui_rgba8888_row_tile_rle_count_start` exact once、start function の drain / count step / completed count / encode / storage / packet / direct byte read / std present / host / platform / fallback 禁止を検査する。
+- focused doctest は success path で metadata、initial accumulated count 0、cursor next pixel index 0、Ready status、finish entry recovery を実行する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_count.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleCountStartErrorKind`、`GuiRgba8888CompositorTileRleCountFinishErrorKind`、`GuiRgba8888CompositorTileRleCountFreeErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleCountOwner`、`GuiRgba8888CompositorTileRleCountStartError`、`GuiRgba8888CompositorTileRleCountFinishError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_count_start` は metadata を tile payload owner から Copy してから lower payload owner を取り出し、lower RLE cursor start と lower RLE count start を順に 1 回ずつ呼ぶ。
+- cursor start failure は lower kind / category を読んでから `GuiRgba8888CompositorTilePayloadOwner` へ正規化し、start error は `kind/category/payload` を保持する。
+- count start failure は lower count kind / category を読んでから lower cursor owner を payload owner へ戻し、同じく `kind/category/payload` を保持する。
+- accumulated run count、cursor next pixel index、cursor status accessor は lower count owner helper に委譲する。
+- `gui_rgba8888_compositor_tile_rle_count_owner_finish_payload` は metadata を Copy してから lower count owner を payload owner へ戻す。
+- `gui_rgba8888_compositor_tile_rle_count_owner_finish_entry` は F5me tile payload finish に委譲し、finish error は `kind/category/entry` を保持する。
+- start error / finish error recovery accessor、free helper を追加する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE count を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md` を追加し、facade、start、metadata、status、finish entry recovery、no drain / encode / present / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mf source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Kant approval、facade export、typed lower error variants、success owner / start error / finish error no Clone / Copy、exact one lower cursor start / count start call、metadata-before-payload-owner-consume、lower cursor/count kind/category before payload normalization、lower count owner accessor delegation、metadata-before-count-finish、finish error kind/category before entry recovery、owner_free の finish failure / entry free failure split、direct byte read / drain / count step / completed count / encode / storage / packet / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5me compositor tile payload regression、F5ce row tile RLE count regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower finish kind/category loss、entry free failure collapse、drain/count-step/encode/present leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_f5mf.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_module_f5mf.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_payload.n.md --no-tree -o tmp_gui_render2d_compositor_tile_payload_f5mf_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5mf_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mf.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
