@@ -1,3 +1,48 @@
+# 2026-06-21 Agent2 GUI font F5ky stroke side edge owner boundary
+
+## 目的
+
+- completed F5kx stroke offset geometry owner を authority として消費し、line/quadratic の left/right side edge record owner を追加する。
+- F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、fill raster edge owner へ戻らない。
+- completed owner は閉じた stroke outline ではなく、join / cap / miter closure を未解決の side edge record authority として扱う。
+- coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へは進まない。
+
+## subagent review
+
+- Gauss の F5ky plan review は `PLAN_REVIEWED`。
+- 指摘は、F5ky を side edge record owner に限定すること、completed owner を coverage-ready な閉境界と誤解させないこと、coverage の前に stroke edge closure / join-cap owner を挟むことだった。
+- Wegener の implementation review は `REVIEW_CHANGES_REQUESTED`。実装本体に blocker はなく、focused doctest の git 追加と `note.n.md` 記録が不足という指摘だった。
+- 指摘に従い、docs/source policy/todo で not-closed outline と closure-before-coverage policy を固定し、この note に F5ky 記録を追加した。focused doctest は commit 対象に含める。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeEdgeSide` と `GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection` を追加した。
+- `GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord` を追加し、source/provenance、source start/end、F5kx normal、side、boundary direction、directed side endpoint を保持するようにした。left side は source-forward、right side は source-reverse として記録する。
+- `GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord` を追加し、source start/control/end、start/end endpoint normal、side、boundary direction、directed side endpoint を保持するようにした。offset control point は捏造しない。
+- `GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner` を追加した。
+- start は F5kx completed owner invariant と style guard を再検査し、`geometry_count * 2` の overflow guard を通して side edge Vec exact capacity を確保する。
+- step は `geometry_index + side_phase(Left/Right)` を authority にして 1 step で 1 side edge record だけ push する。
+- push failure は returned Vec と pre-push geometry index / side phase / kind count / left-right count を保持する owner-bearing error にした。
+- completion は `line_side_edge_count == line_geometry_count * 2`、`quadratic_side_edge_count == quadratic_geometry_count * 2`、`left_side_edge_count == right_side_edge_count == geometry_count`、Vec len/cap が `geometry_count * 2` と一致することを要求する。
+- docs、source policy、focused doctest label、todo を F5ky に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_side_edge_owner.n.md --no-tree -o tmp_gui_font_render_stroke_side_edge_owner_f5ky_initial.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ky_initial.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ky.json`
+- checked JSON: `tmp/playground-editor-tests-f5ky.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Wegener の実装レビューでは、F5ky が completed F5kx owner を authority にし、closed outline ではないことを docs/source policy で固定している点、`geometry_count * 2` capacity、`geometry_index + side_phase`、1 step 1 push、push failure recovery、line right reverse、quadratic source curve + endpoint normal 保持が設計と整合していることを確認済み。
+- 残リスクは、focused doctest が policy label smoke であり、実データでの side phase / push failure 動的検査は後続の closure / join-cap owner phase か専用 regression で追加する余地がある点。
+- F5ky 後続は coverage 直行ではなく、stroke edge closure / join-cap owner を先に追加する。
+
 # 2026-06-21 Agent2 GUI font F5kx stroke offset geometry boundary
 
 ## 目的
