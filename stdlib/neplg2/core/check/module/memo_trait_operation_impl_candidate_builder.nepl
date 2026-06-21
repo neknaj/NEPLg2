@@ -4,9 +4,10 @@
 //: typed public impl candidate input から `MemoKey` / `MemoValue` operation impl candidate table を[構築/こうちく]する checker-layer orchestration module です。
 //:
 //: [目的/もくてき]:
-//: - actual public impl materializer が作る予定の typed record table を受け取り、method body fact orchestrator、body check resolver、operation impl table を 1 つの owner-safe な境界で接続します。
+//: - actual public impl materializer が作る予定の typed record table を受け取り、method body fact boundary、body check resolver、operation impl table を 1 つの owner-safe な境界で接続します。
 //: - public impl header、trait application、resolved target type shape、method body root を同じ input record に束ね、source text や method name string に戻らず candidate table を作ります。
-//: - Eq / Hash の method body fact は `memo_trait_operation_method_body_fact_orchestrator` へ委譲し、Copy には method body fact を混ぜません。
+//: - 旧 API では Eq / Hash の method body fact を `memo_trait_operation_method_body_fact_orchestrator` へ委譲し、Copy には method body fact を混ぜません。
+//: - proof-aware API では caller が渡す `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を使い、MethodBodyFact が body root identity を失う前に `PrivateState` / `PrivateCache` の no-escape proof を適用します。
 //: - Drop proof はこの slice ではまだ導出しません。Drop operation が input に現れた場合は、未証明の `Unknown` evidence を作らず、`DropOperationUnsupportedUntilResourceProof` で明示的に拒否します。
 //: - 同じ `SelfhostTypeId` と operation kind の candidate が複数来た場合は first-wins にせず、builder 入口で `CandidateDuplicate` として拒否します。
 //:
@@ -17,11 +18,13 @@
 //: - method body scan table、method fact table、Drop fact table、output impl candidate table は builder が作ります。success の場合だけ output table owner を caller に返し、failure の場合は所有中の owner を閉じます。
 //: - `NoDropRequired` は「Drop 実装がないことを上流が確認した」証拠なので、この module は空の Drop table からそれを合成しません。Drop proof がまだ接続されていない Phase 1 では Drop input を candidate 化しません。
 //: - candidate は `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を通して作ります。producer input や evidence record への変換は下流の impl table / producer API に任せ、この builder では行いません。
+//: - proof-aware API の `body_module_fingerprint` は、1 回の呼び出しで渡す HIR root 群が同一 module origin に属することを caller が示す typed identity です。builder input table 自体には per-record fingerprint を持たせないため、public materializer が接続される段階では module ごとに分割するか、単一 fingerprint であることを検証してから呼び出します。
 //: - HIR は method body effect fact を作るためだけに読みます。Resource IR、backend artifact、proof store、`.neplproof` reader / serializer、canonical key codec には依存しません。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 では actual public impl materializer は未接続です。stage0 smoke が typed input table を直接作り、accepted path、Eq root 欠落、candidate duplicate、Drop unsupported rejection を確認します。
-//: - Drop body effect checker、Drop なし proof generator、generic impl binder、trait coherence、PrivateCache / PrivateState masking、Resource IR no-escape proof、full public surface orchestration は後続 slice の責務です。
+//: - Phase 1 では actual public impl materializer は未接続です。stage0 smoke が typed input table を直接作り、accepted path、Eq root 欠落、candidate duplicate、Drop unsupported rejection、PrivateCache proof-aware path を確認します。
+//: - proof-aware API は caller から受け取った private-effect proof table だけを消費し、operation evidence、aggregate proof、memo_call backend request evidence、artifact policy hash、Resource proof production は作りません。
+//: - Drop body effect checker、Drop なし proof generator、generic impl binder、trait coherence、actual Resource IR no-escape proof producer、full public surface orchestration は後続 slice の責務です。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が public surface materializer と proof boundary をまとめる段階で公開範囲を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -30,7 +33,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -38,6 +41,10 @@
 //: ##: [4] ok
 //: ##: [5] ok
 //: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -45,6 +52,7 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/check/module/memo_trait_operation_impl_candidate_builder" as *
 //:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate" as *
 //:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
 //:| #import "std/test" as *
@@ -59,7 +67,11 @@
 //:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_impl_candidate_builder_scan_required_error_result_eq summary.scan_missing 0
 //:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_impl_candidate_builder_duplicate_error_result_eq summary.duplicate_rejected
 //:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_error_result_eq summary.drop_unsupported 0
-//:             let shown checks_print_report checks7
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_len_eq summary.private_effect_proven 1
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq summary.private_effect_proven SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostMemoTraitOperationMethodBodyEvidence::Pure
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq summary.private_effect_missing SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostMemoTraitOperationMethodBodyEvidence::Unknown
+//:             let checks11 checks_push checks10 check selfhost_memo_trait_operation_impl_candidate_builder_private_gate_error_result_eq summary.private_effect_duplicate_rejected SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate
+//:             let shown checks_print_report checks11
 //:             checks_exit_code shown
 //:         Result::Err _setup:
 //:             let checks0 checks_new
@@ -88,6 +100,7 @@
 #import "./memo_trait_operation_method_body_fact_input_scan" as *
 #import "./memo_trait_operation_method_body_fact_orchestrator" as *
 #import "./memo_trait_operation_method_body_resolver" as *
+#import "./memo_trait_operation_private_effect_no_escape_gate" as *
 #import "./memo_trait_operation_purity_gate" as *
 #import "./memo_trait_public_impl_header" as *
 
@@ -144,7 +157,7 @@ pub struct SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary:
 //: SelfhostMemoTraitOperationImplCandidateBuilderErrorKind: candidate builder 境界の拒否理由
 //:
 //: [目的/もくてき]:
-//: - setup、scan、method fact build、Drop table setup、Drop unsupported、body check、purity gate、candidate duplicate、candidate push の失敗箇所を typed enum として保持します。
+//: - setup、scan、method fact build、private-effect proof gate、Drop table setup、Drop unsupported、body check、purity gate、candidate duplicate、candidate push の失敗箇所を typed enum として保持します。
 pub enum SelfhostMemoTraitOperationImplCandidateBuilderErrorKind:
     HirSetupFailed %StdErrorKind
     InputTableAllocFailed %StdErrorKind
@@ -153,6 +166,7 @@ pub enum SelfhostMemoTraitOperationImplCandidateBuilderErrorKind:
     SourceReadFailed %i32
     MethodScanRecordPushFailed %SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
     MethodFactBuildRejected %SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind
+    PrivateEffectNoEscapeGateRejected %SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
     DropTableAllocFailed %StdErrorKind
     DropOperationUnsupportedUntilResourceProof %SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation
     OutputTableAllocFailed %StdErrorKind
@@ -168,6 +182,9 @@ pub struct SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary:
     scan_missing %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
     duplicate_rejected %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
     drop_unsupported %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+    private_effect_proven %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+    private_effect_missing %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+    private_effect_duplicate_rejected %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
 
 impl Clone for SelfhostMemoTraitOperationImplCandidateBuilderInput:
     fn clone %fn &SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationImplCandidateBuilderInput \self:
@@ -290,6 +307,21 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan %
             selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan
             Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected build_error
 
+//: selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan_with_private_effect_proofs: scan table owner から private-effect proof gate 済み method fact table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `scan` はこの関数が消費します。success / failure のどちらでも scan owner を閉じます。
+//: - `proofs` は borrow です。この関数は閉じません。
+//: - `body_module_fingerprint` は `module` と `scan` 内の method body root が同じ module origin から来ていることを表します。複数 module の root を混ぜる caller は、この関数へ来る前に module ごとに分割します。
+fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan_with_private_effect_proofs %impure fn &SelfhostHirModule impure fn i32 impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\body_module_fingerprint\scan\proofs:
+    match selfhost_memo_trait_operation_private_effect_no_escape_table_from_scan_records_result module body_module_fingerprint &scan proofs:
+        Result::Ok method_table:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan
+            Result::Ok method_table
+        Result::Err build_error:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected build_error
+
 //: selfhost_memo_trait_operation_impl_candidate_builder_method_facts_result: builder input から method fact table を[作/つく]る
 fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\source:
     match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
@@ -297,6 +329,22 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_result %imp
             match selfhost_memo_trait_operation_impl_candidate_builder_scan_loop scan0 source 0:
                 Result::Ok scan:
                     selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan module scan
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_method_facts_with_private_effect_proofs_result: builder input から private-effect proof gate 済み method fact table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module`、`source`、`proofs` は borrow です。この関数は閉じません。
+//: - 旧 method fact orchestrator path は使わず、scan record から body root identity を持ったまま private-effect gate へ渡します。
+fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_with_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\body_module_fingerprint\source\proofs:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok scan0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_scan_loop scan0 source 0:
+                Result::Ok scan:
+                    selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan_with_private_effect_proofs module body_module_fingerprint scan proofs
                 Result::Err e:
                     Result::Err e
         Result::Err alloc_error:
@@ -467,6 +515,29 @@ pub fn selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_re
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result: private-effect proof table 付きで impl candidate table を[構築/こうちく]する
+//:
+//: [契約/けいやく]:
+//: - `module`、`source`、`proofs` は borrow です。この関数は閉じません。
+//: - Drop operation は旧 API と同じく method fact scan より前の preflight と output loop の二重境界で拒否します。
+//: - method body fact は `memo_trait_operation_private_effect_no_escape_gate` を通して作り、caller-supplied proof table 以外から no-escape を合成しません。
+//: - この API は operation evidence、aggregate proof、backend request evidence、artifact、Resource proof を生成しません。raw candidate に保存される method body evidence だけを既存 purity gate で作ります。
+pub fn selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\body_module_fingerprint\source\proofs:
+    match selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result source 0:
+        Result::Ok _drop_absent:
+            match selfhost_memo_trait_operation_impl_candidate_builder_method_facts_with_private_effect_proofs_result module body_module_fingerprint source proofs:
+                Result::Ok method_table:
+                    match selfhost_memo_trait_operation_drop_impl_table_new:
+                        Result::Ok drop_table:
+                            selfhost_memo_trait_operation_impl_candidate_builder_from_tables_result method_table drop_table source
+                        Result::Err drop_alloc:
+                            selfhost_memo_trait_operation_method_body_table_free method_table
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed drop_alloc
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
 fn selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_code %fn StdErrorKind i32 \kind:
     match kind:
@@ -529,6 +600,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -560,6 +633,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
@@ -593,6 +668,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -624,6 +701,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
@@ -657,6 +736,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -688,6 +769,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed b_scan_push:
                     selfhost_memo_trait_operation_method_body_fact_input_scan_error_kind_eq a_scan_push b_scan_push
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
@@ -721,6 +804,42 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected b_fact:
                     selfhost_memo_trait_operation_method_body_fact_orchestrator_error_kind_eq a_fact b_fact
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected a_private_effect:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected b_private_effect:
+                    selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq a_private_effect b_private_effect
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -752,6 +871,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed b_drop_alloc:
                     selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_drop_alloc b_drop_alloc
@@ -785,6 +906,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed b_output_alloc:
@@ -816,6 +939,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
@@ -849,6 +974,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -880,6 +1007,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
@@ -913,6 +1042,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -945,6 +1076,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
@@ -976,6 +1109,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn Se
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _b_private_effect:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
                     false
@@ -1040,6 +1175,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_scan_required_error_
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected nested:
                     let nested_result %Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind Result::Err nested
                     selfhost_memo_trait_operation_method_body_fact_orchestrator_scan_required_error_result_eq nested_result expected_index
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _setup:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _alloc:
@@ -1092,6 +1229,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_duplicate_error_resu
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _output_alloc:
@@ -1135,6 +1274,8 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_err
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _fact:
                     false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected _private_effect:
+                    false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _drop_alloc:
                     false
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _output_alloc:
@@ -1150,9 +1291,49 @@ pub fn selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_err
                 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _push_candidate:
                     false
 
+//: selfhost_memo_trait_operation_impl_candidate_builder_private_gate_error_result_eq: private-effect proof gate error が builder 境界に伝わったか[返/かえ]す
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_private_gate_error_result_eq %fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected nested:
+                    selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq nested expected
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _drop_unsupported:
+                    false
+
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new %fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary \accepted\scan_missing\duplicate_rejected\drop_unsupported:
-    SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary accepted scan_missing duplicate_rejected drop_unsupported
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new %fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary \accepted\scan_missing\duplicate_rejected\drop_unsupported\private_effect_proven\private_effect_missing\private_effect_duplicate_rejected:
+    SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary accepted scan_missing duplicate_rejected drop_unsupported private_effect_proven private_effect_missing private_effect_duplicate_rejected
 
 //: selfhost_memo_trait_operation_impl_candidate_builder_accepted_summary_new: accepted summary を[作/つく]る
 fn selfhost_memo_trait_operation_impl_candidate_builder_accepted_summary_new %fn i32 fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary \len\copy_candidate\eq_candidate\hash_candidate:
@@ -1189,6 +1370,20 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_owned_sou
             selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
             Result::Err e
 
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_with_private_effect_proofs_owned_source: source / proof owner を[閉/と]じながら proof-aware builder result の len を[返/かえ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_with_private_effect_proofs_owned_source %impure fn &SelfhostHirModule impure fn i32 impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\body_module_fingerprint\source\proofs:
+    match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result module body_module_fingerprint &source &proofs:
+        Result::Ok table:
+            let table_len %i32 selfhost_memo_trait_operation_impl_table_len &table
+            selfhost_memo_trait_operation_impl_table_free table
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Ok table_len
+        Result::Err e:
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Err e
+
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_summary_from_table: output table owner を[閉/と]じて accepted summary を[返/かえ]す
 fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_summary_from_table %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary \table\type_id:
     let accepted_len %i32 selfhost_memo_trait_operation_impl_table_len &table
@@ -1207,6 +1402,19 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_owne
             Result::Ok summary
         Result::Err e:
             selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_with_private_effect_proofs_owned_source: source / proof owner を[閉/と]じて proof-aware accepted summary を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_with_private_effect_proofs_owned_source %impure fn &SelfhostHirModule impure fn i32 impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\body_module_fingerprint\source\type_id\proofs:
+    match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result module body_module_fingerprint &source &proofs:
+        Result::Ok table:
+            let summary %SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_summary_from_table table type_id
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Ok summary
+        Result::Err e:
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
             Result::Err e
 
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_source: accepted path の input table を[作/つく]る
@@ -1230,6 +1438,95 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted %impure 
     match selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_source type_id registry target_shape_hash copy_shape_hash eq_shape_hash hash_shape_hash pure_root external_root:
         Result::Ok source:
             selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_owned_source module source type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_source: PrivateCache Eq path の input table を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_source %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \type_id\registry\target_shape_hash\eq_shape_hash\private_cache_root\ordinal:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq registry.eq_source ordinal target_shape_hash eq_shape_hash some private_cache_root
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proof_record: PrivateCache root 用 no-escape proof record を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proof_record %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \type_id\body_module_fingerprint\private_cache_root\status:
+    let key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint private_cache_root SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new key status
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_empty_private_effect_proofs_result: [空/から]の proof table を builder error へ[写/うつ]して[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_empty_private_effect_proofs_result %impure fn void Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \void:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs:
+            Result::Ok proofs
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_one_private_effect_proof_result: 1 件の proof record を持つ proof table を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_one_private_effect_proof_result %impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \type_id\body_module_fingerprint\private_cache_root\status:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_empty_private_effect_proofs_result:
+        Result::Ok proofs0:
+            let proof %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proof_record type_id body_module_fingerprint private_cache_root status
+            match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    Result::Ok proofs1
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate_private_effect_proofs_result: duplicate proof を含む proof table を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate_private_effect_proofs_result %impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \type_id\body_module_fingerprint\private_cache_root:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_empty_private_effect_proofs_result:
+        Result::Ok proofs0:
+            let proof %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proof_record type_id body_module_fingerprint private_cache_root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+            match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs1 proof:
+                        Result::Ok proofs2:
+                            Result::Ok proofs2
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected e
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_with_proofs: proof table 付き PrivateCache Eq path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_with_proofs %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn i32 Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root\proofs\ordinal:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_source type_id registry target_shape_hash eq_shape_hash private_cache_root ordinal:
+        Result::Ok source:
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_with_private_effect_proofs_owned_source module body_module_fingerprint source type_id proofs
+        Result::Err e:
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proven: proven proof 付き PrivateCache Eq path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proven %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_one_private_effect_proof_result type_id body_module_fingerprint private_cache_root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_with_proofs module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root proofs 9
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_missing: proof 欠落 PrivateCache Eq path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_missing %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_empty_private_effect_proofs_result:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_with_proofs module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root proofs 10
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_duplicate: duplicate proof rejection path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_duplicate %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate_private_effect_proofs_result type_id body_module_fingerprint private_cache_root:
+        Result::Ok proofs:
+            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_source type_id registry target_shape_hash eq_shape_hash private_cache_root 11:
+                Result::Ok source:
+                    selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_with_private_effect_proofs_owned_source module body_module_fingerprint source proofs
+                Result::Err e:
+                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+                    Result::Err e
         Result::Err e:
             Result::Err e
 
@@ -1274,13 +1571,17 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_drop_unsupported 
             Result::Err e
 
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes: trait shape が揃った状態で smoke を[実行/じっこう]する
-fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\pure_root\external_root\registry\target_shape_hash\copy_shape_hash\drop_shape_hash\eq_shape_hash\hash_shape_hash:
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\pure_root\external_root\private_cache_root\registry\target_shape_hash\copy_shape_hash\drop_shape_hash\eq_shape_hash\hash_shape_hash:
+    let body_module_fingerprint %i32 81001
     let accepted %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted &module type_id registry target_shape_hash copy_shape_hash eq_shape_hash hash_shape_hash pure_root external_root
     let scan_missing %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_scan_missing &module type_id registry target_shape_hash eq_shape_hash
     let duplicate_rejected %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate &module type_id registry target_shape_hash copy_shape_hash
     let drop_unsupported %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_drop_unsupported &module type_id registry target_shape_hash drop_shape_hash
+    let private_effect_proven %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_proven &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
+    let private_effect_missing %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_missing &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
+    let private_effect_duplicate_rejected %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_effect_duplicate &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
     selfhost_hir_module_free module
-    Result::Ok selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new accepted scan_missing duplicate_rejected drop_unsupported
+    Result::Ok selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new accepted scan_missing duplicate_rejected drop_unsupported private_effect_proven private_effect_missing private_effect_duplicate_rejected
 
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result: operation source から shape hash を[作/つく]る
 fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \source:
@@ -1291,7 +1592,7 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result %fn 
             Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
 
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry: trusted registry から shape hash を[準備/じゅんび]する
-fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\pure_root\external_root:
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\pure_root\external_root\private_cache_root:
     match selfhost_memo_trait_operation_trusted_source_registry_current_result:
         Result::Ok registry:
             match selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result registry.copy_source:
@@ -1302,7 +1603,7 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry %impure 
                                 Result::Ok eq_shape_hash:
                                     match selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result registry.hash_source:
                                         Result::Ok hash_shape_hash:
-                                            selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes module type_id pure_root external_root registry 8301 copy_shape_hash drop_shape_hash eq_shape_hash hash_shape_hash
+                                            selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes module type_id pure_root external_root private_cache_root registry 8301 copy_shape_hash drop_shape_hash eq_shape_hash hash_shape_hash
                                         Result::Err e:
                                             selfhost_hir_module_free module
                                             Result::Err e
@@ -1319,6 +1620,17 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry %impure 
             selfhost_hir_module_free module
             Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
 
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_cache: PrivateCache expression までの smoke HIR module を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_cache %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\pure_root\external_root\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "cache" selfhost_def_id_new 4602 type_id SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok private_cache_alloc:
+            let private_cache_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &private_cache_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module private_cache_alloc
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry module1 type_id pure_root external_root private_cache_root
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed e
+
 //: selfhost_memo_trait_operation_impl_candidate_builder_stage0_external: ExternalIo expression までの smoke HIR module を[作/つく]る
 fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_external %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\pure_root\type_id\span:
     let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "read" selfhost_def_id_new 4601 type_id SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
@@ -1326,7 +1638,7 @@ fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_external %impure 
         Result::Ok external_alloc:
             let external_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &external_alloc
             let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module external_alloc
-            selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry module1 type_id pure_root external_root
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_private_cache module1 pure_root external_root type_id span
         Result::Err e:
             Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed e
 

@@ -161,3 +161,28 @@ subagent review:
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
+
+## 2026-06-21 selfhost operation impl candidate builder private effect proof path checkpoint
+
+`memo_trait_operation_impl_candidate_builder.nepl` に、caller supplied `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を受ける proof-aware builder API を追加した。
+
+完了したこと:
+
+- 既存の proof なし builder API は互換のまま残した。
+- proof-aware API は method body scan record から fact table を作る直前で `memo_trait_operation_private_effect_no_escape_gate` を通し、body root identity を失う前に private effect proof を照合する。
+- `body_module_fingerprint` は builder call 全体の HIR module body identity として扱い、proof key は `SelfhostTypeId`、operation、body module fingerprint、body root、effect、元 escape state の完全一致にした。
+- missing proof は accepted `Pure` にせず、`NotApplicable` を保持して operation purity gate 側で `Unknown` 相当に残す。duplicate proof は gate error として fail-closed にした。
+- candidate builder は operation evidence、aggregate proof、Resource proof production、memo_call backend bytes、sealed backend representation、artifact keyを作らない。
+
+検証:
+
+- `node --check nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- `node nodesrc/run_source_policy_regressions.js` 相当。ログは最後の `test_zed_extension_no_tracked_target.js` まで到達し、failure pattern は無い。
+
+残件:
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行して、この proof-aware path へ渡す。
+- public impl materializer / orchestrator が body module fingerprint 単位で scan record と proof table を分配する。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続する。

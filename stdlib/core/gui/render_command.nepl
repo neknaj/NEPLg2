@@ -662,7 +662,9 @@ pub fn gui_paint_solid %fn Rgba8888 GuiPaint \color:
 //: [目的/もくてき]:
 //: - renderer や font rasterizer が `GuiPaint` の[内部/ないぶ] field 名に[依存/いぞん]せず、solid color を O(1) で[取得/しゅとく]します。
 //:
-//: neplg2:test
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_render_command_gui_paint_color_doc\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"alpha\" expected=\"40\" actual=\"40\" message=\"\"\n"
+//: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #indent 4

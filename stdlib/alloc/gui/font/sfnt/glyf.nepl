@@ -18901,13 +18901,13 @@ impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \kind:
         kind
 
-fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max %fn i64:
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max %fn void i64 \void:
     let billion %i64 %i64 cast 1000000000
     let high_part %i64 mul %i64 cast 922337203 billion
     let base %i64 add high_part %i64 cast 685477580
     add mul base %i64 cast 10 %i64 cast 7
 
-fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand %fn i64:
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand %fn void i64 \void:
     add mul %i64 cast 3037 %i64 cast 1000000 %i64 cast 499
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square %fn i64 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind Result i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \value\overflow_kind:
@@ -19453,9 +19453,12 @@ enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal:
     MetricPushed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner
     Completed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
 
-fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \cursor\metrics\metric_count\line_metric_count\quadratic_metric_count\segment_kind\segment_index\metric\next_metric_count\nnext_line_metric_count\nnext_quadratic_metric_count:
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric impure fn i32 impure fn i32 impure fn i32 impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind impure fn i32 impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \cursor\metrics\metric_count\line_metric_count\quadratic_metric_count\segment_kind\segment_index\metric\line_metric_delta\quadratic_metric_delta:
     match vec::push metrics metric:
         Result::Ok next_metrics:
+            let next_metric_count %i32 add metric_count 1
+            let next_line_metric_count %i32 add line_metric_count line_metric_delta
+            let next_quadratic_metric_count %i32 add quadratic_metric_count quadratic_metric_delta
             let next_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner cursor next_metrics next_metric_count next_line_metric_count next_quadratic_metric_count
             Result::Ok next_owner
         Result::Err push_error:
@@ -19463,11 +19466,11 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_me
             let returned_metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric vec::vec_push_error_vec push_error
             Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_push_failed segment_kind segment_index metric cursor returned_metrics metric_count line_metric_count quadratic_metric_count storage_error_value
 
-fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_line %impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \metrics\metric_count\line_metric_count\quadratic_metric_count\step:
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_line %impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric impure fn i32 impure fn i32 impure fn i32 impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorLineStep Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \metrics\metric_count\line_metric_count\quadratic_metric_count\step:
     let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_segment &step
     let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor step
     let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_segment_index &segment
-    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line &segment:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare &segment:
         Result::Err metric_error_kind:
             Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index metric_error_kind cursor metrics metric_count line_metric_count quadratic_metric_count
         Result::Ok metric:
@@ -19481,19 +19484,17 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare
                         then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::LineMetricCountExceeded GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index cursor metrics metric_count line_metric_count quadratic_metric_count
                         else:
                             let enum_metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric
-                            let next_metric_count %i32 add metric_count 1
-                            let next_line_metric_count %i32 add line_metric_count 1
-                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric cursor metrics metric_count line_metric_count quadratic_metric_count GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index enum_metric next_metric_count next_line_metric_count quadratic_metric_count:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric cursor metrics metric_count line_metric_count quadratic_metric_count GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Line segment_index enum_metric 1 0:
                                 Result::Err error:
                                     Result::Err error
                                 Result::Ok next_owner:
                                     Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::MetricPushed next_owner
 
-fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_quadratic %impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \metrics\metric_count\line_metric_count\quadratic_metric_count\step:
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare_quadratic %impure fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric impure fn i32 impure fn i32 impure fn i32 impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorQuadraticStep Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \metrics\metric_count\line_metric_count\quadratic_metric_count\step:
     let segment %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_segment &step
     let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor step
     let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_segment_index &segment
-    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic &segment:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare &segment:
         Result::Err metric_error_kind:
             Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index metric_error_kind cursor metrics metric_count line_metric_count quadratic_metric_count
         Result::Ok metric:
@@ -19507,9 +19508,7 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_prepare
                         then Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::QuadraticMetricCountExceeded GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index cursor metrics metric_count line_metric_count quadratic_metric_count
                         else:
                             let enum_metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric
-                            let next_metric_count %i32 add metric_count 1
-                            let next_quadratic_metric_count %i32 add quadratic_metric_count 1
-                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric cursor metrics metric_count line_metric_count quadratic_metric_count GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index enum_metric next_metric_count line_metric_count next_quadratic_metric_count:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_push_metric cursor metrics metric_count line_metric_count quadratic_metric_count GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::Quadratic segment_index enum_metric 0 1:
                                 Result::Err error:
                                     Result::Err error
                                 Result::Ok next_owner:

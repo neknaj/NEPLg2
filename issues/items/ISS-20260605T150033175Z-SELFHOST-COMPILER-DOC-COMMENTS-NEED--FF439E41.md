@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: doc
 created: 2026-06-05
-updated: 2026-06-06
+updated: 2026-06-21
 target: "stdlib/neplg2/**, nodesrc/test_selfhost_documentation_contract.js"
 ---
 
@@ -15,7 +15,7 @@ target: "stdlib/neplg2/**, nodesrc/test_selfhost_documentation_contract.js"
 
 ## 概要
 
-stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=59, moduleNoDoctest=65, declarationNoDoc=57, declarationNoDoctest=1672, publicNoDoc=28, publicNoDoctest=1254, privateNoDoc=29, privateNoDoctest=418. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents no-doc increases but does not by itself prove that each fixed declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy.
+stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=59, moduleNoDoctest=68, declarationNoDoc=71, declarationNoDoctest=6057, publicNoDoc=28, publicNoDoctest=2732, privateNoDoc=43, privateNoDoctest=3325. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents no-doc increases but does not by itself prove that each fixed declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy.
 
 This baseline is not an accepted quality level. It is a fail-closed debt boundary for missing module/declaration comments: the no-doc counters must not increase, every newly fixed slice must receive section-level checks, and the remaining gaps stay open in this issue until they are either fixed or split into narrower root-cause issues. The no-doctest counters remain visible report-only debt because adding a careful doc comment to a previously undocumented declaration can temporarily increase the "doc exists but doctest is absent" count. The gate must not use file count, declaration count, line count, doc-comment length limits, or no-doctest count increases as a substitute for checking module boundaries and documentation contracts.
 
@@ -32,7 +32,7 @@ This baseline is not an accepted quality level. It is a fail-closed debt boundar
 
 ## 問題
 
-stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=59, moduleNoDoctest=65, declarationNoDoc=57, declarationNoDoctest=1672, publicNoDoc=28, publicNoDoctest=1254, privateNoDoc=29, privateNoDoctest=418. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents no-doc increases but does not by itself prove that each public declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy. A no-doctest counter can increase when a declaration moves from "no doc" to "doc without runnable example", so that counter is tracked as visible debt rather than used to block documentation growth.
+stdlib/neplg2 currently has remaining documentation gaps after the selfhost documentation contract baseline: moduleNoDoc=59, moduleNoDoctest=68, declarationNoDoc=71, declarationNoDoctest=6057, publicNoDoc=28, publicNoDoctest=2732, privateNoDoc=43, privateNoDoctest=3325. The module doc count uses an explicit `//: # ...` heading at the file front rather than treating the first function doc as a module doc. A baseline-only gate prevents no-doc increases but does not by itself prove that each public declaration explains purpose, contract, return/error cases, complexity, and examples as required by the Zenn policy. A no-doctest counter can increase when a declaration moves from "no doc" to "doc without runnable example", so that counter is tracked as visible debt rather than used to block documentation growth.
 
 ## 影響
 

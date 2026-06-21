@@ -268,6 +268,7 @@ fn main %impure fn void i32 \void:
 この compile-fail は、通常の application code が `GuiRgba8888SoftwareSurfaceOwner` の storage token を取り出して forged surface metadata を作れないことを固定する。実装本体は defense-in-depth として stride / byte_len mismatch を検査する。
 
 neplg2:test[compile_fail]
+diag_code: type.owner_token.field_access_restricted
 ```neplg2
 #entry main
 #target std

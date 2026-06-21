@@ -454,14 +454,19 @@
 //:             checks_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ```stdout
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
 //: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -499,18 +504,15 @@
 //:             checks_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ```stdout
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
 //: ##: [5] ok
-//: ##: [6] ok
-//: ##: [7] ok
-//: ##: [8] ok
-//: ##: [9] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -544,8 +546,9 @@
 //:             checks_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ```stdout
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -579,8 +582,9 @@
 //:             checks_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ```stdout
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -622,8 +626,9 @@
 //:             checks_exit_code shown
 //: ```
 //:
-//: neplg2:test
-//: ```stdout
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -640,6 +645,7 @@
 //: ##: [13] ok
 //: ##: [14] ok
 //: ##: [15] ok
+//: ##: [16] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main

@@ -417,6 +417,7 @@ fn main %impure fn void i32 \void:
 この compile-fail は、通常の application code が row plan owner から内部の bitmap frame owner を field access で取り出せないことを固定する。frame が必要な場合は consuming `finish_frame` helper を使う。
 
 neplg2:test[compile_fail]
+diag_code: type.owner_aggregate.field_access_restricted
 ```neplg2
 #entry main
 #target std

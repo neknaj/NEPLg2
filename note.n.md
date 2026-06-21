@@ -1,3 +1,44 @@
+# 2026-06-21 selfhost operation impl candidate builder private effect proof path
+
+### 実装
+
+- `memo_trait_operation_impl_candidate_builder.nepl` に、caller supplied `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を受ける proof-aware builder path を追加した。
+- 既存の proof なし public API はそのまま残し、proof-aware API だけが method body scan record から `memo_trait_operation_private_effect_no_escape_gate` を通して method body fact table を作る。
+- `body_module_fingerprint` は 1 回の builder call に対応する HIR module body identity とし、proof key は `SelfhostTypeId` / operation / body module fingerprint / body root / effect / original escape state の完全一致で照合する。
+- missing proof は accepted `Pure` にしない。`PrivateState` / `PrivateCache` の `NotApplicable` を `Unknown` 相当のまま残し、proven proof だけを `NoEscapeProven` へ、duplicate proof は `PrivateEffectNoEscapeGateRejected(ProofDuplicate)` へ写す。
+- candidate builder は operation evidence、aggregate proof、Resource proof production、memo_call backend bytes、sealed backend representation、artifact key を作らない。caller supplied proof table と existing scan authority を照合して candidate table に届く method body evidence を作るだけにした。
+
+### 関連修正
+
+- `memo_call_backend_request_table.nepl` の stage0 fixture に残っていた `unwrap_ok` を explicit `Result` handling に置き換え、source-policy の unsafe helper regression が次の検査へ進めるようにした。
+- documentation contract baseline を現行値へ更新し、`selfhost_proof_solve_effect_pure_context` の comment に `SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` を明記した。
+- source-policy が到達した既存 doctest metadata 欠落として、GUI render2d n.md の compile_fail `diag_code` と report doctest の stdout / exit metadata を補った。
+- merge 後の full-stdlib compile で露呈した `glyf.nepl` の F5ku helper 構文を修正した。zero-argument helper は `%fn void ... \void` にし、impure drain helper は `impure fn` 区切りと既存 enum metric の二重 wrapping なしに揃えた。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_stdlib_no_unsafe_helpers.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_doctest_diag_code_metadata.js`
+- pass: `node nodesrc/test_nepl_doc_report_metadata_policy.js`
+- pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js` 相当。ログ `neplg2_source_policy_final_20260621134349.out` は最後の `test_zed_extension_no_tracked_target.js` まで到達し、failure pattern は無い。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_candidate_builder.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+### 残件
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、public impl materializer / candidate builder の proof-aware path へ渡す。
+- public impl surface orchestrator が proof table の source authority と materializer record の body module fingerprint を同じ単位で分配する。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+
 # 2026-06-21 selfhost memo_call fresh witness request-evidence bridge
 
 ## 目的

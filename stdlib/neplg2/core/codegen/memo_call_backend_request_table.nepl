@@ -524,21 +524,43 @@ fn selfhost_memo_call_backend_request_table_stage0_build_accepting_module %impur
                                 Result::Ok plain_alloc:
                                     let plain_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &plain_alloc
                                     let module3 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module plain_alloc
-                                    let child_ids0 %Vec SelfhostHirExprId unwrap_ok v::new
-                                    let child_ids1 %Vec SelfhostHirExprId unwrap_ok v::push child_ids0 first_memo_id
-                                    let child_ids2 %Vec SelfhostHirExprId unwrap_ok v::push child_ids1 second_memo_id
-                                    let child_ids3 %Vec SelfhostHirExprId unwrap_ok v::push child_ids2 plain_id
-                                    match selfhost_hir_module_add_child_range module3 child_ids3:
-                                        Result::Ok range_alloc:
-                                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
-                                            let module4 %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
-                                            let call_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "wrap" def_id function_ty SelfhostEffectKind::Pure child_range
-                                            match selfhost_hir_module_add_expr module4 call_expr:
-                                                Result::Ok root_alloc:
-                                                    Result::Ok selfhost_hir_module_expr_alloc_into_module root_alloc
+                                    match v::new:
+                                        Result::Ok child_ids0:
+                                            match v::push child_ids0 first_memo_id:
+                                                Result::Ok child_ids1:
+                                                    match v::push child_ids1 second_memo_id:
+                                                        Result::Ok child_ids2:
+                                                            match v::push child_ids2 plain_id:
+                                                                Result::Ok child_ids3:
+                                                                    match selfhost_hir_module_add_child_range module3 child_ids3:
+                                                                        Result::Ok range_alloc:
+                                                                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                                                            let module4 %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                                                            let call_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "wrap" def_id function_ty SelfhostEffectKind::Pure child_range
+                                                                            match selfhost_hir_module_add_expr module4 call_expr:
+                                                                                Result::Ok root_alloc:
+                                                                                    Result::Ok selfhost_hir_module_expr_alloc_into_module root_alloc
+                                                                                Result::Err e:
+                                                                                    Result::Err e
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    let error %StdErrorKind field::get e "error"
+                                                                    v::free v::vec_push_error_vec e
+                                                                    selfhost_hir_module_free module3
+                                                                    Result::Err error
+                                                        Result::Err e:
+                                                            let error %StdErrorKind field::get e "error"
+                                                            v::free v::vec_push_error_vec e
+                                                            selfhost_hir_module_free module3
+                                                            Result::Err error
                                                 Result::Err e:
-                                                    Result::Err e
+                                                    let error %StdErrorKind field::get e "error"
+                                                    v::free v::vec_push_error_vec e
+                                                    selfhost_hir_module_free module3
+                                                    Result::Err error
                                         Result::Err e:
+                                            selfhost_hir_module_free module3
                                             Result::Err e
                                 Result::Err e:
                                     Result::Err e

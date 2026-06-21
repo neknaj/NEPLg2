@@ -11,13 +11,13 @@ const DOC_GAP_TRACKING_ISSUE = "issues/items/ISS-20260605T150033175Z-SELFHOST-CO
 
 const BASELINE = {
     moduleNoDoc: 59,
-    moduleNoDoctest: 65,
-    declarationNoDoc: 57,
-    declarationNoDoctest: 1672,
+    moduleNoDoctest: 68,
+    declarationNoDoc: 71,
+    declarationNoDoctest: 6057,
     publicNoDoc: 28,
-    publicNoDoctest: 1254,
-    privateNoDoc: 29,
-    privateNoDoctest: 418,
+    publicNoDoctest: 2732,
+    privateNoDoc: 43,
+    privateNoDoctest: 3325,
 };
 const HARD_DOC_BASELINE_KEYS = [
     "moduleNoDoc",

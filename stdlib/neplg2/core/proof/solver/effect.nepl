@@ -117,8 +117,8 @@ fn selfhost_proof_private_effect_allowed %fn SelfhostEffectObservationFact fn Se
 //:
 //: [契約/けいやく]:
 //: - `SelfhostEffectKind::Pure` は `SelfhostEffectContext::PureContext` の成功です。
-//: - `SelfhostEffectKind::InternalAlloc` は `selfhost_proof_internal_alloc_allowed` に委譲します。
-//: - `SelfhostEffectKind::PrivateState` / `SelfhostEffectKind::PrivateCache` は `selfhost_proof_private_effect_allowed` に委譲します。
+//: - `SelfhostEffectKind::InternalAlloc` は `selfhost_proof_internal_alloc_allowed` に委譲し、未証明なら `SelfhostEffectBoundaryError::InternalAllocEscapeNotProven` で拒否します。
+//: - `SelfhostEffectKind::PrivateState` / `SelfhostEffectKind::PrivateCache` は `selfhost_proof_private_effect_allowed` に委譲し、未証明なら `SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` で拒否します。
 //: - `SelfhostEffectKind::UnsafeMemory` は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary` で拒否します。
 //: - `SelfhostEffectKind::ExternalIo` と `SelfhostEffectKind::Nondet` は `SelfhostEffectBoundaryError::ImpureEffectInPureContext` で拒否します。
 //:

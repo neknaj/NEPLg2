@@ -2854,6 +2854,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_no_
 - pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
 - pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest.json`。1/1。
 
+## 2026-06-21 selfhost operation impl candidate builder private effect proof path checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl` に、caller supplied `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を受ける proof-aware builder path を追加した。
+
+既存の proof なし builder API は互換のまま残す。proof-aware API は、typed method body scan record から method body fact table を作る直前で `memo_trait_operation_private_effect_no_escape_gate` を通し、`PrivateState` / `PrivateCache` の `NotApplicable` summary だけを proof lookup の対象にする。`Proven` は `NoEscapeProven`、`Refuted` は `MayEscape`、missing / unknown proof は元の `NotApplicable` のまま保持し、operation purity gate 側では `Unknown` 相当として扱う。
+
+`body_module_fingerprint` は builder call 全体に対応する HIR module body identity である。現 input table の record は per-record fingerprint を持たないため、public materializer / orchestrator は複数 module 由来の body root を 1 回の proof-aware builder call に混ぜてはならない。後続の public impl materializer が per-record body identity を持つ場合は、record table を fingerprint ごとに分配してから builder に渡す。
+
+この builder は operation evidence、aggregate proof、Resource proof production、memo_call backend bytes、sealed backend representation、`.neplobj` / `.neplproof` artifact key を作らない。caller supplied proof table を existing method body scan authority と照合し、既存 body check resolver / operation impl candidate table へ渡す method body evidence を作る checker-layer connector である。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js` で更新した。proof-aware public API、private gate error wrapping、duplicate proof rejection、missing proof が accepted Pure にならないこと、old API 互換、owner cleanup、operation evidence / backend / artifact / Resource proof 合成禁止を固定している。
+
+残件:
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、public impl materializer / candidate builder へ渡す。
+- public impl materializer が body module fingerprint 単位で proof table と scan record を分配する。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

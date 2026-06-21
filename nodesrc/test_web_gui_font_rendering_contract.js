@@ -16899,7 +16899,7 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_segment &step",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_line_step_cursor step",
-        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line &segment",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare &segment",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed",
         "LineMetricCountExceeded",
         "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric",
@@ -16912,7 +16912,7 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_segment &step",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_quadratic_step_cursor step",
-        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic &segment",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare &segment",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed",
         "QuadraticMetricCountExceeded",
         "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric",
