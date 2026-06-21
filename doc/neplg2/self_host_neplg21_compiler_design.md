@@ -2942,10 +2942,33 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_res
 
 残件:
 
-- actual Resource IR traversal / collector が `PrivateState` / `PrivateCache` の fresh region / non-escape traversal summary table を発行する。
-- scanner / upper orchestrator が materializer / producer で作った proof table owner を、actual proof source と同じ body module fingerprint で proof-aware public impl materializer へ渡す。
+- actual Resource IR / HIR body walker が `PrivateState` / `PrivateCache` の typed walker event と fresh region witness を実 traversal から発行する。
+- upper orchestrator が collector / scanner / materializer / producer で作った proof table owner を、actual proof source と同じ body module fingerprint で proof-aware public impl materializer へ渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+
+## 2026-06-22 selfhost private effect Resource traversal collector / graph input scanner checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl` と `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl` を追加し、private-effect 用 Resource graph body/place/edge input を existing private-effect materializer が読める traversal summary table へ正規化する checker-layer boundary を固定した。
+
+collector accepted authority は `SelfhostTypeId`、operation、body module fingerprint、HIR body root、effect、元 escape state、graph id、graph completeness、fresh private region evidence、typed place/edge/event payload だけである。source text、span、lexeme、display name、module path、public surface hash、payload hash、diagnostic text は authority にしない。input graph key は graph id を含むが、materializer output key は graph id を含まないため、graph id だけ異なる同一 materializer key は `GraphMaterializerKeyDuplicate` で fail-closed に拒否する。
+
+`AllTraversedPlacesPrivate` は `ClosedForPrivateEffectBody`、`FreshPrivateRegionWitnessed`、非空 place table、private local/temporary だけを通る edge、no return/public/external/observation、unsupported event なしの場合だけ発行する。`FreshRegionMissing` は `ResourceGraphMissing`、`FreshRegionUnsupported` は `TraversalUnsupported` に畳み、freshness 不明を private mask の証明にしない。effect は `PrivateState` / `PrivateCache` のみ受理し、`NotApplicable` 以外の escape state は materializer と同じく拒否する。
+
+graph input scanner は actual walker が将来返す typed body/place/edge/unsupported event table を collector input へ投影するだけに限定した。fresh private region evidence は walker body record の `fresh_region` だけを authority にし、proof table、backend bytes、memo_call request evidence、public surface hash、private cache backend、source/display/hash から補完しない。scanner stage0 は accepted、escaping、missing、unsupported、fresh missing の代表 status を public summary として出すが、walker input owner や proof table owner は public API に出さない。
+
+この checkpoint は actual Resource IR / HIR body walker、operation evidence、aggregate proof、memo_call backend request evidence、effect mask、backend bytes、proof store、`.neplobj` / `.neplproof` artifact key、public surface hash authority を作らない。actual traversal 由来の walker event / fresh witness 生成、summary / proof table を upper orchestrator へ同じ body module fingerprint で渡す bridge、Resource summary hash / artifact policy hash への private effect mask policy 投影は後続 boundary として残る。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js` と `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / purity gate / Drop proof layer の import 禁止、graph id と materializer key の分離、fresh region 必須、PrivateState / PrivateCache 限定、Missing / Unknown fail-closed を確認する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl -o output/selfhost_private_effect_resource_traversal_collector_doctest.json --dist web/dist`。1/1。
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl -o output/selfhost_private_effect_resource_graph_input_scanner_doctest.json --dist web/dist`。1/1。
 
 ## 2026-06-21 selfhost memo_call backend production actual traversal reader checkpoint
 

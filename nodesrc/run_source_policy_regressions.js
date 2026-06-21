@@ -273,6 +273,8 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js",

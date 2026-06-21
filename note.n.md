@@ -79218,3 +79218,44 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lv.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 - Maxwell の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lv 後続は bounded shadow SourceOver drain step、dirty region、2D compositor drain に分ける。
+
+## 2026-06-22 selfhost private effect Resource traversal collector / graph input scanner checkpoint
+
+- `plan.md` との差異はない。selfhost 方針に沿って、private effect mask を即時に広げず、Resource graph 由来の typed evidence と fresh-region witness を先に fail-closed boundary として固定した。
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl` を追加し、private-effect Resource graph body/place/edge input から existing private-effect no-escape materializer 用 traversal summary table を作る checker-layer collector を分離した。
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl` を追加し、actual Resource walker が将来返す typed walker body/place/edge/unsupported event table を collector input へ正規化する scanner boundary を分離した。
+- Volta の design review は、materializer key へ graph id を足さないこと、graph id だけ異なる同一 materializer key を fail-closed に拒否すること、fresh private region witness を `AllTraversedPlacesPrivate` の必須条件にすること、proof/backend/memo_call/public surface/source/display/hash authority を scanner に混ぜないことを条件に承認だった。
+- 指摘に従い、collector input key は graph id を含む一方で materializer output key は graph id を含まないままにし、graph-id-only materializer key collision は `GraphMaterializerKeyDuplicate` として拒否する。
+- `AllTraversedPlacesPrivate` は `ClosedForPrivateEffectBody`、`FreshPrivateRegionWitnessed`、非空 place table、private local/temporary だけを通る edge、return/public/external/observation/unsupported event なしの場合だけ発行する。`FreshRegionMissing` は `ResourceGraphMissing`、`FreshRegionUnsupported` は `TraversalUnsupported` に畳む。
+- accepted authority は typed graph / walker payload、`SelfhostTypeId`、operation、body module fingerprint、HIR body root、`PrivateState` / `PrivateCache` effect、`NotApplicable` escape、graph id、fresh-region evidence に限定した。source text、span、display name、diagnostic、public surface hash、payload hash、proof store、backend bytes、memo_call request evidence から no-escape や freshness を推測しない。
+- `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js` と `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/private_effect_memoization_purity_design.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md` を更新し、完了済み境界と残る actual Resource IR / HIR body walker、upper mask orchestration、artifact policy hash 接続を分けた。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl -o output/selfhost_private_effect_resource_traversal_collector_doctest.json --dist web/dist`。1/1。
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl -o output/selfhost_private_effect_resource_graph_input_scanner_doctest.json --dist web/dist`。1/1。
+- Bohr の implementation review は `REVIEW_APPROVED`。指摘された `internal storage` doc drift は、実装済み variant に合わせて private local/temporary のみに修正した。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lv merge: `node nodesrc/test_stdlib_documentation_contract.js`。source policy 内でも通過。
+- pass after latest `origin/main` F5lv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_traversal_collector.nepl -o output/selfhost_private_effect_resource_traversal_collector_doctest.json --dist web/dist`。1/1。
+- pass after latest `origin/main` F5lv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_graph_input_scanner.nepl -o output/selfhost_private_effect_resource_graph_input_scanner_doctest.json --dist web/dist`。1/1。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/analyze_tests_json.js output/selfhost_private_effect_resource_traversal_collector_doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/analyze_tests_json.js output/selfhost_private_effect_resource_graph_input_scanner_doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_after_doc_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lv merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lv merge: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lv merge: `trunk build`
+- pass after latest `origin/main` F5lv merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_resource_traversal_collector.json`
+- checked JSON after latest `origin/main` F5lv merge: `caseCount=13`, `passedCount=13`, `failedCount=0`
+
+### 残件
+
+- actual Resource IR / HIR body walker から typed walker event と fresh-region witness table を発行する。
+- collector / scanner / materializer / proof producer で作った proof table owner を同じ body module fingerprint で proof-aware public impl materializer / candidate builder へ渡す upper orchestration を追加する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。

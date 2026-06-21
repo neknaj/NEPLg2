@@ -24156,36 +24156,69 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourceRecord:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \record:
         record
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record: shadow source table record を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record %fn AlphaMaskId fn GuiRect fn GuiPaint fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \mask_id\rect\paint\width_px\height_px\cell_count\alpha_max\shadow_order\source_order:
     GuiSfntSimpleGlyphRenderShadowSourceResourceRecord mask_id rect paint width_px height_px cell_count alpha_max shadow_order source_order
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id: record の alpha mask id を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord AlphaMaskId \record:
     *field::get_ref record "mask_id"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect: record の描画 rect metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiRect \record:
     *field::get_ref record "rect"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint: record の shadow paint metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiPaint \record:
     *field::get_ref record "paint"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px: record の shadow mask width metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     *field::get_ref record "width_px"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px: record の shadow mask height metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     *field::get_ref record "height_px"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count: record の shadow mask cell count metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     *field::get_ref record "cell_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max: record の alpha max metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     *field::get_ref record "alpha_max"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_shadow_order: record の shadow draw order metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_shadow_order %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     *field::get_ref record "shadow_order"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_source_order: record の source draw order metadata を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_source_order %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     *field::get_ref record "source_order"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw: duplicate 検査用に alpha mask id の raw 値を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord i32 \record:
     let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id record
     alpha_mask_id_raw &mask_id
@@ -24200,9 +24233,15 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_raw %fn &GuiS
 struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner:
     records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner: metadata Vec を table owner に包む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner %fn Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner \records:
     GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner records
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_new: 指定 capacity の empty resource table を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_new %fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner StdErrorKind \capacity:
     let records_result %Result Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord StdErrorKind vec::with_capacity capacity
     match records_result:
@@ -24211,10 +24250,16 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_new %fn i32 Result 
         Result::Ok records:
             Result::Ok gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner records
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_len: table に登録済みの metadata record 数を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_len %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner i32 \table:
     let records %&Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get_ref table "records"
     vec::len records
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains: alpha mask id が table に登録済みか linear scan で判定する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn AlphaMaskId bool \table\mask_id:
     let target_raw %i32 alpha_mask_id_raw &mask_id
     let records %&Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get_ref table "records"
@@ -24241,6 +24286,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_contains %fn &GuiSf
                             set done true
     found
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_lookup: alpha mask id に対応する metadata record を linear scan で返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_lookup %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn AlphaMaskId Option GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \table\mask_id:
     let target_raw %i32 alpha_mask_id_raw &mask_id
     let records %&Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get_ref table "records"
@@ -24267,6 +24315,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_lookup %fn &GuiSfnt
                             set done true
     output
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_free: table が持つ metadata Vec を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner unit \table:
     let records %Vec GuiSfntSimpleGlyphRenderShadowSourceResourceRecord field::get table "records"
     vec::free records
@@ -24281,12 +24332,21 @@ struct GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner:
     reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner
     record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord
 
+//: gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner: reservation owner と record を registered resource owner に包む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner \reservation\record:
     GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner reservation record
 
+//: gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record: registered resource の metadata record を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record %fn &GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \resource:
     *field::get_ref resource "record"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free: registered resource が保持する reservation owner を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner unit \resource:
     let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get resource "reservation"
     gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free reservation
@@ -24301,18 +24361,30 @@ struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner:
     table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
     resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner: table と registered resource を同時 owner に包む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner \table\resource:
     GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner table resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_record: registration owner 内の registered record を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_record %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \registration:
     let resource %&GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get_ref registration "resource"
     gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_with: table と resource を callback へ同時に渡す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner .R .R \registration\callback:
     let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get registration "table"
     let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get registration "resource"
     callback table resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_free: table と registered resource owner を両方閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_registration_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner unit \registration:
     let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get registration "table"
     let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get registration "resource"
@@ -24352,27 +24424,48 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \kind:
         kind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError: record 作成時の validation error と下位 order error
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind
     order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error: record 作成 error を kind と任意の order error から作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \kind\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError kind order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple: 下位 order error を持たない record 作成 error を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \kind:
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error kind order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_with_order: F5lp order invariant failure を保持した record 作成 error を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \kind\order_error_value:
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error kind order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind: record 作成 error の分類を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error: record 作成 error に保持された下位 order error を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
     *field::get_ref error "order_error"
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError: table 登録失敗時に owner を回収する error
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind
     table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
@@ -24380,54 +24473,90 @@ struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError:
     storage_error %Option StdErrorKind
     order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected: rejected callback 用の table と reservation owner
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected:
     table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner
     reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error: 登録 error と返却 owner をまとめる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn Option StdErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \kind\table\reservation\storage_error\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError kind table reservation storage_error order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_simple: storage/order error のない登録 error を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \kind\table\reservation:
     let storage_error %Option StdErrorKind none
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error kind table reservation storage_error order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_from_record_error: record validation error を owner 回収付き登録 error に写す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_from_record_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \table\reservation\record_error:
     let kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind &record_error
     let storage_error %Option StdErrorKind none
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error &record_error
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error kind table reservation storage_error order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_push_failed: Vec push error を owner 回収付き登録 error に写す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_push_failed %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \table\reservation\storage_error_value:
     let storage_error %Option StdErrorKind some storage_error_value
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed table reservation storage_error order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind: 登録 error の分類を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_storage_error: 登録 error に保持された storage error を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError Option StdErrorKind \error:
     *field::get_ref error "storage_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_order_error: 登録 error に保持された下位 order error を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
     *field::get_ref error "order_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_rejected: 登録 error から callback 用 rejected owner を取り出す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_rejected %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected \error:
     let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get error "table"
     let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get error "reservation"
     GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected table reservation
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_rejected_with: rejected owner の table と reservation を callback へ同時に渡す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterRejected impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner .R .R \rejected\callback:
     let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get rejected "table"
     let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get rejected "reservation"
     callback table reservation
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_free: 登録 error に保持された table と reservation owner を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError unit \error:
     let table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner field::get error "table"
     let reservation %GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get error "reservation"
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_free table
     gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_free reservation
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind_from_reservation: reservation validation error を table 登録 error へ写す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind_from_reservation %fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::InvalidMaskId:
@@ -24459,36 +24588,57 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_kind
         GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::RectYOverflow:
             GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectYOverflow
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal: table metadata と reservation 由来 rect の完全一致を検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal %fn GuiRect fn GuiRect bool \left\right:
     let origin_matches %bool and eq gui_rect_x &left gui_rect_x &right eq gui_rect_y &left gui_rect_y &right
     let size_matches %bool and eq gui_rect_width &left gui_rect_width &right eq gui_rect_height &left gui_rect_height &right
     and origin_matches size_matches
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal: shadow paint metadata の一致を検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal %fn GuiPaint fn GuiPaint bool \left\right:
     gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal left right
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_matches_owner: reservation が保持する rect metadata を owner 由来 rect と照合する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner fn &GuiRect bool \reservation\expected_rect:
     let reservation_rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_rect reservation
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal reservation_rect *expected_rect
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_matches_owner: reservation の paint metadata を composition owner と照合する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner bool \reservation:
     let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
     let reservation_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_paint reservation
     let owner_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_paint owner
     gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal reservation_paint owner_paint
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_shadow_order_matches_owner: reservation の shadow order metadata を owner と照合する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_shadow_order_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner bool \reservation:
     let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
     let reservation_order %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_shadow_order reservation
     let owner_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order owner
     eq reservation_order owner_order
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_source_order_matches_owner: reservation の source order metadata を owner と照合する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_source_order_matches_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner bool \reservation:
     let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref reservation "owner"
     let reservation_order %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_source_order reservation
     let owner_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order owner
     eq reservation_order owner_order
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation: reservation を再検証して metadata record を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceResourceTableRecordError \reservation:
     let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_mask_id reservation
     let raw %i32 alpha_mask_id_raw &mask_id
@@ -24537,6 +24687,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reserva
                                                                             let record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord gui_sfnt_simple_glyph_render_shadow_source_resource_record mask_id rect paint width_px height_px cell_count alpha_max shadow_order source_order
                                                                             Result::Ok record
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_table_register: reservation を metadata table に登録して owner を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner impure fn GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegistrationOwner GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterError \table\reservation:
     match gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation &reservation:
         Result::Err record_error:
@@ -24569,17 +24722,29 @@ struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner:
     resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
     command %RenderCommand
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner: registered resource と command を prepared owner に包む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner %fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner fn RenderCommand GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner \resource\command:
     GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner resource command
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_record: prepared owner 内の resource metadata record を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_record %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \owner:
     let resource %&GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get_ref owner "resource"
     gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_free: prepared owner が保持する registered resource owner を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner unit \owner:
     let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get owner "resource"
     gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free resource
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind: prepared command 作成の失敗理由
+//:
+//: neplg2:test[skip]
 enum GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind:
     InvalidMaskId
     CompositionOrderInvariantFailed
@@ -24610,39 +24775,69 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKi
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \kind:
         kind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError: prepared command 作成失敗時に resource owner を回収する error
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind
     resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
     order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected: rejected callback 用の registered resource owner
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected:
     resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error: prepared command error を kind と owner から作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError \kind\resource\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError kind resource order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_simple: 下位 order error のない prepared command error を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError \kind\resource:
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error kind resource order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind: prepared command error の分類を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_order_error: prepared command error に保持された下位 order error を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
     *field::get_ref error "order_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_rejected: prepared command error から rejected owner を取り出す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_rejected %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected \error:
     let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get error "resource"
     GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_rejected_with: rejected resource owner を callback へ渡す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner .R .R \rejected\callback:
     let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get rejected "resource"
     callback resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_free: prepared command error が保持する resource owner を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError unit \error:
     let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get error "resource"
     gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free resource
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind_from_table_register: table register error kind を prepared command error kind へ写す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind_from_table_register %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId:
@@ -24686,6 +24881,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_ki
         GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed:
             GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::UnexpectedTableRegisterState
 
+//: gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_equal: stored record と再導出 record の metadata 完全一致を検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_equal %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord bool \left\right:
     let left_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id left
     let right_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id right
@@ -24709,6 +24907,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_e
     let payload_matches %bool and paint_matches alpha_meta_matches
     and and id_matches geometry_matches and payload_matches order_matches
 
+//: gui_sfnt_simple_glyph_render_shadow_source_registered_resource_prepare_command: registered resource を再検証して AlphaMaskRect command owner を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_prepare_command %impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError \resource:
     let record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record &resource
     let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id &record
@@ -24744,6 +24945,9 @@ struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:
     surface %GuiRgba8888SoftwareSurfaceOwner
     cell_index %i32
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind: shadow source software drain start の失敗理由
+//:
+//: neplg2:test[skip]
 enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind:
     UnexpectedCommand
     InvalidMaskId
@@ -24785,58 +24989,103 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \kind:
         kind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError: start validation の error kind と下位 order error
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
     order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError: drain start 失敗時に prepared/surface owner を回収する error
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
     prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
     surface %GuiRgba8888SoftwareSurfaceOwner
     order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected: rejected callback 用の prepared/surface pair
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected:
     prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
     surface %GuiRgba8888SoftwareSurfaceOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner: prepared/surface/cell index を drain owner に包む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn i32 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner \prepared\surface\cell_index:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner prepared surface cell_index
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error: validation error を kind と任意の order error から作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \kind\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError kind order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple: 下位 order error のない validation error を作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \kind:
     let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error kind order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_kind: validation error の分類を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_order_error: validation error に保持された下位 order error を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
     *field::get_ref error "order_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error: drain start error を kind と返却 owner から作る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError \kind\prepared\surface\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError kind prepared surface order_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_kind: drain start error の分類を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_order_error: drain start error に保持された下位 order error を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
     *field::get_ref error "order_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected: start error から rejected owner を取り出す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected \error:
     let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get error "prepared"
     let surface %GuiRgba8888SoftwareSurfaceOwner field::get error "surface"
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected prepared surface
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_rejected_with: rejected prepared/surface pair を callback へ同時に渡す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner impure fn GuiRgba8888SoftwareSurfaceOwner .R .R \rejected\callback:
     let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get rejected "prepared"
     let surface %GuiRgba8888SoftwareSurfaceOwner field::get rejected "surface"
     callback prepared surface
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_cell_index: drain owner の現在 cell index を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_cell_index %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner i32 \owner:
     *field::get_ref owner "cell_index"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_table_register: table register error kind を drain start error kind へ写す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_table_register %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId:
@@ -24880,6 +25129,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_tab
         GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed:
             GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedTableRegisterState
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record: prepared owner から stored/expected record を再照合する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \prepared:
     let resource %&GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get_ref prepared "resource"
     let stored_record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource
@@ -24895,6 +25147,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record %fn
                 then Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ResourceRecordMismatch
                 else Result::Ok expected_record
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_shape: record の shadow mask shape metadata を検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \record:
     let width_px %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px record
     if le width_px 0:
@@ -24918,6 +25173,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_sha
                                         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::InvalidAlphaMax
                                         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_payload: prepared command の AlphaMaskRect payload を record と照合する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_payload %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \prepared\record:
     let command %&RenderCommand field::get_ref prepared "command"
     match *command:
@@ -24942,6 +25200,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_pa
         _:
             Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedCommand
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent: origin + extent の i32 overflow を検査して右端/下端を返す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \origin\extent\overflow_kind:
     let max_i32 %i32 2147483647
     let max_origin %i32 sub max_i32 extent
@@ -24949,6 +25210,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent %fn 
         then Result::Err overflow_kind
         else Result::Ok add origin extent
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surface: shadow rect が software surface 内に収まることを検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surface %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord fn &GuiRgba8888SoftwareSurfaceOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \record\surface:
     let rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect record
     let x %i32 gui_rect_x &rect
@@ -24983,6 +25247,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surfa
                                                         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceBoundsMismatch
                                                         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start: drain start 前に record/command/surface の整合性を検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn &GuiRgba8888SoftwareSurfaceOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \prepared\surface:
     match gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record prepared:
         Result::Err error:
@@ -25002,6 +25269,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start %fn 
                                 Result::Ok _:
                                     Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start: prepared command と surface から drain owner を開始する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner impure fn GuiRgba8888SoftwareSurfaceOwner Result GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError \prepared\surface:
     match gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start &prepared &surface:
         Result::Err validation_error:
@@ -25011,6 +25281,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start %impure fn Gu
         Result::Ok _:
             Result::Ok gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner prepared surface 0
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free: drain owner の prepared resource と surface owner を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \owner:
     let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get owner "prepared"
     let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
@@ -25021,6 +25294,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free %impure 
         Result::Ok _:
             Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_free: start error が保持する owner pair を閉じる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
     let rejected %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected error
     let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get rejected "prepared"

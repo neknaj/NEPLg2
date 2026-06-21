@@ -521,12 +521,27 @@ fingerprint、HIR body root、effect、元 escape state の完全一致であり
 `Missing` / `Unknown` として保持する。proof table helper は既存 producer を必ず呼び、
 proof key を materializer 内で直接合成しない。
 
+2026-06-22 の private effect Resource traversal collector / graph input scanner checkpoint では、
+typed Resource graph body/place/edge input から private-effect 用 traversal summary table を作る
+collector と、actual Resource walker が将来返す typed walker event table を collector input へ
+正規化する scanner を追加した。collector input key は `SelfhostTypeId`、operation、body module
+fingerprint、HIR body root、effect、元 escape state、graph id を含む。一方、既存 materializer が
+読む output key は graph id を含まないため、graph id だけ異なる同一 materializer key は
+fail-closed に拒否する。
+
+`AllTraversedPlacesPrivate` は graph が closed、fresh private region witness があり、place table が
+非空で、return/public/external/observation へ逃げる edge や unsupported event がない場合だけ発行する。
+`FreshRegionMissing` は `ResourceGraphMissing`、`FreshRegionUnsupported` は `TraversalUnsupported` へ
+畳み、missing / unsupported freshness を pure mask に使わない。scanner は typed walker payload だけを
+authority にし、source text、display name、diagnostic、public surface hash、proof store、backend bytes、
+memo_call request evidence から fresh region や no-escape を推測しない。
+
 ## 現時点の未実装
 
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
-- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape traversal summary を actual Resource traversal から自動発行し、既存 private-effect materializer / proof producer と upper orchestrator へ接続する処理。
+- `PrivateCacheInPureFunction` を Pure へ mask できる実 Resource IR / HIR body walker を接続し、typed walker event / fresh region witness を collector / scanner / materializer / proof producer 経由で upper orchestrator へ渡す処理。
 - sealed private cache taint の impure call / unknown call / public field / global state escape 診断。
 - `private_cache_*` intrinsic の typecheck signature と stdlib memo backend integration regression。
