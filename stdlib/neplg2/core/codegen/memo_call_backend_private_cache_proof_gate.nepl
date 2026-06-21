@@ -456,7 +456,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -467,6 +467,9 @@
 //: ##: [7] ok
 //: ##: [8] ok
 //: ##: [9] ok
+//: ##: [10] ok
+//: ##: [11] ok
+//: ##: [12] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -484,18 +487,22 @@
 //: fn main %impure fn void i32 \void:
 //:     match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0:
 //:         Result::Ok summary:
+//:             let expected_key selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
 //:             let checks0 checks_new
 //:             let checks1 checks_push checks0 check_eq_i32 1 summary.accepted_request_count
 //:             let checks2 checks_push checks1 check_eq_i32 1 summary.accepted_proof_count
-//:             let checks3 checks_push checks2 check context_bound_reader_bundle_i32_result_is_err summary.seed_key_mismatch_rejected
-//:             let checks4 checks_push checks3 check context_bound_reader_bundle_i32_result_is_err summary.seed_graph_mismatch_rejected
-//:             let checks5 checks_push checks4 check context_bound_reader_bundle_i32_result_is_err summary.seed_missing_rejected
-//:             let checks6 checks_push checks5 check context_bound_reader_bundle_i32_result_is_err summary.seed_observation_rejected
-//:             let checks7 checks_push checks6 check context_bound_reader_bundle_i32_result_is_err summary.seed_unsupported_rejected
-//:             let checks8 checks_push checks7 check context_bound_reader_bundle_i32_result_is_err summary.seed_malformed_rejected
-//:             let checks9 checks_push checks8 check context_bound_reader_bundle_i32_result_is_err summary.producer_not_connected_availability_rejected
-//:             let checks10 checks_push checks9 check context_bound_reader_bundle_i32_result_is_err summary.missing_reader_availability_rejected
-//:             let shown checks_print_report checks10
+//:             let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_region_proof_unsupported_result_eq summary.hir_body_private_cache_effect_rejected expected_key
+//:             let checks4 checks_push checks3 check selfhost_memo_call_backend_private_cache_region_proof_observation_result_eq summary.hir_body_fn_value_observation_rejected expected_key
+//:             let checks5 checks_push checks4 check selfhost_memo_call_backend_private_cache_region_proof_observation_result_eq summary.hir_body_memoized_function_value_observation_rejected expected_key
+//:             let checks6 checks_push checks5 check context_bound_reader_bundle_i32_result_is_err summary.seed_key_mismatch_rejected
+//:             let checks7 checks_push checks6 check context_bound_reader_bundle_i32_result_is_err summary.seed_graph_mismatch_rejected
+//:             let checks8 checks_push checks7 check context_bound_reader_bundle_i32_result_is_err summary.seed_missing_rejected
+//:             let checks9 checks_push checks8 check context_bound_reader_bundle_i32_result_is_err summary.seed_observation_rejected
+//:             let checks10 checks_push checks9 check context_bound_reader_bundle_i32_result_is_err summary.seed_unsupported_rejected
+//:             let checks11 checks_push checks10 check context_bound_reader_bundle_i32_result_is_err summary.seed_malformed_rejected
+//:             let checks12 checks_push checks11 check context_bound_reader_bundle_i32_result_is_err summary.producer_not_connected_availability_rejected
+//:             let checks13 checks_push checks12 check context_bound_reader_bundle_i32_result_is_err summary.missing_reader_availability_rejected
+//:             let shown checks_print_report checks13
 //:             checks_exit_code shown
 //:         Result::Err _setup:
 //:             let checks0 checks_new
@@ -2419,12 +2426,16 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summary
 //: - seed mismatch は availability 境界の拒否として保持します。seed validation に失敗した場合は split output owner、source table、fresh witness owner を作らず、`Stage0SourceRejected` に包んだ typed error だけを返します。
 //: - availability error は bundle 作成へ進めません。`ProducerNotConnected` と `Missing` の代表 case を typed rejection として公開し、reader 未接続や body 欠落を accepted proof と混同しないことを固定します。
 //: - `ProducerNotConnected` は bridge error 上では `ActualTraversalBodyInputUnavailable` に写りますが、この summary の field 名は availability 入力条件が reject されたことを表します。
+//: - HIR body problem source rejection は source count ではなく、context-owned source table から source-derived witness helper へ進んだ時の `RegionProofUnsupported` / `RegionProofObservationRejected` として公開します。
 //: - accepted count は executable backend plan ではありません。available reader output が context-bound source table になり、その source table から抽出した candidate 由来の witness と束ねられて request-evidence gate へ到達したことだけを表します。
 //: - `RequestEvidenceProven` は request occurrence と no-escape proof の照合結果であり、PrivateCache / PrivateState の pure mask や backend 完了を意味しません。
 //: - full Resource IR body traversal、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
 pub struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary:
     accepted_request_count %i32
     accepted_proof_count %i32
+    hir_body_private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    hir_body_fn_value_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    hir_body_memoized_function_value_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     seed_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     seed_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     seed_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
@@ -3404,6 +3415,7 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBundleStage0Summ
 //: - summary は owner を持たない count と Result payload だけを保持します。reader context、split output、source table、fresh witness table、bundle、proof table は private helper 内で閉じます。
 //: - availability rejection の代表 Result も owner を持ちません。reader が未接続または body missing のときは、bundle owner を作らないまま typed error として保持します。
 //: - seed rejection の代表 Result も owner を持ちません。seed key / graph mismatch、missing seed、observation seed、unsupported seed は split output owner を作らないまま typed error として保持します。
+//: - HIR body problem source rejection の代表 Result も owner を持ちません。source-derived witness helper が source owner を閉じた後の typed error だけを保持します。
 //: - `producer_not_connected_availability_rejected` は availability 入力が `ProducerNotConnected` であったことを表す smoke です。bridge error の表示名とは一致させません。
 impl Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary \self:
@@ -5330,6 +5342,36 @@ pub fn selfhost_memo_call_backend_private_cache_proof_key_eq %fn SelfhostMemoCal
                                     and:
                                         selfhost_memo_call_backend_private_cache_proof_kind_eq a.proof_kind b.proof_kind
                                         eq a.proof_schema_version b.proof_schema_version
+
+//: selfhost_memo_call_backend_private_cache_region_proof_unsupported_result_eq: region proof unsupported error が expected key を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR body reader が作った problem source が source-derived witness helper まで届き、unsupported source として fail-closed になったことを doctest から短く確認します。
+pub fn selfhost_memo_call_backend_private_cache_region_proof_unsupported_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofUnsupported actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                _:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_region_proof_observation_result_eq: region proof observation rejected error が expected key を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - function identity payload が accepted wrapper source に混ざらず、source-derived witness helper の observation rejection として閉じることを doctest から短く確認します。
+pub fn selfhost_memo_call_backend_private_cache_region_proof_observation_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionProofObservationRejected actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                _:
+                    false
 
 //: selfhost_memo_call_backend_private_cache_proof_key_from_entry_result: request entry から proof key を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_proof_key_from_entry_result %fn SelfhostMemoCallBackendRequestTableEntry fn SelfhostHirExprId fn i32 Result SelfhostMemoCallBackendPrivateCacheProofKey SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \entry\root_expr_id\body_module_fingerprint:
@@ -12654,20 +12696,21 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 
-//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result: context-bound reader bundle を request-evidence gate へ[渡/わた]す
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_with_body_expr_result: body expr fixture 付き context-owned bundle を request-evidence gate へ[渡/わた]す
 //:
 //: [目的/もくてき]:
-//: - stage0 module から request table と reader context を再構築し、context-owned source table、source-derived witness helper、actual traversal bundle gate の順に通します。
+//: - stage0 module から request table と reader context を再構築し、resolver-provided body root を context-owned source table、source-derived witness helper、actual traversal bundle gate の順に通します。
 //:
 //: [契約/けいやく]:
+//: - body expr は stage0 module の expr id 1 に置き、resolver table はその id を body root として返します。request root id 0 を body root と同一視しません。
 //: - request table は HIR root から内部再構築します。caller-supplied request table、caller-supplied source table、caller-supplied witness table は受け取りません。
 //: - production path は必ず `context_bound_reader_traversal_bundle_from_context_result` を通します。availability/output roundtrip、input-owner adapter、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
-//: - source validation failure は `Stage0SourceRejected` へ写し、fresh witness owner を作らないまま返します。source-derived witness helper へ進んだ場合は、candidate failure / witness failure でも source owner を閉じます。
-fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result %impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index:
+//: - source validation failure は `Stage0SourceRejected` へ写し、fresh witness owner を作らないまま返します。source-derived witness helper へ進んだ場合は、candidate failure / witness failure でも source owner を閉じます。bundle gate へ進むのは bundle が作られた場合だけです。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_with_body_expr_result %impure fn i32 impure fn i32 impure fn SelfhostHirExpr Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index\body_expr:
     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
     let def_id %SelfhostDefId selfhost_def_id_new 41
     let function_ty %SelfhostTypeId selfhost_type_id_new 11
-    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module_with_body_expr function_ty span def_id body_expr:
         Result::Ok module:
             let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
             match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
@@ -12700,9 +12743,27 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
 
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result: neutral body の context-owned bundle を request-evidence gate へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - accepted representative は `Unit` body を shared body-expr runner へ渡して作ります。request context / resolver / source-derived witness / request-evidence gate の owner lifecycle を negative body smoke と分けません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result %impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span
+    selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_with_body_expr_result context_body_module_fingerprint graph_index body_expr
+
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result: context-bound reader bundle gate result を proof count へ[写/うつ]す
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result %impure fn i32 impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index:
     match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result context_body_module_fingerprint graph_index:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_body_expr_result: body expr fixture の bundle gate result を proof count へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_body_expr_result %impure fn i32 impure fn i32 impure fn SelfhostHirExpr Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index\body_expr:
+    match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_with_body_expr_result context_body_module_fingerprint graph_index body_expr:
         Result::Ok summary:
             Result::Ok summary.proven_request_count
         Result::Err e:
@@ -12854,6 +12915,19 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
 pub fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \void:
     match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 0:
         Result::Ok accepted:
+            let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+            let function_ty %SelfhostTypeId selfhost_type_id_new 11
+            let private_cache_callee_def_id %SelfhostDefId selfhost_def_id_new 501
+            let private_cache_body_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "body_call" private_cache_callee_def_id function_ty SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+            let hir_body_private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_body_expr_result 77 0 private_cache_body_expr
+            let fn_value_def_id %SelfhostDefId selfhost_def_id_new 502
+            let fn_value_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "body_fn" fn_value_def_id function_ty SelfhostEffectKind::Pure
+            let fn_value_body_expr %SelfhostHirExpr selfhost_hir_expr_fn_value function_ty span fn_value_identity
+            let hir_body_fn_value_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_body_expr_result 77 0 fn_value_body_expr
+            let memoized_body_def_id %SelfhostDefId selfhost_def_id_new 504
+            let memoized_body_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "body_memo" memoized_body_def_id function_ty SelfhostEffectKind::Pure
+            let memoized_body_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span memoized_body_identity
+            let hir_body_memoized_function_value_observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_body_expr_result 77 0 memoized_body_expr
             let seed_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_seed_result 77 0 78 0 SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected
             let seed_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_seed_result 77 0 77 1 SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue SelfhostMemoCallBackendPrivateCacheObservationBanStatus::NoObservationDetected
             let seed_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_missing_seed_result 77 0
@@ -12865,7 +12939,7 @@ pub fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_b
             let producer_not_connected_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputProducerNotConnected producer_not_connected_key
             let missing_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 77
             let missing_reader_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_with_availability_error_result 77 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodyInputMissing missing_key
-            Result::Ok SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary accepted.request_count accepted.proven_request_count seed_key_mismatch_rejected seed_graph_mismatch_rejected seed_missing_rejected seed_observation_rejected seed_unsupported_rejected seed_malformed_rejected producer_not_connected_availability_rejected missing_reader_availability_rejected
+            Result::Ok SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary accepted.request_count accepted.proven_request_count hir_body_private_cache_effect_rejected hir_body_fn_value_observation_rejected hir_body_memoized_function_value_observation_rejected seed_key_mismatch_rejected seed_graph_mismatch_rejected seed_missing_rejected seed_observation_rejected seed_unsupported_rejected seed_malformed_rejected producer_not_connected_availability_rejected missing_reader_availability_rejected
         Result::Err e:
             Result::Err e
 
