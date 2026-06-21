@@ -6232,11 +6232,12 @@ GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner:
     join_count i32
     bevel_join_count i32
     miter_join_count i32
+    round_join_count i32
 ```
 
 Bevel join は F5kz join closure record の `from_end -> to_start` connector chord をそのまま保持する。Miter join は隣接する 2 本の line side edge の無限直線交点を miter point とし、`from_end -> miter` と `miter -> to_start` の 2 線分として後続 scan に渡す。miter limit は nested `GuiStroke` の stroke width と F5kz record の `miter_limit` を authority とし、交点が非有限、直線が平行、または miter limit を超える場合は typed bevel record として保持する。miter limit を超える場合は typed bevel record として保持し、通常 bevel と区別できるよう `miter_clipped` evidence を残す。
 
-Round join は arc/chord 分割 policy が未定義なので F5lc start / invariant で fail-closed にする。quadratic side edge も control point offset と subdivision policy が未定義なので F5lc で fail-closed にし、endpoint chord として扱わない。
+Round join は source vertex を中心にした 2 chord record として保持する。F5lc は referenced line side edge の directed source end / directed source start が同じ source vertex を指すことを検査し、offset endpoint の半径方向から `arc_mid` を計算して `from_end -> arc_mid` と `arc_mid -> to_start` を後続 scan に渡す。source center mismatch、stroke width evidence 不正、非有限 midpoint、180 度反転のように midpoint を一意に作れないケースは typed error として fail-closed にする。quadratic side edge は control point offset と subdivision policy が未定義なので F5lc で fail-closed にし、endpoint chord として扱わない。
 
 F5lc は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
 
@@ -6256,7 +6257,7 @@ GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner:
 
 F5la completed owner は raw stroke coverage cells が `shape.cell_count` まで完全に埋まった状態だけを保持し、`cell_count` と Vec len/cap が一致することを要求する。`cells` は alpha-packed mask ではなく、sample-scale coverage value の i32 cell buffer である。
 
-F5la start は既存の shared raster coverage config / shape validation helper を再利用するが、fill coverage writer owner を直接呼び出さない。さらに completed F5lc owner について、nested F5kz closure invariant、quadratic / round fail-closed policy、join geometry Vec len/cap、bevel / miter count 合計を再検査する。
+F5la start は既存の shared raster coverage config / shape validation helper を再利用するが、fill coverage writer owner を直接呼び出さない。さらに completed F5lc owner について、nested F5kz closure invariant、quadratic fail-closed policy、join geometry Vec len/cap、bevel / miter / round count 合計を再検査する。
 
 F5la start error は shape validation error、F5lc join geometry invariant error、Vec storage error を別 payload として保持する。push error は rejected coverage value、owner、lower Vec push failure を保持し、push failure では returned Vec と pre-push `written_cell_count` を復元する。
 
@@ -6276,11 +6277,11 @@ GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:
 
 start は F5la writer の shape、cell storage、`written_cell_count == 0` を再検査し、さらに F5lc join geometry invariant を再検査する。quadratic side edge は endpoint chord として扱わず、F5lc invariant または F5lb side-edge read/scan で fail-closed にする。
 
-coverage 計算は sample point に対して line side edge と F5lc join geometry record の交差数を数え、偶奇で inside を決める。F5lc join geometry record の交差数を数え、bevel は `from_end -> to_start` の 1 線分、miter は `from_end -> miter` と `miter -> to_start` の 2 線分として扱う。round join と quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。f32 座標は scan 前に finite を確認し、不正なら typed error にする。
+coverage 計算は sample point に対して line side edge と F5lc join geometry record の交差数を数え、偶奇で inside を決める。F5lc join geometry record の交差数を数え、bevel は `from_end -> to_start` の 1 線分、miter は `from_end -> miter` と `miter -> to_start` の 2 線分、round は `from_end -> arc_mid` と `arc_mid -> to_start` の 2 線分として扱う。quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。f32 座標は scan 前に finite を確認し、不正なら typed error にする。
 
 step は 1 cell 分の coverage を計算し、F5la `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell` だけを通して cell を追加する。push failure では returned writer と pre-push `cell_index` を保持する。bounded drain は exact full のときだけ F5la completion を呼び、未完了、budget exhausted、progress invariant failure を typed terminal / error として分ける。
 
-F5lb は packed stroke mask、glyph paint composition、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。round join と quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。
+F5lb は packed stroke mask、glyph paint composition、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 

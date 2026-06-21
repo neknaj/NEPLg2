@@ -7221,11 +7221,11 @@ F5kz does not build coverage masks, packed masks, render commands, pixel buffers
 
 F5lc consumes the completed F5kz stroke edge closure owner as the only direct authority. It must not return to the F5ba/F5az scalar stream, byte-backed glyph lookup, the F5ku metric owner by itself, a fresh F5kw cursor/drain, the F5kx offset geometry drain, the F5ky side edge drain, or the F5kz closure drain.
 
-F5lc materializes bevel and miter join geometry from F5kz join closure records. Bevel keeps the directed `from_end -> to_start` connector chord. Miter reads the two referenced line side edges, intersects their directed infinite lines, and records the connector as `from_end -> miter` plus `miter -> to_start`. The completed owner stores the original F5kz closure owner, the geometry Vec, `join_count`, `bevel_join_count`, and `miter_join_count`; all counts and Vec len/cap are revalidated before later coverage work.
+F5lc materializes bevel, miter, and round join geometry from F5kz join closure records. Bevel keeps the directed `from_end -> to_start` connector chord. Miter reads the two referenced line side edges, intersects their directed infinite lines, and records the connector as `from_end -> miter` plus `miter -> to_start`. Round joins use an explicit source-center two-chord policy: F5lc reads the referenced line side edges, verifies that the directed source end and directed source start name the same source vertex, computes an arc midpoint from the endpoint radius directions, and records `from_end -> arc_mid -> to_start`. The completed owner stores the original F5kz closure owner, the geometry Vec, `join_count`, `bevel_join_count`, `miter_join_count`, and `round_join_count`; all counts and Vec len/cap are revalidated before later coverage work.
 
 Miter clipping is explicit evidence, not an implicit bevel substitute. The miter threshold is `stroke_width * miter_limit`, where stroke width is read through the nested `GuiStroke` authority and miter limit is the value carried by the F5kz join record. Parallel lines, non-finite intersection coordinates, and threshold overflow or excess produce a bevel geometry record with `miter_clipped == true`.
 
-Round joins remain fail-closed until an explicit arc or chord policy is specified. Quadratic side edges also remain fail-closed because F5ky intentionally did not invent a control-point offset or subdivision policy.
+Round joins fail closed only when the referenced side edges are not line records, their directed source center does not match, their stroke width evidence is invalid, or the two-chord midpoint cannot be represented as finite f32 geometry. Quadratic side edges remain fail-closed because F5ky intentionally did not invent a control-point offset or subdivision policy.
 
 F5lc does not build coverage masks, packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output.
 
@@ -7235,7 +7235,7 @@ F5la consumes the completed F5lc stroke join geometry owner as the only direct a
 
 F5la reuses the shared raster coverage config and shape validation helper without calling the fill coverage writer. The shared helper is allowed because it validates the pixel rectangle, sample scale, coverage max, and cell count arithmetic. The fill raster coverage writer owner, fill coverage scan converter, and fill packed mask owner remain separate authorities and are not reused directly for stroke.
 
-F5la revalidates the completed F5lc join geometry owner before allocating the stroke coverage cells. The check reuses the nested F5kz closure invariant, keeps round and quadratic rejection closed, requires the geometry Vec len/cap to equal `join_count`, and requires `bevel_join_count + miter_join_count == join_count`.
+F5la revalidates the completed F5lc join geometry owner before allocating the stroke coverage cells. The check reuses the nested F5kz closure invariant, keeps quadratic rejection closed, requires the geometry Vec len/cap to equal `join_count`, and requires `bevel_join_count + miter_join_count + round_join_count == join_count`.
 
 The writer owner stores the completed F5lc owner, the shared coverage shape, the i32 cell Vec, and `written_cell_count`. The completed owner is produced only when `written_cell_count == shape.cell_count` and Vec len/cap still match the exact cell count. F5la allocates the stroke coverage cell buffer but does not compute stroke coverage.
 
@@ -7249,7 +7249,7 @@ F5lb consumes the F5la stroke coverage mask writer owner as the only direct auth
 
 The scan owner stores the F5la writer and the current `cell_index`. Start revalidates the shared coverage shape, requires `written_cell_count == 0`, requires cell Vec len/cap to match the shape, and reruns the F5lc join geometry invariant through the F5la writer. This keeps the scan from treating stale join geometry as a closed stroke boundary.
 
-F5lb scans line side edges and F5lc bevel/miter join geometry. Bevel geometry contributes one directed line segment, and miter geometry contributes two directed line segments. The scan counts both miter segments independently so crossing parity remains correct.
+F5lb scans line side edges and F5lc bevel/miter/round join geometry. Bevel geometry contributes one directed line segment, and miter and round geometry each contribute two directed line segments. The scan counts both miter segments and both round two-chord segments independently so crossing parity remains correct.
 
 Quadratic side edges also fail closed in F5lb. F5ky intentionally did not invent an offset control point, and scanning only the endpoint chord would falsely claim quadratic stroke support. A later phase must add an explicit approximation policy if quadratic stroke coverage is supported.
 
@@ -7257,7 +7257,7 @@ For every sample point, F5lb counts crossings from line side edges and then from
 
 The bounded drain checks cell bounds before completion or stepping. When `cell_index == shape.cell_count`, it completes the F5la writer and produces the completed stroke coverage mask owner. Push failure and completion failure both recover the returned writer inside the scan owner, and progress is checked by requiring both `cell_index` and `written_cell_count` to advance by exactly one after a successful step.
 
-F5lb does not build packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output. Round join geometry, quadratic side-edge approximation, packed stroke mask conversion, and glyph paint composition remain later boundaries.
+F5lb does not build packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output. Quadratic side-edge approximation, packed stroke mask conversion, and glyph paint composition remain later boundaries.
 
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 

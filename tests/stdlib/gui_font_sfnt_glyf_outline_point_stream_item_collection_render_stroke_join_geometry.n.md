@@ -1,6 +1,6 @@
 # GUI font SFNT glyf outline point stream item collection render stroke join geometry
 
-このファイルは、F5lc の render stroke join geometry boundary が F5kz completed edge closure owner を authority として消費し、bevel / miter join geometry を明示するが、round / quadratic / packed mask / render command / platform へ進まないことを固定する。
+このファイルは、F5lc の render stroke join geometry boundary が F5kz completed edge closure owner を authority として消費し、bevel / miter / round join geometry を明示するが、quadratic / packed mask / render command / platform へ進まないことを固定する。
 
 source policy coverage labels:
 
@@ -8,7 +8,7 @@ source policy coverage labels:
 - render_stroke_join_geometry_line_side_edge_revalidation_ok
 - render_stroke_join_geometry_bevel_chord_preserved_ok
 - render_stroke_join_geometry_miter_intersection_limit_ok
-- render_stroke_join_geometry_round_policy_or_fail_closed_ok
+- render_stroke_join_geometry_round_two_chord_policy_ok
 - render_stroke_join_geometry_quadratic_still_fail_closed_ok
 - render_stroke_join_geometry_push_budget_completion_ok
 - render_stroke_join_geometry_no_packed_render_platform
@@ -27,7 +27,7 @@ neplg2:test[skip]
 // render_stroke_join_geometry_line_side_edge_revalidation_ok
 // render_stroke_join_geometry_bevel_chord_preserved_ok
 // render_stroke_join_geometry_miter_intersection_limit_ok
-// render_stroke_join_geometry_round_policy_or_fail_closed_ok
+// render_stroke_join_geometry_round_two_chord_policy_ok
 // render_stroke_join_geometry_quadratic_still_fail_closed_ok
 // render_stroke_join_geometry_push_budget_completion_ok
 // render_stroke_join_geometry_no_packed_render_platform
