@@ -77162,3 +77162,42 @@ MERGE_APPROVED
 - actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
 - accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
+
+## 2026-06-21 selfhost memo_call backend context-bound reader traversal bundle checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、context-bound available reader output を actual traversal bundle gate へ渡す stage0 checkpoint を追加した。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` を追加し、accepted request / proof count、context key mismatch、context graph mismatch、missing witness、rejected witness を typed `Result` で公開した。
+- `context_bound_reader_traversal_bundle_from_output_result` は、available output を `actual_traversal_body_adapter_sources_from_request_context_output_result` に通してから `actual_traversal_bundle_stage0_with_sources_result` へ渡す。source validation に失敗した場合は `Stage0SourceRejected` に写し、fresh witness owner は作らない。
+- `context_bound_reader_traversal_bundle_stage0_run_summary_result` は HIR root から request table を再構築し、reader context、available split output、context-bound source table、fresh witness owner、actual traversal bundle gate の順に接続する。production availability はまだ `ProducerNotConnected` fallback のままである。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に context-bound reader traversal bundle checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を context-bound reader traversal bundle checkpoint 後の real traversal producer、production availability、effect masking、artifact projectionへ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、context-bound source helper 経由、direct input-owner adapter bypass 禁止、source validation 成功後だけ witness 作成へ進む順序、request table / HIR module cleanup、helper 非公開、`ProducerNotConnected` fallback 維持、proof / GraphInput / backend / effect / artifact 非生成を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針の丁寧な contract / 現状説明 / doctest を優先する。
+
+### subagent review
+
+- Locke design review は `PLAN_APPROVED`。この slice は `ProducerNotConnected` production 境界を維持したまま、context-bound reader output validation、request-local traversal source table、fresh witness owner、actual traversal bundle、request evidence gate を stage0 smoke に限って接続する semantic boundary として妥当と判断された。
+- 必須条件として、source table 化は context-bound helper 経由に限定すること、source validation failure 時に fresh witness table を作らないこと、fresh witness table は source validation 成功後だけ作ること、bundle / witness / source / proof table を public API に出さないこと、backend bytes / effect mask / artifact key / GraphInput を作らないこと、mismatch / empty / unsupported / unavailable は typed enum error で fail-closed にすることが確認された。
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required 指摘は無かった。context-bound source helper 経由、source validation failure で fresh witness owner を作らない順序、witness 作成失敗時の既存 source cleanup 委譲、`ProducerNotConnected` fallback 維持、GraphInput / proof push / RequestEvidenceProven / backend bytes / effect mask / artifact key 非生成、owner 型の public API 非公開、Zenn 方針に沿う契約・現状・残件コメントが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-reader-bundle-doctest.json; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`。17/17。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。

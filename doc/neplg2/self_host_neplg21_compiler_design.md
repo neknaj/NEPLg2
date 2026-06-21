@@ -2716,12 +2716,28 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 計算量は source record 数を `s` とすると O(s) 時間、O(1) 追加空間である。後続で source table に request-key / graph index を持たせる最適化は可能だが、available output を request context で非空かつ完全一致に検査する semantic boundary は今固定する必要がある。
 
+## 2026-06-21 memo_call backend context-bound reader traversal bundle checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、recheck 済み `ActualTraversalBodyReaderRequestContext` と available reader output から作った source table を、fresh witness owner と束ねて actual traversal bundle gate へ渡す stage0 checkpoint を追加した。
+
+この checkpoint は、context-bound source table が既存 `actual_traversal_bundle_request_evidence_gate_result` まで到達できることを確認するためのものである。source validation は必ず `actual_traversal_body_adapter_sources_from_request_context_output_result` を経由する。検査に失敗した場合は、output owner と source table owner は下位 helper 側で閉じられ、この stage は `Stage0SourceRejected` に包んだ typed error を返すだけで fresh witness owner を作らない。
+
+source validation に成功した場合だけ、`actual_traversal_bundle_stage0_with_sources_result` で fresh witness table owner を作る。witness 作成失敗時の source owner cleanup は既存 bundle helper が担当する。bundle gate へ進んだ場合は、既存 actual traversal bundle gate が source table、fresh witness table、candidate table、Resource proof table の owner lifecycle を閉じる。caller supplied source table、caller supplied witness table、GraphInput、request proof table push、backend bytes、effect mask、artifact key は作らない。
+
+public stage0 summary `SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary` には、accepted request / proof count、context key mismatch、context graph mismatch、missing witness、rejected witness の typed `Result` だけを公開する。reader context、split output、source table、fresh witness table、bundle、candidate、Resource proof table は public API に出さない。
+
+この stage0 は production availability 接続ではない。HIR-root production path は引き続き `ProducerNotConnected` fallback のままであり、real HIR lowering result / Resource IR body から accepted source を作る producer はまだ未接続である。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context-bound source helper 経由、direct input-owner adapter bypass 禁止、source validation 後の witness 作成順序、request table / HIR module cleanup、private helper 非公開、`ProducerNotConnected` fallback 維持、proof / GraphInput / backend / effect / artifact 非生成を固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は source record 数を `s` とすると、context-bound source validation が O(s)、source table から candidate を作る既存 bundle gate も O(s)、fresh witness 検査が witness 数 `w` に対して O(w) である。この checkpoint で固定するのは validation order、owner lifecycle、fail-closed taxonomy であり、source lookup index や actual Resource IR traversal の探索削減は後続最適化として追加できる。
+
 残件:
 
 - real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
 - production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続。
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
-- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する境界。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
 
 ## 既存 issue との対応

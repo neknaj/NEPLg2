@@ -878,10 +878,24 @@ public stage0 summary には `reader_context_available_source_count`、`reader_c
 
 source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context-bound output helper 経由、proof key / graph id の両方の比較、empty source rejection、rejected source table owner cleanup、context helper の input-owner adapter 直呼び禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。行数や doc comment 量を制限する検査は追加していない。
 
+## 2026-06-21 selfhost memo_call backend context-bound reader traversal bundle checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、context-bound available reader output を actual traversal bundle gate へ渡す stage0 checkpoint を追加した。
+
+`context_bound_reader_traversal_bundle_from_output_result` は、available output を直接 input-owner adapter に渡さず、既存の `actual_traversal_body_adapter_sources_from_request_context_output_result` を通して source table owner を得る。これにより、source table が非空であり、request context と同じ proof key / Resource graph id に閉じていることを確認してから次段へ進む。source validation に失敗した場合は `Stage0SourceRejected` に写し、fresh witness owner を作らない。
+
+source validation に成功した後だけ、`actual_traversal_bundle_stage0_with_sources_result` で fresh witness table owner を作る。witness 作成失敗時の source owner cleanup は既存 bundle helper に委譲する。bundle gate へ進んだ場合は、既存 `actual_traversal_bundle_request_evidence_gate_result` が source / witness / proof owner lifecycle を担当する。
+
+public stage0 summary には `accepted_request_count`、`accepted_proof_count`、`context_key_mismatch_rejected`、`context_graph_mismatch_rejected`、`missing_witness_rejected`、`rejected_witness_rejected` を追加した。これらは typed `Result` による smoke であり、reader context、split output、source table、fresh witness table、bundle、candidate、Resource proof table、backend bytes、effect mask、artifact key は public API に出さない。
+
+この checkpoint は production real reader 接続ではない。production availability は引き続き `ProducerNotConnected` fallback のままであり、real HIR lowering result / Resource IR body から accepted source を作る producer は未接続である。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context-bound source helper 経由、direct input-owner adapter bypass 禁止、source validation 成功後だけ witness 作成へ進む順序、request table / HIR module cleanup、helper 非公開、`ProducerNotConnected` fallback 維持、proof / GraphInput / backend / effect / artifact 非生成を固定した。行数や doc comment 量を制限する検査は追加していない。
+
 残件:
 
 - real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
 - production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続。
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
-- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する境界。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。

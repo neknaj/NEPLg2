@@ -77,6 +77,7 @@ assert.ok(
         source.includes("Fresh witness request-evidence stage0") &&
         source.includes("Collector-owned traversal bundle stage0") &&
         source.includes("Operation-classified traversal bundle stage0") &&
+        source.includes("Context-bound reader traversal bundle stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
     "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, and request-evidence bridge are present, no public accepted path is added, and index optimization is later contract-preserving work",
@@ -2203,6 +2204,81 @@ assertOrdered(
         "accepted.proven_request_count",
     ],
     "actual traversal bundle stage0 must cover accepted, body fingerprint mismatch, missing witness, rejected witness, and unsupported source paths",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary"),
+    [
+        "accepted_request_count %i32",
+        "accepted_proof_count %i32",
+        "context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+        "rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
+    ],
+    "context-bound reader traversal bundle summary must expose only counts and typed Result payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_stage0_with_sources_result sources witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status",
+        "Result::Err e:",
+        "Stage0SourceRejected e",
+    ],
+    "context-bound reader traversal bundle helper must validate source owners through the context-bound output helper before adding a witness owner",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result")),
+    /actual_traversal_body_adapter_sources_from_input_owners_result|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-bound reader traversal bundle helper must not bypass the context-bound source adapter or synthesize proof, GraphInput, backend, effect, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result"),
+    [
+        "selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8",
+        "selfhost_memo_call_backend_request_table_get_entry &table 0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_output_result context output witness_body_module_fingerprint graph_index 0 1 status",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle",
+        "selfhost_memo_call_backend_request_table_free table",
+        "selfhost_hir_module_free module",
+    ],
+    "context-bound reader traversal bundle stage0 runner must rebuild request authority, build context-bound output, delegate bundle gate, and close request/module owners",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result")),
+    /actual_traversal_body_adapter_sources_from_input_owners_result|PrivateCacheNoEscapeProven|resource_graph_input_push|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "context-bound reader traversal bundle stage0 runner must not bypass source validation or synthesize lower proof records, GraphInput, backend bytes, effect masks, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0"),
+    [
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result 77 77 0",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "context_key_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 78 77 0",
+        "context_graph_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_i32_result 77 77 1",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "rejected_witness_rejected",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "accepted.request_count",
+        "accepted.proven_request_count",
+    ],
+    "context-bound reader traversal bundle stage0 must cover accepted output, context key mismatch, context graph mismatch, missing witness, and rejected witness",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_(?!stage0\b)/m,
+    "context-bound reader traversal bundle helpers must stay module-private; only the typed stage0 summary function may be public",
+);
+assert.match(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result")),
+    /ProducerNotConnected/,
+    "production context availability must remain the ProducerNotConnected fallback until a real Resource IR body reader is connected",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_with_owners_result"),
