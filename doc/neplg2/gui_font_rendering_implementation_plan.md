@@ -3993,7 +3993,7 @@ plan review:
 
 - Faraday plan review は `PLAN_APPROVED`。
 - F5bq の one-cell step、write recovery、progress invariant、budget terminal は shadow source drain-step の precedent として妥当と確認された。
-- shadow 固有差分として、F5lw completed owner は prepared + surface だけを保持し、DirtyRegion は次 phase に分離する。
+- shadow 固有差分として、F5lw completed owner は当初 prepared + surface だけを保持し、DirtyRegion は F5lx で completion branch に追加する。
 - step error は lower `order_error` metadata を落とさず保持する。
 - JS source policy では F5lv start-only region と F5lw step region を分割する。
 
@@ -4012,7 +4012,7 @@ plan review:
 完了条件:
 
 - source policy が F5lv start-only region と F5lw step region を分離する。
-- F5lw source policy が completed owner、terminal、step error、lower order evidence、budget terminal、alpha borrow、SourceOver helper、write failure recovery、advance-after-write、no dirty region、no old F5lq/F5lr bridge、no RenderCommand accessor、no platform/fallback/transport/compositor、no Vec clone/copy、no unchecked rect extent を検査する。
+- F5lw / F5lx source policy が completed owner、terminal、step error、lower order evidence、budget terminal、alpha borrow、SourceOver helper、write failure recovery、advance-after-write、checked dirty metadata、no dirty fallback、no old F5lq/F5lr bridge、no RenderCommand accessor、no platform/fallback/transport/compositor、no Vec clone/copy、no unchecked rect extent を検査する。
 - focused doctest、F5lv/F5lu/F5lt/F5ls/render2d regressions、full glyf doctest、source policy、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で lower order evidence preservation、dirty-region deferral、write recovery、progress invariant、old bridge / fallback 禁止が確認される。
 
@@ -4031,6 +4031,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gu
 git diff --check
 trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lw.json
+```
+
+## Phase F5lx: sfnt simple glyph render shadow source software drain dirty-region completion boundary
+
+目的:
+
+- F5lw の completed authority に `DirtyRegion` metadata を追加し、host present / tile transport へ進む前に「どの範囲が変わったか」を typed value として保持する。
+- render2d 汎用の surface + dirty owner、`DirtyRegionSet` aggregation、tile list、bitmap transport、2D compositor drain はこの phase では作らない。
+- completed owner は `prepared + surface + dirty` を同時に保持し、prepared / surface split accessor は引き続き禁止する。
+- dirty は rederived shadow resource record rect から `dirty_region_rect_checked` で作り、失敗時は `DirtyRegionInvalid` の owner-bearing step error で返す。Full / Empty fallback や silent no-op は禁止する。
+
+plan review:
+
+- Mencius plan review は `PLAN_APPROVED`。
+- F5br precedent と同じく rederived record rect を authority とし、dirty construction failure では owner を失わず `DirtyRegionInvalid` を返す。
+- completion branch は validate / rederive / `cell_index == cell_count` / dirty checked construction / owner move の順とする。
+- lower F5lp `order_error` preservation は既存 validation / rederive failure に限定し、dirty failure で合成しない。
+- JS source policy は F5lw の `no_dirty_region_yet` 禁止を narrow dirty helper / accessor checks に置き換え、platform / present / transport / fallback 禁止を維持する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind` に `DirtyRegionInvalid` を追加する。
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner` に `dirty DirtyRegion` を追加し、Clone / Copy 禁止を維持する。
+- `gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_region` を追加し、record rect から `dirty_region_rect_checked` で dirty metadata を作る。
+- completion branch は `dirty_region_rect_checked` 成功後だけ `field::get owner "prepared"` / `"surface"` を呼ぶ。
+- `gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_dirty` を追加する。prepared / surface accessor は追加しない。
+- docs、source policy、focused doctest labels、`todo.md`、`note.n.md` を更新する。
+
+完了条件:
+
+- docs が dirty metadata、finish 前 dirty read、owner consume 前 checked dirty construction、no generic transport scope、no fallback を説明する。
+- source policy が completed owner の dirty field、dirty accessor、`dirty_region_rect_checked`、completion branch order、prepared/surface split accessor 禁止、host / platform / tile / bitmap / DrawTarget / RenderTarget / fallback 禁止を検査する。
+- focused doctest、F5lw/F5lv/F5lu/render2d regressions、full glyf doctest、source policy、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で owner loss、split accessor、fallback、platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_f5lx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_prepared_command_f5lx_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5lx_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lx.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lx.json
 ```
 
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary

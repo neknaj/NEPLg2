@@ -1,3 +1,46 @@
+# 2026-06-22 Agent2 GUI font rendering F5lx shadow source software drain dirty-region completion boundary
+
+## 目的
+
+- F5lw completed shadow source software drain authority に `DirtyRegion` metadata を追加し、present / tile transport / 2D compositor drain へ進む前の changed rect を typed value として保持する。
+- dirty metadata は rederived shadow resource record rect から `dirty_region_rect_checked` で作り、Full / Empty fallback や unchecked dirty constructor は使わない。
+- generic render2d surface+dirty owner、DirtyRegionSet aggregation、tile / bitmap transport、host present、2D compositor drain は後続 boundary に残す。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind` に `DirtyRegionInvalid` を追加した。
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner` に `dirty %DirtyRegion` を追加し、owner-bearing type の no Clone / no Copy を維持した。
+- `gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_region` を追加し、record rect から `dirty_region_rect_checked` だけで dirty metadata を作る。
+- `to_complete_budget` の completion branch は validate / rederive / `cell_index == cell_count` の後、owner から prepared / surface を move する前に dirty construction を行う。dirty failure は元 owner を保持した `DirtyRegionInvalid` step error として返す。
+- lower F5lp `order_error` evidence は既存 validation / rederive failure path に限定して保持し、dirty construction failure では合成しない。
+- `gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_dirty` を追加し、prepared / surface split accessor は追加していない。
+- docs、source policy、focused doctest labels、`todo.md` を F5lx contract へ更新した。
+
+## subagent review
+
+- Mencius plan review は `PLAN_APPROVED`。rederived record rect authority、dirty construction before owner move、dirty failure owner recovery、lower `order_error` preservation scope、no split accessor、no fallback / no platform leakage、generic dirty owner defer が条件として承認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_software_drain_f5lx.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_prepared_command_f5lx_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5lx_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_source_over_alpha_mask.n.md --no-tree -o tmp_gui_render2d_source_over_alpha_mask_f5lx_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lx.json -j 1` は 1334 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lx.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lx.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Mencius implementation review 1 は `REVIEW_CHANGES_REQUESTED`。code 本体には blocker はなく、source policy が dirty fallback token と present / publish leakage を per-slice に禁止していない点、およびこの note の検証欄が未実行表現だった点が指摘された。
+- 指摘対応として、F5lw/F5lx per-slice no-match に `dirty_region_rect_unchecked`、`dirty_region_full`、`dirty_region_empty`、`dirty_regions_`、`DirtyRegion::Full`、`DirtyRegion::Empty`、`publish`、`present`、`gui_web_video_memory_` を追加し、この検証欄を実行済み結果へ更新した。
+- Mencius follow-up implementation review は `REVIEW_APPROVED`。dirty fallback / present-publish leakage 禁止と note 更新が確認された。
+
+## 残件
+
+- F5lx 後続として、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lr shadow source sample command bridge boundary
 
 ## 目的

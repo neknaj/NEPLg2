@@ -23505,6 +23505,7 @@ enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind:
     SurfaceReadFailed %GuiRgba8888SoftwareSurfaceErrorKind
     SurfaceWriteFailed %GuiRgba8888SoftwareSurfaceErrorKind
     SourceOverFailed %GuiRgba8888SourceOverAlphaMaskErrorKind
+    DirtyRegionInvalid
     ProgressInvariantInvalid
     SurfaceFreeFailed
 
@@ -23533,6 +23534,7 @@ struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected:
 struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
     prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
     surface %GuiRgba8888SoftwareSurfaceOwner
+    dirty %DirtyRegion
 
 enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:
     Completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
@@ -23546,8 +23548,8 @@ struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn i32 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner \prepared\surface\cell_index:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner prepared surface cell_index
 
-fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner \prepared\surface:
-    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner prepared surface
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn DirtyRegion GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner \prepared\surface\dirty:
+    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner prepared surface dirty
 
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_step_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError \kind\owner\order_error:
     GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError kind owner order_error
@@ -23825,6 +23827,14 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_position %fn &GuiSf
                 Result::Ok y:
                     Result::Ok gui_point_new x y
 
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_region %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord Result DirtyRegion GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \record:
+    let rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect record
+    match dirty_region_rect_checked rect:
+        Result::Err _error:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::DirtyRegionInvalid
+        Result::Ok dirty:
+            Result::Ok dirty
+
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_step_once %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError \owner:
     let prepared_ref %&GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get_ref &owner "prepared"
     let surface_ref %&GuiRgba8888SoftwareSurfaceOwner field::get_ref &owner "surface"
@@ -23890,6 +23900,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_fin
     gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_free prepared
     surface
 
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_dirty %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner DirtyRegion \completed:
+    *field::get_ref completed "dirty"
+
 fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \completed:
     let surface %GuiRgba8888SoftwareSurfaceOwner gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner_finish_surface completed
     match gui_rgba8888_software_surface_free surface:
@@ -23919,10 +23932,14 @@ fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_to_complete_budget 
                                 else:
                                     if eq cell_index cell_count:
                                         then:
-                                            let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get owner "prepared"
-                                            let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
-                                            let completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner prepared surface
-                                            Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal::Completed completed
+                                            match gui_sfnt_simple_glyph_render_shadow_source_software_drain_dirty_region &record:
+                                                Result::Err kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_step_error_simple kind owner
+                                                Result::Ok dirty:
+                                                    let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get owner "prepared"
+                                                    let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+                                                    let completed %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_shadow_source_software_drain_completed_owner prepared surface dirty
+                                                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal::Completed completed
                                         else:
                                             if le remaining_steps 0:
                                                 then Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_step_error_simple GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::InvalidBudget owner

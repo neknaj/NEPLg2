@@ -8131,7 +8131,7 @@ F5lv must not call `gui_rgba8888_software_surface_write_pixel`, `gui_rgba8888_so
 
 ## SFNT simple glyph render shadow source software drain-step boundary
 
-F5lw consumes the F5lv cursor owner as a bounded software compositing step. It mutates the owned RGBA8888 software surface through the checked render2d surface API and the shared `gui_rgba8888_source_over_alpha_mask` helper. It does not create dirty metadata, publish pixels, call host present, or drain a 2D compositor.
+F5lw consumes the F5lv cursor owner as a bounded software compositing step. Its one-cell step mutates the owned RGBA8888 software surface through the checked render2d surface API and the shared `gui_rgba8888_source_over_alpha_mask` helper. The one-cell step does not create dirty metadata, publish pixels, call host present, or drain a 2D compositor.
 
 The new owner-bearing values are:
 
@@ -8139,6 +8139,7 @@ The new owner-bearing values are:
 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
     prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
     surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
 
 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:
     Completed GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
@@ -8171,9 +8172,42 @@ on write success rebuild the owner with cell_index + 1
 
 `to_complete_budget` checks completion before budget validity. A cursor already at `cell_count` completes even with zero budget. A non-completed cursor with `remaining_steps <= 0` fails with `InvalidBudget`. `StepBudgetExhausted` is returned only after at least one successful step and only if the next owner has not reached completion. The progress invariant requires the step to advance by exactly one cell.
 
-The completed owner deliberately has no `DirtyRegion`. F5lw only proves that the shadow mask was composited into the software surface. The later dirty-region phase will consume the completed owner, derive the record rect through the same prepared/resource authority, and attach checked dirty metadata.
+The completed owner includes `DirtyRegion` only after F5lx completion. F5lw still only proves that the shadow mask was composited into the software surface. The dirty-region phase derives the record rect through the same prepared/resource authority and attaches checked dirty metadata without changing the one-cell SourceOver step contract.
 
-F5lw may call `gui_rgba8888_software_surface_read_pixel`, `gui_rgba8888_software_surface_write_pixel`, and `gui_rgba8888_source_over_alpha_mask`. It must not call F5lq cursor start/read/step, F5lr command helpers, `render_command_fill_rect`, raw `RenderCommand` accessors, resource table lookup/register/push, dirty-region helpers, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, tile / bitmap transport, or a 2D compositor drain.
+F5lw one-cell step may call `gui_rgba8888_software_surface_read_pixel`, `gui_rgba8888_software_surface_write_pixel`, and `gui_rgba8888_source_over_alpha_mask`. It must not call F5lq cursor start/read/step, F5lr command helpers, `render_command_fill_rect`, raw `RenderCommand` accessors, resource table lookup/register/push, dirty-region helpers, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, tile / bitmap transport, or a 2D compositor drain.
+
+## SFNT simple glyph render shadow source software drain dirty-region completion boundary
+
+F5lx attaches a `DirtyRegion` value to the F5lw completed owner. This mirrors F5br for the shadow source path, but keeps aggregation and transport deferred. It does not create a generic render2d `surface + dirty` owner, does not push into a `DirtyRegionSet`, and does not publish a bitmap or tile payload.
+
+The completed owner shape is:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
+```
+
+The owner remains non-Clone and non-Copy. `dirty` is Copy metadata and may be returned by a borrowed accessor. `prepared` and `surface` remain inaccessible as split accessors. The only way to take the surface is still the consuming finish helper that frees the prepared/resource side first. Callers that need both dirty metadata and surface ownership must read the dirty value before calling the finish helper.
+
+The dirty value is created from the rederived shadow resource record rect through `dirty_region_rect_checked`. This is not a fallback. It gives `core/gui/dirty_region` authority over the dirty metadata contract. Even though F5lv/F5lw validation already checked rect geometry and surface containment, the dirty value is still constructed through the checked dirty-region constructor. Failure is mapped to `DirtyRegionInvalid` and returned as an owner-bearing step error with the original owner intact. Lower F5lp `order_error` evidence remains limited to validation and record rederive failures.
+
+The completion branch order is fixed:
+
+```text
+validate existing prepared/surface pair
+rederive resource record
+read cell_index
+if cell_index == cell_count:
+    dirty = dirty_region_rect_checked record.rect
+    if dirty fails:
+        return owner-bearing DirtyRegionInvalid
+    move prepared and surface out of owner
+    return Completed prepared surface dirty
+```
+
+This order avoids losing the prepared/surface owners on dirty construction failure. F5lx must not call Web/native host APIs, video-memory publish helpers, tile or bitmap transport helpers, DrawTarget, RenderTarget, Canvas, DOM, minifb, the old F5lq/F5lr sample bridge, raw `RenderCommand` accessors, fallback paths, unchecked dirty-region helpers, or a 2D compositor drain.
 
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 

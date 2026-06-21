@@ -6894,12 +6894,13 @@ tile / bitmap transport
 
 ### SFNT simple glyph render shadow source software drain-step boundary
 
-F5lw は F5lv の drain owner を bounded work slice として進め、shadow source alpha mask を RGBA8888 software surface へ SourceOver 合成する境界である。この phase は alloc 内の software surface mutation までに限定し、dirty region metadata、tile / bitmap transport、host present、2D compositor drain へは進まない。
+F5lw は F5lv の drain owner を bounded work slice として進め、shadow source alpha mask を RGBA8888 software surface へ SourceOver 合成する境界である。この phase の one-cell step は alloc 内の software surface mutation までに限定し、dirty region metadata、tile / bitmap transport、host present、2D compositor drain へは進まない。
 
 ```text
 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
     prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
     surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
 
 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainTerminal:
     Completed GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner
@@ -6913,9 +6914,38 @@ GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStepError:
 
 `owner_step_once` は 1 cell だけを処理する。最初に F5lv の start validation を再実行し、lower F5lp `order_error` を step error に保持する。次に record を再導出し、`cell_index`、alpha cell、pixel position、destination pixel、SourceOver result を順に検査する。prepared / surface owner は write 直前まで move しない。write failure では `GuiRgba8888SoftwareSurfaceWriteError` から surface owner を回収し、同じ `cell_index` の owner-bearing step error として返す。write 成功後だけ `cell_index + 1` へ進める。
 
-`to_complete_budget` は `cell_index == cell_count` を budget 検査より先に completed とする。未完了で `remaining_steps <= 0` なら `InvalidBudget`、正の budget で少なくとも 1 cell 進んだが completed に達していない場合だけ `StepBudgetExhausted` を返す。completed owner は prepared owner と surface owner だけを保持し、dirty region は次 phase で checked constructor により追加する。
+`to_complete_budget` は `cell_index == cell_count` を budget 検査より先に completed とする。未完了で `remaining_steps <= 0` なら `InvalidBudget`、正の budget で少なくとも 1 cell 進んだが completed に達していない場合だけ `StepBudgetExhausted` を返す。completed owner は F5lx で追加された dirty metadata も保持するが、pixel mutation 自体は F5lw の bounded SourceOver step に限定する。
 
-F5lw は `gui_rgba8888_software_surface_read_pixel`、`gui_rgba8888_software_surface_write_pixel`、`gui_rgba8888_source_over_alpha_mask` だけを software drain のために使える。F5lq sample cursor、F5lr sample command bridge、`render_command_fill_rect`、raw `RenderCommand` accessor、resource table lookup / register / mutation、dirty region helper、DrawTarget / RenderTarget、platform / host / backend API、Canvas / DOM / minifb、font fallback、zero-fill fallback、tile / bitmap transport、2D compositor drain は使わない。
+F5lw の one-cell step は `gui_rgba8888_software_surface_read_pixel`、`gui_rgba8888_software_surface_write_pixel`、`gui_rgba8888_source_over_alpha_mask` だけを software drain のために使える。F5lq sample cursor、F5lr sample command bridge、`render_command_fill_rect`、raw `RenderCommand` accessor、resource table lookup / register / mutation、dirty region helper、DrawTarget / RenderTarget、platform / host / backend API、Canvas / DOM / minifb、font fallback、zero-fill fallback、tile / bitmap transport、2D compositor drain は使わない。dirty metadata は F5lx の completion branch だけで checked constructor を通して追加する。
+
+### SFNT simple glyph render shadow source software drain dirty-region completion boundary
+
+F5lx は F5lw の completed authority に、present / tile transport へ進むための dirty metadata を追加する境界である。この phase でも Web / Native / bare / headless backend へ present しない。正式な tile / bitmap transport、複数 dirty region の集約、FHD 60fps batching、host present、2D compositor drain は後続 phase の責務である。
+
+completed owner は prepared owner、surface owner、dirty region を同時に保持する。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    dirty DirtyRegion
+```
+
+`dirty` は `DirtyRegion` の Copy metadata であるため、borrowed accessor で読むことを許す。一方で `prepared` と `surface` の split accessor は引き続き禁止する。surface が必要な場合は completed owner を消費し、prepared owner を free して surface owner を返す finish helper を使う。presentation に dirty region が必要な caller は、finish helper の前に dirty accessor で value を読む。
+
+dirty region は F5lw で再導出した shadow source resource record の rect から `dirty_region_rect_checked` で作る。F5lv/F5lw の start validation により rect / surface containment はすでに検査済みだが、dirty metadata の authority は `core/gui/dirty_region` の checked constructor である。`dirty_region_rect_checked` が失敗した場合、Full や Empty へ silent conversion せず、`DirtyRegionInvalid` の owner-bearing step error として元の drain owner を返す。lower F5lp `order_error` evidence は既存の validation / record rederive failure で保持し、dirty construction failure に対して合成しない。
+
+completion branch の順序は次とする。
+
+```text
+1. prepared / surface / command / record / rect / bounds を再検証する
+2. cell_index == cell_count を確認する
+3. record rect から dirty_region_rect_checked で DirtyRegion を作る
+4. dirty 作成が成功した後だけ owner から prepared / surface を取り出す
+5. prepared + surface + dirty を completed owner に入れる
+```
+
+F5lx は F5lq sample cursor、F5lr command bridge、old FillRect bridge、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、tile / bitmap publish、font fallback、zero-fill fallback、silent no-op、unchecked dirty region fallback、2D compositor drain を使わない。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
