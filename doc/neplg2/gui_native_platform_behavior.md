@@ -557,6 +557,8 @@ F5km では、X11 setup success response body の `min-keycode` / `max-keycode` 
 
 F5kn では、F5km の setup-owned `GetKeyboardMapping` request を X11 observation reader の明示 lifecycle state に接続する。reader は setup ready 後に request を partial-write し、8 byte request 全体が accepted された場合だけ normal request sequence を割り当てる。matched reply は generic body drain で捨てず、dedicated pending body owner に保持して would-block から再開し、body が揃った後だけ raw keysym table parser へ渡す。server error も accepted keymap sequence に照合する。F5kn は reader scheduling / fd write / reply correlation / raw keysym owner 生成だけを扱い、keycode -> keysym selection、portable key projection、event decode 接続、IME / text input、shortcut policy、Wayland concrete decoding、Linux runner / CLI dispatch、queue、fallback、support gate `Ok` 化には接続しない。
 
+F5ko では、F5kl / F5kn の raw keymap table を、range owner、raw keycode、modifier evidence から raw keysym selection evidence へ写す pure selector を追加する。range owner は first keycode、keycode count、last keycode を保持し、raw table の keycode count と一致することを検査する。Shift だけを column selection に使い、Lock / Caps、AltGr / Mod bit、group は unsupported evidence として raw modifier state を保持する。Shift column が存在しない場合は typed `ColumnOutOfRange` error とし、Shift column が `NoSymbol` の場合だけ attempted column と base candidate を持つ dedicated evidence にする。F5ko は event packet decoder、reader path、portable projection、IME / text input、shortcut policy、Wayland concrete decoding、Linux runner / CLI dispatch、queue、fallback、support gate `Ok` 化には接続しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。

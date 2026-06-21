@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI native F5ko Linux X11 raw keymap selection boundary
+
+## 目的
+
+- F5kl / F5kn の raw keymap table を、range owner、raw keycode、modifier evidence から raw keysym selection evidence へ写す pure selector を追加する。
+- event packet decoder、reader path、portable key projection、IME / text input、shortcut policy、Wayland concrete decoding、Linux runner / CLI dispatch、queue、fallback、support gate `Ok` 化へは接続しない。
+
+## subagent review
+
+- James の F5ko plan review は `CHANGES_REQUESTED`。
+- 指摘は、loose first keycode 入力ではなく `first_keycode` / `keycode_count` / computed `last_keycode` を持つ range owner を使うこと、Shift column `NoSymbol` を dedicated selection evidence にすること、Lock / AltGr / Mod bit を unsupported evidence として test すること、checked indexing と shape mismatch を分けること、event decoder / reader path から selector を呼ばないことを source-policy で固定することだった。
+- docs / todo はこの指摘に合わせて F5ko scope を更新した。
+
+## implementation_current
+
+- `NativeWindowLinuxX11KeyboardMappingRange` を追加し、first keycode、keycode count、computed last keycode を持つ owner として setup-owned keyboard mapping request から作れるようにした。
+- `native_window_linux_x11_keyboard_mapping_select_raw_keysym` を追加し、range owner と raw keymap table の keycode count 一致、raw keysyms length、keycode range、checked row offset / keysym index、column range を typed error として検査するようにした。
+- selection evidence は base column、shift column、shift column `NoSymbol` with base candidate、unsupported modifier state に分けた。Shift column が存在しない one-keysym-per-keycode table は typed `ColumnOutOfRange` error とし、base fallback success にはしない。
+- Lock / Caps、AltGr / Mod bit、unknown modifier bits は raw modifier state と unsupported mask を保持する unsupported evidence にし、event decoder / reader path / portable projection / IME / text input / shortcut / queue / runner / support gate / fallback / fd IO へは接続していない。
+- docs、todo、source policy、focused Rust tests を F5ko に合わせて更新した。
+
+## implementation_review
+
+- Parfit の implementation review は `CHANGES_REQUESTED`。
+- 指摘は、Shift column が存在しない場合を `ShiftColumnUnavailableBaseColumn` success として base column へ戻していたため、`ColumnOutOfRange` typed error と `NoSymbol` 専用 evidence の仕様に反していたことだった。
+- 指摘対応として `ShiftColumnUnavailableBaseColumn` を削除し、Shift column lookup は `ColumnOutOfRange` をそのまま返すようにした。single-column + Shift test は error expectation へ変更し、source policy も旧 variant 禁止、`ColumnOutOfRange` / overflow family / `?` propagation を検査するようにした。
+- 指摘対応後の re-review は `REVIEW_APPROVED`。前回 blocker は解消し、range owner、checked indexing、NoSymbol dedicated evidence、unsupported modifier evidence、no event decoder / reader / portable projection / fallback connection に追加 blocker は無いことが確認された。
+
+## verification_current
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --lib --tests`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_selection -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+
 # 2026-06-21 Agent2 GUI native F5kn Linux X11 setup-owned keyboard mapping reader scheduling boundary
 
 ## 目的

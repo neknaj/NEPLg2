@@ -3214,3 +3214,35 @@ Phase F5kn では、F5km の setup-owned `GetKeyboardMapping` request owner を 
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で lifecycle state、body retention、sequence assignment、server error correlation、no key selection / no event decode / no fallback が承認される。
+
+## Phase F5ko: Native Linux X11 raw keyboard mapping selection boundary
+
+Phase F5ko では、F5kl / F5kn で得た raw keymap table を、X11 keycode と modifier evidence から raw keysym 候補へ写す pure selector を追加する。これは keymap table indexing と selection evidence の boundary であり、event packet decoder、portable key projection、IME / text input、shortcut policy には接続しない。
+
+実装:
+
+- `NativeWindowLinuxX11KeyboardMappingRange` owner を追加し、`first_keycode`、`keycode_count`、computed `last_keycode` を保持する。
+- range owner は `NativeWindowLinuxX11SetupKeyboardMappingRequest` から作れるようにし、loose な first keycode だけを selector 入力にしない。
+- selector は `NativeWindowLinuxX11KeyboardMappingRawKeysyms` と range owner の keycode count が一致することを検査する。
+- keycode index と keysym table offset は checked arithmetic で計算し、range error、shape mismatch、index overflow を別 error にする。
+- selection は enum evidence として、base column selection、shift column selection、shift column `NoSymbol` with explicit base-column decision、unsupported modifier state を分ける。Shift column が存在しない場合は typed column range error とし、base fallback success にはしない。
+- Shift だけを core level selection として扱い、Lock / Caps、AltGr / Mod bit、group selection は unsupported evidence として raw modifier state を保持する。
+- selection result は raw keycode、keycode index、attempted column、selected raw keysym、base candidate などの証跡を持ち、silent substitution や generic fallback success を作らない。
+- source-policy は selector が `native_window_linux_x11_event_packet_to_observation` や reader path から呼ばれないこと、portable projection、IME / text input、runner、queue、support gate、fd IO、synthetic readiness へ接続しないことを検査する。
+
+非目標:
+
+- key event packet decode への接続、`NativeWindowPortableKey` への projection、`GuiEvent::Keyboard` / `TextInputEvent` 生成は行わない。
+- CapsLock / group / AltGr の実解釈は行わず、unsupported evidence として返す。
+- XKB、IME、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化、queue、fallback keymap、silent no-op は扱わない。
+
+完了条件:
+
+- keycode offset / column selection / shape mismatch / below range / above range / one-keysym-per-keycode / shifted `NoSymbol` explicit base decision / unsupported Lock / unsupported Mod bit の tests を追加する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo check -p nepl-gui-native --lib --tests`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping_selection -- --nocapture`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で range owner、checked indexing、unsupported modifier evidence、no event decode / no portable projection / no runner / no fallback が承認される。
