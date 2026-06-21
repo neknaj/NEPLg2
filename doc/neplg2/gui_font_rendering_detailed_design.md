@@ -7880,6 +7880,59 @@ Free paths close exactly one F5lp composition order owner: cursor free closes th
 
 F5lq must not call fill/stroke owners, F5lg/F5lh composition helpers, render command constructors, resource table or reservation helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizers, compositor APIs, or owner-bearing Vec allocation/push helpers.
 
+## SFNT simple glyph render shadow source sample command bridge boundary
+
+F5lr is a SourceOver only bridge from the F5lq shadow sample stream to the existing core `RenderCommand::FillRect` value. It is a correctness bridge for one shadow contribution command, not the final FHD 60fps compositor path, not a resource registration boundary, and not a backend fallback.
+
+Aristotle plan review was `PLAN_APPROVED`. The review confirmed that F5lr should mirror the F5bj conversion-before-advance rule, keep resource/platform/compositor paths out of scope, preserve lower F5lp order evidence only for the explicit composition-order invariant precheck, and document that the emitted `FillRect` does not encode final shadow/source composition ordering.
+
+The conversion validates the sample blend before command construction because `FillRectCommand` does not carry `GuiBlendMode`:
+
+```text
+GuiBlendMode::SourceOver -> Ok
+other blend modes -> UnsupportedBlendMode
+```
+
+This prevents semantic loss. F5lr must not silently drop `sample.blend`, and it must not reinterpret unsupported blend modes as SourceOver.
+
+The command paint keeps the RGB channels from `sample.shadow_paint` and scales only alpha:
+
+```text
+command_alpha = sample.alpha * shadow_paint.alpha / sample.alpha_max
+```
+
+The multiplication is checked before division and before the final `u8` cast. `sample.alpha == 0` or `shadow_paint.alpha == 0` returns a transparent shadow contribution command, not a silent skip.
+
+The cursor command error is owner-bearing:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError:
+    kind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind
+    cursor GuiSfntSimpleGlyphRenderShadowSourceSampleCursor
+    rejected_sample Option GuiSfntSimpleGlyphRenderShadowSourceSample
+    order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+```
+
+`order_error` is `Some` only when the first F5lp `composition_order_owner_invariants` precheck fails. Storage invariant failures, sample read failures, command conversion failures, and progress failures keep `order_error = None`.
+
+The step order is:
+
+```text
+revalidate F5lp composition order owner invariant
+revalidate F5lq shadow storage invariant
+reject cell_index > cell_count
+complete when cell_index == cell_count
+read sample by borrowing the cursor
+convert sample to command
+move owner into the next cursor only after conversion succeeds
+```
+
+F5lr deliberately does not call F5lq `sample_cursor_step`; doing so before command conversion would advance ownership before conversion succeeds and could create a partial completion state. The command terminal uses an owner-bearing payload struct containing `RenderCommand` and the next cursor. That payload, the cursor error, and the terminal are not `Clone` / `Copy`.
+
+The `FillRect` emitted by F5lr is only the shadow contribution command for one sample. It does not carry `shadow_order` / `source_order`, and it does not prove final composition with the source paint. Final ordering, resource transport, and compositor integration remain later boundaries.
+
+F5lr may call `render_command_fill_rect`, `gui_paint_color`, `gui_paint_solid`, and `rgba8888_new`. It must not call fill/stroke owners, F5lg/F5lh composition helpers, resource table or reservation helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizers, compositor APIs, or owner-bearing Vec allocation/push helpers.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

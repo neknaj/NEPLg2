@@ -23459,6 +23459,274 @@ fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_terminal_free %impur
         GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind: shadow sample command bridge の失敗理由
+//:
+//: [目的/もくてき]:
+//: - shadow source sample を 1x1 `FillRect` command へ写す前に、alpha と blend の意味が[失/うしな]われないことを enum で[検査/けんさ]します。
+//: - 現在の `FillRectCommand` は blend mode を payload に持たないため、`SourceOver` だけを[受/う]け[付/つ]けます。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind:
+    InvalidAlphaMax
+    AlphaNegative
+    AlphaExceedsMax
+    PaintAlphaMultiplyOverflow
+    ScaledAlphaOutOfRange
+    UnsupportedBlendMode
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError: rejected shadow sample を[保持/ほじ]する command bridge error
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind
+    rejected_sample %GuiSfntSimpleGlyphRenderShadowSourceSample
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \error:
+        error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_error %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \kind\rejected_sample:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError kind rejected_sample
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_rejected_sample %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError GuiSfntSimpleGlyphRenderShadowSourceSample \error:
+    *field::get_ref error "rejected_sample"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend %fn &GuiSfntSimpleGlyphRenderShadowSourceSample Result unit GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \sample:
+    let blend %GuiBlendMode gui_sfnt_simple_glyph_render_shadow_source_sample_blend sample
+    match blend:
+        GuiBlendMode::SourceOver:
+            Result::Ok unit
+        _:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::UnsupportedBlendMode
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha %fn i32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \alpha\alpha_max\paint_alpha:
+    if le alpha_max 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::InvalidAlphaMax
+        else:
+            if lt alpha 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::AlphaNegative
+                else:
+                    if gt alpha alpha_max:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::AlphaExceedsMax
+                        else:
+                            if or eq alpha 0 eq paint_alpha 0:
+                                then Result::Ok 0
+                                else:
+                                    let max_i32 %i32 2147483647
+                                    let max_alpha %i32 div_s max_i32 paint_alpha
+                                    if gt alpha max_alpha:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::PaintAlphaMultiplyOverflow
+                                        else:
+                                            let scaled_alpha %i32 div_s mul alpha paint_alpha alpha_max
+                                            if or lt scaled_alpha 0 gt scaled_alpha 255:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind::ScaledAlphaOutOfRange
+                                                else Result::Ok scaled_alpha
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceSample Result GuiPaint GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind \sample:
+    match gui_sfnt_simple_glyph_render_shadow_source_sample_command_validate_blend sample:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let shadow_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_sample_shadow_paint sample
+            let base_color %Rgba8888 gui_paint_color &shadow_paint
+            let paint_alpha %i32 cast rgba8888_a &base_color
+            let sample_alpha %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_alpha sample
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_alpha_max sample
+            match gui_sfnt_simple_glyph_render_shadow_source_sample_command_scale_alpha sample_alpha alpha_max paint_alpha:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok scaled_alpha:
+                    let scaled_alpha_u8 %u8 cast scaled_alpha
+                    let command_color %Rgba8888 rgba8888_new:
+                        rgba8888_r &base_color
+                        rgba8888_g &base_color
+                        rgba8888_b &base_color
+                        scaled_alpha_u8
+                    Result::Ok gui_paint_solid command_color
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_render_command %fn &GuiSfntSimpleGlyphRenderShadowSourceSample Result RenderCommand GuiSfntSimpleGlyphRenderShadowSourceSampleCommandError \sample:
+    match gui_sfnt_simple_glyph_render_shadow_source_sample_command_paint sample:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_command_error error_kind *sample
+        Result::Ok command_paint:
+            let position %GuiPoint gui_sfnt_simple_glyph_render_shadow_source_sample_position sample
+            let command_rect %GuiRect gui_rect_new:
+                gui_point_x &position
+                gui_point_y &position
+                1
+                1
+            Result::Ok render_command_fill_rect command_rect command_paint
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind: shadow command cursor bridge の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind:
+    SampleCursorFailed %GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind
+    CommandFailed %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError: shadow command cursor bridge の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind
+    cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor
+    rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceSample fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \kind\cursor\rejected_sample\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError kind cursor rejected_sample order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \kind\cursor\rejected_sample:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error kind cursor rejected_sample order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceSample fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \kind\cursor\rejected_sample\order_error_value:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error kind cursor rejected_sample order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \error:
+    field::get error "cursor"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_rejected_sample %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError Option GuiSfntSimpleGlyphRenderShadowSourceSample \error:
+    *field::get_ref error "rejected_sample"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal: shadow command cursor step の結果
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand:
+    command %RenderCommand
+    cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command %fn RenderCommand fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand \command\cursor:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand command cursor
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_command %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand RenderCommand \command_payload:
+    *field::get_ref command_payload "command"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \command_payload:
+    field::get command_payload "cursor"
+
+enum GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal:
+    Command %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand
+    Completed %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_step %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor Result GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError \cursor:
+    let owner_ref %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref &cursor "owner"
+    match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner_ref:
+        Result::Err order_error:
+            let rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample none
+            let command_error %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_with_order:
+                GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::SampleCursorFailed GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CompositionOrderInvariantFailed
+                cursor
+                rejected_sample
+                order_error
+            Result::Err command_error
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants owner_ref:
+                Result::Err error_kind:
+                    let rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample none
+                    let command_error %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple:
+                        GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::SampleCursorFailed error_kind
+                        cursor
+                        rejected_sample
+                    Result::Err command_error
+                Result::Ok _:
+                    let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index &cursor
+                    let cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_cell_count &cursor
+                    if gt cell_index cell_count:
+                        then:
+                            let rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample none
+                            let command_error %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple:
+                                GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::SampleCursorFailed GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CellIndexOutOfRange
+                                cursor
+                                rejected_sample
+                            Result::Err command_error
+                        else:
+                            if eq cell_index cell_count:
+                                then:
+                                    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get cursor "owner"
+                                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Completed owner
+                                else:
+                                    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_read &cursor:
+                                        Result::Err error_kind:
+                                            let rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample none
+                                            let command_error %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple:
+                                                GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::SampleCursorFailed error_kind
+                                                cursor
+                                                rejected_sample
+                                            Result::Err command_error
+                                        Result::Ok sample:
+                                            match gui_sfnt_simple_glyph_render_shadow_source_sample_render_command &sample:
+                                                Result::Err sample_command_error:
+                                                    let command_error_kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandErrorKind gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_kind &sample_command_error
+                                                    let rejected_sample_value %GuiSfntSimpleGlyphRenderShadowSourceSample gui_sfnt_simple_glyph_render_shadow_source_sample_command_error_rejected_sample &sample_command_error
+                                                    let rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample some rejected_sample_value
+                                                    let command_error %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple:
+                                                        GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::CommandFailed command_error_kind
+                                                        cursor
+                                                        rejected_sample
+                                                    Result::Err command_error
+                                                Result::Ok command:
+                                                    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get cursor "owner"
+                                                    let expected_next_cell_index %i32 add cell_index 1
+                                                    let next_cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor gui_sfnt_simple_glyph_render_shadow_source_sample_cursor owner expected_next_cell_index
+                                                    let next_cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index &next_cursor
+                                                    if ne next_cell_index expected_next_cell_index:
+                                                        then:
+                                                            let rejected_sample %Option GuiSfntSimpleGlyphRenderShadowSourceSample some sample
+                                                            let command_error %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_simple:
+                                                                GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorErrorKind::SampleCursorFailed GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ProgressInvariantInvalid
+                                                                next_cursor
+                                                                rejected_sample
+                                                            Result::Err command_error
+                                                        else:
+                                                            let command_payload %GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorCommand gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command command next_cursor
+                                                            Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Command command_payload
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor unit \cursor:
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorError unit \error:
+    let cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor field::get error "cursor"
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
+
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Command command_payload:
+            let cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor gui_sfnt_simple_glyph_render_shadow_source_sample_command_cursor_command_cursor command_payload
+            gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
+        GuiSfntSimpleGlyphRenderShadowSourceSampleCommandCursorTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
