@@ -1,3 +1,45 @@
+# 2026-06-21 Agent2 GUI font F5kw stroke source contour authority boundary
+
+## 目的
+
+- completed F5ku metric owner と F5av/F5aw path command value authority を照合し、後続 stroke geometry が source contour / edge provenance を座標一致から推測しないようにする。
+- F5ku metric owner だけでは保持していない path command index、contour / edge index、contour span start/end/count、MoveTo / SkipNoSegment count を owner boundary として固定する。
+- offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へは進まない。
+
+## subagent review
+
+- Boole の F5kw plan review は `PLAN_CHANGES_REQUESTED`。
+- 指摘は、F5ku の metric owner だけでは actual stroke offset geometry の source authority として不十分であり、F5ba/F5az scalar stream は contour/edge provenance と skipped command provenance を落とすため、path command value stream と contour span authority を再照合する boundary が必要というものだった。
+- 指摘に従い、F5kw は F5ku metric owner、`GuiSfntSimpleGlyphOutlinePointStreamItemCollection`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner` を同時に authority として扱う形にした。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance` を追加し、metric/path command/global edge/contour/local edge/contour span/event slot/command tag を保持する copyable value にした。
+- `GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeSourceContourOwner` を追加し、F5ku metric owner、path command stream cursor、provenance Vec、path command count、drawable provenance count、MoveTo / SkipNoSegment count を保持するようにした。
+- start は F5ku metric owner invariant、F5aw command stream cursor、plan path command count、provenance Vec exact capacity を検査する。
+- step は MoveTo / SkipNoSegment を count だけ進め、LineTo / QuadraticTo は F5ku metric kind/segment index、command tag、command payload provenance、collection contour span start/end/count を照合する。
+- F5ku metric owner と同じ count を持つ別 source を誤って受け入れる余地を塞ぐため、LineTo / QuadraticTo push 前に collection-backed `GuiSfntSimpleGlyphCurveSegment` を読み直し、line start/end と quadratic start/control/end が F5ku metric 座標と一致することを追加で検査する。
+- 座標一致は origin guard であり、contour boundary / wrap / skipped terminal edge は引き続き command value と contour span provenance からのみ保持する。
+- docs、source policy、focused doctest label、todo を F5kw に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md --no-tree -o tmp_gui_font_render_stroke_source_contour_authority_f5kw_sourceguard.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kw_sourceguard.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kw-sourceguard.json`
+- checked JSON: `tmp/playground-editor-tests-f5kw-sourceguard.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- pass: source policy と手元レビューで、F5kw が path command value stream、collection contour span、collection-backed curve segment、F5ku metric owner の照合に留まり、actual offset geometry / stroke edge / coverage / mask / render command / platform API / font fallback へ進んでいないことを確認した。
+- separate subagent implementation review は、明示的な subagent 起動要求がないため未実施。
+
 # 2026-06-21 Agent2 GUI font F5kv core GUI stroke style contract boundary
 
 ## 目的

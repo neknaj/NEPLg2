@@ -6118,6 +6118,20 @@ GuiStroke:
 
 F5kv は core value / accessor / checked constructor / docs / source policy を固定するだけで、offset point、join resolution、cap geometry、dash expansion、miter clipping、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
 
+### SFNT simple glyph render stroke source contour authority boundary
+
+F5kw は completed F5ku metric owner を消費し、F5av/F5aw の `GuiSfntSimpleGlyphOutlinePointStreamItemCollection` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner` を借用して、stroke geometry の source contour provenance owner を作る境界である。
+
+F5ku metric owner は drawable segment の metric sequence を所有するが、path command index、source contour / edge、MoveTo、SkipNoSegment の provenance は所有しない。F5kw は F5ba/F5az の path sink scalar stream ではなく、ordered path command value stream を読む。scalar stream は contour/edge provenance と skipped command provenance を保持する authority ではないため、座標一致から contour adjacency を復元してはならない。
+
+`GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance` は drawable LineTo / QuadraticTo 1 件ごとに、`metric_index`、`path_command_index`、`edge_index`、`contour_index`、`contour_edge_index`、`contour_start_edge_index`、`contour_end_edge_index`、`contour_edge_count`、`event_slot`、`command_tag` を保持する。contour start/end/count は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` で検査し、command payload と contour span が矛盾した場合は typed error とする。
+
+LineTo / QuadraticTo は provenance 作成後、F5kw は collection-backed `GuiSfntSimpleGlyphCurveSegment` を読み直し、F5ku metric 座標と source segment 座標を照合する。LineTo は start/end、QuadraticTo は start/control/end が一致しなければならない。この照合は F5ku metric が同じ collection-backed source contour edge に由来することを fail-closed に確認するための guard であり、coordinate equality から contour boundary を推測する処理ではない。
+
+start は metric owner invariant、path command stream cursor 作成、plan の path command count と cursor end の一致、provenance Vec の exact capacity を検査する。step は MoveTo / SkipNoSegment を count だけ進め、LineTo / QuadraticTo は F5ku metric kind/segment index、command tag、source segment coordinate guard を照合してから provenance Vec へ push する。completion は draw / line / quadratic / MoveTo / SkipNoSegment count、cursor end、Vec len/cap が plan と一致することを要求する。
+
+F5kw は offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API、font fallback へ進まず、coordinate equality から contour boundary を推測しない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

@@ -515,6 +515,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = 
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -590,6 +591,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -16704,7 +16706,7 @@ assert(
     "GUI font docs must pin F5ku approved plan, fresh cursor requirement, and push failure recovery state",
 );
 const renderStrokeSourceSegmentMetricOwnerStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner:");
-const renderStrokeSourceSegmentMetricOwnerEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSourceSegmentMetricOwnerStartIndex);
+const renderStrokeSourceSegmentMetricOwnerEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:", renderStrokeSourceSegmentMetricOwnerStartIndex);
 const renderStrokeSourceSegmentMetricOwnerRegion = allocFontSfntGlyfImpl.slice(renderStrokeSourceSegmentMetricOwnerStartIndex, renderStrokeSourceSegmentMetricOwnerEndIndex);
 const renderStrokeSourceSegmentMetricDrainOwnerType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner:"),
@@ -16985,6 +16987,394 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests.includes("render_stroke_source_segment_metric_owner_metric_error_context_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests.includes("render_stroke_source_segment_metric_owner_no_reread_edge_mask_command_platform"),
     "F5ku render stroke source segment metric owner focused doctest must cover fresh cursor, capacity, push, completion, recovery, metric error context, and no reread/edge/mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke source contour authority boundary"), "GUI font spec must document F5kw render stroke source contour authority boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke source contour authority boundary"), "GUI font detailed design must document F5kw render stroke source contour authority boundary");
+assert(implementationPlan.includes("## Phase F5kw: sfnt simple glyph render stroke source contour authority boundary"), "GUI font implementation plan must include F5kw phase");
+assert(
+    implementationPlan.includes("Boole plan review は `PLAN_CHANGES_REQUESTED`") &&
+        detailedDesign.includes("F5kw must read the ordered path command value stream, not the path sink scalar stream") &&
+        detailedDesign.includes("F5ba/F5az scalar storage intentionally projects commands to compact scalar regions") &&
+        detailedDesign.includes("F5kw then re-reads the collection-backed curve segment for that contour-local edge") &&
+        spec.includes("F5kw は collection-backed `GuiSfntSimpleGlyphCurveSegment` を読み直し") &&
+        spec.includes("ordered path command value stream") &&
+        spec.includes("coordinate equality から contour boundary を推測しない"),
+    "GUI font docs must pin F5kw plan change, command value authority, source metric coordinate guard, scalar-stream rejection, and no coordinate-equality contour inference",
+);
+const renderStrokeSourceContourStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:");
+const renderStrokeSourceContourEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSourceContourStartIndex);
+const renderStrokeSourceContourRegion = allocFontSfntGlyfImpl.slice(renderStrokeSourceContourStartIndex, renderStrokeSourceContourEndIndex);
+const renderStrokeSourceMetricProvenanceType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:"),
+);
+const renderStrokeSourceContourDrainOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner "),
+);
+const renderStrokeSourceContourOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceContourOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner "),
+);
+const renderStrokeSourceContourErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind:"),
+);
+const renderStrokeSourceContourStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind:"),
+);
+const renderStrokeSourceContourDrainErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error "),
+);
+const renderStrokeSourceContourDrainTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped "),
+);
+assert(renderStrokeSourceContourStartIndex >= 0 && renderStrokeSourceContourEndIndex > renderStrokeSourceContourStartIndex, "alloc/gui/font/sfnt/glyf F5kw stroke source contour authority region must exist before fill alpha sample cursor");
+for (const fragment of [
+    "metric_index %i32",
+    "path_command_index %i32",
+    "edge_index %i32",
+    "contour_index %i32",
+    "contour_edge_index %i32",
+    "contour_start_edge_index %i32",
+    "contour_end_edge_index %i32",
+    "contour_edge_count %i32",
+    "event_slot %GuiSfntSimpleGlyphPathSinkEventSlot",
+    "command_tag %GuiSfntSimpleGlyphPathCommandTag",
+]) {
+    assert(renderStrokeSourceMetricProvenanceType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw provenance type must include ${fragment}`);
+}
+for (const fragment of [
+    "metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner",
+    "cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance",
+    "path_command_count %i32",
+    "metric_provenance_count %i32",
+    "line_provenance_count %i32",
+    "quadratic_provenance_count %i32",
+    "move_to_count %i32",
+    "skip_no_segment_count %i32",
+]) {
+    assert(renderStrokeSourceContourDrainOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw drain owner must include ${fragment}`);
+}
+for (const fragment of [
+    "metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner",
+    "provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance",
+    "path_command_count %i32",
+    "metric_provenance_count %i32",
+    "line_provenance_count %i32",
+    "quadratic_provenance_count %i32",
+    "move_to_count %i32",
+    "skip_no_segment_count %i32",
+]) {
+    assert(renderStrokeSourceContourOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw completed owner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner",
+    "GuiSfntSimpleGlyphRenderStrokeSourceContourOwner",
+    "GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError",
+    "GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError",
+    "GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5kw ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceContourOwner:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError:|pub enum GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal:|pub fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_start\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_step\b/,
+    "alloc/gui/font/sfnt/glyf F5kw owner-bearing boundary types and drain start/step must remain private",
+);
+for (const fragment of [
+    "MetricCountNegative",
+    "LineMetricCountNegative",
+    "QuadraticMetricCountNegative",
+    "MetricCountMismatch",
+    "PathCommandCountMismatch",
+    "CursorEndMismatch",
+    "ProvenanceCountNegative",
+    "LineProvenanceCountNegative",
+    "QuadraticProvenanceCountNegative",
+    "MoveToCountNegative",
+    "SkipNoSegmentCountNegative",
+    "ProvenanceCountMismatch",
+    "ProvenanceStorageLenMismatch",
+    "ProvenanceStorageCapacityMismatch",
+    "MetricKindMismatch",
+    "MetricSegmentIndexMismatch",
+    "CommandTagMismatch",
+    "ContourSpanSourceFailed",
+    "ContourSpanInvariantMismatch",
+    "SourceCurveSegmentReadFailed",
+    "SourceCurveSegmentKindMismatch",
+    "SourceMetricCoordinateMismatch",
+    "StreamStepFailed",
+    "ProvenancePushFailed",
+    "CompletionMetricCountMismatch",
+    "CompletionLineCountMismatch",
+    "CompletionQuadraticCountMismatch",
+    "CompletionMoveToCountMismatch",
+    "CompletionSkipNoSegmentCountMismatch",
+    "CompletionCursorNotFinished",
+]) {
+    assert(renderStrokeSourceContourErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw drain error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "MetricOwnerInvariantFailed",
+    "CommandStreamCursorStartFailed",
+    "PathCommandCountMismatch",
+    "ProvenanceStorageAllocFailed",
+    "ProvenanceStorageInitialLenMismatch",
+    "ProvenanceStorageCapacityMismatch",
+]) {
+    assert(renderStrokeSourceContourStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw start error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner",
+    "stream_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError",
+    "storage_error %Option StdErrorKind",
+    "metric_index %i32",
+    "path_command_index %i32",
+    "rejected_provenance %Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance",
+]) {
+    assert(renderStrokeSourceContourDrainErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw drain error must include ${fragment}`);
+}
+for (const fragment of [
+    "CommandSkipped %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner",
+    "ProvenancePushed %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner",
+    "Completed %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner",
+]) {
+    assert(renderStrokeSourceContourDrainTerminalType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kw drain terminal must include ${fragment}`);
+}
+const renderStrokeSourceContourStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_start");
+assertOrderedFragments(
+    renderStrokeSourceContourStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour &metric_owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_stream_cursor collection path_command_tag_owner 0",
+        "let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &metric_owner \"plan_owner\"",
+        "let path_command_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_end_index &cursor",
+        "PathCommandCountMismatch",
+        "vec::with_capacity draw_segment_count",
+        "ProvenanceStorageInitialLenMismatch",
+        "ProvenanceStorageCapacityMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner metric_owner cursor provenance path_command_count 0 0 0 0 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw start must validate F5ku metric owner, borrow F5aw command stream cursor, and allocate exact-capacity provenance Vec",
+);
+const renderStrokeSourceContourLocalInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_local_invariants");
+assertOrderedFragments(
+    renderStrokeSourceContourLocalInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour metric_owner",
+        "PathCommandCountMismatch",
+        "CursorEndMismatch",
+        "ProvenanceCountNegative",
+        "LineProvenanceCountNegative",
+        "QuadraticProvenanceCountNegative",
+        "MoveToCountNegative",
+        "SkipNoSegmentCountNegative",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_count_checked_add line_provenance_count quadratic_provenance_count",
+        "ProvenanceCountMismatch",
+        "ProvenanceCountExceeded",
+        "LineProvenanceCountExceeded",
+        "QuadraticProvenanceCountExceeded",
+        "MoveToCountExceeded",
+        "SkipNoSegmentCountExceeded",
+        "ProvenanceStorageLenMismatch",
+        "ProvenanceStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw local invariants must check metric owner, command cursor, skipped counts, and provenance Vec shape",
+);
+const renderStrokeSourceMetricProvenanceFromValue = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span");
+const renderStrokeSourceLineMetricMatchesSourceSegment = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_matches_source_segment");
+const renderStrokeSourceQuadraticMetricMatchesSourceSegment = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_matches_source_segment");
+const renderStrokeSourceLineMetricSourceGuard = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_source_guard");
+const renderStrokeSourceQuadraticMetricSourceGuard = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_source_guard");
+assertOrderedFragments(
+    renderStrokeSourceMetricProvenanceFromValue,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index value",
+        "*field::get_ref value \"edge_index\"",
+        "*field::get_ref value \"contour_index\"",
+        "*field::get_ref value \"contour_edge_index\"",
+        "*field::get_ref value \"event_slot\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+        "ContourSpanSourceFailed",
+        "gui_sfnt_simple_glyph_contour_span_start_point_index &span",
+        "gui_sfnt_simple_glyph_contour_span_end_point_index &span",
+        "gui_sfnt_simple_glyph_contour_span_point_count &span",
+        "let expected_contour_edge_index %i32 sub edge_index span_start_edge_index",
+        "ContourSpanInvariantMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_source_metric_provenance metric_index path_command_index edge_index contour_index contour_edge_index span_start_edge_index span_end_edge_index span_edge_count event_slot command_tag",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw provenance builder must read command value provenance and verify contour span start/end/count",
+);
+assertOrderedFragments(
+    renderStrokeSourceLineMetricMatchesSourceSegment,
+    [
+        "*field::get_ref metric \"start_x2\"",
+        "*field::get_ref metric \"start_y2\"",
+        "*field::get_ref metric \"end_x2\"",
+        "*field::get_ref metric \"end_y2\"",
+        "gui_sfnt_simple_glyph_line_segment_start_x2 segment",
+        "gui_sfnt_simple_glyph_line_segment_start_y2 segment",
+        "gui_sfnt_simple_glyph_line_segment_end_x2 segment",
+        "gui_sfnt_simple_glyph_line_segment_end_y2 segment",
+        "and start_ok end_ok",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw line metric source match must compare F5ku metric coordinates against the collection curve segment",
+);
+assertOrderedFragments(
+    renderStrokeSourceQuadraticMetricMatchesSourceSegment,
+    [
+        "*field::get_ref metric \"start_x2\"",
+        "*field::get_ref metric \"start_y2\"",
+        "*field::get_ref metric \"control_x2\"",
+        "*field::get_ref metric \"control_y2\"",
+        "*field::get_ref metric \"end_x2\"",
+        "*field::get_ref metric \"end_y2\"",
+        "gui_sfnt_simple_glyph_quadratic_segment_start_x2 segment",
+        "gui_sfnt_simple_glyph_quadratic_segment_control_x2 segment",
+        "gui_sfnt_simple_glyph_quadratic_segment_end_x2 segment",
+        "and start_ok and control_ok end_ok",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw quadratic metric source match must compare F5ku metric coordinates against the collection curve segment",
+);
+assertOrderedFragments(
+    renderStrokeSourceLineMetricSourceGuard,
+    [
+        "*field::get_ref value \"contour_index\"",
+        "*field::get_ref value \"contour_edge_index\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index contour_edge_index",
+        "SourceCurveSegmentReadFailed",
+        "GuiSfntSimpleGlyphCurveSegment::Line line_segment",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_matches_source_segment metric &line_segment",
+        "SourceMetricCoordinateMismatch",
+        "SourceCurveSegmentKindMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw line source guard must re-read the collection curve segment and reject kind/coordinate mismatches",
+);
+assertOrderedFragments(
+    renderStrokeSourceQuadraticMetricSourceGuard,
+    [
+        "*field::get_ref value \"contour_index\"",
+        "*field::get_ref value \"contour_edge_index\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index contour_edge_index",
+        "SourceCurveSegmentReadFailed",
+        "GuiSfntSimpleGlyphCurveSegment::Line _line_segment",
+        "SourceCurveSegmentKindMismatch",
+        "GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic_segment",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_matches_source_segment metric &quadratic_segment",
+        "SourceMetricCoordinateMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw quadratic source guard must re-read the collection curve segment and reject kind/coordinate mismatches",
+);
+const renderStrokeSourceContourPushLine = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_line");
+const renderStrokeSourceContourPushQuadratic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_quadratic");
+assertOrderedFragments(
+    renderStrokeSourceContourPushLine,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_contour metric_owner metric_index",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line line_metric",
+        "MetricSegmentIndexMismatch",
+        "GuiSfntSimpleGlyphPathCommandTag::LineTo",
+        "CommandTagMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span collection metric_index &value expected_tag",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_source_guard collection &value &line_metric",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_provenance owner next_cursor provenance_value next_metric_count next_line_count quadratic_provenance_count",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic _quadratic_metric",
+        "MetricKindMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw line push must match F5ku line metric, command tag, and source segment coordinates before pushing provenance",
+);
+assertOrderedFragments(
+    renderStrokeSourceContourPushQuadratic,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_contour metric_owner metric_index",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line _line_metric",
+        "MetricKindMismatch",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic quadratic_metric",
+        "MetricSegmentIndexMismatch",
+        "GuiSfntSimpleGlyphPathCommandTag::QuadraticTo",
+        "CommandTagMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span collection metric_index &value expected_tag",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_source_guard collection &value &quadratic_metric",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_provenance owner next_cursor provenance_value next_metric_count line_provenance_count next_quadratic_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw quadratic push must match F5ku quadratic metric, command tag, and source segment coordinates before pushing provenance",
+);
+const renderStrokeSourceContourStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_step");
+assertOrderedFragments(
+    renderStrokeSourceContourStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_local_invariants &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection path_command_tag_owner cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed completed_cursor",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_completion_invariants &owner_at_completion",
+        "GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::Completed completed_owner",
+        "GuiSfntSimpleGlyphPathCommand::MoveTo _move_to",
+        "MoveToCountExceeded",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped owner next_cursor add move_to_count 1 skip_no_segment_count",
+        "GuiSfntSimpleGlyphPathCommand::SkipNoSegment _skip",
+        "SkipNoSegmentCountExceeded",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped owner next_cursor move_to_count add skip_no_segment_count 1",
+        "GuiSfntSimpleGlyphPathCommand::LineTo _line_to",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_line collection owner next_cursor value",
+        "GuiSfntSimpleGlyphPathCommand::QuadraticTo _quadratic_to",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_quadratic collection owner next_cursor value",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw step must stream command values, count skipped commands, and delegate drawable commands to provenance push helpers",
+);
+const renderStrokeSourceContourDrainErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_free");
+assertOrderedFragments(
+    renderStrokeSourceContourDrainErrorFree,
+    [
+        "field::get error \"owner\"",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_free owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kw drain error free must close metric owner and provenance Vec through the recovered drain owner",
+);
+assert(
+    (renderStrokeSourceContourRegion.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
+        (renderStrokeSourceContourRegion.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5kw region must allocate the provenance Vec once and push only through one helper",
+);
+assertNoMatch(
+    renderStrokeSourceContourRegion,
+    /\b(?:path_sink_scalars|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|GuiStrokeCap|GuiStrokeJoin|GuiStrokeDash|miter|dash|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor)\b/,
+    "alloc/gui/font/sfnt/glyf F5kw region must not read scalar storage, parse bytes, resolve stroke style geometry, use masks/coverage, emit commands, call platform APIs, or fallback",
+);
+for (const [slice, name] of [
+    [renderStrokeSourceContourStart, "start"],
+    [renderStrokeSourceContourLocalInvariants, "local invariants"],
+    [renderStrokeSourceMetricProvenanceFromValue, "provenance builder"],
+    [renderStrokeSourceLineMetricMatchesSourceSegment, "line metric source match"],
+    [renderStrokeSourceQuadraticMetricMatchesSourceSegment, "quadratic metric source match"],
+    [renderStrokeSourceLineMetricSourceGuard, "line metric source guard"],
+    [renderStrokeSourceQuadraticMetricSourceGuard, "quadratic metric source guard"],
+    [renderStrokeSourceContourPushLine, "line push"],
+    [renderStrokeSourceContourPushQuadratic, "quadratic push"],
+    [renderStrokeSourceContourStep, "step"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5kw ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_metric_provenance_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_exact_capacity_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_command_stream_value_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_line_quadratic_match_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_metric_source_coordinate_guard_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_contour_span_guard_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_skipped_command_counts_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_completion_counts_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_no_scalar_geometry_mask_command_platform"),
+    "F5kw render stroke source contour authority focused doctest must cover provenance, command stream authority, metric source coordinate guard, contour span guard, skipped counts, completion counts, and no scalar/geometry/mask/command/platform policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");

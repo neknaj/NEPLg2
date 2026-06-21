@@ -7057,6 +7057,36 @@ The old two-argument `gui_stroke_new color width` shape must not remain the form
 
 F5kv is still before stroke geometry. It must not read metric owner storage, create offset points, resolve joins or caps, expand dashes, clip miters, allocate stroke edges, build coverage or packed masks, emit render commands, write pixels, or call platform APIs.
 
+## SFNT simple glyph render stroke source contour authority boundary
+
+F5kw consumes the completed F5ku source segment metric owner and borrows the F5av/F5aw path command authority: `GuiSfntSimpleGlyphOutlinePointStreamItemCollection` plus `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner`. This boundary exists because the metric owner alone has line/quadratic metric sequence data, but it does not own the contour, edge, path command, MoveTo, and skipped-segment provenance needed by later stroke geometry.
+
+F5kw must read the ordered path command value stream, not the path sink scalar stream. F5ba/F5az scalar storage intentionally projects commands to compact scalar regions, and `SkipNoSegment` has no drawable scalar. Reconstructing adjacency from scalar coordinates would hide source gaps and make close/wrap behavior depend on coordinate equality. F5kw therefore treats the path command value stream as the provenance authority and treats the F5ku metric owner as the drawable metric authority.
+
+Each drawable LineTo or QuadraticTo command produces one `GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance`:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:
+    metric_index
+    path_command_index
+    edge_index
+    contour_index
+    contour_edge_index
+    contour_start_edge_index
+    contour_end_edge_index
+    contour_edge_count
+    event_slot
+    command_tag
+```
+
+`contour_start_edge_index`, `contour_end_edge_index`, and `contour_edge_count` are checked against `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span`. This keeps the later join/wrap phase from guessing whether a contour edge was skipped at the contour boundary. F5kw rejects any mismatch between command payload contour/edge values and the contour span derived from the collection.
+
+The drain owner stores the metric owner, path command stream cursor, provenance Vec, total path command count, drawable provenance counts, and non-drawable MoveTo / SkipNoSegment counts. The provenance Vec is allocated once with capacity `draw_segment_count`; len starts at 0 and completion requires len/cap/counts to match the F5kr plan through the F5ku metric owner. MoveTo and SkipNoSegment are counted and advanced through the same cursor but never assigned a metric provenance slot.
+
+LineTo and QuadraticTo handling first reads the next F5ku metric at `metric_provenance_count`, checks that the metric kind and segment index match the command, then builds provenance from the command value plus contour span. F5kw then re-reads the collection-backed curve segment for that contour-local edge and checks the F5ku metric coordinates against the source segment coordinates: line start/end and quadratic start/control/end must match. This coordinate check is only an origin guard; it does not infer contour boundaries from coordinate equality. A mismatch is a typed owner-bearing drain error. A Vec push failure returns the recovered owner with the returned Vec and rejected provenance.
+
+F5kw does not create offset points, decide joins/caps, expand dashes, clip miters, allocate stroke edges, build coverage or packed masks, emit render commands, write pixels, call platform APIs, resolve font fallback, or infer contour boundaries from coordinate equality.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
