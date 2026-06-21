@@ -19620,6 +19620,977 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_terminal_free
         GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance: stroke metric の source path provenance
+//:
+//: [目的/もくてき]:
+//: - F5ku の metric sequence と F5av/F5aw の path command value authority を[照合/しょうごう]した[結果/けっか]を 1 metric ぶん[保持/ほじ]します。
+//: - 後続の stroke geometry が contour / edge / command index を[座標/ざひょう][一致/いっち]から[推測/すいそく]しないための value です。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:
+    metric_index %i32
+    path_command_index %i32
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    contour_start_edge_index %i32
+    contour_end_edge_index %i32
+    contour_edge_count %i32
+    event_slot %GuiSfntSimpleGlyphPathSinkEventSlot
+    command_tag %GuiSfntSimpleGlyphPathCommandTag
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance \provenance:
+        *provenance
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance \provenance:
+        provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance: metric と path command provenance を[束/たば]ねる
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot fn GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance \metric_index\path_command_index\edge_index\contour_index\contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\event_slot\command_tag:
+    GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count event_slot command_tag
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_metric_index: metric owner 内の metric index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_metric_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "metric_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_path_command_index: 対応する path command index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_path_command_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "path_command_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_edge_index: collection 全体の edge index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "edge_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_index: contour index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "contour_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_index: contour 内 edge index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "contour_edge_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_start_edge_index: contour span の先頭 edge index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_start_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "contour_start_edge_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_end_edge_index: contour span の末尾 edge index を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_end_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "contour_end_edge_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_count: contour span の edge count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance i32 \provenance:
+    *field::get_ref provenance "contour_edge_count"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner: stroke source contour authority drain state
+//:
+//: [目的/もくてき]:
+//: - F5ku の completed metric owner を[所有/しょゆう]し、F5aw path command stream を[読/よ]みながら metric provenance Vec を[構築/こうちく]します。
+//: - MoveTo / SkipNoSegment は count として[保持/ほじ]し、LineTo / QuadraticTo だけを metric provenance に[対応/たいおう]させます。
+//: - offset point、join / cap / dash / miter、stroke edge、coverage、render command はここでは[作/つく]りません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner:
+    metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
+    cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+    provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance
+    path_command_count %i32
+    metric_provenance_count %i32
+    line_provenance_count %i32
+    quadratic_provenance_count %i32
+    move_to_count %i32
+    skip_no_segment_count %i32
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner: contour provenance drain owner を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner \metric_owner\cursor\provenance\path_command_count\metric_provenance_count\line_provenance_count\quadratic_provenance_count\move_to_count\skip_no_segment_count:
+    GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner metric_owner cursor provenance path_command_count metric_provenance_count line_provenance_count quadratic_provenance_count move_to_count skip_no_segment_count
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_metric_provenance_count: pushed metric provenance count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_metric_provenance_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    *field::get_ref owner "metric_provenance_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_line_provenance_count: line provenance count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_line_provenance_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    *field::get_ref owner "line_provenance_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_quadratic_provenance_count: quadratic provenance count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_quadratic_provenance_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    *field::get_ref owner "quadratic_provenance_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count: skipped MoveTo count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    *field::get_ref owner "move_to_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count: skipped no-segment count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    *field::get_ref owner "skip_no_segment_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_len: provenance Vec の current len を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_len %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    let provenance %&Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get_ref owner "provenance"
+    vec::len provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_cap: provenance Vec の capacity を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_cap %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner i32 \owner:
+    let provenance %&Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get_ref owner "provenance"
+    vec::cap provenance
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourOwner: completed stroke source contour authority
+//:
+//: [目的/もくてき]:
+//: - F5ku metric owner と metric provenance Vec を exact count で[束/たば]ね、後続 geometry が source contour / edge を[参照/さんしょう]できるようにします。
+//: - Vec owner を[持/も]つため Clone / Copy は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceContourOwner:
+    metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
+    provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance
+    path_command_count %i32
+    metric_provenance_count %i32
+    line_provenance_count %i32
+    quadratic_provenance_count %i32
+    move_to_count %i32
+    skip_no_segment_count %i32
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner: completed contour provenance owner を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceContourOwner \metric_owner\provenance\path_command_count\metric_provenance_count\line_provenance_count\quadratic_provenance_count\move_to_count\skip_no_segment_count:
+    GuiSfntSimpleGlyphRenderStrokeSourceContourOwner metric_owner provenance path_command_count metric_provenance_count line_provenance_count quadratic_provenance_count move_to_count skip_no_segment_count
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count: completed metric provenance count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    *field::get_ref owner "metric_provenance_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_line_provenance_count: completed line provenance count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_line_provenance_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    *field::get_ref owner "line_provenance_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_quadratic_provenance_count: completed quadratic provenance count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_quadratic_provenance_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    *field::get_ref owner "quadratic_provenance_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_move_to_count: completed skipped MoveTo count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_move_to_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    *field::get_ref owner "move_to_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_skip_no_segment_count: completed skipped no-segment count を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_skip_no_segment_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    *field::get_ref owner "skip_no_segment_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_len: completed provenance Vec len を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_len %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    let provenance %&Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get_ref owner "provenance"
+    vec::len provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_cap: completed provenance Vec capacity を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_cap %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner i32 \owner:
+    let provenance %&Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get_ref owner "provenance"
+    vec::cap provenance
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind: stroke source contour authority failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind:
+    MetricCountNegative
+    LineMetricCountNegative
+    QuadraticMetricCountNegative
+    MetricCountMismatch
+    MetricCountExceeded
+    LineMetricCountMismatch
+    QuadraticMetricCountMismatch
+    MetricStorageLenMismatch
+    MetricStorageCapacityMismatch
+    PathCommandCountMismatch
+    CursorEndMismatch
+    ProvenanceCountNegative
+    LineProvenanceCountNegative
+    QuadraticProvenanceCountNegative
+    MoveToCountNegative
+    SkipNoSegmentCountNegative
+    ProvenanceCountMismatch
+    ProvenanceCountExceeded
+    LineProvenanceCountExceeded
+    QuadraticProvenanceCountExceeded
+    MoveToCountExceeded
+    SkipNoSegmentCountExceeded
+    ProvenanceStorageLenMismatch
+    ProvenanceStorageCapacityMismatch
+    MetricIndexNegative
+    MetricIndexOutOfRange
+    MetricSlotMissing
+    MetricKindMismatch
+    MetricSegmentIndexMismatch
+    CommandTagMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    SourceCurveSegmentReadFailed
+    SourceCurveSegmentKindMismatch
+    SourceMetricCoordinateMismatch
+    StreamStepFailed
+    ProvenancePushFailed
+    CompletionMetricCountMismatch
+    CompletionLineCountMismatch
+    CompletionQuadraticCountMismatch
+    CompletionMoveToCountMismatch
+    CompletionSkipNoSegmentCountMismatch
+    CompletionCursorNotFinished
+    CompletionProvenanceStorageLenMismatch
+    CompletionProvenanceStorageCapacityMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind: source contour start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind:
+    MetricOwnerInvariantFailed
+    CommandStreamCursorStartFailed
+    PathCommandCountMismatch
+    ProvenanceStorageAllocFailed
+    ProvenanceStorageInitialLenMismatch
+    ProvenanceStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind
+    metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
+    contour_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind
+    cursor_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error: start failure payload を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn Option GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError \kind\metric_owner\contour_error_kind\cursor_error\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError kind metric_owner contour_error_kind cursor_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_metric_failed: metric invariant failure を recovery payload に[写/うつ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_metric_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError \metric_owner\contour_error_kind_value:
+    let contour_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind some contour_error_kind_value
+    let cursor_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind::MetricOwnerInvariantFailed metric_owner contour_error_kind cursor_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_cursor_failed: command stream cursor failure を recovery payload に[写/うつ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_cursor_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError \metric_owner\cursor_error_value:
+    let contour_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind none
+    let cursor_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError some cursor_error_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind::CommandStreamCursorStartFailed metric_owner contour_error_kind cursor_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_simple: owner だけを返せる start failure payload を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError \kind\metric_owner:
+    let contour_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind none
+    let cursor_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error kind metric_owner contour_error_kind cursor_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_storage_failed: provenance Vec allocation failure を recovery payload に[写/うつ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError \metric_owner\storage_error_value:
+    let contour_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind none
+    let cursor_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorError none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind::ProvenanceStorageAllocFailed metric_owner contour_error_kind cursor_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_kind: start failure kind を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_metric_owner: start failure から metric owner を[回収/かいしゅう]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_metric_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner \error:
+    field::get error "metric_owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError: drain failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind
+    owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner
+    stream_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError
+    storage_error %Option StdErrorKind
+    metric_index %i32
+    path_command_index %i32
+    rejected_provenance %Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error: drain failure recovery payload を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error %fn GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError fn Option StdErrorKind fn i32 fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \kind\owner\stream_error\storage_error\metric_index\path_command_index\rejected_provenance:
+    GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError kind owner stream_error storage_error metric_index path_command_index rejected_provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_simple: owner だけを返す drain error を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_simple %fn GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \kind\owner:
+    let stream_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError none
+    let storage_error %Option StdErrorKind none
+    let rejected_provenance %Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance none
+    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error kind owner stream_error storage_error -1 -1 rejected_provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric: metric / command index 付き drain error を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric %fn GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \kind\owner\metric_index\path_command_index:
+    let stream_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError none
+    let storage_error %Option StdErrorKind none
+    let rejected_provenance %Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance none
+    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error kind owner stream_error storage_error metric_index path_command_index rejected_provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_stream_failed: stream step failure を drain error に[写/うつ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_stream_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \owner\stream_error_value:
+    let stream_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError some stream_error_value
+    let storage_error %Option StdErrorKind none
+    let rejected_provenance %Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance none
+    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::StreamStepFailed owner stream_error storage_error -1 -1 rejected_provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_push_failed: provenance push failure を drain error に[写/うつ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \owner\provenance\storage_error_value:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_metric_index &provenance
+    let path_command_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_path_command_index &provenance
+    let stream_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError none
+    let storage_error %Option StdErrorKind some storage_error_value
+    let rejected_provenance %Option GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance some provenance
+    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProvenancePushFailed owner stream_error storage_error metric_index path_command_index rejected_provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_kind: drain error kind を[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_owner: drain error から owner を[回収/かいしゅう]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner \error:
+    field::get error "owner"
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_count_checked_add: contour count 加算を i32 範囲で[検査/けんさ]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+//: gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour: metric owner を contour authority 用に[検査/けんさ]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner Result unit GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \metric_owner:
+    let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count metric_owner
+    if lt metric_count 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricCountNegative
+        else:
+            let line_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_line_metric_count metric_owner
+            if lt line_metric_count 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::LineMetricCountNegative
+                else:
+                    let quadratic_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_quadratic_metric_count metric_owner
+                    if lt quadratic_metric_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::QuadraticMetricCountNegative
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_source_contour_count_checked_add line_metric_count quadratic_metric_count:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok counted_metric_count:
+                                    if ne metric_count counted_metric_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricCountMismatch
+                                        else:
+                                            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                            if ne metric_count draw_segment_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricCountExceeded
+                                                else:
+                                                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                    if ne line_metric_count plan_line_to_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::LineMetricCountMismatch
+                                                        else:
+                                                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                            if ne quadratic_metric_count plan_quadratic_to_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::QuadraticMetricCountMismatch
+                                                                else:
+                                                                    let metrics_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_len metric_owner
+                                                                    if ne metrics_len draw_segment_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricStorageLenMismatch
+                                                                        else:
+                                                                            let metrics_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap metric_owner
+                                                                            if ne metrics_cap draw_segment_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricStorageCapacityMismatch
+                                                                                else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_local_invariants: drain owner の途中状態 invariant を[検査/けんさ]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_local_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \owner:
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "metric_owner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour metric_owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+            let path_command_count %i32 *field::get_ref owner "path_command_count"
+            let plan_path_command_count %i32 *field::get_ref plan_owner "path_command_count"
+            if ne path_command_count plan_path_command_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::PathCommandCountMismatch
+                else:
+                    let cursor %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor field::get_ref owner "cursor"
+                    let cursor_end %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_end_index cursor
+                    if ne cursor_end path_command_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CursorEndMismatch
+                        else:
+                            let metric_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_metric_provenance_count owner
+                            if lt metric_provenance_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProvenanceCountNegative
+                                else:
+                                    let line_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_line_provenance_count owner
+                                    if lt line_provenance_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::LineProvenanceCountNegative
+                                        else:
+                                            let quadratic_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_quadratic_provenance_count owner
+                                            if lt quadratic_provenance_count 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::QuadraticProvenanceCountNegative
+                                                else:
+                                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count owner
+                                                    if lt move_to_count 0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MoveToCountNegative
+                                                        else:
+                                                            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count owner
+                                                            if lt skip_no_segment_count 0:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SkipNoSegmentCountNegative
+                                                                else:
+                                                                    match gui_sfnt_simple_glyph_render_stroke_source_contour_count_checked_add line_provenance_count quadratic_provenance_count:
+                                                                        Result::Err error_kind:
+                                                                            Result::Err error_kind
+                                                                        Result::Ok counted_provenance_count:
+                                                                            if ne metric_provenance_count counted_provenance_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProvenanceCountMismatch
+                                                                                else:
+                                                                                    let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                                                                    if gt metric_provenance_count draw_segment_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProvenanceCountExceeded
+                                                                                        else:
+                                                                                            let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                                                            if gt line_provenance_count plan_line_to_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::LineProvenanceCountExceeded
+                                                                                                else:
+                                                                                                    let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                                                                    if gt quadratic_provenance_count plan_quadratic_to_count:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::QuadraticProvenanceCountExceeded
+                                                                                                        else:
+                                                                                                            let plan_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+                                                                                                            if gt move_to_count plan_move_to_count:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MoveToCountExceeded
+                                                                                                                else:
+                                                                                                                    let plan_skip_no_segment_count %i32 *field::get_ref plan_owner "skip_no_segment_count"
+                                                                                                                    if gt skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SkipNoSegmentCountExceeded
+                                                                                                                        else:
+                                                                                                                            let provenance_len %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_len owner
+                                                                                                                            if ne provenance_len metric_provenance_count:
+                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProvenanceStorageLenMismatch
+                                                                                                                                else:
+                                                                                                                                    let provenance_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_cap owner
+                                                                                                                                    if ne provenance_cap draw_segment_count:
+                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ProvenanceStorageCapacityMismatch
+                                                                                                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_completion_invariants: drain 完了条件を[検査/けんさ]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_completion_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_local_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "metric_owner"
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+            let metric_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_metric_provenance_count owner
+            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+            if ne metric_provenance_count draw_segment_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionMetricCountMismatch
+                else:
+                    let line_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_line_provenance_count owner
+                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                    if ne line_provenance_count plan_line_to_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionLineCountMismatch
+                        else:
+                            let quadratic_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_quadratic_provenance_count owner
+                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                            if ne quadratic_provenance_count plan_quadratic_to_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionQuadraticCountMismatch
+                                else:
+                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count owner
+                                    let plan_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+                                    if ne move_to_count plan_move_to_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionMoveToCountMismatch
+                                        else:
+                                            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count owner
+                                            let plan_skip_no_segment_count %i32 *field::get_ref plan_owner "skip_no_segment_count"
+                                            if ne skip_no_segment_count plan_skip_no_segment_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionSkipNoSegmentCountMismatch
+                                                else:
+                                                    let cursor %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor field::get_ref owner "cursor"
+                                                    let cursor_next %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_next_index cursor
+                                                    let path_command_count %i32 *field::get_ref owner "path_command_count"
+                                                    if ne cursor_next path_command_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionCursorNotFinished
+                                                        else:
+                                                            let provenance_len %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_len owner
+                                                            if ne provenance_len draw_segment_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionProvenanceStorageLenMismatch
+                                                                else:
+                                                                    let provenance_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_provenance_cap owner
+                                                                    if ne provenance_cap draw_segment_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CompletionProvenanceStorageCapacityMismatch
+                                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_contour: contour drain 用に metric を[読/よ]む
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_contour %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \metric_owner\metric_index:
+    if lt metric_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricIndexNegative
+        else:
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count metric_owner
+            if ge metric_index metric_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricIndexOutOfRange
+                else:
+                    let metrics_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_len metric_owner
+                    if ne metrics_len metric_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricStorageLenMismatch
+                        else:
+                            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                            let metrics_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap metric_owner
+                            if ne metrics_cap draw_segment_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricStorageCapacityMismatch
+                                else:
+                                    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref metric_owner "metrics"
+                                    match vec::get metrics metric_index:
+                                        Option::Some metric:
+                                            Result::Ok metric
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricSlotMissing
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_matches_source_segment: line metric と collection segment 座標が一致するか[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_matches_source_segment %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric fn &GuiSfntSimpleGlyphLineSegment bool \metric\segment:
+    let metric_start_x2 %i32 *field::get_ref metric "start_x2"
+    let metric_start_y2 %i32 *field::get_ref metric "start_y2"
+    let metric_end_x2 %i32 *field::get_ref metric "end_x2"
+    let metric_end_y2 %i32 *field::get_ref metric "end_y2"
+    let source_start_x2 %i32 gui_sfnt_simple_glyph_line_segment_start_x2 segment
+    let source_start_y2 %i32 gui_sfnt_simple_glyph_line_segment_start_y2 segment
+    let source_end_x2 %i32 gui_sfnt_simple_glyph_line_segment_end_x2 segment
+    let source_end_y2 %i32 gui_sfnt_simple_glyph_line_segment_end_y2 segment
+    let start_x_ok %bool eq metric_start_x2 source_start_x2
+    let start_y_ok %bool eq metric_start_y2 source_start_y2
+    let end_x_ok %bool eq metric_end_x2 source_end_x2
+    let end_y_ok %bool eq metric_end_y2 source_end_y2
+    let start_ok %bool and start_x_ok start_y_ok
+    let end_ok %bool and end_x_ok end_y_ok
+    and start_ok end_ok
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_matches_source_segment: quadratic metric と collection segment 座標が一致するか[返/かえ]す
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_matches_source_segment %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric fn &GuiSfntSimpleGlyphQuadraticSegment bool \metric\segment:
+    let metric_start_x2 %i32 *field::get_ref metric "start_x2"
+    let metric_start_y2 %i32 *field::get_ref metric "start_y2"
+    let metric_control_x2 %i32 *field::get_ref metric "control_x2"
+    let metric_control_y2 %i32 *field::get_ref metric "control_y2"
+    let metric_end_x2 %i32 *field::get_ref metric "end_x2"
+    let metric_end_y2 %i32 *field::get_ref metric "end_y2"
+    let source_start_x2 %i32 gui_sfnt_simple_glyph_quadratic_segment_start_x2 segment
+    let source_start_y2 %i32 gui_sfnt_simple_glyph_quadratic_segment_start_y2 segment
+    let source_control_x2 %i32 gui_sfnt_simple_glyph_quadratic_segment_control_x2 segment
+    let source_control_y2 %i32 gui_sfnt_simple_glyph_quadratic_segment_control_y2 segment
+    let source_end_x2 %i32 gui_sfnt_simple_glyph_quadratic_segment_end_x2 segment
+    let source_end_y2 %i32 gui_sfnt_simple_glyph_quadratic_segment_end_y2 segment
+    let start_x_ok %bool eq metric_start_x2 source_start_x2
+    let start_y_ok %bool eq metric_start_y2 source_start_y2
+    let control_x_ok %bool eq metric_control_x2 source_control_x2
+    let control_y_ok %bool eq metric_control_y2 source_control_y2
+    let end_x_ok %bool eq metric_end_x2 source_end_x2
+    let end_y_ok %bool eq metric_end_y2 source_end_y2
+    let start_ok %bool and start_x_ok start_y_ok
+    let control_ok %bool and control_x_ok control_y_ok
+    let end_ok %bool and end_x_ok end_y_ok
+    and start_ok and control_ok end_ok
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_source_guard: line metric が source collection と同一 authority か[検査/けんさ]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_source_guard %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric Result unit GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \collection\value\metric:
+    let contour_index %i32 *field::get_ref value "contour_index"
+    let contour_edge_index %i32 *field::get_ref value "contour_edge_index"
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index contour_edge_index:
+        Result::Err _segment_error:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceCurveSegmentReadFailed
+        Result::Ok segment:
+            match segment:
+                GuiSfntSimpleGlyphCurveSegment::Line line_segment:
+                    if gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_matches_source_segment metric &line_segment:
+                        then Result::Ok unit
+                        else Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceMetricCoordinateMismatch
+                GuiSfntSimpleGlyphCurveSegment::Quadratic _quadratic_segment:
+                    Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceCurveSegmentKindMismatch
+                GuiSfntSimpleGlyphCurveSegment::NoSegment _no_segment:
+                    Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceCurveSegmentKindMismatch
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_source_guard: quadratic metric が source collection と同一 authority か[検査/けんさ]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_source_guard %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric Result unit GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \collection\value\metric:
+    let contour_index %i32 *field::get_ref value "contour_index"
+    let contour_edge_index %i32 *field::get_ref value "contour_edge_index"
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index contour_edge_index:
+        Result::Err _segment_error:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceCurveSegmentReadFailed
+        Result::Ok segment:
+            match segment:
+                GuiSfntSimpleGlyphCurveSegment::Line _line_segment:
+                    Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceCurveSegmentKindMismatch
+                GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic_segment:
+                    if gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_matches_source_segment metric &quadratic_segment:
+                        then Result::Ok unit
+                        else Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceMetricCoordinateMismatch
+                GuiSfntSimpleGlyphCurveSegment::NoSegment _no_segment:
+                    Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SourceCurveSegmentKindMismatch
+
+//: gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span: command value と contour span から provenance を[作/つく]る
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn GuiSfntSimpleGlyphPathCommandTag Result GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind \collection\metric_index\value\command_tag:
+    let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index value
+    let edge_index %i32 *field::get_ref value "edge_index"
+    let contour_index %i32 *field::get_ref value "contour_index"
+    let contour_edge_index %i32 *field::get_ref value "contour_edge_index"
+    let event_slot %GuiSfntSimpleGlyphPathSinkEventSlot *field::get_ref value "event_slot"
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index:
+        Result::Err _span_error:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ContourSpanSourceFailed
+        Result::Ok span:
+            let span_index %i32 gui_sfnt_simple_glyph_contour_span_index &span
+            let span_start_edge_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &span
+            let span_end_edge_index %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &span
+            let span_edge_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+            let expected_edge_count %i32 add sub span_end_edge_index span_start_edge_index 1
+            let expected_contour_edge_index %i32 sub edge_index span_start_edge_index
+            let span_index_ok %bool eq span_index contour_index
+            let span_count_ok %bool eq span_edge_count expected_edge_count
+            let edge_lower_ok %bool not lt edge_index span_start_edge_index
+            let edge_upper_ok %bool not gt edge_index span_end_edge_index
+            let contour_edge_ok %bool eq contour_edge_index expected_contour_edge_index
+            let span_edge_ok %bool and edge_lower_ok edge_upper_ok
+            let span_shape_ok %bool and span_index_ok and span_count_ok and span_edge_ok contour_edge_ok
+            if not span_shape_ok:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::ContourSpanInvariantMismatch
+                else:
+                    let provenance %GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance gui_sfnt_simple_glyph_render_stroke_source_metric_provenance metric_index path_command_index edge_index contour_index contour_edge_index span_start_edge_index span_end_edge_index span_edge_count event_slot command_tag
+                    Result::Ok provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_start: metric owner と command stream から contour drain owner を[開始/かいし]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_start %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner Result GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError \collection\path_command_tag_owner\metric_owner:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour &metric_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_metric_failed metric_owner error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_stream_cursor collection path_command_tag_owner 0:
+                Result::Err cursor_error:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_cursor_failed metric_owner cursor_error
+                Result::Ok cursor:
+                    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref &metric_owner "plan_owner"
+                    let path_command_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_end_index &cursor
+                    let plan_path_command_count %i32 *field::get_ref plan_owner "path_command_count"
+                    if ne path_command_count plan_path_command_count:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind::PathCommandCountMismatch metric_owner
+                        else:
+                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                            let provenance_result %Result Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance StdErrorKind vec::with_capacity draw_segment_count
+                            match provenance_result:
+                                Result::Err storage_error:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_storage_failed metric_owner storage_error
+                                Result::Ok provenance:
+                                    let provenance_len %i32 vec::len &provenance
+                                    if ne provenance_len 0:
+                                        then:
+                                            vec::free provenance
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind::ProvenanceStorageInitialLenMismatch metric_owner
+                                        else:
+                                            let provenance_cap %i32 vec::cap &provenance
+                                            if ne provenance_cap draw_segment_count:
+                                                then:
+                                                    vec::free provenance
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartErrorKind::ProvenanceStorageCapacityMismatch metric_owner
+                                                else:
+                                                    let owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner metric_owner cursor provenance path_command_count 0 0 0 0 0
+                                                    Result::Ok owner
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal: source contour drain step terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal:
+    CommandSkipped %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner
+    ProvenancePushed %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner
+    Completed %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped: skipped command count と cursor を[進/すす]める
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped %fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner \owner\next_cursor\next_move_to_count\next_skip_no_segment_count:
+    let metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get owner "metric_owner"
+    let provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get owner "provenance"
+    let path_command_count %i32 field::get owner "path_command_count"
+    let metric_provenance_count %i32 field::get owner "metric_provenance_count"
+    let line_provenance_count %i32 field::get owner "line_provenance_count"
+    let quadratic_provenance_count %i32 field::get owner "quadratic_provenance_count"
+    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner metric_owner next_cursor provenance path_command_count metric_provenance_count line_provenance_count quadratic_provenance_count next_move_to_count next_skip_no_segment_count
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_provenance: provenance Vec へ検証済み record を[追加/ついか]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_provenance %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor impure fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \owner\next_cursor\provenance_value\next_metric_provenance_count\next_line_provenance_count\next_quadratic_provenance_count:
+    let metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get owner "metric_owner"
+    let provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get owner "provenance"
+    let path_command_count %i32 field::get owner "path_command_count"
+    let metric_provenance_count %i32 field::get owner "metric_provenance_count"
+    let line_provenance_count %i32 field::get owner "line_provenance_count"
+    let quadratic_provenance_count %i32 field::get owner "quadratic_provenance_count"
+    let move_to_count %i32 field::get owner "move_to_count"
+    let skip_no_segment_count %i32 field::get owner "skip_no_segment_count"
+    match vec::push provenance provenance_value:
+        Result::Ok next_provenance:
+            let next_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner metric_owner next_cursor next_provenance path_command_count next_metric_provenance_count next_line_provenance_count next_quadratic_provenance_count move_to_count skip_no_segment_count
+            Result::Ok next_owner
+        Result::Err push_error:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+            let returned_provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance vec::vec_push_error_vec push_error
+            let returned_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner metric_owner next_cursor returned_provenance path_command_count metric_provenance_count line_provenance_count quadratic_provenance_count move_to_count skip_no_segment_count
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_push_failed returned_owner provenance_value storage_error_value
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_line: LineTo command を metric provenance として[追加/ついか]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_line %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue Result GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \collection\owner\next_cursor\value:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_metric_provenance_count &owner
+    let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref &owner "metric_owner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_contour metric_owner metric_index:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric error_kind owner metric_index path_command_index
+        Result::Ok metric:
+            match metric:
+                GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line line_metric:
+                    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_segment_index &line_metric
+                    if ne segment_index metric_index:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricSegmentIndexMismatch owner metric_index path_command_index
+                        else:
+                            let source_tag %GuiSfntSimpleGlyphPathCommandTag gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag &value
+                            let expected_tag %GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphPathCommandTag::LineTo
+                            if not gui_sfnt_simple_glyph_path_command_tag_eq &source_tag &expected_tag:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CommandTagMismatch owner metric_index path_command_index
+                                else:
+                                    match gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span collection metric_index &value expected_tag:
+                                        Result::Err error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric error_kind owner metric_index path_command_index
+                                        Result::Ok provenance_value:
+                                            match gui_sfnt_simple_glyph_render_stroke_source_contour_line_metric_source_guard collection &value &line_metric:
+                                                Result::Err error_kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric error_kind owner metric_index path_command_index
+                                                Result::Ok _:
+                                                    let line_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_line_provenance_count &owner
+                                                    let next_metric_count %i32 add metric_index 1
+                                                    let next_line_count %i32 add line_provenance_count 1
+                                                    let quadratic_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_quadratic_provenance_count &owner
+                                                    match gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_provenance owner next_cursor provenance_value next_metric_count next_line_count quadratic_provenance_count:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok next_owner:
+                                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::ProvenancePushed next_owner
+                GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic _quadratic_metric:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricKindMismatch owner metric_index path_command_index
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_quadratic: QuadraticTo command を metric provenance として[追加/ついか]する
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_quadratic %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue Result GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \collection\owner\next_cursor\value:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_metric_provenance_count &owner
+    let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref &owner "metric_owner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_contour metric_owner metric_index:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric error_kind owner metric_index path_command_index
+        Result::Ok metric:
+            match metric:
+                GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line _line_metric:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricKindMismatch owner metric_index path_command_index
+                GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic quadratic_metric:
+                    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_segment_index &quadratic_metric
+                    if ne segment_index metric_index:
+                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MetricSegmentIndexMismatch owner metric_index path_command_index
+                        else:
+                            let source_tag %GuiSfntSimpleGlyphPathCommandTag gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag &value
+                            let expected_tag %GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphPathCommandTag::QuadraticTo
+                            if not gui_sfnt_simple_glyph_path_command_tag_eq &source_tag &expected_tag:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::CommandTagMismatch owner metric_index path_command_index
+                                else:
+                                    match gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_from_value_with_span collection metric_index &value expected_tag:
+                                        Result::Err error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric error_kind owner metric_index path_command_index
+                                        Result::Ok provenance_value:
+                                            match gui_sfnt_simple_glyph_render_stroke_source_contour_quadratic_metric_source_guard collection &value &quadratic_metric:
+                                                Result::Err error_kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_with_metric error_kind owner metric_index path_command_index
+                                                Result::Ok _:
+                                                    let line_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_line_provenance_count &owner
+                                                    let quadratic_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_quadratic_provenance_count &owner
+                                                    let next_metric_count %i32 add metric_index 1
+                                                    let next_quadratic_count %i32 add quadratic_provenance_count 1
+                                                    match gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_provenance owner next_cursor provenance_value next_metric_count line_provenance_count next_quadratic_count:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok next_owner:
+                                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::ProvenancePushed next_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_step: command stream を 1 step 消費して contour provenance を[進/すす]める
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_step %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner Result GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError \collection\path_command_tag_owner\owner:
+    match gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_local_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_simple error_kind owner
+        Result::Ok _:
+            let cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor *field::get_ref &owner "cursor"
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection path_command_tag_owner cursor:
+                Result::Err stream_error:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_stream_failed owner stream_error
+                Result::Ok step:
+                    match step:
+                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed completed_cursor:
+                            let completed_move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count &owner
+                            let completed_skip_no_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count &owner
+                            let owner_at_completion %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped owner completed_cursor completed_move_to_count completed_skip_no_segment_count
+                            match gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_completion_invariants &owner_at_completion:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_simple error_kind owner_at_completion
+                                Result::Ok _:
+                                    let metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get owner_at_completion "metric_owner"
+                                    let provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get owner_at_completion "provenance"
+                                    let path_command_count %i32 field::get owner_at_completion "path_command_count"
+                                    let metric_provenance_count %i32 field::get owner_at_completion "metric_provenance_count"
+                                    let line_provenance_count %i32 field::get owner_at_completion "line_provenance_count"
+                                    let quadratic_provenance_count %i32 field::get owner_at_completion "quadratic_provenance_count"
+                                    let move_to_count %i32 field::get owner_at_completion "move_to_count"
+                                    let skip_no_segment_count %i32 field::get owner_at_completion "skip_no_segment_count"
+                                    let completed_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner gui_sfnt_simple_glyph_render_stroke_source_contour_owner metric_owner provenance path_command_count metric_provenance_count line_provenance_count quadratic_provenance_count move_to_count skip_no_segment_count
+                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::Completed completed_owner
+                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted emitted:
+                            let value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_value &emitted
+                            let next_cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_emitted_next_cursor &emitted
+                            let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value
+                            match command:
+                                GuiSfntSimpleGlyphPathCommand::MoveTo _move_to:
+                                    let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count &owner
+                                    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref &owner "metric_owner"
+                                    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                                    let plan_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+                                    if ge move_to_count plan_move_to_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_simple GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::MoveToCountExceeded owner
+                                        else:
+                                            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count &owner
+                                            let next_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped owner next_cursor add move_to_count 1 skip_no_segment_count
+                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::CommandSkipped next_owner
+                                GuiSfntSimpleGlyphPathCommand::SkipNoSegment _skip:
+                                    let skip_no_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_skip_no_segment_count &owner
+                                    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref &owner "metric_owner"
+                                    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                                    let plan_skip_no_segment_count %i32 *field::get_ref plan_owner "skip_no_segment_count"
+                                    if ge skip_no_segment_count plan_skip_no_segment_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_simple GuiSfntSimpleGlyphRenderStrokeSourceContourErrorKind::SkipNoSegmentCountExceeded owner
+                                        else:
+                                            let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_move_to_count &owner
+                                            let next_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped owner next_cursor move_to_count add skip_no_segment_count 1
+                                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::CommandSkipped next_owner
+                                GuiSfntSimpleGlyphPathCommand::LineTo _line_to:
+                                    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_line collection owner next_cursor value
+                                GuiSfntSimpleGlyphPathCommand::QuadraticTo _quadratic_to:
+                                    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_push_quadratic collection owner next_cursor value
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_free: drain owner の metric owner と provenance Vec を[閉/と]じる
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner unit \owner:
+    let metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get owner "metric_owner"
+    let provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get owner "provenance"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free metric_owner
+    vec::free provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free: completed contour owner の metric owner と provenance Vec を[閉/と]じる
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner unit \owner:
+    let metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get owner "metric_owner"
+    let provenance %Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get owner "provenance"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free metric_owner
+    vec::free provenance
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_free: start error が保持する metric owner を[閉/と]じる
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwnerStartError unit \error:
+    let metric_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get error "metric_owner"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free metric_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_free: drain error が保持する owner を[閉/と]じる
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_stroke_source_contour_drain_terminal_free: terminal variant が持つ owner を[閉/と]じる
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::CommandSkipped owner:
+            gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::ProvenancePushed owner:
+            gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:
