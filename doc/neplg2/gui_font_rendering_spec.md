@@ -6241,6 +6241,26 @@ F5la start error は shape validation error、F5kz closure invariant error、Vec
 
 F5la は coverage scan conversion、stroke join/cap geometry generation、packed mask conversion、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。packed stroke mask owner の前に、F5la writer を消費する stroke coverage scan converter を別 boundary として挟む。
 
+### SFNT simple glyph render stroke coverage scan converter boundary
+
+F5lb は F5la stroke coverage mask writer owner を消費し、stroke coverage cell を 1 cell ずつ計算して F5la `push_cell` boundary へ渡す scan converter である。F5lb の direct authority は F5la writer だけであり、F5kz completed closure owner と F5ky side edge owner は writer の内側から読む。F5be fill coverage scan owner / terminal / error を直接再利用せず、F5kx/F5ky/F5kz の drain を再実行しない。
+
+F5lb scan owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:
+    writer GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+    cell_index i32
+```
+
+start は F5la writer の shape、cell storage、`written_cell_count == 0` を再検査し、さらに F5kz closure invariant を再検査する。F5lb の最初の対応範囲は line side edge と bevel join connector chord だけであるため、`GuiStrokeJoin::Bevel` 以外の join policy は `UnsupportedJoinPolicy` として fail-closed にする。quadratic side edge は endpoint chord として扱わず、`UnsupportedQuadraticSideEdges` / `UnsupportedQuadraticSideEdge` で fail-closed にする。
+
+coverage 計算は sample point に対して line side edge と F5kz join closure record の `from_end -> to_start` connector chord の交差数を数え、偶奇で inside を決める。connector chord は bevel geometry としてだけ有効であり、miter / round を bevel として代用してはならない。f32 座標は scan 前に finite を確認し、不正なら typed error にする。
+
+step は 1 cell 分の coverage を計算し、F5la `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell` だけを通して cell を追加する。push failure では returned writer と pre-push `cell_index` を保持する。bounded drain は exact full のときだけ F5la completion を呼び、未完了、budget exhausted、progress invariant failure を typed terminal / error として分ける。
+
+F5lb は packed stroke mask、glyph paint composition、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。miter / round join geometry と quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
