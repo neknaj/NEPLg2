@@ -20491,9 +20491,15 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig \config:
         config
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_config: shadow source coverage scan config を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_config %fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig \quadratic_segment_count:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig quadratic_segment_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_config_quadratic_segment_count: quadratic subdivision count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_config_quadratic_segment_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig i32 \config:
     *field::get_ref config "quadratic_segment_count"
 
@@ -20509,12 +20515,21 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner:
     config %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig
     cell_index %i32
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner: resumable coverage scan owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner \writer\config\cell_index:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner writer config cell_index
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index: scan owner の cell index を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner i32 \owner:
     *field::get_ref owner "cell_index"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_writer_written_cell_count: nested writer の written cell count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_writer_written_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner i32 \owner:
     let writer %&GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get_ref owner "writer"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count writer
@@ -20542,32 +20557,56 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind \kind:
         kind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError: scan start failure recovery payload
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind
     writer %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
     config %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig
     writer_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error: coverage scan start error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig fn Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError \kind\writer\config\writer_error:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError kind writer config writer_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_simple: writer error なしの start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError \kind\writer\config:
     let writer_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error kind writer config writer_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_writer_failed: writer invariant failure を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_writer_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError \writer\config\writer_error_value:
     let writer_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind some writer_error_value
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind::WriterInvariantFailed writer config writer_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_kind: start error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_writer_error: start error の writer error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_writer_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
     *field::get_ref error "writer_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_writer: start error から writer owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_writer %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \error:
     field::get error "writer"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_count_checked_mul: start 検査用の count 乗算を overflow 検査付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind \left\right\overflow_kind:
     let max_i32 %i32 2147483647
     let max_left %i32 div_s max_i32 right
@@ -20575,6 +20614,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_count_checked_
         then Result::Err overflow_kind
         else Result::Ok mul left right
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_validate_shape_for_start: start 前に coverage shape の derived value を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_validate_shape_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind \shape:
     let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
     if le width_px 0:
@@ -20605,6 +20647,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_validate_shape_for_s
                                                         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartErrorKind::ShapeCellCountMismatch
                                                         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_start: coverage mask writer から scan owner を[開始/かいし]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_start %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig Result GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError \writer\config:
     let quadratic_segment_count %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_config_quadratic_segment_count &config
     if le quadratic_segment_count 0:
@@ -20661,39 +20706,66 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \kind:
         kind
 
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError: scan failure recovery payload
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError:
     owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner
     kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind
     edge_index %Option i32
     mask_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error: coverage scan error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind fn Option i32 fn Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError \owner\kind\edge_index\mask_error:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError owner kind edge_index mask_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_simple: optional payload なしの scan error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError \owner\kind:
     let edge_index %Option i32 none
     let mask_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error owner kind edge_index mask_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_with_edge_index: 問題の edge index を[持/も]つ scan error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_with_edge_index %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError \owner\kind\edge_index_value:
     let edge_index %Option i32 some edge_index_value
     let mask_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error owner kind edge_index mask_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_with_mask: mask writer failure を scan error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_with_mask %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError \owner\kind\mask_error_value:
     let edge_index %Option i32 none
     let mask_error %Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind some mask_error_value
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error owner kind edge_index mask_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_owner: scan error から scan owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner \error:
     field::get error "owner"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_kind: scan error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_mask_error: scan error の mask error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_mask_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError Option GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
     *field::get_ref error "mask_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index_bounds: scan owner の cell index が mask 範囲内か[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index_bounds %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner:
     let writer %&GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get_ref owner "writer"
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants writer:
@@ -20710,6 +20782,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index_bou
                         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind::CellIndexExceedsCellCount
                         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_read_edge: scan owner の raster edge を bounds 検査付きで[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_read_edge %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn i32 Result GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner\edge_index:
     if lt edge_index 0:
         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind::EdgeIndexNegative
@@ -20739,6 +20814,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_read_edge %fn 
                                                 Option::None:
                                                     Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind::EdgeSlotMissing
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_line_edge_crosses: sample ray と line edge の crossing を[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_line_edge_crosses %fn &GuiSfntSimpleGlyphRasterLineEdge fn &GuiSfntSimpleGlyphRasterCoverageShape fn i64 fn i64 bool \edge\shape\sample_x\sample_y:
     let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
     let start_x2 %i32 *field::get_ref edge "start_x2"
@@ -20751,6 +20829,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_line_edge_crosses %f
     let y1 %i64 gui_sfnt_simple_glyph_raster_coverage_scan_scaled_edge_coordinate end_y2 sample_scale
     gui_sfnt_simple_glyph_raster_coverage_scan_line_crosses_scaled sample_x sample_y x0 y0 x1 y1
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_quadratic_edge_crossing_count: quadratic edge を線分近似して crossing count を[数/かぞ]える
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_quadratic_edge_crossing_count %fn &GuiSfntSimpleGlyphRasterQuadraticEdge fn &GuiSfntSimpleGlyphRasterCoverageShape fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig fn i64 fn i64 fn i32 fn i32 i32 \edge\shape\config\sample_x\sample_y\segment_index\crossing_count:
     let segment_count %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_config_quadratic_segment_count config
     if ge segment_index segment_count:
@@ -20774,6 +20855,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_quadratic_edge_cross
                 else crossing_count
             gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_quadratic_edge_crossing_count edge shape config sample_x sample_y next_segment_index next_crossing_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_edge_crossing_count: 1 edge の crossing count を scan owner context で[更新/こうしん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_edge_crossing_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn i64 fn i64 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner\sample_x\sample_y\edge_index\crossing_count:
     let writer %&GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get_ref owner "writer"
     let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref writer "edge_owner"
@@ -20799,6 +20883,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_edge_crossing_
                             let next_crossing_count %i32 add crossing_count added_crossing_count
                             gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_edge_crossing_count owner sample_x sample_y add edge_index 1 next_crossing_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_sample_inside: sample point が shadow source path 内側か crossing parity で[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_sample_inside %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn i64 fn i64 Result bool GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner\sample_x\sample_y:
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_edge_crossing_count owner sample_x sample_y 0 0:
         Result::Err error_kind:
@@ -20806,6 +20893,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_sample_inside 
         Result::Ok crossing_count:
             Result::Ok eq rem_s crossing_count 2 1
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_x_loop: cell 内の x sample を[走査/そうさ]して coverage を[増/ふ]やす
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_x_loop %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner\cell_x\cell_y\sample_y_index\sample_x_index\coverage:
     let writer %&GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get_ref owner "writer"
     let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape writer
@@ -20826,6 +20916,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_x_
                         else coverage
                     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_x_loop owner cell_x cell_y sample_y_index add sample_x_index 1 next_coverage
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_y_loop: cell 内の y sample 行を[走査/そうさ]して coverage を[集計/しゅうけい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_y_loop %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner fn i32 fn i32 fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner\cell_x\cell_y\sample_y_index\coverage:
     let writer %&GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get_ref owner "writer"
     let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape writer
@@ -20839,6 +20932,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_y_
                 Result::Ok row_coverage:
                     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_y_loop owner cell_x cell_y add sample_y_index 1 row_coverage
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_coverage: 現在 cell の coverage value を[計算/けいさん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_coverage %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageScanErrorKind \owner:
     let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index owner
     let writer %&GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get_ref owner "writer"
@@ -20848,6 +20944,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_coverage 
     let cell_y %i32 div_s cell_index width_px
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_sample_y_loop owner cell_x cell_y 0 0
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_step: 1 cell の coverage を writer に[追加/ついか]して scan を[進/すす]める
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_step %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner Result GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError \owner:
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index_bounds &owner:
         Result::Err error_kind:
@@ -20878,6 +20977,9 @@ enum GuiSfntSimpleGlyphRenderShadowSourceCoverageScanTerminal:
     CoverageScanCompleted %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner
     StepBudgetExhausted %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_drain_to_complete_budget: step budget 内で coverage scan を[完了/かんりょう]まで[進/すす]める
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceCoverageScanTerminal GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError \owner\remaining_steps:
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_cell_index_bounds &owner:
         Result::Err error_kind:
@@ -20924,18 +21026,30 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_drain_to_compl
                                             let next_remaining_steps %i32 sub remaining_steps 1
                                             gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_drain_to_complete_budget next_owner next_remaining_steps
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_free: scan owner が[保持/ほじ]する writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner unit \owner:
     let writer %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get owner "writer"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free writer
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_free: start error が[保持/ほじ]する writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanStartError unit \error:
     let writer %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get error "writer"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free writer
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_free: scan error が[保持/ほじ]する scan owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanError unit \error:
     let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner field::get error "owner"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_free owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_terminal_free: scan terminal の owner を variant ごとに[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageScanTerminal unit \terminal:
     match terminal:
         GuiSfntSimpleGlyphRenderShadowSourceCoverageScanTerminal::CoverageScanCompleted completed:

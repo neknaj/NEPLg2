@@ -258,6 +258,11 @@
 - 指摘対応として、F5lm source policy に approved 4 helper 以外の `gui_sfnt_simple_glyph_raster_coverage_scan_*` を拒否する negative allowlist を追加した。
 - `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は source policy 強化後も pass。
 - Kuhn follow-up implementation review は `REVIEW_APPROVED`。
+- selfhost branch への latest `origin/main` F5lm merge 後、`node nodesrc/test_stdlib_documentation_contract.js` が `stdlib declaration doc gaps increased: 2794 > 2756` で失敗した。原因は F5lm の coverage scan converter 新規 helper 群が baseline なしで doc gap を増やしていたことだったため、対象 helper に日本語 doc と `neplg2:test[skip]` を追加し、baseline は変更しなかった。
+- pass after selfhost branch F5lm merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch F5lm merge doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_converter_f5lm_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch F5lm merge doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch F5lm merge doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
 
 ## 残件
 
@@ -78790,6 +78795,19 @@ MERGE_APPROVED
 - pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `trunk build`
 - pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5ll-fix.json`
 - checked JSON after latest `origin/main` F5ll merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_converter_f5lm_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lm-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lm-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `trunk build`
+- pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lm-fix.json`
+- checked JSON after latest `origin/main` F5lm merge and GUI doc fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 
 ### 残件
 
