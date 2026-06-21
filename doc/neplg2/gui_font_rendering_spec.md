@@ -6947,6 +6947,16 @@ completion branch の順序は次とする。
 
 F5lx は F5lq sample cursor、F5lr command bridge、old FillRect bridge、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、tile / bitmap publish、font fallback、zero-fill fallback、silent no-op、unchecked dirty region fallback、2D compositor drain を使わない。
 
+### SFNT simple glyph render software drain dirty-owner bridge boundary
+
+F5ly は F5br の fill completed owner と F5lx の shadow completed owner を、render2d の `GuiRgba8888SoftwareSurfaceDirtyOwner` へ渡す bridge boundary である。これは 2D compositor drain 本体、bitmap frame prepare、row byte copy、tile / RLE transport、host present、platform backend ではない。
+
+fill / shadow の completed owner は `prepared + surface + dirty` を同時に保持する。bridge は dirty value を borrowed accessor で読み、`dirty_regions_push_region_checked dirty_regions_empty dirty` を先に通して fixed-capacity `DirtyRegionSet` を作る。dirty set 化が失敗した場合は、元の completed owner を owner-bearing bridge error に保持し、prepared / surface を move しない。
+
+成功時だけ completed owner を consume し、既存 `completed_owner_finish_surface` helper で prepared side を free して surface owner を取り出し、`GuiRgba8888SoftwareSurfaceDirtyOwner surface next_dirty` を作る。この順序により、dirty aggregation 失敗で completed owner を失わず、success path だけが render2d の dirty owner boundary へ進む。
+
+bridge error は fill / shadow で別型にし、`Clone` / `Copy` を実装しない。error free は completed owner free に委譲し、surface free failure を握りつぶさない。F5ly は `dirty_regions_push_unchecked`、`dirty_region_merge`、unchecked dirty fallback、`gui_rgba8888_bitmap_frame_prepare`、row byte storage、tile / RLE、publish / present、Canvas / DOM / minifb、platform / host API、fallback / silent no-op を使わない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
