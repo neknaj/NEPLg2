@@ -8228,6 +8228,26 @@ The key point is that dirty aggregation happens before `finish_surface`. A dirty
 
 Fill and shadow have separate bridge error types and bridge functions because their completed owner and free error kinds differ. The policy is otherwise identical. The bridge error is owner-bearing and must not implement `Clone` / `Copy`; its free helper delegates to the completed-owner free path so that surface free failure remains visible. F5ly must not call bitmap frame prepare, row byte storage, tile or RLE transport, host present, video-memory publish helpers, DrawTarget, RenderTarget, Canvas, DOM, minifb, platform APIs, fallback paths, `dirty_regions_push_unchecked`, or `dirty_region_merge`.
 
+## Render2d compositor frame entry boundary
+
+F5lz is the first render2d compositor entry after F5ly. It consumes a `GuiRgba8888SoftwareSurfaceDirtyOwner` and a small config, then connects the already-existing pre-transport boundaries in a fixed order:
+
+```text
+frame_config = GuiRgba8888BitmapFrameConfig frame_id
+frame = gui_rgba8888_bitmap_frame_prepare dirty_owner frame_config
+plan_config = GuiRgba8888RowBatchPlanConfig max_rows_per_batch
+plan = gui_rgba8888_row_batch_plan_prepare frame plan_config
+metadata = copy plan frame id / shape / row span / batch count
+cursor = gui_rgba8888_row_batch_cursor_start plan
+return GuiRgba8888CompositorFrameEntryOwner cursor metadata
+```
+
+The config is intentionally not validated through ownerless `*_config_checked` calls inside `prepare`. Invalid `frame_id` or `max_rows_per_batch` must still return an owner-bearing error, so F5lz passes aggregate config values to lower prepare functions and wraps their errors. `BitmapFramePrepareFailed`, `RowBatchPlanPrepareFailed`, and `RowBatchCursorStartFailed` preserve the stage-specific lower kind, then normalize the recoverable owner back to `GuiRgba8888SoftwareSurfaceDirtyOwner`. Row plan and cursor-start failures recover through `gui_rgba8888_bitmap_frame_finish_dirty_owner` / `gui_rgba8888_row_batch_plan_finish_dirty_owner`, so dirty metadata is read before the frame/plan owner is consumed. Each wrapper reads lower kind and lower category before consuming the lower error to recover the owner.
+
+The metadata copy is taken before `gui_rgba8888_row_batch_cursor_start` because the plan owner moves into the cursor on success. The metadata is only a summary for scheduling and diagnostics; it is not a row byte payload or transport descriptor.
+
+F5lz is not row batch drain, row range, row byte storage, tile payload, RLE transport, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

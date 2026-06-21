@@ -592,6 +592,14 @@ pub fn gui_rgba8888_row_batch_plan_prepare %fn GuiRgba8888BitmapFrameOwner fn Gu
 pub fn gui_rgba8888_row_batch_plan_finish_frame %fn GuiRgba8888RowBatchPlanOwner GuiRgba8888BitmapFrameOwner \plan:
     field::get plan "frame"
 
+//: gui_rgba8888_row_batch_plan_finish_dirty_owner: embedded bitmap frame を dirty owner へ[戻/もど]す
+//:
+//: [目的/もくてき]:
+//: - row plan [以降/いこう]の boundary で[失敗/しっぱい]したとき、frame が[保持/ほじ]する dirty metadata と surface owner を F5ly 後の dirty owner boundary へ[戻/もど]します。
+pub fn gui_rgba8888_row_batch_plan_finish_dirty_owner %fn GuiRgba8888RowBatchPlanOwner GuiRgba8888SoftwareSurfaceDirtyOwner \plan:
+    let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_finish_frame plan
+    gui_rgba8888_bitmap_frame_finish_dirty_owner frame
+
 //: gui_rgba8888_row_batch_plan_free: plan owner が[保持/ほじ]する frame storage を[解放/かいほう]する
 pub fn gui_rgba8888_row_batch_plan_free %fn GuiRgba8888RowBatchPlanOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \plan:
     let frame %GuiRgba8888BitmapFrameOwner gui_rgba8888_row_batch_plan_finish_frame plan
