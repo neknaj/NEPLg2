@@ -1,11 +1,60 @@
+# 2026-06-21 Agent2 GUI font F5lc stroke join geometry boundary
+
+## 目的
+
+- completed F5kz stroke edge closure owner を authority として消費し、F5la/F5lb の前に scan-ready な stroke join geometry owner を挟む。
+- bevel join は F5kz の `from_end -> to_start` chord を保持し、miter join は line side edge の交点から `from_end -> miter -> to_start` を保持する。
+- round join と quadratic side edge は明示 policy が入るまで fail-closed にする。
+- packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+
+## 計画レビュー
+
+- Lovelace の F5lc plan review は `PLAN_REVIEWED`。
+- 指摘は、packed stroke mask owner へ進む前に join geometry boundary を挟み、F5kz join closure record を直接 scan し続けないことだった。
+- 指摘に従い、F5lc で bevel / miter geometry record を作り、F5la writer は F5lc owner を direct authority として保持し、F5lb は F5lc join geometry Vec を scan する方針にした。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord`、bevel / miter geometry record、drain owner、completed owner、start / drain error、bounded terminal を追加した。
+- F5lc start / invariant は F5kz closure invariant、quadratic side edge count、round join policy、join Vec len/cap/count を再検査する。
+- miter geometry は line side edge の有限交点を使い、stroke width と miter limit から閾値を計算し、平行・非有限・limit 超過時は `miter_clipped` 付き bevel record にする。
+- F5la writer / completed mask owner / error recovery payload は F5lc join geometry owner を所有する形に変更した。
+- F5lb scan converter は F5lc join geometry record を読み、bevel は 1 線分、miter は 2 線分の交差数として coverage parity に加える。
+- docs、source policy、focused doctest label、todo を F5lc / 新 F5la / 新 F5lb authority chain に合わせて更新した。
+
+## 検証
+
+- `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lc_probe2.json -j 1` は 1249 passed。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_join_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_join_geometry_f5lc.json -j 1` は 1 passed。
+- `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_mask_writer_f5lc.json -j 1` は 1 passed。
+- `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_stroke_coverage_scan_f5lc.json -j 1` は 1 passed。
+- `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lc_after_review.json -j 1` は 1249 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lc.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lc.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 実装レビュー
+
+- Lovelace の implementation review 1 は `REVIEW_CHANGES_REQUESTED`。指摘は F5la 直前のコメントが completed F5kz closure owner を F5la が直接再検査するように読める点だった。
+- 指摘対応として、該当コメントを F5lc join geometry 以降の coverage chain が completed F5kz closure owner を再検査する説明に修正した。
+- Lovelace の re-review は `REVIEW_APPROVED`。
+
+## 残件
+
+- round join geometry は explicit arc/chord policy が未定義なので後続 boundary に残す。
+- quadratic side edge scan policy、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain は引き続き別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lb stroke coverage scan converter boundary
 
 ## 目的
 
 - completed F5la stroke coverage mask writer owner を authority として消費し、stroke coverage scan converter を追加する。
 - F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、F5kx geometry drain 再実行、F5ky side edge drain 再実行、F5kz closure drain 再実行、F5be fill coverage scan owner へ戻らない。
-- F5kz completed closure owner を再検査し、line side edge と bevel connector chord だけを scan する。
-- non-bevel join policy と quadratic side edge は endpoint chord 等で代替せず、明示的に fail-closed にする。
+- F5lc 以前の初期版では F5kz completed closure owner を再検査し、line side edge と bevel connector chord だけを scan した。
+- F5lc 接続後の現在は F5lc join geometry owner を再検査し、line side edge と bevel / miter join geometry を scan する。round join と quadratic side edge は endpoint chord 等で代替せず、明示的に fail-closed にする。
 - push は F5la writer owner の `push_cell` だけを通し、bounded drain は completion / budget exhausted / owner-bearing error recovery を分離する。
 - packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へは進まない。
 
@@ -13,16 +62,16 @@
 
 - Archimedes の F5lb plan review は `PLAN_REVIEWED`。
 - 指摘は、F5lb を F5la writer owner を消費する stroke coverage scan converter とし、join/cap geometry 拡張を先に挟まないことだった。
-- 指摘に従い、bevel connector chord 以外の join policy と quadratic side edge は fail-closed にし、F5la `push_cell` を唯一の cell 書き込み経路にした。
-- source policy は F5la writer authority、F5kz revalidation、cell bounds、line side edge、bevel connector chord、non-bevel / quadratic fail-closed、push / budget / completion recovery、fill scan / packed / render / platform へ進まないことを検査する。
+- 指摘に従い、初期版では bevel connector chord 以外の join policy と quadratic side edge を fail-closed にし、F5la `push_cell` を唯一の cell 書き込み経路にした。
+- F5lc 接続後の source policy は F5la writer authority、F5lc join geometry revalidation、cell bounds、line side edge、bevel / miter join geometry、quadratic fail-closed、push / budget / completion recovery、fill scan / packed / render / platform へ進まないことを検査する。
 
 ## implementation_current
 
 - `GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner` を追加し、F5la writer owner と `cell_index` を保持するようにした。
-- start は raster coverage shape、writer 未開始、cell storage len/cap、F5kz stroke coverage invariant、bevel join policy、quadratic side edge count 0 を検査する。
-- side edge / join record の読み出しは completed F5kz owner chain の Vec len/cap/count/slot を再検査し、missing slot を error にする。
-- sample scan は finite f32 guard を通した scaled doubled-coordinate line crossing を使い、line side edge と bevel join chord の parity で inside を判定する。
-- non-bevel join record と quadratic side edge は `UnsupportedJoinPolicy` / `UnsupportedQuadraticSideEdges` / `UnsupportedQuadraticSideEdge` / `JoinRecordPolicyMismatch` として fail-closed にする。
+- start は raster coverage shape、writer 未開始、cell storage len/cap、F5lc join geometry invariant を検査する。
+- side edge の読み出しは nested F5kz / F5ky owner chain、join geometry の読み出しは completed F5lc owner chain の Vec len/cap/count/slot を再検査し、missing slot を error にする。
+- sample scan は finite f32 guard を通した scaled doubled-coordinate line crossing を使い、line side edge と F5lc bevel / miter join geometry の parity で inside を判定する。
+- quadratic side edge は `UnsupportedQuadraticSideEdge` として fail-closed にする。round join は F5lc invariant で fail-closed にする。
 - step は cell bounds と coverage range を検査し、F5la `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell` だけで cell を追加する。push failure では returned writer と pre-push `cell_index` を保持する。
 - bounded drain は exact full completion、step budget exhaustion、completion incomplete、progress invariant failure を分離する。
 - docs、source policy、focused doctest label、todo を F5lb に合わせて更新した。
@@ -45,8 +94,8 @@
 - Archimedes の implementation review 1 は `REVIEW_CHANGES_REQUESTED`。指摘は `note.n.md` の verification_current が古く、focused doctest / full glyf / diff / trunk / playground-editor tests の実行状態と一致していないというものだった。
 - 指摘対応として、実際に通過した検証コマンドと playground-editor JSON 件数をこの note に反映した。
 - Archimedes の re-review は `REVIEW_APPROVED`。
-- 残リスクは、F5lb が line side edge と bevel connector chord の scan baseline であり、miter / round join geometry と quadratic side edge approximation は後続 boundary で追加する必要がある点。
-- F5lb 後続は miter / round join geometry、quadratic side edge scan policy、packed stroke mask owner をそれぞれ別 boundary として追加する。
+- 残リスクは、F5lc 後も round join geometry と quadratic side edge approximation が未定義で、後続 boundary で追加する必要がある点。
+- F5lb 後続は round join geometry policy、quadratic side edge scan policy、packed stroke mask owner をそれぞれ別 boundary として追加する。
 
 # 2026-06-21 Agent2 GUI font F5la stroke coverage mask writer owner boundary
 
