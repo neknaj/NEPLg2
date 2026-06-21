@@ -16,14 +16,17 @@
 //: - public impl header producer が header を拒否した場合は、candidate builder input を作らず `HeaderRejected` として fail-closed にします。
 //: - connector table を受け取らない既存 API では、detailed generic binder evidence を持つ record は header evidence までは検査しますが、operation candidate へは流さず `GenericImplInstantiationUnsupported` として拒否します。
 //: - connector input table を受け取る generic-aware API では、matching input を見つけた後に `memo_trait_public_impl_generic_materializer_connector` の `connector_result` を実行し、concrete target TypeId と final target / trait shape を使う場合だけ builder input へ進めます。
+//: - private-effect proof-aware API では、caller supplied proof table を candidate builder へ渡す前に、全 record の `module_fingerprint` が call-level `body_module_fingerprint` と一致することを検査します。
 //: - classifier が trait source と trait application shape の不一致を返した場合は、candidate builder input を作らず `ClassifierRejected` として fail-closed にします。
 //: - `source` record table と `module` は borrow です。この module はどちらも閉じません。
+//: - proof-aware API の `proofs` と generic connector table は borrow です。この module は閉じません。
 //: - 内部で作る builder input table owner は、この module が success / failure の両方で閉じます。success の場合だけ output candidate table owner を caller へ返します。
 //: - Drop operation はこの module では特別に受理しません。Drop record が現れた場合、classifier で shape を確認したうえで builder input に写し、既存 builder の `DropOperationUnsupportedUntilResourceProof` によって Resource proof 未接続の fail-closed 境界へ送ります。
 //: - HIR は candidate builder が method body fact を作るために borrow するだけです。Resource IR、backend artifact、proof store、`.neplproof` reader / serializer、canonical key codec には依存しません。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では actual AST / typed HIR public impl scanner はまだ未接続です。この module は、その scanner が作るべき typed record table の境界を先に固定します。
+//: - proof-aware API は proof table を生成しません。record table の module fingerprint と call-level fingerprint を照合し、既存 candidate builder の private-effect proof-aware path に委譲します。
 //: - full public surface materialization、trait coherence の完全な overlap solver、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算は後続 slice の責務です。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が public surface materializer と proof boundary をまとめる段階で公開範囲を再評価します。
 //:
@@ -34,7 +37,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -43,13 +46,19 @@
 //: ##: [5] ok
 //: ##: [6] ok
 //: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
+//: ##: [11] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/check/module/memo_trait_operation_classifier" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
 //:| #import "neplg2/core/check/module/memo_trait_operation_impl_candidate_builder" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate" as *
 //:| #import "neplg2/core/check/module/memo_trait_operation_public_impl_materializer" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
 //:| #import "std/test" as *
@@ -65,7 +74,11 @@
 //:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_public_impl_materializer_candidate_builder_rejected_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate
 //:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_result_eq summary.drop_unsupported 0
 //:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_public_impl_materializer_generic_unsupported_result_eq summary.generic_unsupported
-//:             let shown checks_print_report checks8
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_public_impl_materializer_accepted_method_evidence_eq summary.private_effect_proven SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostMemoTraitOperationMethodBodyEvidence::Pure
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_public_impl_materializer_accepted_method_evidence_eq summary.private_effect_missing SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostMemoTraitOperationMethodBodyEvidence::Unknown
+//:             let checks11 checks_push checks10 check selfhost_memo_trait_operation_public_impl_materializer_private_gate_error_result_eq summary.private_effect_duplicate_rejected SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate
+//:             let checks12 checks_push checks11 check selfhost_memo_trait_operation_public_impl_materializer_body_module_fingerprint_mismatch_result_eq summary.fingerprint_mismatch 740101 740102
+//:             let shown checks_print_report checks12
 //:             checks_exit_code shown
 //:         Result::Err _setup:
 //:             let checks0 checks_new
@@ -82,12 +95,15 @@
 #import "core/traits/copy" as *
 #import "neplg2/core/hir/hir" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty/id" as *
 #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
 #import "./memo_trait_operation_classifier" as *
 #import "./memo_trait_operation_impl_candidate_builder" as *
 #import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_private_effect_no_escape_gate" as *
 #import "./memo_trait_operation_public_impl_materializer_record" as *
 #import "./memo_trait_public_impl_generic_binder" as *
 #import "./memo_trait_public_impl_generic_materializer_connector" as *
@@ -111,6 +127,14 @@ pub struct SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary:
     eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
     hash_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
 
+//: SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch: proof-aware call と record の module identity 不一致
+//:
+//: [目的/もくてき]:
+//: - private-effect proof key は body module fingerprint を含むため、caller が指定した fingerprint と record authority の不一致を typed payload として保持します。
+pub struct SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch:
+    record_module_fingerprint %i32
+    body_module_fingerprint %i32
+
 //: SelfhostMemoTraitOperationPublicImplMaterializerErrorKind: public impl materializer 境界の拒否理由
 //:
 //: [目的/もくてき]:
@@ -127,6 +151,8 @@ pub enum SelfhostMemoTraitOperationPublicImplMaterializerErrorKind:
     GenericImplInstantiationUnsupported
     GenericConnectorRejected %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
     ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
+    BodyModuleFingerprintPlaceholder
+    BodyModuleFingerprintMismatch %SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch
     BuilderInputPushRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
     CandidateBuilderRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
 
@@ -137,6 +163,10 @@ pub struct SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary:
     duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
     drop_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
     generic_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    private_effect_proven %Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    private_effect_missing %Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    private_effect_duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    fingerprint_mismatch %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
 
 impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary:
     fn clone %fn &SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary \self:
@@ -144,6 +174,16 @@ impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary:
 
 impl Copy for SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary:
     fn copy_mark %fn SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch: mismatch payload を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch:
+    fn clone %fn &SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch: owner を含まない mismatch payload の copy marker
+impl Copy for SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch:
+    fn copy_mark %fn SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch \self:
         self
 
 impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerErrorKind:
@@ -179,6 +219,47 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_record_table_free 
 pub fn selfhost_memo_trait_operation_public_impl_materializer_record_table_len %fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable i32 \table:
     let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref table "records"
     v::len records
+
+//: selfhost_memo_trait_operation_public_impl_materializer_body_module_fingerprint_mismatch_new: fingerprint 不一致 payload を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_body_module_fingerprint_mismatch_new %fn i32 fn i32 SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch \record_module_fingerprint\body_module_fingerprint:
+    SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch record_module_fingerprint body_module_fingerprint
+
+//: selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_loop: source record が単一 body module fingerprint に属するか[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - proof-aware candidate builder は 1 回の call-level `body_module_fingerprint` で scan record 全体を処理します。
+//: - materializer record の `module_fingerprint` と一致しない record が混ざる場合、proof table を読む前に fail-closed に拒否します。
+fn selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_loop %fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable fn i32 fn i32 Result unit SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \source\body_module_fingerprint\index:
+    if:
+        ge index selfhost_memo_trait_operation_public_impl_materializer_record_table_len source
+        then:
+            Result::Ok ()
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    if:
+                        eq record.module_fingerprint body_module_fingerprint
+                        then:
+                            selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_loop source body_module_fingerprint add index 1
+                        else:
+                            let mismatch %SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch:
+                                selfhost_memo_trait_operation_public_impl_materializer_body_module_fingerprint_mismatch_new record.module_fingerprint body_module_fingerprint
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch mismatch
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_result: proof-aware call-level fingerprint を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - `0` は placeholder module identity なので、record が空であっても proof-aware path では拒否します。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_result %fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable fn i32 Result unit SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \source\body_module_fingerprint:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_loop source body_module_fingerprint 0
 
 //: selfhost_memo_trait_operation_public_impl_materializer_record_table_push: materializer record を table に[追加/ついか]する
 //:
@@ -490,6 +571,29 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_table_fr
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result: private-effect proof table 付きで public impl records から candidate table owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module`、`source`、`proofs` は borrow です。この関数は閉じません。
+//: - `body_module_fingerprint` は `source` の全 record の `module_fingerprint` と一致しなければなりません。
+//: - proof table は candidate builder にだけ渡し、この module では Resource proof、effect mask、backend artifact、operation evidence を作りません。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\body_module_fingerprint\source\proofs:
+    match selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_result source body_module_fingerprint:
+        Result::Ok _valid:
+            match selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_result source:
+                Result::Ok builder_inputs:
+                    match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result module body_module_fingerprint &builder_inputs proofs:
+                        Result::Ok candidates:
+                            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
+                            Result::Ok candidates
+                        Result::Err builder_error:
+                            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected builder_error
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_result: generic connector input 付き public impl records から candidate table owner を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -505,6 +609,29 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_table_fr
                 Result::Err builder_error:
                     selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
                     Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected builder_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_and_private_effect_proofs_result: generic connector input と private-effect proof table 付きで candidate table owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module`、`source`、`connectors`、`proofs` は borrow です。この関数は閉じません。
+//: - Detailed generic record は既存 generic connector path で concrete builder input に変換してから、proof-aware candidate builder へ渡します。
+//: - public surface hash、Resource proof production、backend bytes、artifact key、effect mask は作りません。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_and_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\body_module_fingerprint\source\connectors\proofs:
+    match selfhost_memo_trait_operation_public_impl_materializer_validate_body_module_fingerprint_result source body_module_fingerprint:
+        Result::Ok _valid:
+            match selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_with_generics_result source connectors:
+                Result::Ok builder_inputs:
+                    match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result module body_module_fingerprint &builder_inputs proofs:
+                        Result::Ok candidates:
+                            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
+                            Result::Ok candidates
+                        Result::Err builder_error:
+                            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected builder_error
+                Result::Err e:
+                    Result::Err e
         Result::Err e:
             Result::Err e
 
@@ -543,6 +670,63 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_accepted_operation
         Result::Err _error:
             false
 
+//: selfhost_memo_trait_operation_public_impl_materializer_candidate_result_method_evidence_eq: candidate result の method body evidence が期待値か[返/かえ]す
+fn selfhost_memo_trait_operation_public_impl_materializer_candidate_result_method_evidence_eq %fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn SelfhostMemoTraitOperationMethodBodyEvidence bool \result\expected:
+    match result:
+        Result::Ok candidate:
+            match candidate.method_body:
+                SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                    match expected:
+                        SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                            true
+                        _:
+                            false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                    match expected:
+                        SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                            true
+                        _:
+                            false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                    match expected:
+                        SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                            true
+                        _:
+                            false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                    match expected:
+                        SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                            true
+                        _:
+                            false
+                SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                    match expected:
+                        SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                            true
+                        _:
+                            false
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_public_impl_materializer_accepted_method_evidence_eq: accepted summary の operation candidate evidence が期待値か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - materializer は operation evidence record を作らず、candidate table に保存された raw method body evidence だけを確認します。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_accepted_method_evidence_eq %fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationMethodBodyEvidence bool \result\operation\expected:
+    match result:
+        Result::Ok summary:
+            match operation:
+                SelfhostMemoTraitOperationEvidenceKind::Copy:
+                    selfhost_memo_trait_operation_public_impl_materializer_candidate_result_method_evidence_eq summary.copy_candidate expected
+                SelfhostMemoTraitOperationEvidenceKind::Drop:
+                    false
+                SelfhostMemoTraitOperationEvidenceKind::Eq:
+                    selfhost_memo_trait_operation_public_impl_materializer_candidate_result_method_evidence_eq summary.eq_candidate expected
+                SelfhostMemoTraitOperationEvidenceKind::Hash:
+                    selfhost_memo_trait_operation_public_impl_materializer_candidate_result_method_evidence_eq summary.hash_candidate expected
+        Result::Err _error:
+            false
+
 //: selfhost_memo_trait_operation_public_impl_materializer_classifier_rejected_result_eq: classifier rejection の nested payload が期待値か[返/かえ]す
 pub fn selfhost_memo_trait_operation_public_impl_materializer_classifier_rejected_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn SelfhostMemoTraitOperationClassifierErrorKind bool \result\expected:
     match result:
@@ -571,6 +755,10 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_classifier_rejecte
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch _mismatch:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
                     false
@@ -606,9 +794,90 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_builder_
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch _mismatch:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
+                    false
+
+//: selfhost_memo_trait_operation_public_impl_materializer_private_gate_error_result_eq: private-effect proof gate error が materializer 境界に伝わったか[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_materializer_private_gate_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected builder_error:
+                    let builder_result %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind Result::Err builder_error
+                    selfhost_memo_trait_operation_impl_candidate_builder_private_gate_error_result_eq builder_result expected
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordPushFailed _push:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch _mismatch:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
+                    false
+
+//: selfhost_memo_trait_operation_public_impl_materializer_body_module_fingerprint_mismatch_result_eq: fingerprint mismatch payload が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_materializer_body_module_fingerprint_mismatch_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn i32 fn i32 bool \result\expected_record\expected_body:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch mismatch:
+                    and eq mismatch.record_module_fingerprint expected_record eq mismatch.body_module_fingerprint expected_body
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordPushFailed _push:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected _builder:
                     false
 
 //: selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_result_eq: Drop input が既存 builder の unsupported error に[届/とど]いたか[返/かえ]す
@@ -644,6 +913,10 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_r
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch _mismatch:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
@@ -676,6 +949,10 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_generic_unsupporte
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BodyModuleFingerprintMismatch _mismatch:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
@@ -684,8 +961,8 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_generic_unsupporte
                     false
 
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new %fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary \accepted\untrusted_rejected\duplicate_rejected\drop_unsupported\generic_unsupported:
-    SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new %fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary \accepted\untrusted_rejected\duplicate_rejected\drop_unsupported\generic_unsupported\private_effect_proven\private_effect_missing\private_effect_duplicate_rejected\fingerprint_mismatch:
+    SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported private_effect_proven private_effect_missing private_effect_duplicate_rejected fingerprint_mismatch
 
 //: selfhost_memo_trait_operation_public_impl_materializer_accepted_summary_new: accepted summary を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_accepted_summary_new %fn i32 fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary \len\copy_candidate\eq_candidate\hash_candidate:
@@ -728,6 +1005,33 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_run_accepted_ow
             selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
             Result::Err e
 
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_run_accepted_with_private_effect_proofs_owned_source: source / proof owner を[閉/と]じて proof-aware accepted summary を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_run_accepted_with_private_effect_proofs_owned_source %impure fn &SelfhostHirModule impure fn i32 impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\body_module_fingerprint\source\type_id\proofs:
+    match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result module body_module_fingerprint &source &proofs:
+        Result::Ok table:
+            let summary %SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary selfhost_memo_trait_operation_public_impl_materializer_stage0_accepted_summary_from_table table type_id
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Ok summary
+        Result::Err e:
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_with_private_effect_proofs_owned_source: source / proof owner を[閉/と]じて proof-aware result len を[返/かえ]す
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_with_private_effect_proofs_owned_source %impure fn &SelfhostHirModule impure fn i32 impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\body_module_fingerprint\source\proofs:
+    match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result module body_module_fingerprint &source &proofs:
+        Result::Ok table:
+            let table_len %i32 selfhost_memo_trait_operation_impl_table_len &table
+            selfhost_memo_trait_operation_impl_table_free table
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Ok table_len
+        Result::Err e:
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Err e
+
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_owned_source: source owner を[閉/と]じながら result len を[返/かえ]す
 fn selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_owned_source %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\source:
     match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_result module &source:
@@ -761,6 +1065,108 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_accepted %impur
     match selfhost_memo_trait_operation_public_impl_materializer_stage0_accepted_source type_id registry target_shape_hash copy_shape_hash eq_shape_hash hash_shape_hash pure_root:
         Result::Ok source:
             selfhost_memo_trait_operation_public_impl_materializer_stage0_run_accepted_owned_source module source type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_source: PrivateCache Eq path の source record table を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_source %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \type_id\registry\target_shape_hash\eq_shape_hash\private_cache_root\ordinal:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_source_new:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_public_impl_materializer_stage0_push_record table0 type_id registry.eq_source ordinal target_shape_hash eq_shape_hash some private_cache_root
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proof_record: PrivateCache root 用 proof record を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proof_record %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \type_id\body_module_fingerprint\private_cache_root\status:
+    let key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint private_cache_root SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new key status
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_empty_private_effect_proofs_result: [空/から]の proof table を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_empty_private_effect_proofs_result %impure fn void Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \void:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs:
+            Result::Ok proofs
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_one_private_effect_proof_result: 1 件の proof record を持つ proof table を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_one_private_effect_proof_result %impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \type_id\body_module_fingerprint\private_cache_root\status:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_empty_private_effect_proofs_result:
+        Result::Ok proofs0:
+            let proof %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proof_record type_id body_module_fingerprint private_cache_root status
+            match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    Result::Ok proofs1
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_duplicate_private_effect_proofs_result: duplicate proof table を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_duplicate_private_effect_proofs_result %impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \type_id\body_module_fingerprint\private_cache_root:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_empty_private_effect_proofs_result:
+        Result::Ok proofs0:
+            let proof %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proof_record type_id body_module_fingerprint private_cache_root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+            match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs1 proof:
+                        Result::Ok proofs2:
+                            Result::Ok proofs2
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected e
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::PrivateEffectNoEscapeGateRejected e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_with_proofs: proof table 付き PrivateCache Eq path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_with_proofs %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root\proofs\ordinal:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_source type_id registry target_shape_hash eq_shape_hash private_cache_root ordinal:
+        Result::Ok source:
+            selfhost_memo_trait_operation_public_impl_materializer_stage0_run_accepted_with_private_effect_proofs_owned_source module body_module_fingerprint source type_id proofs
+        Result::Err e:
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proven: proven proof 付き PrivateCache Eq path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proven %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_one_private_effect_proof_result type_id body_module_fingerprint private_cache_root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_with_proofs module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root proofs 9
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_missing: proof 欠落 PrivateCache Eq path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_missing %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_empty_private_effect_proofs_result:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_with_proofs module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root proofs 10
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_duplicate: duplicate proof rejection path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_duplicate %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_duplicate_private_effect_proofs_result type_id body_module_fingerprint private_cache_root:
+        Result::Ok proofs:
+            match selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_source type_id registry target_shape_hash eq_shape_hash private_cache_root 11:
+                Result::Ok source:
+                    selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_with_private_effect_proofs_owned_source module body_module_fingerprint source proofs
+                Result::Err e:
+                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_fingerprint_mismatch: record module fingerprint と proof-aware call fingerprint の不一致を[拒否/きょひ]する path
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_fingerprint_mismatch %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\body_module_fingerprint\target_shape_hash\eq_shape_hash\private_cache_root:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_one_private_effect_proof_result type_id body_module_fingerprint private_cache_root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+        Result::Ok proofs:
+            match selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_source type_id registry target_shape_hash eq_shape_hash private_cache_root 12:
+                Result::Ok source:
+                    selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_with_private_effect_proofs_owned_source module add body_module_fingerprint 1 source proofs
+                Result::Err e:
+                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+                    Result::Err e
         Result::Err e:
             Result::Err e
 
@@ -828,17 +1234,22 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_shape_result %f
             Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
 
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_with_shapes: trait shape が揃った状態で smoke を[実行/じっこう]する
-fn selfhost_memo_trait_operation_public_impl_materializer_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\pure_root\registry\target_shape_hash\copy_shape_hash\drop_shape_hash\eq_shape_hash\hash_shape_hash:
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\pure_root\private_cache_root\registry\target_shape_hash\copy_shape_hash\drop_shape_hash\eq_shape_hash\hash_shape_hash:
+    let body_module_fingerprint %i32 740101
     let accepted %Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_accepted &module type_id registry target_shape_hash copy_shape_hash eq_shape_hash hash_shape_hash pure_root
     let untrusted_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_untrusted &module type_id target_shape_hash copy_shape_hash
     let duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_duplicate &module type_id registry target_shape_hash copy_shape_hash
     let drop_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_drop_unsupported &module type_id registry target_shape_hash drop_shape_hash
     let generic_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_generic_unsupported &module type_id registry target_shape_hash copy_shape_hash
+    let private_effect_proven %Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_proven &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
+    let private_effect_missing %Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_missing &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
+    let private_effect_duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_private_effect_duplicate &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
+    let fingerprint_mismatch %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_fingerprint_mismatch &module type_id registry body_module_fingerprint target_shape_hash eq_shape_hash private_cache_root
     selfhost_hir_module_free module
-    Result::Ok selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported
+    Result::Ok selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported private_effect_proven private_effect_missing private_effect_duplicate_rejected fingerprint_mismatch
 
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_registry: trusted registry から shape hash を[準備/じゅんび]する
-fn selfhost_memo_trait_operation_public_impl_materializer_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\pure_root:
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\pure_root\private_cache_root:
     match selfhost_memo_trait_operation_trusted_source_registry_current_result:
         Result::Ok registry:
             match selfhost_memo_trait_operation_public_impl_materializer_stage0_shape_result registry.copy_source:
@@ -849,7 +1260,7 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_registry %impur
                                 Result::Ok eq_shape_hash:
                                     match selfhost_memo_trait_operation_public_impl_materializer_stage0_shape_result registry.hash_source:
                                         Result::Ok hash_shape_hash:
-                                            selfhost_memo_trait_operation_public_impl_materializer_stage0_with_shapes module type_id pure_root registry 8401 copy_shape_hash drop_shape_hash eq_shape_hash hash_shape_hash
+                                            selfhost_memo_trait_operation_public_impl_materializer_stage0_with_shapes module type_id pure_root private_cache_root registry 8401 copy_shape_hash drop_shape_hash eq_shape_hash hash_shape_hash
                                         Result::Err e:
                                             selfhost_hir_module_free module
                                             Result::Err e
@@ -866,12 +1277,24 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_registry %impur
             selfhost_hir_module_free module
             Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
 
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_private_cache: PrivateCache expression までの smoke HIR module を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_private_cache %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\pure_root\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "cache" selfhost_def_id_new 4702 type_id SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok private_cache_alloc:
+            let private_cache_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &private_cache_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module private_cache_alloc
+            selfhost_memo_trait_operation_public_impl_materializer_stage0_registry module1 type_id pure_root private_cache_root
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed e
+
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0: public impl materializer の smoke API
 //:
 //: [目的/もくてき]:
 //: - accepted path は Copy / Eq / Hash の 3 record を typed materializer から builder へ通します。
 //: - untrusted trait source は builder input 化より前に classifier rejection として返ります。
 //: - duplicate Copy record は materializer では first-wins にせず、candidate builder の duplicate rejection として返ります。
+//: - proof-aware path は caller supplied proof table を通し、missing proof を accepted Pure にしないことを確認します。
 pub fn selfhost_memo_trait_operation_public_impl_materializer_stage0 %impure fn void Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \void:
     let type_id %SelfhostTypeId selfhost_type_id_new 10201
     let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
@@ -881,7 +1304,7 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_stage0 %impure fn 
                 Result::Ok pure_alloc:
                     let pure_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &pure_alloc
                     let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module pure_alloc
-                    selfhost_memo_trait_operation_public_impl_materializer_stage0_registry module1 type_id pure_root
+                    selfhost_memo_trait_operation_public_impl_materializer_stage0_private_cache module1 type_id pure_root span
                 Result::Err e:
                     Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed e
         Result::Err e:

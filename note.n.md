@@ -1,3 +1,47 @@
+# 2026-06-21 selfhost public impl materializer / orchestrator private effect proof transport
+
+## 目的
+
+- `memo_trait_operation_impl_candidate_builder` の proof-aware path を、actual public impl materializer と public impl surface orchestrator の入口へ接続した。
+- proof table を public surface hash authority にせず、operation materializer / candidate builder へだけ渡す transport boundary にした。
+- generic connector input と private-effect proof table を同時に扱う入口も追加し、generic materializer accepted path が proof-aware path で抜け落ちないようにした。
+
+## subagent review
+
+- 計画 review で Herschel は `PLAN_NEEDS_CHANGES` を返した。
+- 指摘は、generic+proof path をこの slice で必須にすること、materializer が source record の `module_fingerprint` と call-level `body_module_fingerprint` を proof-aware builder 呼び出し前に全件検証すること、orchestrator は candidate builder を直接呼ばず materializer API だけを使うこと、proof/connectors を borrow として扱うことだった。
+- 対応として、proof-aware materializer API は fingerprint placeholder / mismatch を typed error で拒否し、generic+proof API も同じ検査を通す。orchestrator は scanner-output / AST-records それぞれに proof-only と generic+proof entry を追加し、normalizer / hash / materializer の順序を既存 entry と同じにした。
+- 実装後 review で Arendt は本体にブロッカーなしとしつつ、production materializer entry で proof key 合成を禁止する契約が function-scoped ではないと指摘した。
+- 対応として、proof-aware materializer production function ごとに `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey` / `proof_key_new` の直接使用を禁止し、proof table と generic connector table を free しない borrow 契約も function-scoped に固定した。orchestrator 側も proof / connector borrow の free 禁止を proof-aware entry ごとに追加した。
+
+## 実装内容
+
+- `SelfhostMemoTraitOperationPublicImplMaterializerBodyModuleFingerprintMismatch` と `BodyModuleFingerprintPlaceholder` / `BodyModuleFingerprintMismatch` error を追加した。
+- `selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result` と `...with_generics_and_private_effect_proofs_result` を追加した。
+- public impl surface orchestrator に scanner-output proof、scanner-output generic+proof、AST-records proof、AST-records generic+proof の entry を追加した。
+- stage0 doctest に PrivateCache proof proven / missing / duplicate / fingerprint mismatch の representative smoke を追加した。
+- 設計 doc、issue、todo、契約テストを更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --dist web/dist -o tmp/selfhost_materializer_doctest.json -j 1`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl --dist web/dist -o tmp/selfhost_orchestrator_doctest.json -j 1`
+- pass after implementation review hardening: `node --check nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass after implementation review hardening: `node --check nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass after implementation review hardening: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass after implementation review hardening: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+
+## 未接続
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行する boundary。
+- scanner / upper orchestrator が actual proof source と同じ body module fingerprint を proof-aware public impl materializer へ渡す boundary。
+- Resource summary body hash / capability policy hash / artifact policy hash への private effect mask policy projection。
+- memo_call backend request-evidence proof と private effect mask の接続。
+
 # 2026-06-21 selfhost operation impl candidate builder private effect proof path
 
 ### 実装

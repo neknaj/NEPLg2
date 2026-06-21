@@ -2869,7 +2869,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_bui
 残件:
 
 - actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、public impl materializer / candidate builder へ渡す。
-- public impl materializer が body module fingerprint 単位で proof table と scan record を分配する。
+- scanner / upper orchestrator が actual proof source と同じ body module fingerprint を proof-aware public impl materializer へ渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+
+## 2026-06-21 selfhost public impl materializer / orchestrator private effect proof transport checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl` と `memo_trait_public_impl_surface_orchestrator.nepl` に、caller supplied `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を運ぶ proof-aware entry を追加した。
+
+materializer は proof-aware builder を呼ぶ前に、call-level `body_module_fingerprint` が `0` でないことと、source record table の全 `module_fingerprint` が同じ値であることを検査する。不一致は `BodyModuleFingerprintMismatch` の typed payload で返し、proof table lookup や candidate builder へ進まない。generic connector input を受け取る入口でも同じ検査を先に行い、connector は existing generic materializer connector boundary で concrete builder input に変換してから proof-aware builder へ渡す。
+
+orchestrator は scanner output + proof table、AST records + proof table、scanner output + generic connector + proof table、AST records + generic connector + proof table の 4 entry を持つ。public surface normalizer と full public surface hash の順序は既存と同じで、proof table と generic connector input は public surface hash の authority にしない。proof table は operation materializer にだけ渡し、orchestrator から candidate builder を直接呼ばない。
+
+この checkpoint は Resource IR proof producer、proof store、operation evidence、aggregate proof、backend bytes、effect mask、`.neplobj` / `.neplproof` artifact key を作らない。duplicate proof は existing private effect gate / candidate builder の error を `OperationMaterializerRejected(CandidateBuilderRejected(PrivateEffectNoEscapeGateRejected(ProofDuplicate)))` として伝播する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` と `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` で更新した。proof-aware API、generic+proof API、fingerprint validation、proof/connectors borrow、orchestrator の candidate builder 直接呼び出し禁止、proof table を public surface hash authority にしないこと、Resource / backend / proof-store / artifact 合成禁止を固定している。
+
+残件:
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、scanner / upper orchestrator が同じ body module fingerprint と一緒に渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 

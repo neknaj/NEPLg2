@@ -183,6 +183,34 @@ subagent review:
 残件:
 
 - actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行して、この proof-aware path へ渡す。
-- public impl materializer / orchestrator が body module fingerprint 単位で scan record と proof table を分配する。
+- scanner / upper orchestrator が actual proof source と同じ body module fingerprint を proof-aware public impl materializer へ渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続する。
+
+## 2026-06-21 selfhost public impl materializer / orchestrator private effect proof transport checkpoint
+
+`memo_trait_operation_public_impl_materializer.nepl` と `memo_trait_public_impl_surface_orchestrator.nepl` に、caller supplied private-effect proof table を public impl materialization へ運ぶ proof-aware entry を追加した。
+
+完了したこと:
+
+- materializer は proof-aware builder を呼ぶ前に、call-level `body_module_fingerprint` が placeholder でないことと、source record table の全 `module_fingerprint` が一致することを検査する。
+- scanner-output proof entry、AST-records proof entry、scanner-output generic+proof entry、AST-records generic+proof entry を追加し、generic connector input と proof table は materializer にだけ渡す。
+- public surface normalizer / hash composer の順序は既存 entry と同じままにし、proof table を public surface hash authority にしない。
+- orchestrator は candidate builder を直接呼ばず、operation materializer の proof-aware API だけを呼ぶ。
+- duplicate proof は existing private effect gate / candidate builder の `PrivateEffectNoEscapeGateRejected(ProofDuplicate)` として materializer/orchestrator error に伝播する。
+- この checkpoint は Resource IR proof producer、proof store、operation evidence、aggregate proof、memo_call backend bytes、sealed backend representation、artifact key、effect maskを作らない。
+
+検証:
+
+- `node --check nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- `node --check nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --dist web/dist -o tmp/selfhost_materializer_doctest.json -j 1`
+- `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl --dist web/dist -o tmp/selfhost_orchestrator_doctest.json -j 1`
+
+残件:
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行して、この proof-aware path へ渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続する。

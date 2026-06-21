@@ -8,6 +8,7 @@
 //: - この module は scanner output の 2 系統を同じ境界で消費し、public surface normalizer、full public surface hash composer、operation public impl materializer を順番に呼びます。
 //: - 後続の `MemoKey` / `MemoValue` structural purity solver は、public surface hash と operation impl candidate table が同じ scanner output から作られたことを、この state owner を通じて確認できます。
 //: - generic impl を受理する入口では、scanner output と generic connector input table を同じ orchestration 境界で束ね、materializer 内で `connector_result` を実行した結果だけを operation impl table へ渡します。
+//: - private-effect proof-aware 入口では、scanner output と caller supplied proof table を同じ orchestration 境界で束ね、proof table は operation materializer へだけ渡します。
 //:
 //: [契約/けいやく]:
 //: - accepted authority は scanner output の typed field、caller supplied seed table、caller supplied dependency / re-export evidence、module graph、typed HIR module borrow、既存 normalizer / hash / materializer boundary だけです。
@@ -15,6 +16,7 @@
 //: - HIR module は operation materializer が method body fact を作るために borrow するだけです。public surface hash の材料には入りません。
 //: - 実行順序は scanner、public surface normalizer、public surface hash composer、operation materializer です。public surface 側が拒否された場合、operation materializer へ進みません。
 //: - generic connector input table を受け取る入口でも、public surface 側の正規化と hash composer の順序は変えません。generic connector は operation materializer へだけ渡し、public surface hash の authority にはしません。
+//: - private-effect proof table を受け取る入口でも、public surface hash は proof table を材料にしません。proof table は operation materializer / candidate builder の method body fact construction にだけ渡します。
 //: - `SelfhostMemoTraitPublicImplSurfaceState` は operation impl table owner を含みます。caller は不要になったら `selfhost_memo_trait_public_impl_surface_state_free` で閉じます。
 //: - scanner output を owner として作る経路では、この module が downstream result を作った後に scanner output を必ず閉じます。
 //: - Drop body effect checker、Resource IR no-escape proof、operation evidence producer、aggregate proof status、proof store、backend artifact はこの module の責務ではありません。
@@ -25,6 +27,7 @@
 //: - `memo_trait_public_impl_header` の直接 import は stage0 の typed resolver record fixture が `SelfhostMemoTraitPublicImplHeaderKind` を渡すためだけに使います。production path の impl header validation は scanner boundary が担当します。
 //: - generic impl binder、trait coherence、Drop Resource proof、Copy / Drop / Eq / Hash pure evidence の実計算、PrivateCache / PrivateState masking は後続 slice の責務です。
 //: - generic connector input table 付き入口は、generic materializer accepted path を surface state へ渡すための checker-layer orchestration です。connector input の producer、PrivateCache / PrivateState masking、prechecked artifact、memo_call backend representation は別 stage で接続します。
+//: - private-effect proof-aware 入口は caller supplied proof table を運ぶ transport boundary です。actual Resource IR proof producer、proof store、effect mask、backend representation は別 stage で接続します。
 //: - facade にはまだ re-export しません。full proof orchestration が Resource proof と artifact boundary を含めて揃う段階で公開範囲を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -69,6 +72,7 @@
 #import "neplg2/core/ty/ty/memo_trait_policy" as *
 #import "./memo_trait_operation_classifier" as *
 #import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_private_effect_no_escape_gate" as *
 #import "./memo_trait_operation_public_impl_materializer" as *
 #import "./memo_trait_public_impl_generic_materializer_connector" as *
 #import "./memo_trait_public_impl_header" as *
@@ -205,6 +209,32 @@ pub fn selfhost_memo_trait_public_impl_surface_from_scanner_output_result %impur
         Result::Err normalizer_error:
             Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected normalizer_error
 
+//: selfhost_memo_trait_public_impl_surface_from_scanner_output_with_private_effect_proofs_result: scanner output と private-effect proof table から surface state owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `scanner_output`、`proofs`、`module`、`graph`、`dependencies`、`reexports` は borrow です。この関数は閉じません。
+//: - public surface hash は proof table を材料にしません。proof table は operation materializer へだけ渡します。
+//: - partial input items owner は success、hash rejection、materializer rejection のすべてでこの関数が閉じます。
+pub fn selfhost_memo_trait_public_impl_surface_from_scanner_output_with_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostMemoTraitPublicImplScannerOutput impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\body_module_fingerprint\graph\dependencies\reexports\seed_table\scanner_output\proofs:
+    let public_declarations %&Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence field::get_ref scanner_output "public_declarations"
+    match selfhost_memo_trait_public_surface_normalizer_partial_input_items_result graph dependencies reexports public_declarations:
+        Result::Ok partial_items:
+            match selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result seed_table &partial_items:
+                Result::Ok public_surface_hash:
+                    let operation_records %&SelfhostMemoTraitOperationPublicImplMaterializerRecordTable field::get_ref scanner_output "operation_records"
+                    match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result module body_module_fingerprint operation_records proofs:
+                        Result::Ok operation_impls:
+                            v::free partial_items
+                            Result::Ok SelfhostMemoTraitPublicImplSurfaceState public_surface_hash operation_impls
+                        Result::Err materializer_error:
+                            v::free partial_items
+                            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error
+                Result::Err hash_error:
+                    v::free partial_items
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err normalizer_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected normalizer_error
+
 //: selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_result: scanner output と generic connector input から surface state owner を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -237,6 +267,32 @@ pub fn selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_
         Result::Err normalizer_error:
             Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected normalizer_error
 
+//: selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_and_private_effect_proofs_result: scanner output / generic connector input / proof table から surface state owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `scanner_output`、`connectors`、`proofs`、`module`、`graph`、`dependencies`、`reexports` は borrow です。この関数は閉じません。
+//: - public surface hash は connector input と proof table のどちらも材料にしません。
+//: - generic connector input と proof table は operation materializer へだけ渡します。
+pub fn selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_and_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostMemoTraitPublicImplScannerOutput impure fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\body_module_fingerprint\graph\dependencies\reexports\seed_table\scanner_output\connectors\proofs:
+    let public_declarations %&Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence field::get_ref scanner_output "public_declarations"
+    match selfhost_memo_trait_public_surface_normalizer_partial_input_items_result graph dependencies reexports public_declarations:
+        Result::Ok partial_items:
+            match selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result seed_table &partial_items:
+                Result::Ok public_surface_hash:
+                    let operation_records %&SelfhostMemoTraitOperationPublicImplMaterializerRecordTable field::get_ref scanner_output "operation_records"
+                    match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_and_private_effect_proofs_result module body_module_fingerprint operation_records connectors proofs:
+                        Result::Ok operation_impls:
+                            v::free partial_items
+                            Result::Ok SelfhostMemoTraitPublicImplSurfaceState public_surface_hash operation_impls
+                        Result::Err materializer_error:
+                            v::free partial_items
+                            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error
+                Result::Err hash_error:
+                    v::free partial_items
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err normalizer_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected normalizer_error
+
 //: selfhost_memo_trait_public_impl_surface_from_ast_records_result: AST と resolver records から scanner を[実行/じっこう]して surface state owner を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -248,6 +304,22 @@ pub fn selfhost_memo_trait_public_impl_surface_from_ast_records_result %impure f
         Result::Ok scanner_output:
             let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
                 selfhost_memo_trait_public_impl_surface_from_scanner_output_result module graph dependencies reexports seed_table &scanner_output
+            selfhost_memo_trait_public_impl_scanner_output_free scanner_output
+            result
+        Result::Err scanner_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected scanner_error
+
+//: selfhost_memo_trait_public_impl_surface_from_ast_records_with_private_effect_proofs_result: AST / resolver records / proof table から surface state owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `ast`、`records`、`proofs`、`module`、`graph`、`dependencies`、`reexports` はすべて borrow です。この関数は閉じません。
+//: - scanner output owner は、この関数が success / downstream rejection の両方で閉じます。
+//: - scanner が拒否した場合は proof table を読まず、`ScannerRejected` として返します。
+pub fn selfhost_memo_trait_public_impl_surface_from_ast_records_with_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostModuleAst impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\body_module_fingerprint\graph\dependencies\reexports\seed_table\ast\records\proofs:
+    match selfhost_memo_trait_public_impl_scanner_result ast records:
+        Result::Ok scanner_output:
+            let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                selfhost_memo_trait_public_impl_surface_from_scanner_output_with_private_effect_proofs_result module body_module_fingerprint graph dependencies reexports seed_table &scanner_output proofs
             selfhost_memo_trait_public_impl_scanner_output_free scanner_output
             result
         Result::Err scanner_error:
@@ -265,6 +337,22 @@ pub fn selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_con
         Result::Ok scanner_output:
             let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
                 selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_result module graph dependencies reexports seed_table &scanner_output connectors
+            selfhost_memo_trait_public_impl_scanner_output_free scanner_output
+            result
+        Result::Err scanner_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected scanner_error
+
+//: selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_connectors_and_private_effect_proofs_result: AST / resolver records / generic connector input / proof table から surface state owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `ast`、`records`、`connectors`、`proofs`、`module`、`graph`、`dependencies`、`reexports` はすべて borrow です。この関数は閉じません。
+//: - scanner output owner は、この関数が success / downstream rejection の両方で閉じます。
+//: - connector input と proof table は operation materializer へだけ渡します。
+pub fn selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_connectors_and_private_effect_proofs_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostModuleAst impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\body_module_fingerprint\graph\dependencies\reexports\seed_table\ast\records\connectors\proofs:
+    match selfhost_memo_trait_public_impl_scanner_result ast records:
+        Result::Ok scanner_output:
+            let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_and_private_effect_proofs_result module body_module_fingerprint graph dependencies reexports seed_table &scanner_output connectors proofs
             selfhost_memo_trait_public_impl_scanner_output_free scanner_output
             result
         Result::Err scanner_error:
@@ -344,6 +432,23 @@ pub fn selfhost_memo_trait_public_impl_surface_orchestrator_materializer_classif
                 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error:
                     let materializer_result %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind Result::Err materializer_error
                     selfhost_memo_trait_operation_public_impl_materializer_classifier_rejected_result_eq materializer_result expected_error
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_materializer_private_gate_rejected_eq: materializer 経由の private-effect gate rejection が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_materializer_private_gate_rejected_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind bool \result\expected_error:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected _scanner_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected _normalizer_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected _hash_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error:
+                    let materializer_result %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind Result::Err materializer_error
+                    selfhost_memo_trait_operation_public_impl_materializer_private_gate_error_result_eq materializer_result expected_error
 
 //: selfhost_memo_trait_public_impl_surface_orchestrator_materializer_untrusted_eq_rejected_eq: stage0 の materializer rejection を[確認/かくにん]する
 //:

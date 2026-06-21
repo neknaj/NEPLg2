@@ -100,8 +100,9 @@ assertOrdered(
 assert.ok(
     source.includes("scanner output の 2 系統を同じ境界で消費し") &&
         source.includes("public surface normalizer、full public surface hash composer、operation public impl materializer を順番に呼びます") &&
-        source.includes("generic impl を受理する入口では、scanner output と generic connector input table を同じ orchestration 境界で束ね"),
-    "docs must state that scanner output feeds both the public surface and operation materializer paths in one orchestration boundary",
+        source.includes("generic impl を受理する入口では、scanner output と generic connector input table を同じ orchestration 境界で束ね") &&
+        source.includes("private-effect proof-aware 入口では、scanner output と caller supplied proof table を同じ orchestration 境界で束ね"),
+    "docs must state that scanner output feeds public surface, operation materializer, generic connector, and proof-aware paths in one orchestration boundary",
 );
 assert.ok(
     source.includes("source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string") &&
@@ -128,6 +129,7 @@ assertOrdered(
     [
         "#import \"./memo_trait_operation_classifier\" as *",
         "#import \"./memo_trait_operation_impl_table\" as *",
+        "#import \"./memo_trait_operation_private_effect_no_escape_gate\" as *",
         "#import \"./memo_trait_operation_public_impl_materializer\" as *",
         "#import \"./memo_trait_public_impl_generic_materializer_connector\" as *",
         "#import \"./memo_trait_public_impl_header\" as *",
@@ -136,7 +138,7 @@ assertOrdered(
         "#import \"./memo_trait_public_surface_normalizer\" as *",
         "#import \"./memo_trait_source_evidence_producer\" as *",
     ],
-    "orchestrator imports must stay on scanner, surface hash, normalizer, operation materializer/table, header, classifier, and seed evidence boundaries",
+    "orchestrator imports must stay on scanner, surface hash, normalizer, operation materializer/table, private-effect proof table type, header, classifier, and seed evidence boundaries",
 );
 {
     const memoTraitImports = [...source.matchAll(/^#import "(\.\/memo_trait[^"]+)" as \*/gm)].map((match) => match[1]);
@@ -145,6 +147,7 @@ assertOrdered(
         [
             "./memo_trait_operation_classifier",
             "./memo_trait_operation_impl_table",
+            "./memo_trait_operation_private_effect_no_escape_gate",
             "./memo_trait_operation_public_impl_materializer",
             "./memo_trait_public_impl_generic_materializer_connector",
             "./memo_trait_public_impl_header",
@@ -153,7 +156,7 @@ assertOrdered(
             "./memo_trait_public_surface_normalizer",
             "./memo_trait_source_evidence_producer",
         ],
-        "orchestrator must keep an explicit memo_trait import allow-list and must only add the generic connector input boundary needed by the materializer",
+        "orchestrator must keep an explicit memo_trait import allow-list and must only add the generic connector and private-effect proof table boundaries needed by the materializer",
     );
 }
 assert.ok(
@@ -240,6 +243,35 @@ assertOrdered(
     "from_scanner_output_result must normalize, hash, and materialize in order, and free partial items on all downstream exits",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_private_effect_proofs_result"),
+    [
+        "field::get_ref scanner_output \"public_declarations\"",
+        "selfhost_memo_trait_public_surface_normalizer_partial_input_items_result graph dependencies reexports public_declarations",
+        "Result::Ok partial_items:",
+        "selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result seed_table &partial_items",
+        "Result::Ok public_surface_hash:",
+        "field::get_ref scanner_output \"operation_records\"",
+        "selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_private_effect_proofs_result module body_module_fingerprint operation_records proofs",
+        "Result::Ok operation_impls:",
+        "v::free partial_items",
+        "Result::Ok SelfhostMemoTraitPublicImplSurfaceState public_surface_hash operation_impls",
+        "Result::Err materializer_error:",
+        "v::free partial_items",
+        "OperationMaterializerRejected materializer_error",
+        "Result::Err hash_error:",
+        "v::free partial_items",
+        "PublicSurfaceHashRejected hash_error",
+        "Result::Err normalizer_error:",
+        "PublicSurfaceNormalizerRejected normalizer_error",
+    ],
+    "proof-aware scanner-output entry must keep normalizer/hash order, pass proofs only to materializer, and free partial items on all downstream exits",
+);
+assert.doesNotMatch(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_private_effect_proofs_result"),
+    /selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free/,
+    "proof-aware scanner-output entry must borrow proofs and must not free the proof table",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_result"),
     [
         "field::get_ref scanner_output \"public_declarations\"",
@@ -263,11 +295,46 @@ assertOrdered(
     ],
     "generic from_scanner_output_result must keep public surface normalization/hash order and pass connectors only to the generic-aware materializer",
 );
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_and_private_effect_proofs_result"),
+    [
+        "field::get_ref scanner_output \"public_declarations\"",
+        "selfhost_memo_trait_public_surface_normalizer_partial_input_items_result graph dependencies reexports public_declarations",
+        "Result::Ok partial_items:",
+        "selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result seed_table &partial_items",
+        "Result::Ok public_surface_hash:",
+        "field::get_ref scanner_output \"operation_records\"",
+        "selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_and_private_effect_proofs_result module body_module_fingerprint operation_records connectors proofs",
+        "Result::Ok operation_impls:",
+        "v::free partial_items",
+        "Result::Ok SelfhostMemoTraitPublicImplSurfaceState public_surface_hash operation_impls",
+        "Result::Err materializer_error:",
+        "v::free partial_items",
+        "OperationMaterializerRejected materializer_error",
+        "Result::Err hash_error:",
+        "v::free partial_items",
+        "PublicSurfaceHashRejected hash_error",
+        "Result::Err normalizer_error:",
+        "PublicSurfaceNormalizerRejected normalizer_error",
+    ],
+    "generic+proof scanner-output entry must keep normalizer/hash order, pass connectors and proofs only to materializer, and free partial items on all downstream exits",
+);
+assert.doesNotMatch(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_and_private_effect_proofs_result"),
+    /selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free|selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_free|generic_materializer_connector_input_table_free/,
+    "generic+proof scanner-output entry must borrow proofs/connectors and must not free those tables",
+);
 assert.ok(
     source.includes("scanner output と generic connector input から surface state owner") &&
         source.includes("public surface hash は connector input を材料にしません") &&
         source.includes("raw connector evidence table を受け取りません"),
     "generic scanner-output entry must document that connector input is not public-surface-hash authority and raw final evidence is not accepted",
+);
+assert.ok(
+    source.includes("scanner output と private-effect proof table から surface state owner") &&
+        source.includes("public surface hash は proof table を材料にしません") &&
+        source.includes("proof table は operation materializer へだけ渡します"),
+    "proof-aware scanner-output entry must document that proof table is not public-surface-hash authority",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_ast_records_result"),
@@ -282,6 +349,23 @@ assertOrdered(
     "from_ast_records_result must close scanner output after downstream success or rejection and must not continue after scanner rejection",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_ast_records_with_private_effect_proofs_result"),
+    [
+        "selfhost_memo_trait_public_impl_scanner_result ast records",
+        "Result::Ok scanner_output:",
+        "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_private_effect_proofs_result module body_module_fingerprint graph dependencies reexports seed_table &scanner_output proofs",
+        "selfhost_memo_trait_public_impl_scanner_output_free scanner_output",
+        "Result::Err scanner_error:",
+        "ScannerRejected scanner_error",
+    ],
+    "proof-aware from_ast_records_result must close scanner output after downstream success or rejection and must not continue after scanner rejection",
+);
+assert.doesNotMatch(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_ast_records_with_private_effect_proofs_result"),
+    /selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free/,
+    "proof-aware AST-records entry must borrow proofs and must not free the proof table",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_connectors_result"),
     [
         "selfhost_memo_trait_public_impl_scanner_result ast records",
@@ -292,6 +376,28 @@ assertOrdered(
         "ScannerRejected scanner_error",
     ],
     "generic from_ast_records_result must close scanner output after downstream success or rejection and must not continue after scanner rejection",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_connectors_and_private_effect_proofs_result"),
+    [
+        "selfhost_memo_trait_public_impl_scanner_result ast records",
+        "Result::Ok scanner_output:",
+        "selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_and_private_effect_proofs_result module body_module_fingerprint graph dependencies reexports seed_table &scanner_output connectors proofs",
+        "selfhost_memo_trait_public_impl_scanner_output_free scanner_output",
+        "Result::Err scanner_error:",
+        "ScannerRejected scanner_error",
+    ],
+    "generic+proof from_ast_records_result must close scanner output after downstream success or rejection and must not continue after scanner rejection",
+);
+assert.doesNotMatch(
+    functionBlock(source, "selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_connectors_and_private_effect_proofs_result"),
+    /selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free|selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_free|generic_materializer_connector_input_table_free/,
+    "generic+proof AST-records entry must borrow proofs/connectors and must not free those tables",
+);
+assert.doesNotMatch(
+    code,
+    /selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_with_private_effect_proofs_result|selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result/,
+    "orchestrator must not call candidate builder APIs directly; it must route through operation materializer",
 );
 assertOrdered(
     source,
