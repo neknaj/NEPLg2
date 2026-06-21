@@ -79611,3 +79611,23 @@ MERGE_APPROVED
 - Hilbert initial implementation review は `REVIEW_CHANGES_REQUESTED`。code 本体の blocker はなく、新規 `stdlib/alloc/gui/render2d/compositor_batch_drain.nepl` / `tests/stdlib/gui_render2d_compositor_batch_drain.n.md` が未 tracking のまま commit される危険と、この note の review status 未反映が blocker だったため、明示 staging と note 更新で対応する。
 - Hilbert follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 10 files のみで、新規 module / focused doctest が含まれ、F5ma implementation contract と docs / source policy に commit-blocking finding は無い。
 - F5ma 後続は row batch range / row byte storage / tile / RLE と std present への payload transport / present continuation に分ける。
+
+## 2026-06-22 selfhost memo_call backend body HIR child traversal checkpoint
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReader` の HIR body reader を root-only payload classification から、`Block` / `If` child range と `Call.args` を bounded depth-first に読む traversal へ進めた。
+- `Unit` は neutral leaf とし、body 全体で problem source が 0 件だった場合だけ finalizer が wrapper representative の `PrivateCacheStoragePlace` + `CloneOutOwnedValueEdge` を 1 回だけ追加する。`Block(Unit, PrivateCache call)` は wrapper 2 件ではなく private-effect problem source 1 件になる。
+- problem source の operation ordinal は source table 長から決め、traversal order で一意にした。wrapper source は clean result の 0 / 1 ordinal pair のまま維持する。
+- body reader 専用 error として `ActualWalkerTraversalBodyChildRangeInvalid`、`ActualWalkerTraversalBodyChildReadFailed`、`ActualWalkerTraversalBodyFuelExhausted` を追加し、availability error との往復変換にも保持した。missing expr は従来通り `ActualWalkerTraversalBodyReadFailed` に残す。
+- source table owner は traversal failure で `actual_traversal_body_reader_fail_with_sources` が 1 回だけ閉じる。source push failure は既存 push helper の cleanup に任せ、append helper では二重 free しない contract にした。
+- stage0 summary に `hir_body_block_unit_source_count` と `hir_body_block_private_cache_effect_source_count` を追加し、clean block は wrapper 2 件、problem を含む block は wrapper を混ぜず 1 件であることを smoke にした。
+- Curie の plan review は `PLAN_CHANGES_REQUESTED`。required 指摘は `Unit` neutral leaf と final wrapper append、body-reader-specific failure taxonomy、source table owner の単一 cleanup、deterministic ordinal だった。今回の実装で対応した。
+- この checkpoint は full Resource IR traversal、fresh-region witness table、Resource proof / GraphInput、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key を作らない。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md`、`nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を今回の child traversal contract に合わせて更新した。plan.md との差異はない。
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-hir-child-traversal.json`。17/17。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_body_hir_child_traversal.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。

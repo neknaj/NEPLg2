@@ -977,6 +977,9 @@ assertOrdered(
         "ActualTraversalBodyInputKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputGraphMismatch %i32",
         "ActualWalkerTraversalBodyReadFailed %i32",
+        "ActualWalkerTraversalBodyChildRangeInvalid %SelfhostHirRangeBuildError",
+        "ActualWalkerTraversalBodyChildReadFailed %i32",
+        "ActualWalkerTraversalBodyFuelExhausted %i32",
         "ActualWalkerTraversalPlaceReadFailed %i32",
         "ActualWalkerTraversalEdgeReadFailed %i32",
         "ActualWalkerTraversalUnsupportedReadFailed %i32",
@@ -2387,6 +2390,12 @@ assertOrdered(
         "ActualTraversalBodyInputUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodySourceTableAllocFailed %StdErrorKind",
+        "ActualTraversalBodySourcePushFailed %StdErrorKind",
+        "ActualTraversalBodySourceReadFailed %i32",
+        "ActualTraversalBodyChildRangeInvalid %SelfhostHirRangeBuildError",
+        "ActualTraversalBodyChildReadFailed %i32",
+        "ActualTraversalBodyFuelExhausted %i32",
         "ActualTraversalBodyResolutionTableAllocFailed %StdErrorKind",
         "ActualTraversalBodyResolutionPushFailed %StdErrorKind",
         "ActualTraversalBodyResolutionReadFailed %i32",
@@ -2663,13 +2672,26 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result"),
     [
-        "selfhost_hir_module_get_expr module body_root",
-        "Option::Some expr:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result context expr",
-        "Option::None:",
-        "ActualWalkerTraversalBodyReadFailed selfhost_hir_expr_id_index body_root",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
+        "Result::Ok sources0:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources0 body_root 64",
+        "Result::Ok sources1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result sources1 context",
     ],
-    "HIR body reader must read the resolver-provided body root from the module instead of reusing the request root or falling back to wrapper sources",
+    "HIR body reader root helper must allocate one source table, traverse the resolver-provided body root, and finalize wrapper sources only after traversal",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result"),
+    [
+        "le fuel 0",
+        "ActualWalkerTraversalBodyFuelExhausted idx",
+        "selfhost_hir_module_get_expr module expr_id",
+        "Option::Some expr:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context sources expr fuel",
+        "Option::None:",
+        "ActualWalkerTraversalBodyReadFailed idx",
+    ],
+    "HIR body expr-id traversal must use module get_expr authority and keep fuel exhaustion distinct from missing expression reads",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result"),
@@ -2678,24 +2700,70 @@ assertOrdered(
         "SelfhostHirExprPayload::Error:",
         "UnsupportedTraversalSource",
         "SelfhostHirExprPayload::Unit:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result context",
+        "Result::Ok sources",
         "SelfhostHirExprPayload::FnValue _identity:",
         "FunctionIdentityObservation",
         "SelfhostHirExprPayload::MemoizedFunctionValue _identity:",
         "FunctionIdentityObservation",
         "SelfhostHirExprPayload::Call call:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind call",
-        "SelfhostHirExprPayload::Block _children:",
-        "UnsupportedTraversalSource",
-        "SelfhostHirExprPayload::If _branches:",
-        "UnsupportedTraversalSource",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context sources call fuel",
+        "SelfhostHirExprPayload::Block children:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources children fuel",
+        "SelfhostHirExprPayload::If branches:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources branches fuel",
     ],
-    "HIR body reader must classify the typed SelfhostHirExprPayload directly and keep the Unit wrapper representative separate from unsupported and identity-observation paths",
+    "HIR body reader must classify typed payloads directly, treat Unit as a neutral leaf, and recurse through Call args, Block children, and If branches",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result")),
     /selfhost_hir_expr_kind|call\.name|span|diagnostic|source_text|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "HIR body source classification must not use lossy expr-kind tags, display names, spans, diagnostics, or synthesize proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind call",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context source_kind",
+        "Result::Ok sources1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources1 call.args fuel",
+    ],
+    "HIR call source traversal must emit the typed effect source before traversing argument children",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_validate_child_range_result"),
+    [
+        "selfhost_hir_child_range_first children",
+        "selfhost_hir_child_range_count children",
+        "selfhost_hir_module_child_len module",
+        "selfhost_hir_child_range_new_bounded_result first_child child_count child_table_len",
+        "ActualWalkerTraversalBodyChildRangeInvalid e",
+    ],
+    "HIR body child range validation must preserve range build errors instead of collapsing them into unsupported sources",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result"),
+    [
+        "ge idx n",
+        "le fuel 0",
+        "ActualWalkerTraversalBodyFuelExhausted idx",
+        "selfhost_hir_module_get_child module children idx",
+        "Option::Some child_expr_id:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources child_expr_id child_fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_sources children add idx 1 n fuel",
+        "Option::None:",
+        "ActualWalkerTraversalBodyChildReadFailed idx",
+    ],
+    "HIR body child traversal must read child ids through the module child table, recurse in order, and keep child read and fuel failures typed",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
+        "eq source_count 0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources context",
+        "Result::Ok sources",
+    ],
+    "HIR body source finalizer must append wrapper sources only when traversal emitted no problem source",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind"),
@@ -3104,6 +3172,12 @@ assertOrdered(
         "ActualTraversalBodyInputUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodySourceTableAllocFailed %StdErrorKind",
+        "ActualTraversalBodySourcePushFailed %StdErrorKind",
+        "ActualTraversalBodySourceReadFailed %i32",
+        "ActualTraversalBodyChildRangeInvalid %SelfhostHirRangeBuildError",
+        "ActualTraversalBodyChildReadFailed %i32",
+        "ActualTraversalBodyFuelExhausted %i32",
         "ActualTraversalBodyResolutionTableAllocFailed %StdErrorKind",
         "ActualTraversalBodyResolutionPushFailed %StdErrorKind",
         "ActualTraversalBodyResolutionReadFailed %i32",
@@ -3277,15 +3351,36 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
-        "WrapperPrivateCacheStorage",
-        "WrapperCloneOutOwnedValue",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources0 context",
     ],
-    "production reader policy source helper must build only the accepted wrapper body default source pair from a rechecked context",
+    "production reader policy source helper must allocate a source table and delegate accepted wrapper pair creation to the wrapper append helper",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result"),
+    [
+        "sources context 0 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperPrivateCacheStorage",
+        "Result::Ok sources1:",
+        "sources1 context 1 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperCloneOutOwnedValue",
+    ],
+    "HIR body reader wrapper append helper must build exactly the accepted wrapper source pair with ordinals 0 and 1",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result")),
     /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "production reader policy source helper must not synthesize lower proof tables, backend bytes, effect masks, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Err error",
+    ],
+    "HIR body reader must close the source table exactly at non-push traversal failure boundaries",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result")),
+    /fail_with_sources|traversal_source_table_free/,
+    "HIR body reader source append helper must rely on source table push cleanup and must not double-free on push failure",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error"),
@@ -3332,6 +3427,12 @@ assertOrdered(
         "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalSourcePushFailed e",
         "ActualTraversalBodySourceReadFailed idx",
         "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalSourceReadFailed idx",
+        "ActualTraversalBodyChildRangeInvalid range_error",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyChildRangeInvalid range_error",
+        "ActualTraversalBodyChildReadFailed idx",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyChildReadFailed idx",
+        "ActualTraversalBodyFuelExhausted idx",
+        "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyFuelExhausted idx",
         "ActualTraversalBodyOperationTableAllocFailed e",
         "ActualWalkerEventProducerBridgeErrorKind::ActualWalkerOperationTableAllocFailed e",
         "ActualTraversalBodyOperationPushFailed e",
@@ -3650,6 +3751,8 @@ assertOrdered(
         "reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "hir_body_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "hir_body_function_identity_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "hir_body_block_unit_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "hir_body_block_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -3691,6 +3794,10 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_call_effect_result 77 SelfhostEffectKind::PrivateCache",
         "hir_body_function_identity_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_fn_value_result 77",
+        "hir_body_block_unit_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_block_unit_result 77",
+        "hir_body_block_private_cache_effect_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_block_private_cache_call_result 77",
         "reader_context_available_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 0",
         "reader_context_key_mismatch_rejected",

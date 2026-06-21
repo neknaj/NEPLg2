@@ -3004,6 +3004,16 @@ resolver は source text、span、display name、diagnostic、HIR arena id の�
 
 この checkpoint は fresh region witness、proof table、GraphInput、effect mask、backend bytes、sealed representation、artifact key を作らない。private effect や identity observation source は accepted wrapper source に混ぜず、既存の context-bound source validation、source-to-operation projection、classifier / normalizer、source-derived witness 境界で fail-closed に扱う。次は full Resource IR / HIR traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行し、PrivateCache / PrivateState effect masking と sealed backend representation へ同じ body identity を渡す。
 
+## 2026-06-22 selfhost memo_call backend body HIR child traversal checkpoint
+
+body HIR reader は root-only payload 分類から、`Block` / `If` の child range と `Call.args` を bounded depth-first に走査する形へ進めた。child range は `selfhost_hir_child_range_new_bounded_result` と module child table 長で検査し、child id は `selfhost_hir_module_get_child`、expression は `selfhost_hir_module_get_expr` だけを authority にする。`Unit` は neutral leaf とし、traversal 全体で problem source が 0 件だった場合だけ finalizer が wrapper representative の `PrivateCacheStoragePlace` + `CloneOutOwnedValueEdge` source pair を 1 回だけ追加する。
+
+problem source がある場合、wrapper source は混ぜない。`PrivateCache` / `PrivateState` call effect、function identity observation、unsupported literal / var / ordinary call は traversal order の unique ordinal で source table に残る。`Block(Unit, PrivateCache call)` のような body は wrapper accepted source 2 件ではなく private-effect problem source 1 件として fail-closed に進む。
+
+body reader failure は source kind へ潰さない。missing expr は `ActualWalkerTraversalBodyReadFailed`、invalid child range は `ActualWalkerTraversalBodyChildRangeInvalid`、child id read failure は `ActualWalkerTraversalBodyChildReadFailed`、fuel exhaustion は `ActualWalkerTraversalBodyFuelExhausted` として public bridge error と availability error の往復変換に残す。source table owner は traversal failure で 1 回だけ閉じ、source push failure は既存 push helper の owner cleanup に任せる。
+
+この checkpoint も full Resource IR traversal ではない。fresh-region witness table、Resource proof / GraphInput、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key は作らない。次は lowering / Resource IR 由来の accepted / escaping / observation / unsupported source と fresh witness を同じ body identity から発行し、mask orchestration と sealed backend representation へ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
