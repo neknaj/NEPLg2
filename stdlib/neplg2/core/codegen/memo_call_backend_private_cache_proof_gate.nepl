@@ -12683,20 +12683,86 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
             let bridge %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected bridge
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result: classifier split output を source-derived witness bundle へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - per-context operation classifier が作った split output を collector-owned source table に戻し、その source table 由来 candidate から fresh witness owner を作ります。
+//:
+//: [契約/けいやく]:
+//: - walker input と observation table はこの helper が必ず閉じます。
+//: - collector output source table は request context と再照合してから source-derived witness helper へ渡します。
+//: - source table 作成または context validation の失敗だけ `Stage0SourceRejected` に写します。candidate / witness 以降の typed rejection は包み直しません。
+//: - external witness metadata、stage0 witness fixture、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context\output:
+    let input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get output "walker_input"
+    let observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable field::get output "observations"
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result &input &observations:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+                Result::Ok _valid:
+                    selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result: body reader source を operation-classified bundle へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - request context 由来 source table を operation table、context-owned unified event stream、split output、collector-owned source table の順に通してから fresh witness bundle を作ります。
+//:
+//: [契約/けいやく]:
+//: - source table owner は operation table 投影後、成功・失敗のどちらでもこの helper が閉じます。
+//: - operation table owner は event table build 後、成功・失敗のどちらでもこの helper が閉じます。
+//: - event table owner は split helper が成功・失敗のどちらでも閉じます。
+//: - source table / operation table / event table / split output を public API に出しません。GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context\sources:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+        Result::Ok _valid:
+            let operations_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            match operations_result:
+                Result::Ok operations:
+                    let output_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations:
+                        Result::Ok events:
+                            match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+                                Result::Ok output:
+                                    Result::Ok output
+                                Result::Err e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+                    match output_result:
+                        Result::Ok output:
+                            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result: body reader source と fresh witness を bundle に[束/たば]ねる
 //:
 //: [目的/もくてき]:
-//: - resolver-bound body reader が作る request-local source table を、同じ body identity 由来の fresh witness owner と同じ bundle boundary で返します。
+//: - resolver-bound body reader が作る request-local source table を、operation-classified collector path と source-derived fresh witness owner に通して同じ bundle boundary で返します。
 //:
 //: [契約/けいやく]:
 //: - source table 化は `actual_traversal_body_adapter_sources_from_request_context_result` を通し、request context / resolver / HIR body reader の authority を再利用します。
-//: - source validation に成功した後だけ source-derived witness helper へ進みます。candidate extraction や witness 作成に失敗した場合は、その helper が source owner を閉じます。
-//: - この helper は full Resource IR traversal 完了を意味しません。現 checkpoint では HIR body reader source plan 由来の bundle producer boundary を固定します。
-//: - availability/output roundtrip、input-owner adapter、external witness metadata、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
+//: - source validation に成功した後だけ source-to-operation projection、context-owned classifier event stream、split、collector、source-derived witness helper へ進みます。
+//: - この helper は full Resource IR traversal 完了を意味しません。現 checkpoint では HIR body reader source plan を operation-classified bundle producer boundary へ収束させます。
+//: - availability/output roundtrip、input-owner adapter、external witness metadata、stage0 witness fixture、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\context\resolutions:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions:
         Result::Ok sources:
-            selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result context sources
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 

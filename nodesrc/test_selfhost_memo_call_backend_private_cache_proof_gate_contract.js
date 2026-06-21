@@ -2592,16 +2592,58 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
         "Result::Ok sources:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result context sources",
         "Result::Err e:",
         "Stage0SourceRejected e",
     ],
-    "actual body reader bundle producer must derive source owners from request context and then derive the fresh witness owner from that source candidate",
+    "actual body reader bundle producer must derive source owners from request context and then pass them through the per-context operation-classified bundle producer",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result")),
-    /actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
-    "actual body reader bundle producer must not roundtrip through availability/output owners, use input-owner adapters, inject witness metadata, call fixture witness helper, or synthesize proof/backend/effect/artifact records",
+    /actual_traversal_bundle_source_derived_witness_result sources|actual_traversal_body_reader_availability_from_seed_result|actual_traversal_body_adapter_input_availability_from_request_context_result|context_bound_reader_traversal_bundle_from_availability_result|context_bound_reader_traversal_bundle_from_output_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_bundle_stage0_with_sources_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual body reader bundle producer must not bypass the operation-classified collector path, roundtrip through availability/output owners, inject witness metadata, call fixture witness helper, or synthesize proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_operations_from_sources_result &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Ok operations:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result context &operations",
+        "Result::Ok events:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
+        "Result::Ok output:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result context output",
+    ],
+    "actual body reader context-source bundle helper must validate sources, project them to operations, build context-owned events, split the events, close operation owner, and only then build the bundle from split output",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result")),
+    /actual_traversal_bundle_source_derived_witness_result sources|actual_traversal_bundle_stage0_with_sources_result|actual_walker_operation_classifier_events_from_hir_root_result|request_table_from_hir_root|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheRegionFreshWitnessCandidateAccepted|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual body reader context-source bundle helper must not use root-wide classifier, direct witness derivation, fixture witness metadata, or lower proof/backend/effect/artifact synthesis",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result &input &observations",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
+        "Result::Ok _valid:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Stage0SourceRejected e",
+    ],
+    "actual body reader split-output bundle helper must collect split owners into sources, close split owners, revalidate context, and only then derive witness from collector sources",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result")),
+    /actual_traversal_bundle_stage0_with_sources_result|region_fresh_witness_stage0_table_result|witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|PrivateCacheRegionFreshWitnessCandidateAccepted|PrivateCacheNoEscapeProven|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual body reader split-output bundle helper must not use fixture witness metadata or synthesize lower proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result"),
