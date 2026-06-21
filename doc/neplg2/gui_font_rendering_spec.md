@@ -6789,6 +6789,56 @@ alpha Vec copy
 2D compositor drain
 ```
 
+### SFNT simple glyph render shadow source prepared command boundary
+
+F5lu は F5lt の registered resource owner を消費し、`RenderCommand::AlphaMaskRect` を作るための metadata を再検証したうえで、resource owner と command を同じ prepared owner に閉じ込める内部 alloc/font 境界である。この phase は command stream emission ではない。`RenderCommand` は Copy value なので、raw command を accessor や任意 callback で外へ出すと resource owner を失った dangling `AlphaMaskId` command を作れる。したがって F5lu は raw command escape を禁止する。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner:
+    resource GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+    command RenderCommand
+
+GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError:
+    kind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind
+    resource GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+    order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+```
+
+prepare は次の順で実行する。
+
+```text
+1. registered resource の stored record を読む
+2. AlphaMaskId.raw <= 0 を InvalidMaskId として拒否する
+3. internal reservation から expected record を再導出する
+4. F5lp invariant failure は CompositionOrderInvariantFailed と lower order_error を保持する
+5. F5ls storage / SourceOver / rect / paint / order metadata の不一致を typed error にする
+6. stored record と expected record の mask id、rect、paint、width、height、cell count、alpha max、shadow_order、source_order を比較する
+7. 一致した場合だけ render_command_alpha_mask_rect を呼ぶ
+8. 返った RenderCommand は prepared owner の内部に保存する
+```
+
+prepared owner は `RenderCommand` を返す accessor、borrow accessor、または arbitrary callback helper を持たない。command は後続の formal transport / drain owner が resource lifetime と command lifetime を同時に所有する境界でだけ消費する。error path も command を保持せず、registered resource owner と lower `order_error` evidence を typed error から回収または free できる形にする。
+
+F5lu は次を呼ばない。
+
+```text
+render_command_fill_rect
+F5lq cursor start / read / step
+F5lr sample command bridge
+resource table lookup / registration / push
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+shadow rasterizer
+software surface
+owner-bearing Vec payload
+alpha Vec copy
+tile / bitmap transport
+2D compositor drain
+```
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

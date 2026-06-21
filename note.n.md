@@ -76949,3 +76949,28 @@ MERGE_APPROVED
 - pass with LF/CRLF warnings only: `git diff --check`
 - Tesla の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lt 後続は shadow source prepared command、2D compositor drain に分ける。
+
+## 2026-06-22 Agent2 GUI font rendering F5lu shadow source prepared command boundary
+
+- F5lu では、F5lt registered resource owner を消費して `RenderCommand::AlphaMaskRect` を作るが、raw `RenderCommand` を accessor / borrow / arbitrary callback で外へ出さず、registered resource owner と同じ prepared owner に閉じ込める内部境界を追加中。
+- Maxwell の plan review は `PLAN_APPROVED`。F5lt record derivation を再利用して stored record と expected record を比較し、lower F5lp `order_error` を F5lu owner-bearing error に保持する方針で承認された。
+- `GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner` は registered resource owner と command を保持し、Clone / Copy を実装しない。公開するのは stored record metadata accessor と free helper だけに限定する。
+- prepare は `AlphaMaskId.raw > 0`、F5lt/F5ls/F5lp 再検証、stored/expected record の mask id / rect / paint / width / height / cell_count / alpha_max / shadow_order / source_order 一致を確認し、一致後だけ `render_command_alpha_mask_rect` を呼ぶ。
+- error path は command を保持せず、registered resource owner と optional lower `order_error` を owner-bearing error / rejected owner から回収または free できる形にした。`DuplicateMaskId` と `TablePushFailed` は prepare では起きない table mutation state として `UnexpectedTableRegisterState` に写像する。
+- この checkpoint は command stream emission、formal transport / drain owner、F5lq cursor、F5lr sample command bridge、resource table lookup / register / push、platform / host / backend API、font fallback、zero-fill fallback、shadow rasterizer、software surface、2D compositor drain を扱わない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest、`todo.md` を F5lu contract へ更新した。
+- `plan.md` との差異はない。plan.md の前置記法と stdlib 方針に沿って、F5lt の metadata-only table 後続として dangling `AlphaMaskId` command を防ぐ owner/lifetime 境界だけを切り出した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_prepared_command_f5lu.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_table.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_table_f5lu_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_f5lu_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_command_bridge_f5lu_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lu_regression.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lu.json -j 1`。1333/1333 passed。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5lu_regression.json -j 1`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lu.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- pass with LF/CRLF warnings only: `git diff --check`
+- Tesla の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5lu 後続は shadow source formal transport / drain owner、2D compositor drain に分ける。

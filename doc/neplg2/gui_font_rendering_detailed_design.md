@@ -8042,6 +8042,47 @@ Success and failure recovery use paired continuations. Success passes the update
 
 F5lt must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, shadow rasterizers, software surfaces, alpha Vec copy helpers, owner-bearing Vec payload storage, or a 2D compositor drain.
 
+## SFNT simple glyph render shadow source prepared command boundary
+
+F5lu consumes the F5lt registered resource owner and prepares the `RenderCommand::AlphaMaskRect` value that will later be consumed by a formal transport or compositor drain owner. This is not command stream emission. The command is a Copy value, so exposing it through an accessor or arbitrary callback would allow callers to keep the command after dropping the registered resource owner. That would reintroduce a dangling `AlphaMaskId` command.
+
+The prepared owner is private:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner:
+    resource GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+    command RenderCommand
+```
+
+It exposes metadata through the stored record only. It must not expose the raw `RenderCommand`, a borrowed command, or a callback that receives the command.
+
+Preparation is a revalidation boundary:
+
+```text
+read stored record from registered resource
+reject AlphaMaskId.raw <= 0 before command construction
+borrow the internal F5ls reservation
+derive expected record through F5lt record_from_reservation
+map F5lt/F5ls/F5lp failures to F5lu prepared-command errors
+preserve lower F5lp order_error when record derivation fails at CompositionOrderInvariantFailed
+compare stored and expected record fields including shadow_order and source_order
+call render_command_alpha_mask_rect only after record equality succeeds
+store the command inside the prepared owner
+```
+
+The prepared error owns the registered resource owner and preserves optional lower F5lp order evidence:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError:
+    kind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind
+    resource GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+    order_error Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+```
+
+`DuplicateMaskId` and `TablePushFailed` are table-mutation states and should not arise during prepare; if they are observed through shared mapping code, F5lu reports `UnexpectedTableRegisterState`. Error recovery returns the registered resource owner only. No command exists on the error path.
+
+F5lu must not call `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, resource table lookup/register/push, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, shadow rasterizers, software surfaces, alpha Vec copy helpers, owner-bearing Vec payload storage, tile / bitmap transport, or a 2D compositor drain. It may call `render_command_alpha_mask_rect` only in the validated success path and only to store the command inside the prepared owner.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
