@@ -44,6 +44,53 @@
 
 - F5me 後続として、RLE と std present への payload transport / present continuation を別 boundary として進める。
 
+# 2026-06-22 selfhost memo_call backend context-owned body source bundle rejection checkpoint
+
+## 目的
+
+- context-owned traversal bundle stage0 を body-expr 共有 runner に寄せ、accepted Unit body と problem body を同じ resolver / source-derived witness path へ通す。
+- HIR body の `PrivateCache` effect source、`FnValue` observation source、`MemoizedFunctionValue` observation source が accepted wrapper source に混ざらず、source-derived witness/candidate path で typed rejection になることを確認する。
+- external witness metadata、seed availability、output roundtrip、GraphInput、proof / backend / effect / artifact 合成へ戻らない。
+
+## subagent review
+
+- Archimedes plan review は `PLAN_APPROVED`。
+- shared body-expr runner を作り、neutral accepted runner からも problem body smoke からも同じ request table / reader context / resolver / context-owned bundle helper / request-evidence gate を使う方針が承認された。
+- HIR body problem source は source count smoke ではなく、`RegionProofUnsupported` / `RegionProofObservationRejected` の typed variant と expected proof key で確認するよう指摘された。
+
+## 実装
+
+- `selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_with_body_expr_result` を追加し、stage0 module の root expr id 0 と resolver-provided body expr id 1 を分けて処理するようにした。
+- neutral Unit accepted runner は shared body-expr runner へ委譲する形にした。
+- problem-body projection helper を追加し、`PrivateCache` call body、`FnValue` body、`MemoizedFunctionValue` body を context-owned bundle path へ渡すようにした。
+- stage0 summary に `hir_body_private_cache_effect_rejected`、`hir_body_fn_value_observation_rejected`、`hir_body_memoized_function_value_observation_rejected` を追加した。
+- doctest 用に region proof unsupported / observation result predicate を追加し、doctest harness の batch stack overflow を避けつつ typed variant と proof key を確認するようにした。
+- contract test と `doc/neplg2/self_host_neplg21_compiler_design.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-context-owned-body-source-bundle.json`。17/17。
+- checked: `--batch-size 1` でも同 doctest は 17/17。標準 batch の stack overflow は doctest helper 肥大が原因だったため、helper を library predicate に寄せて解消した。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_context_body_source_bundle.json`
+- checked JSON: `output/playground_editor_selfhost_context_body_source_bundle.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- pass after `git pull --rebase origin main`: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after `git pull --rebase origin main`: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-context-owned-body-source-bundle-after-rebase.json`。17/17。
+- pass after `git pull --rebase origin main`: `node nodesrc/issues.js check --dir issues`
+- pass after `git pull --rebase origin main`: `git diff --check`
+- pass after `git pull --rebase origin main`: `trunk build`
+- pass after `git pull --rebase origin main`: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_context_body_source_bundle_after_rebase.json`
+- checked JSON after `git pull --rebase origin main`: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 未接続
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、backend bytes、`.neplobj` / `.neplproof` stable key projection。
+
 # 2026-06-22 GUI render2d F5md compositor tile plan bridge checkpoint
 
 ## 目的
