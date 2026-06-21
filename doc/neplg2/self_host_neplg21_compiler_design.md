@@ -3036,9 +3036,17 @@ context-owned traversal bundle stage0 は、accepted `Unit` body と problem bod
 
 source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、shared body-expr runner、neutral accepted runner、problem-body i32 projection、stage0 の private effect / function identity rejection、seed / availability rejection との分離を固定する。`actual_traversal_bundle_stage0_with_sources_result`、availability/output roundtrip、input-owner adapter、external witness metadata、proof / backend / effect / artifact 合成へ戻らないことも検査する。
 
+## 2026-06-22 selfhost memo_call backend actual body reader bundle producer checkpoint
+
+`actual_traversal_body_reader_bundle_from_request_context_result` を追加し、resolver-bound body reader が作る request-local source table と、その source table から導出した fresh witness owner を同じ body reader bundle producer boundary で返すようにした。source table 化は `actual_traversal_body_adapter_sources_from_request_context_result` に限定し、成功した場合だけ `actual_traversal_bundle_source_derived_witness_result` へ進む。source helper の失敗だけを `Stage0SourceRejected` に写し、`RegionProofUnsupported` / `RegionProofObservationRejected` / `RegionProofMayEscape` など source-derived witness 以降の typed rejection は包み直さず返す。
+
+`context_bound_reader_traversal_bundle_from_context_result` はこの body reader bundle producer へ委譲するだけに寄せた。これにより、context-bound facade が source table / witness table の生成順序を重複実装せず、後続で full Resource IR / HIR lowering traversal producer へ差し替える位置が `actual_traversal_body_reader_*` 側にまとまる。stage0 summary は `actual_body_reader_bundle_accepted_proof_count` を公開し、context-bound facade を通さない direct body-reader bundle producer が accepted source と source-derived witness を request-evidence gate へ渡せることを確認する。
+
+この checkpoint も full Resource IR traversal、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key を作らない。固定したのは body reader source + fresh witness bundle producer boundary の ownership と error taxonomy であり、次はこの boundary の source producer を real traversal 由来の accepted / escaping / observation / unsupported source と fresh witness producer に置き換える。
+
 残件:
 
-- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。HIR body problem source は context-owned source-derived witness/candidate bundle rejection path まで接続済みなので、次は実 traversal の accepted source と witness producer を同じ body identity で置き換える。
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。HIR body problem source と body reader bundle producer boundary は context-owned source-derived witness/candidate bundle path まで接続済みなので、次は実 traversal の accepted source と witness producer を同じ body identity で置き換える。
 - event producer convergence で揃えた source / operation authority を、private-effect graph scanner / collector / materializer / proof producer と request-evidence bridge の両方へ同じ body identity で渡す。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
