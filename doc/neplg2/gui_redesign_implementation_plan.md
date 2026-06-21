@@ -3146,3 +3146,42 @@ Phase F5kl では、X11 core protocol の `GetKeyboardMapping` request bytes と
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で GetKeyboardMapping owner、raw keysym preservation、no event decode / no keymap / no fallback scope creep が承認される。
+
+## Phase F5km: Native Linux X11 setup-owned keyboard mapping request boundary
+
+Phase F5km では、X11 setup success response の `min-keycode` / `max-keycode` を setup resource info として保持し、その範囲から F5kl の `GetKeyboardMapping` request owner を導出する。これは protocol setup owner から request owner への純粋な変換であり、reader state、fd IO、reply correlation、keymap selection へは進まない。
+
+実装:
+
+- `NativeWindowLinuxX11SetupResourceInfo` に `min_keycode` / `max_keycode` を追加し、read-only accessor を公開する。
+- setup success body parser は offset 26 / 27 を読み、`min_keycode < 8` と `max_keycode < min_keycode` を typed parse error として拒否する。
+- `NativeWindowLinuxX11SetupKeyboardMappingRequest` を追加し、setup-owned range と F5kl `NativeWindowLinuxX11GetKeyboardMappingRequest` を同時に保持する。
+- `keycode_count = max - min + 1` は `u16` へ拡張して `checked_sub` / `checked_add` / `u8::try_from` で計算し、`wrapping_*`、`saturating_*`、unchecked `as u8` は使わない。
+- request bytes の最終 encoding は F5kl の `native_window_linux_x11_get_keyboard_mapping_request` に委譲し、F5kl に setup range validation を戻さない。
+- source-policy は setup parser の offset / validation、F5km helper の checked arithmetic と F5kl builder delegation、event decode / reader / fd IO / reply / pending keymap / keymap selection / IME / text input / runner / queue / fallback 非接続を検査する。
+
+非目標:
+
+- `NativeWindowLinuxX11EventSourceObservationReader` の state へは接続しない。
+- raw fd write / read、request sequence plan、reply correlation、pending keymap state は含めない。
+- raw keysyms から `NativeWindowPortableKey` へ projection しない。
+- keycode からどの keysym を選ぶか、modifier state と group / level をどう扱うかは決めない。
+- IME composition、text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化は含めない。
+- fallback key、silent no-op、synthetic readiness は行わない。
+
+完了条件:
+
+- setup success body の min/max keycode が `NativeWindowLinuxX11SetupResourceInfo` に保存される。
+- `min_keycode < 8` と `max_keycode < min_keycode` が typed error として test で固定される。
+- setup-owned `GetKeyboardMapping` request が `first-keycode = min-keycode`、`count = max - min + 1` を持つ。
+- event packet decode、reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate `Ok` 化には接続しないことを source-policy で固定する。
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_resource_info -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_keyboard_mapping -- --nocapture`
+- `cargo test -p nepl-gui-native --lib -- --nocapture`
+- `cargo test -p nepl-gui-native --features window --lib -- --nocapture`
+- `cargo check -p nepl-gui-native --target x86_64-unknown-linux-gnu`
+- `node --check nodesrc/test_native_gui_platform_behavior.js`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で setup-owned range validation、checked count derivation、no reader / no event decode / no fallback scope creep が承認される。

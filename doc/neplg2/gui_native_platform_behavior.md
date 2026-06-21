@@ -553,6 +553,8 @@ F5kk では、caller supplied X11 keysym value を `NativeWindowLinuxX11KeysymVa
 
 F5kl では、X11 `GetKeyboardMapping` の request / reply shape を typed owner として扱う。request は opcode `101`、request length `2` words / 8 byte、caller supplied first-keycode / count を保持する。reply は 32 byte header の `keysyms_per_keycode` と length units、および body の raw keysym list を検査し、`length_units * 4` と `keycode_count * keysyms_per_keycode * 4` が一致する場合だけ raw keysym table owner を作る。raw keysyms are not projected to `NativeWindowPortableKey` in F5kl; projection is an explicit later caller phase. F5kl は event packet decode、reader state、fd IO、runner、queue、IME / text input、shortcut policy、fallback、support gate `Ok` 化には接続しない。
 
+F5km では、X11 setup success response body の `min-keycode` / `max-keycode` を `NativeWindowLinuxX11SetupResourceInfo` に保持し、その範囲から F5kl の `GetKeyboardMapping` request owner を導出する。setup parser は `min-keycode < 8` と `max-keycode < min-keycode` を typed error として拒否する。`keycode_count = max - min + 1` は checked arithmetic で求め、unchecked cast や saturating / wrapping 計算を使わない。F5km は setup-owned request derivation boundary であり、reader state、fd IO、reply correlation、pending keymap state、raw keysym selection、portable key projection、event decode、IME / text input、shortcut policy、runner、queue、fallback、support gate `Ok` 化には接続しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
