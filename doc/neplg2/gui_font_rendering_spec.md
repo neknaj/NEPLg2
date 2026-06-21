@@ -6219,15 +6219,36 @@ Miter / Bevel / Round は F5kz では connector geometry にせず、`GuiStrokeJ
 
 F5kz は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
 
+### SFNT simple glyph render stroke join geometry boundary
+
+F5lc は completed F5kz stroke edge closure owner を消費し、scan-ready な stroke join geometry owner を作る境界である。F5lc の direct authority は completed F5kz owner だけであり、F5ba/F5az scalar stream、byte-backed glyph lookup、F5ku metric owner 単独、F5kw cursor/drain、F5kx geometry drain、F5ky side edge drain、F5kz closure drain を再実行しない。
+
+F5lc join geometry owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner:
+    edge_closure_owner GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+    joins Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord
+    join_count i32
+    bevel_join_count i32
+    miter_join_count i32
+```
+
+Bevel join は F5kz join closure record の `from_end -> to_start` connector chord をそのまま保持する。Miter join は隣接する 2 本の line side edge の無限直線交点を miter point とし、`from_end -> miter` と `miter -> to_start` の 2 線分として後続 scan に渡す。miter limit は nested `GuiStroke` の stroke width と F5kz record の `miter_limit` を authority とし、交点が非有限、直線が平行、または miter limit を超える場合は typed bevel record として保持する。miter limit を超える場合は typed bevel record として保持し、通常 bevel と区別できるよう `miter_clipped` evidence を残す。
+
+Round join は arc/chord 分割 policy が未定義なので F5lc start / invariant で fail-closed にする。quadratic side edge も control point offset と subdivision policy が未定義なので F5lc で fail-closed にし、endpoint chord として扱わない。
+
+F5lc は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
+
 ### SFNT simple glyph render stroke coverage mask writer owner boundary
 
-F5la は completed F5kz stroke edge closure owner を消費し、stroke coverage cell writer owner を作る境界である。F5la の direct authority は completed F5kz owner だけであり、F5ba/F5az scalar stream、byte-backed glyph lookup、F5ku metric owner 単独、F5kw cursor/drain、F5kx geometry drain、F5ky side edge drain、F5kz closure drain を再実行しない。
+F5la は completed F5lc stroke join geometry owner を消費し、stroke coverage cell writer owner を作る境界である。F5la の direct authority は completed F5lc owner だけであり、F5ba/F5az scalar stream、byte-backed glyph lookup、F5ku metric owner 単独、F5kw cursor/drain、F5kx geometry drain、F5ky side edge drain、F5kz closure drain、F5lc join geometry drain を再実行しない。
 
 F5la writer owner は次を保持する。
 
 ```text
 GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner:
-    edge_closure_owner GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner
+    join_geometry_owner GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner
     shape GuiSfntSimpleGlyphRasterCoverageShape
     cells Vec i32
     written_cell_count i32
@@ -6235,11 +6256,31 @@ GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner:
 
 F5la completed owner は raw stroke coverage cells が `shape.cell_count` まで完全に埋まった状態だけを保持し、`cell_count` と Vec len/cap が一致することを要求する。`cells` は alpha-packed mask ではなく、sample-scale coverage value の i32 cell buffer である。
 
-F5la start は既存の shared raster coverage config / shape validation helper を再利用するが、fill coverage writer owner を直接呼び出さない。さらに completed F5kz owner について、F5ky side edge invariant、side edge / join / left-right count、join Vec len/cap、`ClosedContourNoCap`、nested stroke style 由来の cap / join / miter policy 一致を再検査する。
+F5la start は既存の shared raster coverage config / shape validation helper を再利用するが、fill coverage writer owner を直接呼び出さない。さらに completed F5lc owner について、nested F5kz closure invariant、quadratic / round fail-closed policy、join geometry Vec len/cap、bevel / miter count 合計を再検査する。
 
-F5la start error は shape validation error、F5kz closure invariant error、Vec storage error を別 payload として保持する。push error は rejected coverage value、owner、lower Vec push failure を保持し、push failure では returned Vec と pre-push `written_cell_count` を復元する。
+F5la start error は shape validation error、F5lc join geometry invariant error、Vec storage error を別 payload として保持する。push error は rejected coverage value、owner、lower Vec push failure を保持し、push failure では returned Vec と pre-push `written_cell_count` を復元する。
 
 F5la は coverage scan conversion、stroke join/cap geometry generation、packed mask conversion、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。packed stroke mask owner の前に、F5la writer を消費する stroke coverage scan converter を別 boundary として挟む。
+
+### SFNT simple glyph render stroke coverage scan converter boundary
+
+F5lb は F5la stroke coverage mask writer owner を消費し、stroke coverage cell を 1 cell ずつ計算して F5la `push_cell` boundary へ渡す scan converter である。F5lb の direct authority は F5la writer だけであり、F5lc completed join geometry owner、F5kz completed closure owner、F5ky side edge owner は writer の内側から読む。F5be fill coverage scan owner / terminal / error を直接再利用せず、F5kx/F5ky/F5kz/F5lc の drain を再実行しない。
+
+F5lb scan owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:
+    writer GuiSfntSimpleGlyphRenderStrokeCoverageMaskWriterOwner
+    cell_index i32
+```
+
+start は F5la writer の shape、cell storage、`written_cell_count == 0` を再検査し、さらに F5lc join geometry invariant を再検査する。quadratic side edge は endpoint chord として扱わず、F5lc invariant または F5lb side-edge read/scan で fail-closed にする。
+
+coverage 計算は sample point に対して line side edge と F5lc join geometry record の交差数を数え、偶奇で inside を決める。F5lc join geometry record の交差数を数え、bevel は `from_end -> to_start` の 1 線分、miter は `from_end -> miter` と `miter -> to_start` の 2 線分として扱う。round join と quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。f32 座標は scan 前に finite を確認し、不正なら typed error にする。
+
+step は 1 cell 分の coverage を計算し、F5la `gui_sfnt_simple_glyph_render_stroke_coverage_mask_writer_owner_push_cell` だけを通して cell を追加する。push failure では returned writer と pre-push `cell_index` を保持する。bounded drain は exact full のときだけ F5la completion を呼び、未完了、budget exhausted、progress invariant failure を typed terminal / error として分ける。
+
+F5lb は packed stroke mask、glyph paint composition、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。round join と quadratic side edge approximation は後続 boundary で明示的な policy と tests を追加して扱う。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 

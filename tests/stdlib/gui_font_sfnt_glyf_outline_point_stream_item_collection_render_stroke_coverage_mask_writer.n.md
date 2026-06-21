@@ -1,12 +1,12 @@
 # GUI font SFNT glyf outline point stream item collection render stroke coverage mask writer
 
-このファイルは、F5la の render stroke coverage mask writer owner boundary が F5kz completed edge closure owner を authority として消費し、raw coverage cell buffer を所有するが、scan converter / packed mask / render command / platform へ進まないことを固定する。
+このファイルは、F5la の render stroke coverage mask writer owner boundary が F5lc completed join geometry owner を authority として消費し、raw coverage cell buffer を所有するが、scan converter / packed mask / render command / platform へ進まないことを固定する。
 
 source policy coverage labels:
 
-- render_stroke_coverage_mask_writer_f5kz_authority_ok
+- render_stroke_coverage_mask_writer_f5lc_authority_ok
 - render_stroke_coverage_mask_writer_shape_reuse_ok
-- render_stroke_coverage_mask_writer_closure_revalidation_ok
+- render_stroke_coverage_mask_writer_join_geometry_revalidation_ok
 - render_stroke_coverage_mask_writer_exact_capacity_ok
 - render_stroke_coverage_mask_writer_push_recovery_ok
 - render_stroke_coverage_mask_writer_exact_completion_ok
@@ -22,9 +22,9 @@ neplg2:test[skip]
 
 #import "std/test" as *
 
-// render_stroke_coverage_mask_writer_f5kz_authority_ok
+// render_stroke_coverage_mask_writer_f5lc_authority_ok
 // render_stroke_coverage_mask_writer_shape_reuse_ok
-// render_stroke_coverage_mask_writer_closure_revalidation_ok
+// render_stroke_coverage_mask_writer_join_geometry_revalidation_ok
 // render_stroke_coverage_mask_writer_exact_capacity_ok
 // render_stroke_coverage_mask_writer_push_recovery_ok
 // render_stroke_coverage_mask_writer_exact_completion_ok
