@@ -6997,6 +6997,16 @@ F5mc は compositor range owner を lower range owner へ分解する前に meta
 
 F5mc は checked byte count / byte read 以外の storage accessor を公開せず、raw `RegionToken` / `MemPtr`、row tile、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。row tile 以降の payload transport と std present は後続 boundary で扱う。
 
+### Render2d compositor tile plan boundary
+
+F5md は F5mc の `GuiRgba8888CompositorByteStorageOwner` を、F5ca の `gui_rgba8888_row_tile_plan_prepare` へ 1 回だけ通す compositor tile plan bridge である。これは tile payload、RLE、std present を作る phase ではなく、1 batch 分の lower row tile plan owner を compositor metadata と束ねる phase である。
+
+F5md の success owner は `GuiRgba8888CompositorTilePlanOwner` であり、lower `GuiRgba8888RowTilePlanOwner` と `GuiRgba8888CompositorFrameEntryMetadata` を保持する。prepare error は `GuiRgba8888CompositorTilePlanPrepareError` であり、`RowTilePlanPrepareFailed lower_kind`、coarse `GuiError` category、回収済み `GuiRgba8888CompositorByteStorageOwner` を保持する。finish error は `GuiRgba8888CompositorTilePlanFinishError` であり、`ByteStorageFinishFailed lower_kind`、coarse `GuiError` category、回収済み `GuiRgba8888CompositorFrameEntryOwner` を保持する。success owner / prepare error / finish error は Clone / Copy を実装しない。error kind と metadata は Copy value である。
+
+F5md は compositor byte storage owner を lower byte storage owner へ分解する前に metadata を Copy value として読む。prepare failure では lower row tile plan prepare error から kind / category を読んでから lower byte storage owner を `GuiRgba8888CompositorByteStorageOwner` へ正規化し、prepare error は `kind/category/storage` を持つ。descriptor access は `gui_rgba8888_row_tile_plan_descriptor_at` に委譲し、storage-relative descriptor metadata だけを返す。finish では lower tile plan owner を消費する前に metadata を Copy value として読み、lower byte storage owner に戻してから F5mc の finish entry recovery へ委譲する。`owner_free` は finish failure と finish 成功後の entry free failure を別の free error kind として返す。
+
+F5md は lower `gui_rgba8888_row_byte_storage_validate_authority` を直接呼ばず、authority validation は F5ca の prepare / `descriptor_at` に任せる。F5md は row tile storage ref、byte read、tile payload、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。この phase は no RLE / host present の tile plan metadata bridge で止まり、payload transport と std present は後続 boundary で扱う。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

@@ -1,0 +1,428 @@
+//: # alloc/gui/render2d/compositor_tile_plan
+//: RGBA8888 compositor row tile plan bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mc の `GuiRgba8888CompositorByteStorageOwner` を F5ca の row tile plan boundary へ[渡/わた]します。
+//: - compositor frame metadata を tile plan owner と[束/たば]ね、tile plan [破棄/はき]後も frame entry owner へ[戻/もど]せるようにします。
+//:
+//: ### [契約/けいやく]
+//: - byte storage owner を lower row tile plan へ[渡/わた]す[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_plan_prepare` を 1 [回/かい]だけ[呼/よ]びます。
+//: - descriptor は lower plan の metadata API に[委譲/いじょう]し、byte payload や raw storage は[公開/こうかい]しません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は tile plan metadata までで[止/と]まります。tile payload view、RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op には[進/すす]みません。
+//: - lower storage authority の[再検証/さいけんしょう]は F5ca の row tile plan prepare / descriptor_at に[任/まか]せ、この layer から直接呼びません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_byte_storage" as *
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_plan" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTilePlanPrepareErrorKind: compositor tile plan prepare の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower row tile plan prepare の kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub enum GuiRgba8888CompositorTilePlanPrepareErrorKind:
+    RowTilePlanPrepareFailed %GuiRgba8888RowTilePlanPrepareErrorKind
+
+impl Clone for GuiRgba8888CompositorTilePlanPrepareErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTilePlanPrepareErrorKind GuiRgba8888CompositorTilePlanPrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTilePlanPrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTilePlanPrepareErrorKind GuiRgba8888CompositorTilePlanPrepareErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTilePlanFinishErrorKind: tile plan から entry へ[戻/もど]す[失敗/しっぱい]
+//:
+//: compositor byte storage finish failure を tile plan boundary の typed error として[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub enum GuiRgba8888CompositorTilePlanFinishErrorKind:
+    ByteStorageFinishFailed %GuiRgba8888CompositorByteStorageFinishErrorKind
+
+impl Clone for GuiRgba8888CompositorTilePlanFinishErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTilePlanFinishErrorKind GuiRgba8888CompositorTilePlanFinishErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTilePlanFinishErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTilePlanFinishErrorKind GuiRgba8888CompositorTilePlanFinishErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTilePlanFreeErrorKind: compositor tile plan free の[失敗/しっぱい][段階/だんかい]
+//:
+//: tile plan finish failure と、finish 成功後の entry free failure を[分/わ]けて[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub enum GuiRgba8888CompositorTilePlanFreeErrorKind:
+    FinishFailed %GuiRgba8888CompositorTilePlanFinishErrorKind
+    EntryFreeFailed %GuiRgba8888SoftwareSurfaceErrorKind
+
+impl Clone for GuiRgba8888CompositorTilePlanFreeErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTilePlanFreeErrorKind GuiRgba8888CompositorTilePlanFreeErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTilePlanFreeErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTilePlanFreeErrorKind GuiRgba8888CompositorTilePlanFreeErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTilePlanOwner: lower tile plan owner と compositor metadata の owner
+//:
+//: lower row tile plan owner と frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub struct GuiRgba8888CompositorTilePlanOwner:
+    plan %GuiRgba8888RowTilePlanOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTilePlanPrepareError: byte storage owner を[回収/かいしゅう]できる prepare error
+//:
+//: lower kind / category と、metadata [付/つ]き compositor byte storage owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub struct GuiRgba8888CompositorTilePlanPrepareError:
+    kind %GuiRgba8888CompositorTilePlanPrepareErrorKind
+    category %Option GuiError
+    storage %GuiRgba8888CompositorByteStorageOwner
+
+//: GuiRgba8888CompositorTilePlanFinishError: entry owner を[回収/かいしゅう]できる finish error
+//:
+//: byte storage finish [失敗/しっぱい][時/じ]も compositor entry owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub struct GuiRgba8888CompositorTilePlanFinishError:
+    kind %GuiRgba8888CompositorTilePlanFinishErrorKind
+    category %Option GuiError
+    entry %GuiRgba8888CompositorFrameEntryOwner
+
+//: gui_rgba8888_compositor_tile_plan_owner_new: lower tile plan owner と metadata を[束/たば]ねる
+//:
+//: lower prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_plan_owner_new %fn GuiRgba8888RowTilePlanOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTilePlanOwner \plan\metadata:
+    GuiRgba8888CompositorTilePlanOwner plan metadata
+
+//: gui_rgba8888_compositor_tile_plan_prepare_error_new: prepare error payload を[作/つく]る
+//:
+//: lower kind、category、回収用 byte storage owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_plan_prepare_error_new %fn GuiRgba8888CompositorTilePlanPrepareErrorKind fn Option GuiError fn GuiRgba8888CompositorByteStorageOwner GuiRgba8888CompositorTilePlanPrepareError \kind\category\storage:
+    GuiRgba8888CompositorTilePlanPrepareError kind category storage
+
+//: gui_rgba8888_compositor_tile_plan_finish_error_new: finish error payload を[作/つく]る
+//:
+//: lower finish kind、category、回収用 entry owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_plan_finish_error_new %fn GuiRgba8888CompositorTilePlanFinishErrorKind fn Option GuiError fn GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePlanFinishError \kind\category\entry:
+    GuiRgba8888CompositorTilePlanFinishError kind category entry
+
+//: gui_rgba8888_compositor_tile_plan_prepare_error_from_lower: lower prepare error を compositor storage error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから lower owner を[消費/しょうひ]し、metadata [付/つ]き byte storage owner を[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_plan_prepare_error_from_lower %fn GuiRgba8888RowTilePlanPrepareError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTilePlanPrepareError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTilePlanPrepareErrorKind gui_rgba8888_row_tile_plan_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_plan_prepare_error_category_value &lower
+    let lower_storage %GuiRgba8888RowByteStorageOwner gui_rgba8888_row_tile_plan_prepare_error_storage lower
+    let storage %GuiRgba8888CompositorByteStorageOwner GuiRgba8888CompositorByteStorageOwner lower_storage metadata
+    let kind %GuiRgba8888CompositorTilePlanPrepareErrorKind GuiRgba8888CompositorTilePlanPrepareErrorKind::RowTilePlanPrepareFailed lower_kind
+    gui_rgba8888_compositor_tile_plan_prepare_error_new kind category storage
+
+//: gui_rgba8888_compositor_tile_plan_finish_error_from_lower: lower finish error を compositor entry error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから entry owner を[取/と]り[出/だ]し、tile plan finish error に[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_plan_finish_error_from_lower %fn GuiRgba8888CompositorByteStorageFinishError GuiRgba8888CompositorTilePlanFinishError \lower:
+    let lower_kind %GuiRgba8888CompositorByteStorageFinishErrorKind gui_rgba8888_compositor_byte_storage_finish_error_kind &lower
+    let category %Option GuiError gui_rgba8888_compositor_byte_storage_finish_error_category_value &lower
+    let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_byte_storage_finish_error_finish_entry lower
+    let kind %GuiRgba8888CompositorTilePlanFinishErrorKind GuiRgba8888CompositorTilePlanFinishErrorKind::ByteStorageFinishFailed lower_kind
+    gui_rgba8888_compositor_tile_plan_finish_error_new kind category entry
+
+//: gui_rgba8888_compositor_tile_plan_owner_metadata: owner に[保持/ほじ]した compositor metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_metadata %fn &GuiRgba8888CompositorTilePlanOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_plan_owner_plan: lower tile plan metadata を[返/かえ]す
+//:
+//: lower owner を[借用/しゃくよう]し、Copy metadata の `GuiRgba8888RowTilePlan` だけを[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_plan %fn &GuiRgba8888CompositorTilePlanOwner GuiRgba8888RowTilePlan \owner:
+    let plan %&GuiRgba8888RowTilePlanOwner field::get_ref owner "plan"
+    gui_rgba8888_row_tile_plan_plan plan
+
+//: gui_rgba8888_compositor_tile_plan_owner_tile_rows: tile plan の tile row [数/すう]を[返/かえ]す
+//:
+//: lower plan metadata から Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_tile_rows %fn &GuiRgba8888CompositorTilePlanOwner i32 \owner:
+    let plan %GuiRgba8888RowTilePlan gui_rgba8888_compositor_tile_plan_owner_plan owner
+    gui_rgba8888_row_tile_plan_tile_rows &plan
+
+//: gui_rgba8888_compositor_tile_plan_owner_tile_count: tile plan の tile [数/すう]を[返/かえ]す
+//:
+//: lower plan metadata から Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_tile_count %fn &GuiRgba8888CompositorTilePlanOwner i32 \owner:
+    let plan %GuiRgba8888RowTilePlan gui_rgba8888_compositor_tile_plan_owner_plan owner
+    gui_rgba8888_row_tile_plan_tile_count &plan
+
+//: gui_rgba8888_compositor_tile_plan_owner_byte_count: tile plan が[覆/おお]う byte [数/すう]を[返/かえ]す
+//:
+//: descriptor 群が[参照/さんしょう]する copied byte storage 範囲を metadata として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_byte_count %fn &GuiRgba8888CompositorTilePlanOwner i32 \owner:
+    let plan %GuiRgba8888RowTilePlan gui_rgba8888_compositor_tile_plan_owner_plan owner
+    gui_rgba8888_row_tile_plan_byte_count &plan
+
+//: gui_rgba8888_compositor_tile_plan_owner_descriptor_at: tile descriptor を metadata-only で[得/え]る
+//:
+//: lower row tile plan descriptor API に[委譲/いじょう]し、raw storage や byte payload は[返/かえ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_descriptor_at %fn &GuiRgba8888CompositorTilePlanOwner fn i32 Result GuiRgba8888RowTileDescriptor GuiRgba8888RowTilePlanDescriptorErrorKind \owner\tile_index:
+    let plan %&GuiRgba8888RowTilePlanOwner field::get_ref owner "plan"
+    gui_rgba8888_row_tile_plan_descriptor_at plan tile_index
+
+//: gui_rgba8888_compositor_tile_plan_prepare_error_kind: prepare error kind を[返/かえ]す
+//:
+//: lower prepare failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_prepare_error_kind %fn &GuiRgba8888CompositorTilePlanPrepareError GuiRgba8888CompositorTilePlanPrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_plan_prepare_error_category_value: prepare error の coarse category を[返/かえ]す
+//:
+//: lower row tile plan prepare の category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_prepare_error_category_value %fn &GuiRgba8888CompositorTilePlanPrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_plan_prepare_error_storage: prepare error から byte storage owner を[取/と]り[出/だ]す
+//:
+//: caller が recovery / free を[選/えら]べるように compositor byte storage owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_prepare_error_storage %fn GuiRgba8888CompositorTilePlanPrepareError GuiRgba8888CompositorByteStorageOwner \error:
+    field::get error "storage"
+
+//: gui_rgba8888_compositor_tile_plan_prepare: compositor byte storage owner から tile plan owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower storage owner を[取/と]り[出/だ]します。
+//: - lower row tile plan prepare のみを[呼/よ]び、payload / RLE / present へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_prepare %fn GuiRgba8888CompositorByteStorageOwner fn GuiRgba8888RowTilePlanConfig Result GuiRgba8888CompositorTilePlanOwner GuiRgba8888CompositorTilePlanPrepareError \storage_owner\config:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_byte_storage_owner_metadata &storage_owner
+    let lower_storage %GuiRgba8888RowByteStorageOwner field::get storage_owner "storage"
+    match gui_rgba8888_row_tile_plan_prepare lower_storage config:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_plan_prepare_error_from_lower lower metadata
+        Result::Ok plan:
+            Result::Ok gui_rgba8888_compositor_tile_plan_owner_new plan metadata
+
+//: gui_rgba8888_compositor_tile_plan_finish_error_kind: finish error kind を[返/かえ]す
+//:
+//: lower byte storage finish failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_finish_error_kind %fn &GuiRgba8888CompositorTilePlanFinishError GuiRgba8888CompositorTilePlanFinishErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_plan_finish_error_category_value: finish error の coarse category を[返/かえ]す
+//:
+//: compositor byte storage finish error の category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_finish_error_category_value %fn &GuiRgba8888CompositorTilePlanFinishError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_plan_finish_error_finish_entry: finish error から entry owner を[取/と]り[出/だ]す
+//:
+//: lower finish failure で[戻/もど]った entry owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_finish_error_finish_entry %fn GuiRgba8888CompositorTilePlanFinishError GuiRgba8888CompositorFrameEntryOwner \error:
+    field::get error "entry"
+
+//: gui_rgba8888_compositor_tile_plan_owner_finish_byte_storage: tile plan owner を byte storage owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower tile plan owner を[消費/しょうひ]し、metadata [付/つ]き byte storage owner を[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_finish_byte_storage %fn GuiRgba8888CompositorTilePlanOwner GuiRgba8888CompositorByteStorageOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_plan_owner_metadata &owner
+    let lower_plan %GuiRgba8888RowTilePlanOwner field::get owner "plan"
+    let lower_storage %GuiRgba8888RowByteStorageOwner gui_rgba8888_row_tile_plan_finish_byte_storage lower_plan
+    GuiRgba8888CompositorByteStorageOwner lower_storage metadata
+
+//: gui_rgba8888_compositor_tile_plan_owner_finish_entry: tile plan owner を entry owner へ[戻/もど]す
+//:
+//: lower byte storage finish を F5mc に[委譲/いじょう]し、failure は tile plan finish error として[正規化/せいきか]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_finish_entry %fn GuiRgba8888CompositorTilePlanOwner Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePlanFinishError \owner:
+    let storage %GuiRgba8888CompositorByteStorageOwner gui_rgba8888_compositor_tile_plan_owner_finish_byte_storage owner
+    match gui_rgba8888_compositor_byte_storage_owner_finish_entry storage:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_plan_finish_error_from_lower lower
+        Result::Ok entry:
+            Result::Ok entry
+
+//: gui_rgba8888_compositor_tile_plan_prepare_error_free: prepare error の byte storage owner を[破棄/はき]する
+//:
+//: error から byte storage owner を[取/と]り[出/だ]し、既存の compositor byte storage free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_prepare_error_free %fn GuiRgba8888CompositorTilePlanPrepareError Result unit GuiRgba8888CompositorByteStorageFreeErrorKind \error:
+    let storage %GuiRgba8888CompositorByteStorageOwner gui_rgba8888_compositor_tile_plan_prepare_error_storage error
+    gui_rgba8888_compositor_byte_storage_owner_free storage
+
+//: gui_rgba8888_compositor_tile_plan_finish_error_free: finish error の entry owner を[破棄/はき]する
+//:
+//: error から entry owner を[取/と]り[出/だ]し、既存の compositor frame entry free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_finish_error_free %fn GuiRgba8888CompositorTilePlanFinishError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_tile_plan_finish_error_finish_entry error
+    gui_rgba8888_compositor_frame_entry_owner_free entry
+
+//: gui_rgba8888_compositor_tile_plan_owner_free: tile plan owner を[閉/と]じて entry owner まで[破棄/はき]する
+//:
+//: finish failure と finish 成功後の entry free failure を[区別/くべつ]して[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_plan_owner_free %fn GuiRgba8888CompositorTilePlanOwner Result unit GuiRgba8888CompositorTilePlanFreeErrorKind \owner:
+    match gui_rgba8888_compositor_tile_plan_owner_finish_entry owner:
+        Result::Err error:
+            let kind %GuiRgba8888CompositorTilePlanFinishErrorKind gui_rgba8888_compositor_tile_plan_finish_error_kind &error
+            let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_tile_plan_finish_error_finish_entry error
+            match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                Result::Err _:
+                    Result::Err GuiRgba8888CompositorTilePlanFreeErrorKind::FinishFailed kind
+                Result::Ok _:
+                    Result::Err GuiRgba8888CompositorTilePlanFreeErrorKind::FinishFailed kind
+        Result::Ok entry:
+            match gui_rgba8888_compositor_frame_entry_owner_free entry:
+                Result::Err kind:
+                    Result::Err GuiRgba8888CompositorTilePlanFreeErrorKind::EntryFreeFailed kind
+                Result::Ok _:
+                    Result::Ok unit

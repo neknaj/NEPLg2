@@ -1,3 +1,48 @@
+# 2026-06-22 GUI render2d F5md compositor tile plan bridge checkpoint
+
+## 目的
+
+- F5mc の `GuiRgba8888CompositorByteStorageOwner` を、F5ca の `gui_rgba8888_row_tile_plan_prepare` へ compositor metadata 付きで接続する。
+- lower row tile plan owner を compositor metadata と束ね、success / prepare error / finish error のどの経路でも compositor byte storage owner または frame entry owner へ戻せるようにする。
+- tile payload / RLE / std present / host / platform / fallback には進まない。
+
+## subagent review
+
+- Bohr plan review は `PLAN_APPROVED`。
+- F5md は F5mc の compositor byte storage owner と F5ca の row tile plan owner をつなぐ bridge として承認された。
+- source policy では direct `gui_rgba8888_row_byte_storage_validate_authority` 禁止を明記し、authority validation は F5ca の prepare / descriptor_at に委譲する方針になった。
+- focused doctest は success path だけでなく invalid `tile_rows` prepare failure を通し、metadata rewrap と `storage` recovery を実行する方針になった。
+- Bohr implementation review は `REVIEW_APPROVED`。metadata-before-owner-consume、prepare error `kind/category/storage`、finish error `kind/category/entry`、payload / RLE / present / platform 漏れなし、focused doctest coverage、source policy が確認された。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_plan.nepl` を追加した。
+- `GuiRgba8888CompositorTilePlanOwner`、prepare / finish / free error kind、owner-bearing prepare / finish error を追加した。
+- `gui_rgba8888_compositor_tile_plan_prepare` は metadata を Copy してから lower storage owner を取り出し、lower row tile plan prepare を 1 回だけ呼ぶ。
+- prepare error は lower prepare error の kind / category を読んでから byte storage owner を `GuiRgba8888CompositorByteStorageOwner` へ戻す。
+- descriptor helper は lower `gui_rgba8888_row_tile_plan_descriptor_at` に委譲し、storage-relative descriptor metadata だけを返す。
+- finish error は F5mc byte storage finish error の kind / category を読んでから entry owner を保持する。
+- finish byte storage recovery、finish entry recovery、prepare / finish error free、owner free を追加した。
+- facade、focused doctest、source policy、spec / detailed design / standard spec / implementation plan、`todo.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_plan_f5md.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_plan.nepl --no-tree -o tmp_gui_render2d_compositor_tile_plan_module_f5md.json -j 1`。30/30。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_byte_storage.n.md --no-tree -o tmp_gui_render2d_compositor_byte_storage_f5md_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5md_regression.json -j 1`。2/2。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5md_compositor_tile_plan.json`
+- checked JSON: `output/playground_editor_f5md_compositor_tile_plan.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- not caused by this checkpoint: `node nodesrc/test_stdlib_documentation_contract.js` は current baseline mismatch により `declarationNoDoc: 2780` / baseline `2756` で失敗する。新規 `stdlib/alloc/gui/render2d/compositor_tile_plan.nepl` 単体は同じ判定で module / declaration doc / doctest gap 0。
+
+## 未接続
+
+- F5md 後続として、row tile payload / RLE と std present への payload transport / present continuation を別 boundary として進める。
+
 # 2026-06-22 GUI render2d F5mc compositor byte storage bridge checkpoint
 
 ## 目的
