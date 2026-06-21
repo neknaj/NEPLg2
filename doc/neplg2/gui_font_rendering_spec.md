@@ -6372,6 +6372,41 @@ start error は stroke owner を回収できる owner-bearing payload であり�
 
 F5lh は render command、alpha mask resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。F5bf raster packed mask internals は直接再利用せず、F5lf completed stroke packed owner のみを authority とする。
 
+### SFNT simple glyph render shadow request boundary
+
+F5li は shadow rasterization の最初の境界である。この phase は shadow metadata を completed path command stream writer authority と束ねるだけで、shadow blur、spread geometry、shadow mask、render command、alpha mask resource、pixel write、platform API、font fallback、2D compositor へは進まない。
+
+direct authority は completed `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner` と `GuiSfntSimpleGlyphRenderShadowRequestConfig` である。F5li は fill alpha mask owner、stroke packed mask owner、F5lg / F5lh composition owner を消費しない。shadow source が fill / stroke / fill+stroke のどれであるかは metadata として保持し、後続の shadow mask boundary が選択する。
+
+path command writer authority は F5kq と共通の module-private helper で再検査する。helper は stored capacity、path sink / raster mask capacity、path sink scalar len、raster mask len zero、written count、path sink scalar count、move / line / quadratic / skip / last command count を検査し、F5kq と F5li はそれぞれの typed error kind へ写す。
+
+paint validation は fail closed である。
+
+```text
+NoShadow -> MissingShadowPaint
+ShadowRun -> UnsupportedShadowRun
+SingleShadow -> accepted first slice
+shadow.blur_radius < 0 -> ShadowBlurInvalid
+shadow.spread < 0 -> ShadowSpreadInvalid
+fill == None and stroke == None -> MissingShadowSourcePaint
+stroke == Some and stroke.width <= 0 -> StrokeWidthInvalid
+blend != SourceOver -> UnsupportedBlendMode
+```
+
+`ShadowRun` は alloc-owned multi-shadow run resolver がまだないため、この boundary では受理しない。`SingleShadow` だけを O(1) value として保持する。成功 owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderShadowRequestOwner:
+    writer
+    origin
+    fill
+    stroke
+    shadow
+    blend
+```
+
+owner、start error、recovery payload は path command writer authority を所有するため `Clone` / `Copy` を実装しない。start error は writer と config を同時に返す recovery payload を持つ。F5li は既存の F5bh / F5kq が shadow-bearing paint を引き続き拒否する contract を変更しない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
