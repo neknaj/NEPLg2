@@ -131,3 +131,33 @@ subagent review:
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を含める。
 - memo_call backend request-evidence proof と private effect mask を接続する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache observation ban を接続する。
+
+## 2026-06-21 selfhost private effect no-escape gate checkpoint
+
+Selfhost 側に `memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` effect summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。
+
+完了したこと:
+
+- final `SelfhostMemoTraitOperationMethodBodyFact` は body root identity を保持しないため、fact table を後から補正せず、HIR root から fact を作る直前に proof を適用する。
+- proof key は `SelfhostTypeId`、operation、body module fingerprint、body root、effect、元 escape state の完全一致にし、root mismatch と module fingerprint mismatch を stage0 smoke で確認する。
+- `body_module_fingerprint == 0` は proof record と identity-bearing input の両方で拒否し、同一 key の duplicate proof は `ProofDuplicate` にする。
+- proof lookup は `PrivateState + NotApplicable` / `PrivateCache + NotApplicable` だけで行い、`Proven -> NoEscapeProven`、`Refuted -> MayEscape`、`Missing` / `Unknown -> NotApplicable` として fail-closed に写す。
+- private effect summary が事前に `NoEscapeProven` を持つ場合は `UnexpectedPreProvenNoEscape` で拒否し、この gate より前の bypass を認めない。
+
+subagent review:
+
+- Raman review は、既存 `SelfhostMemoTraitOperationMethodBodyFact` に body identity がないため、最終 fact の後補正ではなく identity-bearing input を gate に通す必要があると指摘した。
+- 指摘に従い、proof key と scan input に body module fingerprint / body root を保持し、placeholder fingerprint と duplicate proof を fail-closed にする形にした。
+
+検証:
+
+- `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest.json`。1/1。
+
+残件:
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape evidence を発行して、この gate の proof table に渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。

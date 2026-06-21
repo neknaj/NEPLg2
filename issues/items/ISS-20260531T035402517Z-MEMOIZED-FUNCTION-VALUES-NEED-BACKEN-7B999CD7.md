@@ -963,3 +963,9 @@ subagent review:
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
 - producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 fixture ではなく real traversal output から accepted source と witness を供給する境界。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
+## 2026-06-21 selfhost private effect no-escape gate dependency checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、memo_call backend proof chain が将来発行する `PrivateState` / `PrivateCache` no-escape proof を、operation method body fact table へ渡す直前で消費できる checker-layer boundary を固定した。
+
+この checkpoint は memo_call backend request-evidence proof の完了ではない。gate は typed proof table と HIR-root scan record を照合するだけで、`RequestEvidenceProven`、Resource proof production、GraphInput、sealed backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key は作らない。backend 側の残件は、real Resource IR / HIR lowering result から accepted traversal source と fresh witness を生成し、その proof を request-evidence bridge と private effect no-escape gate の両方へ整合した identity で渡す上位 orchestration である。

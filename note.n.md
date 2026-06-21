@@ -77508,3 +77508,52 @@ MERGE_APPROVED
 - pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5kq.json -j 1`
 - implementation review は McClintock が `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5kq 後続として、stroke segment expansion plan、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
+
+## 2026-06-21 selfhost private effect no-escape gate checkpoint
+
+### 実装
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。
+- final `SelfhostMemoTraitOperationMethodBodyFact` は body root identity を保持しないため、fact table の後補正ではなく、HIR root から fact を作る直前で proof を適用する。
+- proof key は `SelfhostTypeId`、operation、body module fingerprint、body root、effect、元 escape state の完全一致とした。`body_module_fingerprint == 0` は proof record と identity-bearing input の両方で拒否し、同一 key の duplicate proof は `ProofDuplicate` にする。
+- proof lookup は `PrivateState + NotApplicable` / `PrivateCache + NotApplicable` だけで行い、`Proven -> NoEscapeProven`、`Refuted -> MayEscape`、`Missing` / `Unknown -> NotApplicable` として fail-closed に写す。private effect summary が事前に `NoEscapeProven` を持つ場合は `UnexpectedPreProvenNoEscape` で拒否する。
+- stage0 smoke は private cache proven / missing、private state refuted、pure pass-through、internal alloc pass-through、root mismatch、module fingerprint mismatch、duplicate proof、pre-proven bypass rejection を確認する。
+- この checkpoint は operation evidence、aggregate proof、memo_call backend bytes、sealed backend representation、Resource proof production、artifact key を作らない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に private effect no-escape gate checkpoint を追記した。
+- `issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md` に実装内容、Raman review、検証、残件を追記した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に memo_call backend proof chain 側から見た dependency checkpoint を追記した。
+- `todo.md` の private effect 残件を、actual Resource IR proof producer から `memo_trait_operation_private_effect_no_escape_gate` へ proof table を渡し、その後に Resource summary / artifact policy / memo_call backend mask へ接続する内容へ更新した。
+
+### subagent review
+
+- Raman の plan review は `PLAN_CHANGES`。既存 `SelfhostMemoTraitOperationMethodBodyFact` に body identity がないため、最終 fact の後補正ではなく identity-bearing input を gate に通す必要があるという blocker が出た。
+- 指摘に従い、proof key と scan input に body module fingerprint / body root を保持し、placeholder fingerprint と duplicate proof を fail-closed にする形にした。
+- Raman の implementation review は `REVIEW_APPROVED`。blocking finding はない。
+- 非 blocking watchpoint として、`body_module_fingerprint` は 1 回の table build call 全体の identity であり per scan record field ではないことが挙がった。現在の API は 1 つの `&SelfhostHirModule` と 1 つの fingerprint に閉じるため sound と判断し、doc comment と source policy に「複数 module 由来の root を 1 回の呼び出しに混ぜない」契約を追加した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest.json`。1/1。
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl --dist web/dist -o tmp/private-effect-no-escape-gate-doctests.json`。3/3。
+- pass: `node nodesrc/analyze_tests_json.js tmp/private-effect-no-escape-gate-doctests.json`。3 passed / 0 failed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-no-escape-gate-final.json`。13/13。
+- pass: `tmp/playground-editor-private-effect-no-escape-gate-final.json` は `caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+
+### 残件
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape evidence を発行して、この gate の proof table に渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。

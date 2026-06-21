@@ -2836,6 +2836,24 @@ subagent review:
 - memo_call backend の request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
 
+## 2026-06-21 selfhost private effect no-escape gate checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。
+
+この gate は最終 `SelfhostMemoTraitOperationMethodBodyFact` の後処理ではない。最終 fact は resolver 用であり body root identity を保持しないため、proof key は `SelfhostTypeId`、operation、body module fingerprint、HIR body root、effect、元 escape state の完全一致にし、HIR root から fact を作る直前で `NoEscapeProven` / `MayEscape` / `NotApplicable` へ写す。`body_module_fingerprint == 0` は proof record と identity-bearing input の両方で拒否し、同一 key の duplicate proof は first-wins にせず typed error で fail-closed にする。
+
+proof lookup は `PrivateState + NotApplicable` と `PrivateCache + NotApplicable` だけで行う。`Proven` だけを `NoEscapeProven` にし、`Refuted` は `MayEscape`、`Missing` / `Unknown` は元の `NotApplicable` のまま残す。入力 summary がすでに private effect + `NoEscapeProven` の場合は、この gate より前の boundary が no-escape を合成した bypass として拒否する。`Pure` / `InternalAlloc` / observable effect はこの gate で private proof lookup しない。
+
+この checkpoint は operation evidence、aggregate proof、memo_call backend bytes、sealed backend representation、Resource proof producer、artifact key を作らない。caller が渡した typed proof table と method body scan record を照合し、既存 resolver が読める method body fact table owner を作るだけである。actual Resource IR traversal が `PrivateState` / `PrivateCache` proof table を発行する処理、Resource summary / artifact policy hash への mask policy 投影、memo_call backend request-evidence proof との接続は後続 boundary として残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / proof store / canonical key / public surface / evidence producer / impl table / Drop no-escape 層の import 禁止、typed proof key の完全一致、placeholder module fingerprint rejection、duplicate rejection、pre-proven bypass rejection、root mismatch と module fingerprint mismatch の representative smoke、owner cleanup、operation evidence / backend / artifact / Resource proof 合成禁止を確認する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl --dist web/dist -o tmp/selfhost-private-effect-no-escape-gate-doctest.json`。1/1。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

@@ -1,0 +1,975 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_no_escape_gate
+//: `Eq` / `Hash` method body の `PrivateState` / `PrivateCache` effect を、Resource IR no-escape proof と照合してから method body fact table へ投入する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `PrivateState` / `PrivateCache` を pure evidence に近づけるには、method body の effect summary だけでは足りません。body origin、body root、operation、effect、元 escape state が一致する Resource proof が必要です。
+//: - 既存 `SelfhostMemoTraitOperationMethodBodyFact` は resolver 用の最終 fact であり、body root identity を保持しません。そのため、この module は fact table を後から補正せず、HIR root から fact を作る直前で proof を適用します。
+//: - Drop body の `InternalAlloc` proof gate と private effect proof gate を混ぜず、PrivateState / PrivateCache 専用の proof table、duplicate rejection、placeholder rejection を固定します。
+//:
+//: [契約/けいやく]:
+//: - proof key は `SelfhostTypeId`、operation、body module fingerprint、body root、effect、元 escape state の完全一致を要求します。`SelfhostTypeId` だけ、operation だけ、source span / display name / body hash だけの proof reuse は認めません。
+//: - `body_module_fingerprint == 0` は placeholder origin なので proof record と identity-bearing input の両方で拒否します。module-local root id だけを proof key にしてはいけません。
+//: - table build API は 1 つの `&SelfhostHirModule` と 1 つの `body_module_fingerprint` に閉じます。複数 module 由来の method body root を 1 回の呼び出しに混ぜず、module ごとに別々の proof gate 呼び出しへ分けます。
+//: - proof lookup は `PrivateState + NotApplicable` または `PrivateCache + NotApplicable` のときだけ行います。`InternalAlloc`、`Pure`、`UnsafeMemory`、`ExternalIo`、`Nondet` はこの gate では proof lookup せず、そのまま既存 method body fact にします。
+//: - matching proof が `Proven` の場合だけ `NoEscapeProven` を付与します。`Refuted` は `MayEscape` に写し、`Missing` / `Unknown` は元の `NotApplicable` のまま残します。未証明 private effect を pure に mask しません。
+//: - 入力 summary がすでに private effect + `NoEscapeProven` の場合は `UnexpectedPreProvenNoEscape` として拒否します。この gate より前の boundary が no-escape を合成する bypass を認めません。
+//: - 成功しても operation evidence、aggregate proof、memo_call backend bytes、sealed backend representation、artifact key、Resource proof production は作りません。返すのは既存 resolver が読める method body fact table owner だけです。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では、caller が渡した proof table と method body scan record から既存 fact table を作る checker-layer boundary です。actual Resource IR traversal が proof table を作る処理、memo_call backend mask、prechecked artifact 接続は後続 stage の責務です。
+//: - facade にはまだ re-export しません。full public surface orchestration が private effect proof producer を消費する段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - scan input 数を m、proof record 数を p、各 HIR root から到達する expression 数を n_i、child edge 数を e_i とすると、現状は O(m * p + Σ(n_i + e_i)) 時間です。
+//: - proof lookup は現在 linear scan です。duplicate rejection と exact key contract を保てるなら、後続で sorted index / bucket に置き換えられます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_no_escape_gate_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.private_cache_proven_check SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NoEscapeProven
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.private_cache_missing_check SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.private_state_refuted_check SelfhostEffectKind::PrivateState SelfhostEffectEscapeState::MayEscape
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.pure_pass_check SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.internal_alloc_pass_check SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.mismatched_root_check SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq summary.mismatched_module_check SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_private_effect_no_escape_gate_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_private_effect_no_escape_gate_fact_error_result_eq summary.preproven_rejected SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape
+//:             let shown checks_print_report checks9
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "private effect no-escape gate stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_method_body_effect_checker" as *
+#import "./memo_trait_operation_method_body_fact_input_scan" as *
+#import "./memo_trait_operation_method_body_fact_producer" as *
+#import "./memo_trait_operation_method_body_fact_table_inputs" as *
+#import "./memo_trait_operation_method_body_resolver" as *
+#import "./memo_trait_operation_purity_gate" as *
+
+//: SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey: private effect no-escape proof の照合 key
+//:
+//: [契約/けいやく]:
+//: - `body_module_fingerprint` は module-local `SelfhostHirExprId` の origin token です。proof 成功そのものの根拠ではなく、別 module の同じ root index への proof reuse を防ぎます。
+//: - `operation` を key に含めることで、同じ type / body root を別 operation の proof として流用する退行を防ぎます。
+pub struct SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+
+//: SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus: Resource proof 由来の no-escape 判定
+//:
+//: [契約/けいやく]:
+//: - `Proven` だけが `NoEscapeProven` になります。
+//: - `Missing` / `Unknown` は accepted proof ではありません。fact は `NotApplicable` のまま残します。
+pub enum SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus:
+    Proven
+    Refuted
+    Missing
+    Unknown
+
+//: SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord: 1 件の private effect proof record
+//:
+//: [契約/けいやく]:
+//: - record は proof store artifact ではなく session-local typed input です。
+pub struct SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord:
+    key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey
+    status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus
+
+//: SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable: private effect proof record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。不要になったら `selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free` で閉じます。
+pub struct SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable:
+    records %Vec SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord
+
+//: SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind: private effect proof gate の拒否理由
+//:
+//: [目的/もくてき]:
+//: - proof table、input scan、effect checker、fact producer、output table の失敗箇所を bool や文字列へ潰さず typed enum として保持します。
+pub enum SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind:
+    ProofRecordPushFailed %StdErrorKind
+    ProofBodyModuleFingerprintPlaceholder
+    InputScanRejected %SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
+    OutputTableAllocFailed %StdErrorKind
+    InputReadFailed %i32
+    EffectCheckRejected %SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    FactProducerRejected %SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+    ProofRecordReadFailed %i32
+    ProofDuplicate
+    UnexpectedPreProvenNoEscape
+    OutputTableRejected %SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+
+//: SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary: private effect no-escape gate smoke の代表結果
+pub struct SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary:
+    private_cache_proven_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    private_cache_missing_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    private_state_refuted_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    pure_pass_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    internal_alloc_pass_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    mismatched_root_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    mismatched_module_check %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    preproven_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey: owner を含まない proof key を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey: proof key が owner lifecycle を持たないことを示す marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new: private effect proof key を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey \type_id\operation\body_module_fingerprint\body_root\effect\escape:
+    SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey type_id operation body_module_fingerprint body_root effect escape
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new: private effect proof record を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \key\status:
+    SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord key status
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new: [空/から]の proof table を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new %impure fn void Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free: proof table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free %impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_table_len: proof record 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_table_len %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push: proof record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `body_module_fingerprint == 0` は module origin を証明できない placeholder なので、proof table に保存せず fail-closed に拒否します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、typed error に変換します。
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push %impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \table\record:
+    if:
+        eq record.key.body_module_fingerprint 0
+        then:
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free table
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder
+        else:
+            let records %Vec SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord field::get table "records"
+            match v::push records record:
+                Result::Ok next_records:
+                    Result::Ok SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable next_records
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed error
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_key_eq: proof key が同じ method body fact source を指すか[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_proof_key_eq %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_effect_kind_eq a.effect b.effect
+                        selfhost_memo_trait_operation_private_effect_no_escape_escape_state_eq a.escape b.escape
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_finish: lookup の最終状態を[畳/たた]む
+fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_finish %fn Option SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \found:
+    match found:
+        Option::Some status:
+            Result::Ok status
+        Option::None:
+            Result::Ok SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop: proof table から matching status を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - matching proof が 2 件以上ある場合は `ProofDuplicate` として拒否します。record order による first-wins は使いません。
+fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey fn i32 fn Option SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \proofs\key\idx\found:
+    if:
+        ge idx selfhost_memo_trait_operation_private_effect_no_escape_proof_table_len proofs
+        then:
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_finish found
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord field::get_ref proofs "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_trait_operation_private_effect_no_escape_proof_key_eq record.key key
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate
+                                Option::None:
+                                    selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop proofs key add idx 1 some record.status
+                        else:
+                            selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop proofs key add idx 1 found
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_result: key に対応する proof status を[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \proofs\key:
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop proofs key 0 none
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result: summary を method body fact へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationMethodBodyEffectSummary Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \type_id\operation\summary:
+    match selfhost_memo_trait_operation_method_body_fact_from_summary_result type_id operation summary:
+        Result::Ok fact:
+            Result::Ok fact
+        Result::Err producer_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected producer_error
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_summary_with_escape: summary の escape だけを[差/さ]し[替/か]える
+fn selfhost_memo_trait_operation_private_effect_no_escape_summary_with_escape %fn SelfhostMemoTraitOperationMethodBodyEffectSummary fn SelfhostEffectEscapeState SelfhostMemoTraitOperationMethodBodyEffectSummary \summary\escape:
+    SelfhostMemoTraitOperationMethodBodyEffectSummary summary.effect escape
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_escape_from_status: proof status を escape state へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_escape_from_status %fn SelfhostEffectEscapeState fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostEffectEscapeState \original\status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+            SelfhostEffectEscapeState::NoEscapeProven
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted:
+            SelfhostEffectEscapeState::MayEscape
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing:
+            original
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown:
+            original
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_transform_private_summary_result: private effect summary を proof で[更新/こうしん]する
+fn selfhost_memo_trait_operation_private_effect_no_escape_transform_private_summary_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationMethodBodyEffectSummary Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \proofs\type_id\operation\body_module_fingerprint\body_root\summary:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder
+        else:
+            match summary.escape:
+                SelfhostEffectEscapeState::NotApplicable:
+                    let key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id operation body_module_fingerprint body_root summary.effect summary.escape
+                    match selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_result proofs key:
+                        Result::Ok status:
+                            let next_escape %SelfhostEffectEscapeState selfhost_memo_trait_operation_private_effect_no_escape_escape_from_status summary.escape status
+                            let next_summary %SelfhostMemoTraitOperationMethodBodyEffectSummary selfhost_memo_trait_operation_private_effect_no_escape_summary_with_escape summary next_escape
+                            selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation next_summary
+                        Result::Err e:
+                            Result::Err e
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape
+                SelfhostEffectEscapeState::MayEscape:
+                    selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation summary
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_transform_summary_result: effect summary を private proof gate へ[通/とお]す
+//:
+//: [契約/けいやく]:
+//: - `PrivateState` / `PrivateCache` だけが proof lookup の対象です。
+//: - それ以外の effect は、この gate では escape state を変更しません。
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_transform_summary_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationMethodBodyEffectSummary Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \proofs\type_id\operation\body_module_fingerprint\body_root\summary:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder
+        else:
+            match summary.effect:
+                SelfhostEffectKind::Pure:
+                    selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation summary
+                SelfhostEffectKind::InternalAlloc:
+                    selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation summary
+                SelfhostEffectKind::PrivateState:
+                    selfhost_memo_trait_operation_private_effect_no_escape_transform_private_summary_result proofs type_id operation body_module_fingerprint body_root summary
+                SelfhostEffectKind::PrivateCache:
+                    selfhost_memo_trait_operation_private_effect_no_escape_transform_private_summary_result proofs type_id operation body_module_fingerprint body_root summary
+                SelfhostEffectKind::UnsafeMemory:
+                    selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation summary
+                SelfhostEffectKind::ExternalIo:
+                    selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation summary
+                SelfhostEffectKind::Nondet:
+                    selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result type_id operation summary
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_push_hir_root_result: HIR root 由来 fact を proof 適用後に table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `table` はこの関数が消費します。成功時は追加後の table owner を返します。
+//: - effect checker が失敗した場合、`table` はまだ push に渡されていないため、この関数が必ず閉じます。
+//: - table push が失敗した場合は、resolver table push が owner buffer を回収して閉じるため、この関数は二重解放しません。
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_push_hir_root_result %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn i32 impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \table\module\type_id\operation\body_module_fingerprint\root\fuel\proofs:
+    match selfhost_memo_trait_operation_method_body_effect_check_result module root fuel:
+        Result::Ok summary:
+            match selfhost_memo_trait_operation_private_effect_no_escape_transform_summary_result proofs type_id operation body_module_fingerprint root summary:
+                Result::Ok fact:
+                    match selfhost_memo_trait_operation_method_body_table_push table fact:
+                        Result::Ok next_table:
+                            Result::Ok next_table
+                        Result::Err table_error:
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected table_error
+                Result::Err e:
+                    selfhost_memo_trait_operation_method_body_table_free table
+                    Result::Err e
+        Result::Err effect_error:
+            selfhost_memo_trait_operation_method_body_table_free table
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected effect_error
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_loop: build input table を proof gate 付きで[投入/とうにゅう]する
+fn selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_loop %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn i32 Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \table\module\body_module_fingerprint\inputs\proofs\index:
+    if:
+        ge index selfhost_memo_trait_operation_method_body_fact_build_input_table_len inputs
+        then:
+            Result::Ok table
+        else:
+            let records %&Vec SelfhostMemoTraitOperationMethodBodyFactBuildInput field::get_ref inputs "records"
+            match v::get records index:
+                Option::Some input:
+                    match selfhost_memo_trait_operation_private_effect_no_escape_push_hir_root_result table module input.type_id input.operation body_module_fingerprint input.root input.fuel proofs:
+                        Result::Ok next_table:
+                            selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_loop next_table module body_module_fingerprint inputs proofs add index 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_method_body_table_free table
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed index
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_result: build input table から proof gate 済み method fact table を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_result %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \table\module\body_module_fingerprint\inputs\proofs:
+    selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_loop table module body_module_fingerprint inputs proofs 0
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_table_from_scan_records_result: scan record から proof gate 済み method fact table を[構築/こうちく]する
+//:
+//: [契約/けいやく]:
+//: - `module`、`source`、`proofs` は borrow です。この関数は閉じません。
+//: - `source` の method body root はすべて `module` と `body_module_fingerprint` に対応する同一 module 由来でなければなりません。複数 module の scan record を 1 table に混ぜる caller は、module ごとの table に分割してからこの関数を呼びます。
+//: - scan が成功した場合、この関数は build input table owner を受け取り、success / failure のどちらでも閉じます。
+//: - output fact table owner はこの関数が新規作成し、success の場合だけ caller に返します。
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_table_from_scan_records_result %impure fn &SelfhostHirModule impure fn i32 impure fn &SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \module\body_module_fingerprint\source\proofs:
+    match selfhost_memo_trait_operation_method_body_fact_inputs_from_scan_records_result source:
+        Result::Ok inputs:
+            match selfhost_memo_trait_operation_method_body_table_new:
+                Result::Ok table:
+                    let result %Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind selfhost_memo_trait_operation_private_effect_no_escape_build_from_inputs_result table module body_module_fingerprint &inputs proofs
+                    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+                    result
+                Result::Err alloc_error:
+                    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed alloc_error
+        Result::Err scan_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected scan_error
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_code a selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq: gate error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed a_push:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed b_push:
+                    selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    true
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected a_scan:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected b_scan:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_error_kind_eq a_scan b_scan
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_private_effect_no_escape_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed a_read:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed b_read:
+                    eq a_read b_read
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected a_effect:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected b_effect:
+                    selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq a_effect b_effect
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected a_fact:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected b_fact:
+                    selfhost_memo_trait_operation_method_body_fact_producer_error_kind_eq a_fact b_fact
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed a_read:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed b_read:
+                    eq a_read b_read
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    true
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    true
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected a_table:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected b_table:
+                    selfhost_memo_trait_operation_method_body_resolver_error_kind_eq a_table b_table
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::InputReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::FactProducerRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof_read:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq: method body check の effect / escape が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_gate_check_effect_eq %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn SelfhostEffectKind fn SelfhostEffectEscapeState bool \result\expected_effect\expected_escape:
+    match result:
+        Result::Ok check:
+            and:
+                selfhost_effect_kind_eq check.effect expected_effect
+                selfhost_memo_trait_operation_private_effect_no_escape_escape_state_eq check.escape expected_escape
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_gate_error_result_eq: check result の error が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_gate_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind bool \result\expected:
+    match result:
+        Result::Ok _check:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_gate_fact_error_result_eq: fact result の error が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_gate_fact_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind bool \result\expected:
+    match result:
+        Result::Ok _fact:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary \private_cache_proven_check\private_cache_missing_check\private_state_refuted_check\pure_pass_check\internal_alloc_pass_check\mismatched_root_check\mismatched_module_check\duplicate_rejected\preproven_rejected:
+    SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary private_cache_proven_check private_cache_missing_check private_state_refuted_check pure_pass_check internal_alloc_pass_check mismatched_root_check mismatched_module_check duplicate_rejected preproven_rejected
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_resolve_and_free: success table を resolver へ[渡/わた]して owner を[閉/と]じる
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_resolve_and_free %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \table\type_id\operation:
+    let result %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &table type_id operation
+    selfhost_memo_trait_operation_method_body_table_free table
+    match result:
+        Result::Ok check:
+            Result::Ok check
+        Result::Err table_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableRejected table_error
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_run_single: 1 root を gate へ[通/とお]して check を[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_run_single %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable Result Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind StdErrorKind \module\type_id\operation\body_module_fingerprint\root\proofs:
+    match selfhost_memo_trait_operation_method_body_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_private_effect_no_escape_push_hir_root_result table0 module type_id operation body_module_fingerprint root 16 &proofs:
+                Result::Ok table1:
+                    let result %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind selfhost_memo_trait_operation_private_effect_no_escape_stage0_resolve_and_free table1 type_id operation
+                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+                    Result::Ok result
+                Result::Err error:
+                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+                    Result::Ok Result::Err error
+        Result::Err _alloc_error:
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_empty_proofs: empty proof table で gate を[実行/じっこう]する
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_empty_proofs %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind StdErrorKind \module\type_id\operation\body_module_fingerprint\root:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_private_effect_no_escape_stage0_run_single module type_id operation body_module_fingerprint root proofs
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_one_proof: 1 proof record で gate を[実行/じっこう]する
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_one_proof %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord Result Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind StdErrorKind \module\type_id\operation\body_module_fingerprint\root\proof:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    selfhost_memo_trait_operation_private_effect_no_escape_stage0_run_single module type_id operation body_module_fingerprint root proofs1
+                Result::Err error:
+                    Result::Ok Result::Err error
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_duplicate_proofs: duplicate proof rejection を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_duplicate_proofs %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord Result Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind StdErrorKind \module\type_id\operation\body_module_fingerprint\root\proof:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs1 proof:
+                        Result::Ok proofs2:
+                            selfhost_memo_trait_operation_private_effect_no_escape_stage0_run_single module type_id operation body_module_fingerprint root proofs2
+                        Result::Err error:
+                            Result::Ok Result::Err error
+                Result::Err error:
+                    Result::Ok Result::Err error
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_preproven: pre-proven summary rejection を[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_preproven %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \type_id\operation\body_module_fingerprint\root:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs:
+            let summary %SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NoEscapeProven
+            let result %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind selfhost_memo_trait_operation_private_effect_no_escape_transform_summary_result &proofs type_id operation body_module_fingerprint root summary
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            result
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_finish: 構築済み module で代表 path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_finish %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary StdErrorKind \module\unit_id\cache_id\state_id\alloc_id\type_id:
+    let body_module_fingerprint %i32 81001
+    let other_body_module_fingerprint %i32 81002
+    let other_root %SelfhostHirExprId unit_id
+    let cache_key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+    let state_key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id SelfhostMemoTraitOperationEvidenceKind::Hash body_module_fingerprint state_id SelfhostEffectKind::PrivateState SelfhostEffectEscapeState::NotApplicable
+    let mismatched_root_key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint other_root SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+    let mismatched_module_key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq other_body_module_fingerprint cache_id SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NotApplicable
+    let cache_proven_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new cache_key SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let state_refuted_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new state_key SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted
+    let mismatched_root_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new mismatched_root_key SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let mismatched_module_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new mismatched_module_key SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    match selfhost_memo_trait_operation_private_effect_no_escape_stage0_one_proof &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id cache_proven_record:
+        Result::Ok private_cache_proven_check:
+            match selfhost_memo_trait_operation_private_effect_no_escape_stage0_empty_proofs &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id:
+                Result::Ok private_cache_missing_check:
+                    match selfhost_memo_trait_operation_private_effect_no_escape_stage0_one_proof &module type_id SelfhostMemoTraitOperationEvidenceKind::Hash body_module_fingerprint state_id state_refuted_record:
+                        Result::Ok private_state_refuted_check:
+                            match selfhost_memo_trait_operation_private_effect_no_escape_stage0_empty_proofs &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint unit_id:
+                                Result::Ok pure_pass_check:
+                                    match selfhost_memo_trait_operation_private_effect_no_escape_stage0_empty_proofs &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint alloc_id:
+                                        Result::Ok internal_alloc_pass_check:
+                                            match selfhost_memo_trait_operation_private_effect_no_escape_stage0_one_proof &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id mismatched_root_record:
+                                                Result::Ok mismatched_root_check:
+                                                    match selfhost_memo_trait_operation_private_effect_no_escape_stage0_one_proof &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id mismatched_module_record:
+                                                        Result::Ok mismatched_module_check:
+                                                            match selfhost_memo_trait_operation_private_effect_no_escape_stage0_duplicate_proofs &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id cache_proven_record:
+                                                                Result::Ok duplicate_rejected:
+                                                                    let preproven_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind selfhost_memo_trait_operation_private_effect_no_escape_stage0_preproven type_id SelfhostMemoTraitOperationEvidenceKind::Eq body_module_fingerprint cache_id
+                                                                    selfhost_hir_module_free module
+                                                                    Result::Ok selfhost_memo_trait_operation_private_effect_no_escape_stage0_summary_new private_cache_proven_check private_cache_missing_check private_state_refuted_check pure_pass_check internal_alloc_pass_check mismatched_root_check mismatched_module_check duplicate_rejected preproven_rejected
+                                                                Result::Err e:
+                                                                    selfhost_hir_module_free module
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            selfhost_hir_module_free module
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    selfhost_hir_module_free module
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_hir_module_free module
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_hir_module_free module
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_hir_module_free module
+                            Result::Err e
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            selfhost_hir_module_free module
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_alloc: InternalAlloc call までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_alloc %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary StdErrorKind \module\unit_id\cache_id\state_id\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "alloc" selfhost_def_id_new 8303 type_id SelfhostEffectKind::InternalAlloc selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok alloc_alloc:
+            let alloc_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc_alloc
+            selfhost_memo_trait_operation_private_effect_no_escape_stage0_finish module1 unit_id cache_id state_id alloc_id type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_state: PrivateState call までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_state %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary StdErrorKind \module\unit_id\cache_id\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "private_state" selfhost_def_id_new 8302 type_id SelfhostEffectKind::PrivateState selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok state_alloc:
+            let state_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &state_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module state_alloc
+            selfhost_memo_trait_operation_private_effect_no_escape_stage0_alloc module1 unit_id cache_id state_id type_id span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_stage0_cache: PrivateCache call までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_no_escape_stage0_cache %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary StdErrorKind \module\unit_id\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "private_cache" selfhost_def_id_new 8301 type_id SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok cache_alloc:
+            let cache_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &cache_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module cache_alloc
+            selfhost_memo_trait_operation_private_effect_no_escape_stage0_state module1 unit_id cache_id type_id span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_no_escape_gate_stage0: private effect no-escape gate の smoke API
+//:
+//: [目的/もくてき]:
+//: - PrivateCache proven、PrivateCache missing、PrivateState refuted、Pure / InternalAlloc pass-through、proof key mismatch、duplicate proof、pre-proven bypass rejection を確認します。
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_gate_stage0 %impure fn void Result SelfhostMemoTraitOperationPrivateEffectNoEscapeGateStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9811
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok unit_alloc:
+                    let unit_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &unit_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module unit_alloc
+                    selfhost_memo_trait_operation_private_effect_no_escape_stage0_cache module1 unit_id type_id span
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
