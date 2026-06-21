@@ -516,6 +516,8 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursor
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_offset_geometry.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_side_edge_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -592,6 +594,8 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -17002,7 +17006,7 @@ assert(
     "GUI font docs must pin F5kw plan change, command value authority, source metric coordinate guard, scalar-stream rejection, and no coordinate-equality contour inference",
 );
 const renderStrokeSourceContourStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:");
-const renderStrokeSourceContourEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSourceContourStartIndex);
+const renderStrokeSourceContourEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeOffsetNormal:", renderStrokeSourceContourStartIndex);
 const renderStrokeSourceContourRegion = allocFontSfntGlyfImpl.slice(renderStrokeSourceContourStartIndex, renderStrokeSourceContourEndIndex);
 const renderStrokeSourceMetricProvenanceType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance:"),
@@ -17032,7 +17036,7 @@ const renderStrokeSourceContourDrainTerminalType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal:"),
     allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_advance_skipped "),
 );
-assert(renderStrokeSourceContourStartIndex >= 0 && renderStrokeSourceContourEndIndex > renderStrokeSourceContourStartIndex, "alloc/gui/font/sfnt/glyf F5kw stroke source contour authority region must exist before fill alpha sample cursor");
+assert(renderStrokeSourceContourStartIndex >= 0 && renderStrokeSourceContourEndIndex > renderStrokeSourceContourStartIndex, "alloc/gui/font/sfnt/glyf F5kw stroke source contour authority region must exist before F5kx offset geometry");
 for (const fragment of [
     "metric_index %i32",
     "path_command_index %i32",
@@ -17375,6 +17379,549 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_completion_counts_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceContourAuthorityTests.includes("render_stroke_source_contour_authority_no_scalar_geometry_mask_command_platform"),
     "F5kw render stroke source contour authority focused doctest must cover provenance, command stream authority, metric source coordinate guard, contour span guard, skipped counts, completion counts, and no scalar/geometry/mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke offset geometry boundary"), "GUI font spec must document F5kx render stroke offset geometry boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke offset geometry boundary"), "GUI font detailed design must document F5kx render stroke offset geometry boundary");
+assert(implementationPlan.includes("## Phase F5kx: sfnt simple glyph render stroke offset geometry boundary"), "GUI font implementation plan must include F5kx phase");
+assert(
+    implementationPlan.includes("Singer plan review は `PLAN_REVIEWED`") &&
+        detailedDesign.includes("F5kx consumes the completed F5kw source contour owner as the only geometry authority") &&
+        detailedDesign.includes("Line geometry stores both left and right offset endpoints") &&
+        detailedDesign.includes("Quadratic geometry does not pretend that the exact offset is another quadratic curve") &&
+        spec.includes("GuiSfntSimpleGlyphRenderStrokeOffsetNormal") &&
+        spec.includes("片側 tangent が 0 の quadratic は、どちらの tangent normal を endpoint に採用したかを typed value に残す") &&
+        spec.includes("F5kx は F5ba/F5az scalar stream、byte-backed lookup、stroke edge、coverage、packed mask、render command、pixel write、platform API、font fallback へ進まない"),
+    "GUI font docs must pin F5kx source owner authority, line offsets, quadratic tangent policy, and no scalar/edge/coverage/render/platform policy",
+);
+const renderStrokeOffsetGeometryStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeOffsetNormal:");
+const renderStrokeOffsetGeometryEndIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeEdgeSide:", renderStrokeOffsetGeometryStartIndex);
+const renderStrokeOffsetGeometryRegion = allocFontSfntGlyfImpl.slice(renderStrokeOffsetGeometryStartIndex, renderStrokeOffsetGeometryEndIndex);
+assert(renderStrokeOffsetGeometryStartIndex >= 0 && renderStrokeOffsetGeometryEndIndex > renderStrokeOffsetGeometryStartIndex, "alloc/gui/font/sfnt/glyf F5kx stroke offset geometry region must exist before F5ky side edge owner");
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderStrokeOffsetNormal:",
+    "tangent_dx %i64",
+    "tangent_dy %i64",
+    "length_squared %i64",
+    "length %f32",
+    "unit_normal_x %f32",
+    "unit_normal_y %f32",
+    "offset_x2 %f32",
+    "offset_y2 %f32",
+    "enum GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource:",
+    "StartControl",
+    "ControlEnd",
+    "struct GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry:",
+    "left_start_x2 %f32",
+    "right_end_y2 %f32",
+    "struct GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry:",
+    "start_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal",
+    "end_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal",
+    "enum GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry:",
+    "Line %GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry",
+    "Quadratic %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry",
+]) {
+    assert(renderStrokeOffsetGeometryRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5kx offset geometry value region must include ${fragment}`);
+}
+for (const fragment of [
+    "source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner",
+    "geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry",
+    "metric_index %i32",
+    "line_geometry_count %i32",
+    "quadratic_geometry_count %i32",
+    "struct GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner:",
+    "geometry_count %i32",
+]) {
+    assert(renderStrokeOffsetGeometryRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5kx offset geometry owners must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner",
+    "GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner",
+    "GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError",
+    "GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError",
+    "GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5kx ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeOffset(?:Normal|LineGeometry|QuadraticGeometry|GeometryDrainOwner|GeometryOwner)|pub enum GuiSfntSimpleGlyphRenderStrokeOffset(?:SegmentGeometry|GeometryDrainTerminal)|pub fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_(?:start|step)\b/,
+    "alloc/gui/font/sfnt/glyf F5kx owner-bearing boundary and drain start/step must remain private",
+);
+for (const fragment of [
+    "SourceMetricCountNegative",
+    "SourceProvenanceCountMismatch",
+    "StrokeMiterLimitInvalid",
+    "UnsupportedStrokeDash",
+    "ProvenanceMetricIndexMismatch",
+    "ProvenanceContourSpanInvalid",
+    "MetricKindMismatch",
+    "MetricStrokeWidthMismatch",
+    "LengthSqrtInvalid",
+    "UnitNormalInvalid",
+    "OffsetVectorInvalid",
+    "OffsetPointInvalid",
+    "QuadraticFullyDegenerate",
+    "GeometryPushFailed",
+    "CompletionGeometryCountMismatch",
+]) {
+    assert(renderStrokeOffsetGeometryRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5kx error surface must include ${fragment}`);
+}
+const renderStrokeOffsetGeometrySourceInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants");
+const renderStrokeOffsetGeometryStyleGuard = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard");
+const renderStrokeOffsetGeometryNormalFromTangent = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent");
+const renderStrokeOffsetGeometryLineFromMetric = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_line_geometry_from_metric");
+const renderStrokeOffsetGeometryQuadraticStartNormal = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_quadratic_start_endpoint_normal");
+const renderStrokeOffsetGeometryQuadraticEndNormal = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_quadratic_end_endpoint_normal");
+const renderStrokeOffsetGeometryQuadraticFromMetric = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry_from_metric");
+const renderStrokeOffsetGeometryStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_start");
+const renderStrokeOffsetGeometryPushGeometry = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry");
+const renderStrokeOffsetGeometryStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_step");
+assert(
+    allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_line %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_quadratic %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError"),
+    "alloc/gui/font/sfnt/glyf F5kx impure drain helpers must use impure argument separators for owner-consuming push paths",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometrySourceInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_offset_geometry metric_owner",
+        "SourcePathCommandCountMismatch",
+        "SourceProvenanceCountNegative",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_count_checked_add line_provenance_count quadratic_provenance_count",
+        "SourceCompletionMetricCountMismatch",
+        "SourceCompletionLineCountMismatch",
+        "SourceCompletionQuadraticCountMismatch",
+        "SourceCompletionMoveToCountMismatch",
+        "SourceCompletionSkipNoSegmentCountMismatch",
+        "SourceProvenanceStorageLenMismatch",
+        "SourceProvenanceStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx source invariants must revalidate F5kw completed source contour owner shape before geometry expansion",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryStyleGuard,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke plan_owner",
+        "gui_stroke_width &stroke",
+        "gui_stroke_miter_limit &stroke",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_is_finite miter_limit",
+        "gui_stroke_cap &stroke",
+        "GuiStrokeCap::Butt",
+        "GuiStrokeCap::Square",
+        "GuiStrokeCap::Round",
+        "gui_stroke_join &stroke",
+        "GuiStrokeJoin::Miter",
+        "GuiStrokeJoin::Bevel",
+        "GuiStrokeJoin::Round",
+        "gui_stroke_dash &stroke",
+        "GuiStrokeDash::Solid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx style guard must read GuiStroke via accessors, preserve cap/join policy, and accept only explicit solid dash",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryNormalFromTangent,
+    [
+        "if le length_squared %i64 cast 0",
+        "%f32 cast length_squared",
+        "sqrt length_squared_f",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard length",
+        "div sub 0.0 dy_f checked_length",
+        "div dx_f checked_length",
+        "mul checked_unit_normal_x stroke_width_f",
+        "mul checked_unit_normal_y stroke_width_f",
+        "gui_sfnt_simple_glyph_render_stroke_offset_normal dx dy length_squared checked_length",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx normal builder must use F5kt i64 metric, sqrt/div/cast guards, and produce doubled-coordinate offset vectors",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryLineFromMetric,
+    [
+        "MetricSegmentIndexMismatch",
+        "MetricStrokeWidthMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent dx dy length_squared stroke_width",
+        "left_start_x2",
+        "left_end_y2",
+        "right_start_x2",
+        "right_end_y2",
+        "gui_sfnt_simple_glyph_render_stroke_offset_line_geometry metric_index path_command_index edge_index contour_index",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx line geometry must match metric/provenance and store left/right offset endpoints",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryQuadraticStartNormal,
+    [
+        "if gt start_control_length_squared %i64 cast 0",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::StartControl",
+        "if gt control_end_length_squared %i64 cast 0",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::ControlEnd",
+        "QuadraticFullyDegenerate",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx quadratic start normal must retain partial-degenerate tangent source policy",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryQuadraticEndNormal,
+    [
+        "if gt control_end_length_squared %i64 cast 0",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::ControlEnd",
+        "if gt start_control_length_squared %i64 cast 0",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::StartControl",
+        "QuadraticFullyDegenerate",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx quadratic end normal must retain partial-degenerate tangent source policy",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryQuadraticFromMetric,
+    [
+        "MetricSegmentIndexMismatch",
+        "MetricStrokeWidthMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_offset_quadratic_start_endpoint_normal metric stroke_width",
+        "gui_sfnt_simple_glyph_render_stroke_offset_quadratic_end_endpoint_normal metric stroke_width",
+        "start_offset_normal",
+        "end_offset_normal",
+        "gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry metric_index path_command_index edge_index contour_index",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx quadratic geometry must use start/end tangent normals and must not flatten partial degeneracy",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants &source_owner",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard &source_owner",
+        "let geometry_result %Result Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry StdErrorKind vec::with_capacity metric_count",
+        "match geometry_result:",
+        "GeometryStorageInitialLenMismatch",
+        "GeometryStorageCapacityMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner geometry 0 0 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx start must validate F5kw source owner and stroke style before exact-capacity geometry Vec allocation",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryPushGeometry,
+    [
+        "previous_metric_index",
+        "previous_line_count",
+        "previous_quadratic_count",
+        "vec::push geometry geometry_value",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner next_geometry next_metric_index next_line_count next_quadratic_count",
+        "vec::vec_push_error_vec push_error",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner returned_geometry previous_metric_index previous_line_count previous_quadratic_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx push failure must recover the returned Vec and the pre-push counts for either line or quadratic geometry",
+);
+assertOrderedFragments(
+    renderStrokeOffsetGeometryStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_local_invariants &owner",
+        "if eq metric_index metric_count",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_completion_invariants &owner",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::Completed completed_owner",
+        "gui_sfnt_simple_glyph_render_stroke_source_contour_owner_read_provenance_for_offset_geometry source_owner metric_index",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_offset_geometry metric_owner metric_index",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line line_metric",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_line owner provenance line_metric stroke_width",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic quadratic_metric",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_quadratic owner provenance quadratic_metric stroke_width",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kx step must drain F5kw metric/provenance slots into line/quadratic offset geometry and complete at exact count",
+);
+assert(
+    (renderStrokeOffsetGeometryRegion.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
+        (renderStrokeOffsetGeometryRegion.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5kx region must allocate the geometry Vec once and push only through one helper",
+);
+assertNoMatch(
+    renderStrokeOffsetGeometryRegion,
+    /\b(?:path_sink_scalars|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_glyf_simple_point_with_tables|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step|gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_step|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor)\b/,
+    "alloc/gui/font/sfnt/glyf F5kx region must not read scalar storage, parse bytes, stream path commands, use masks/coverage, emit commands, call platform APIs, or fallback",
+);
+for (const [slice, name] of [
+    [renderStrokeOffsetGeometrySourceInvariants, "source invariants"],
+    [renderStrokeOffsetGeometryStyleGuard, "style guard"],
+    [renderStrokeOffsetGeometryNormalFromTangent, "normal builder"],
+    [renderStrokeOffsetGeometryLineFromMetric, "line geometry"],
+    [renderStrokeOffsetGeometryQuadraticStartNormal, "quadratic start normal"],
+    [renderStrokeOffsetGeometryQuadraticEndNormal, "quadratic end normal"],
+    [renderStrokeOffsetGeometryQuadraticFromMetric, "quadratic geometry"],
+    [renderStrokeOffsetGeometryStart, "start"],
+    [renderStrokeOffsetGeometryStep, "step"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5kx ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_source_owner_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_exact_capacity_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_line_offsets_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_quadratic_tangent_policy_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_style_guard_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_push_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeOffsetGeometryTests.includes("render_stroke_offset_geometry_no_scalar_edge_mask_command_platform"),
+    "F5kx render stroke offset geometry focused doctest must cover source owner authority, capacity, line offsets, quadratic tangent policy, style guard, push recovery, and no scalar/edge/mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke side edge owner boundary"), "GUI font spec must document F5ky render stroke side edge owner boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke side edge owner boundary"), "GUI font detailed design must document F5ky render stroke side edge owner boundary");
+assert(implementationPlan.includes("## Phase F5ky: sfnt simple glyph render stroke side edge owner boundary"), "GUI font implementation plan must include F5ky phase");
+assert(
+    implementationPlan.includes("Gauss plan review は `PLAN_REVIEWED`") &&
+        detailedDesign.includes("F5ky consumes the completed F5kx offset geometry owner as the only direct authority") &&
+        detailedDesign.includes("F5ky completed owner is a side edge record owner, not a closed stroke outline") &&
+        spec.includes("F5ky の completed owner は閉じた stroke outline ではない") &&
+        spec.includes("coverage の前に stroke edge closure / join-cap owner を挟む"),
+    "GUI font docs must pin F5ky F5kx authority, side-edge-only semantics, and closure-before-coverage policy",
+);
+const renderStrokeSideEdgeStartIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeEdgeSide:", renderStrokeOffsetGeometryEndIndex);
+const renderStrokeSideEdgeEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSideEdgeStartIndex);
+const renderStrokeSideEdgeRegion = allocFontSfntGlyfImpl.slice(renderStrokeSideEdgeStartIndex, renderStrokeSideEdgeEndIndex);
+assert(renderStrokeSideEdgeStartIndex >= 0 && renderStrokeSideEdgeEndIndex > renderStrokeSideEdgeStartIndex, "alloc/gui/font/sfnt/glyf F5ky stroke side edge owner region must exist before fill alpha sample cursor");
+for (const fragment of [
+    "enum GuiSfntSimpleGlyphRenderStrokeEdgeSide:",
+    "Left",
+    "Right",
+    "enum GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection:",
+    "SourceForward",
+    "SourceReverse",
+    "struct GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord:",
+    "side %GuiSfntSimpleGlyphRenderStrokeEdgeSide",
+    "boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection",
+    "normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal",
+    "struct GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord:",
+    "source_control_x2 %i32",
+    "start_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal",
+    "end_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal",
+    "enum GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord:",
+    "Line %GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord",
+    "Quadratic %GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord",
+]) {
+    assert(renderStrokeSideEdgeRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5ky side edge value region must include ${fragment}`);
+}
+for (const fragment of [
+    "geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner",
+    "edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord",
+    "geometry_index %i32",
+    "side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide",
+    "side_edge_count %i32",
+    "line_side_edge_count %i32",
+    "quadratic_side_edge_count %i32",
+    "left_side_edge_count %i32",
+    "right_side_edge_count %i32",
+    "struct GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner:",
+    "geometry_count %i32",
+]) {
+    assert(renderStrokeSideEdgeRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5ky side edge owners must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner",
+    "GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner",
+    "GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError",
+    "GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError",
+    "GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5ky ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStroke(?:LineSideEdgeRecord|QuadraticSideEdgeRecord|SideEdgeDrainOwner|SideEdgeOwner|SideEdgeOwnerStartError|SideEdgeDrainError)|pub enum GuiSfntSimpleGlyphRenderStroke(?:EdgeSide|SideEdgeBoundaryDirection|SideEdgeRecord|SideEdgeDrainTerminal)|pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_(?:start|step)\b/,
+    "alloc/gui/font/sfnt/glyf F5ky owner-bearing boundary and drain start/step must remain private",
+);
+for (const fragment of [
+    "SourceOffsetGeometrySourceInvariantFailed",
+    "SourceOffsetGeometryStyleGuardFailed",
+    "SourceGeometryCountMismatch",
+    "SideEdgeCapacityOverflow",
+    "GeometrySlotMissing",
+    "SideEdgeCountMismatch",
+    "LineQuadraticSideEdgeCountMismatch",
+    "LeftRightSideEdgeCountMismatch",
+    "LeftSideEdgeCountMismatch",
+    "RightSideEdgeCountMismatch",
+    "EdgePushFailed",
+    "CompletionSidePhaseMismatch",
+    "CompletionLineSideEdgeCountMismatch",
+    "CompletionQuadraticSideEdgeCountMismatch",
+]) {
+    assert(renderStrokeSideEdgeRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5ky error surface must include ${fragment}`);
+}
+const renderStrokeSideEdgeSourceInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge");
+const renderStrokeSideEdgeCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count");
+const renderStrokeSideEdgeLocalInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_local_invariants");
+const renderStrokeSideEdgeLineRecord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry");
+const renderStrokeSideEdgeQuadraticRecord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry");
+const renderStrokeSideEdgeStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_start");
+const renderStrokeSideEdgeReadGeometry = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_geometry");
+const renderStrokeSideEdgePushEdge = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge");
+const renderStrokeSideEdgeStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_step");
+assert(
+    allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord impure fn i32 impure fn GuiSfntSimpleGlyphRenderStrokeEdgeSide impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_line %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError") &&
+        allocFontSfntGlyfImpl.includes("fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_quadratic %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner impure fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError"),
+    "alloc/gui/font/sfnt/glyf F5ky impure drain helpers must use impure argument separators for owner-consuming push paths",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeSourceInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants source_owner",
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard source_owner",
+        "SourceGeometryCountNegative",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add line_geometry_count quadratic_geometry_count",
+        "SourceGeometryCountExceeded",
+        "SourceLineGeometryCountMismatch",
+        "SourceQuadraticGeometryCountMismatch",
+        "SourceGeometryStorageLenMismatch",
+        "SourceGeometryStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky source invariants must revalidate the completed F5kx geometry owner before side edge expansion",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeCapacity,
+    [
+        "let max_i32 %i32 2147483647",
+        "if lt geometry_count 0",
+        "let remaining %i32 sub max_i32 geometry_count",
+        "SideEdgeCapacityOverflow",
+        "Result::Ok add geometry_count geometry_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky capacity builder must derive geometry_count * 2 with an overflow guard",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeLocalInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge geometry_owner",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_phase_advanced_count side_phase",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_index",
+        "expected_side_edge_count",
+        "LineQuadraticSideEdgeCountMismatch",
+        "LeftRightSideEdgeCountMismatch",
+        "LineSideEdgeCountExceeded",
+        "QuadraticSideEdgeCountExceeded",
+        "LeftSideEdgeCountMismatch",
+        "RightSideEdgeCountMismatch",
+        "EdgeStorageLenMismatch",
+        "EdgeStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky local invariants must bind geometry_index plus side_phase to exact side edge counts",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeLineRecord,
+    [
+        "match side:",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward",
+        "left_start_x2",
+        "left_end_y2",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse",
+        "right_end_x2",
+        "right_start_y2",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky line records must keep left source-forward and right source-reverse directed endpoints",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeQuadraticRecord,
+    [
+        "source_control_x2",
+        "start_normal",
+        "end_normal",
+        "match side:",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward",
+        "left_start_x2",
+        "left_end_y2",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse",
+        "right_end_x2",
+        "right_start_y2",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky quadratic records must retain source curve and endpoint normals without fabricating an offset control point",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge &geometry_owner",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_count",
+        "let edges_result %Result Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord StdErrorKind vec::with_capacity side_edge_capacity",
+        "match edges_result:",
+        "EdgeStorageInitialLenMismatch",
+        "EdgeStorageCapacityMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner edges 0 GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left 0 0 0 0 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky start must validate F5kx owner before exact-capacity side edge Vec allocation",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeReadGeometry,
+    [
+        "GeometryIndexNegative",
+        "GeometryIndexOutOfRange",
+        "SourceGeometryStorageLenMismatch",
+        "SourceGeometryStorageCapacityMismatch",
+        "vec::get geometry geometry_index",
+        "GeometrySlotMissing",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky geometry reader must read only the F5kx geometry Vec by checked slot",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgePushEdge,
+    [
+        "previous_geometry_index",
+        "previous_side_phase",
+        "previous_side_edge_count",
+        "vec::push edges edge",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner next_edges next_geometry_index",
+        "vec::vec_push_error_vec push_error",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner returned_edges previous_geometry_index previous_side_phase",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky push failure must recover the returned Vec and pre-push side phase/counts",
+);
+assertOrderedFragments(
+    renderStrokeSideEdgeStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_local_invariants &owner",
+        "if eq geometry_index geometry_count",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_completion_invariants &owner",
+        "GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::Completed completed_owner",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_geometry geometry_owner geometry_index",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry::Line line_geometry",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_line owner line_geometry",
+        "GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry::Quadratic quadratic_geometry",
+        "gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_quadratic owner quadratic_geometry",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ky step must drain one side edge per step from the F5kx geometry owner",
+);
+assert(
+    (renderStrokeSideEdgeRegion.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
+        (renderStrokeSideEdgeRegion.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ky region must allocate the side edge Vec once and push only through one helper",
+);
+assertNoMatch(
+    renderStrokeSideEdgeRegion,
+    /\b(?:path_sink_scalars|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_glyf_simple_point_with_tables|GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner|gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_|GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner|gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor)\b/,
+    "alloc/gui/font/sfnt/glyf F5ky region must not read scalar storage, parse bytes, rerun earlier drains, use masks/coverage, emit commands, call platform APIs, or fallback",
+);
+for (const [slice, name] of [
+    [renderStrokeSideEdgeSourceInvariants, "source invariants"],
+    [renderStrokeSideEdgeCapacity, "capacity"],
+    [renderStrokeSideEdgeLocalInvariants, "local invariants"],
+    [renderStrokeSideEdgeLineRecord, "line record"],
+    [renderStrokeSideEdgeQuadraticRecord, "quadratic record"],
+    [renderStrokeSideEdgeStart, "start"],
+    [renderStrokeSideEdgeReadGeometry, "read geometry"],
+    [renderStrokeSideEdgePushEdge, "push edge"],
+    [renderStrokeSideEdgeStep, "step"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5ky ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_offset_geometry_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_exact_capacity_double_geometry_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_left_right_direction_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_quadratic_endpoint_policy_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_one_step_one_push_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_not_closed_outline_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSideEdgeOwnerTests.includes("render_stroke_side_edge_owner_no_scalar_mask_command_platform"),
+    "F5ky render stroke side edge owner focused doctest must cover F5kx authority, doubled capacity, direction, quadratic policy, push recovery, not-closed semantics, and no scalar/mask/command/platform policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");

@@ -2865,6 +2865,94 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gu
 git diff --check
 ```
 
+## Phase F5kx: sfnt simple glyph render stroke offset geometry boundary
+
+目的:
+
+- completed F5kw source contour owner を authority とし、line/quadratic の actual stroke offset geometry owner を追加する。
+- F5ku metric owner 単独、F5ba/F5az scalar stream、byte-backed lookup、fill mask/raster edge owner へ戻らず、F5kw provenance と F5kt metric を同じ slot index で照合する。
+- line は left/right offset endpoint を作り、quadratic は exact offset curve を二次 curve として捏造せず start/end tangent normal と partial-degenerate tangent source policy を保持する。
+- stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+
+plan review:
+
+- Singer plan review は `PLAN_REVIEWED`。
+- 指摘に従い、authority は F5kw completed owner に寄せ、F5ku metric owner 単独へ戻らない。
+- 最初の F5kx は actual offset geometry expansion までで止め、stroke edge owner、coverage mask、packed mask、RenderCommand、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+- source owner invariant、metric/provenance count、`provenance.metric_index == storage index`、metric kind と command tag、contour span shape を最初の guard とする。
+- `GuiStroke` は accessor 経由で読み、dash `Solid` を explicit no-dash として扱い、将来 dash pattern を solid に近似しない。
+- partial-degenerate quadratic は silent flatten / silent normalize せず、どちらの tangent normal を endpoint に採用したか typed value に残す。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeOffsetNormal`、`GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource`、`GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal` を追加する。
+- `GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry` と `GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry` を追加し、line は left/right endpoint、quadratic は start/end tangent normal と endpoint offset を保持する。
+- `GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner` を追加する。
+- start / step / completion / push / free helper を追加し、geometry Vec を exact capacity で 1 回だけ確保し、push failure では returned Vec と pre-push count を保持する。
+- source policy / docs / focused doctest label を追加し、no scalar reread / no byte lookup / no edge / no coverage / no render / no platform / no fallback を検査する。
+
+完了条件:
+
+- source policy が F5kx docs、Singer review result、F5kw source owner authority、offset normal value、line left/right endpoint、quadratic tangent source policy、style guard、exact-capacity Vec、push recovery、no scalar/edge/mask/command/platform 接続を検査する。
+- focused doctest label が source owner authority、capacity、line offsets、quadratic tangent policy、style guard、push recovery、no scalar/edge/mask/command/platform policy を固定する。
+- implementation review で F5kx が actual offset geometry owner に留まり、stroke edge、coverage、render command、pixel write、platform API、font fallback へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke offset geometry boundary 接続済み、後続の stroke edge owner / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_offset_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_offset_geometry_f5kx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kx.json -j 1
+git diff --check
+```
+
+## Phase F5ky: sfnt simple glyph render stroke side edge owner boundary
+
+目的:
+
+- completed F5kx stroke offset geometry owner を authority とし、line/quadratic の left/right side edge record owner を追加する。
+- F5ba/F5az scalar stream、byte-backed lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、fill raster edge owner へ戻らない。
+- completed owner は閉じた stroke outline ではなく、join / cap / miter closure を未解決の side edge record authority として固定する。
+- coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へ進まない。
+
+plan review:
+
+- Gauss plan review は `PLAN_REVIEWED`。
+- 指摘に従い、F5ky は side edge record owner までに限定し、coverage-ready な閉境界を意味しないことを docs/source policy/todo に明示する。
+- F5kz は coverage mask owner へ直行せず、stroke edge closure / join-cap owner を先に挟む。
+- capacity は `geometry_count * 2` を overflow guard 付きで導出し、line/quadratic/left/right count invariant を入れる。
+- 1 geometry から 2 record を作るため、`geometry_index + side_phase(Left/Right)` によって 1 step 1 push にし、partial push failure で Vec と count がずれないようにする。
+- line right side は source-reverse の directed endpoint として保持し、quadratic は source curve と endpoint normal を残して offset control point を捏造しない。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeEdgeSide` と `GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection` を追加する。
+- `GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord`、`GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord`、`GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord` を追加する。
+- `GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner` を追加する。
+- start / step / completion / push / free helper を追加し、side edge Vec を exact capacity で 1 回だけ確保し、push failure では returned Vec と pre-push side phase/count を保持する。
+- source policy / docs / focused doctest label を追加し、F5kx authority、not-closed outline、no scalar/mask/render/platform 接続を検査する。
+
+完了条件:
+
+- source policy が F5ky docs、Gauss review result、F5kx completed owner authority、side edge value record、capacity `geometry_count * 2`、left/right direction、quadratic endpoint policy、1 step 1 push recovery、no scalar/mask/command/platform 接続を検査する。
+- focused doctest label が F5kx authority、double capacity、left/right direction、quadratic endpoint policy、push recovery、not-closed semantics、no scalar/mask/command/platform policy を固定する。
+- implementation review で F5ky が side edge record owner に留まり、closure / coverage / render command / pixel write / platform API / font fallback へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke side edge owner boundary 接続済み、後続の stroke edge closure / join-cap owner、stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_side_edge_owner.n.md --no-tree -o tmp_gui_font_render_stroke_side_edge_owner_f5ky.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ky.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
