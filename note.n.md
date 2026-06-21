@@ -18,6 +18,7 @@
 - `context_bound_reader_traversal_bundle_stage0_run_summary_result` は production accepted path で `actual_traversal_body_adapter_input_availability_from_request_context_result` / `context_bound_reader_traversal_bundle_from_availability_result` を通らず、新しい context-owned bundle helper を通る。
 - availability / output helper は seed / rejection smoke と互換境界として残し、Err availability が owner-bearing bundle path に入らない contract を維持した。
 - contract test、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md` を更新し、残件を `MemoizedFunctionValue` DefId から body HIR root / body module fingerprint / lowering availability を解決する resolver と actual Resource IR / HIR lowering body reader への置換へ寄せた。
+- 最新 `origin/main` の render2d compositor frame entry owner を取り込んだ後、`stdlib/alloc/gui/render2d/compositor_frame_entry.nepl` の top-level 宣言に日本語 doc comment と skip doctest を追加し、stdlib documentation contract の gap 増加を戻した。
 
 ## 検証
 
@@ -31,6 +32,17 @@
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_context_owned_reader_bundle.json`
 - checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` render2d merge: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` render2d merge: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` render2d merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` render2d merge after doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` render2d merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` render2d merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-context-owned-reader-bundle-after-merge.json`。17/17。
+- pass after latest `origin/main` render2d merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp/gui_render2d_compositor_frame_entry_after_merge.json -j 1`。1/1。60000ms では compile timeout したため 600000ms で確認。
+- pass after latest `origin/main` render2d merge: `git diff --check`。LF/CRLF warning のみ。
+- pass after latest `origin/main` render2d merge: `trunk build`
+- pass after latest `origin/main` render2d merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_context_owned_reader_bundle_after_merge.json`
+- checked JSON after latest `origin/main` render2d merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 
 ## 未接続
 
