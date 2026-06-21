@@ -78574,6 +78574,7 @@ MERGE_APPROVED
 - Locke の implementation review は `REVIEW_APPROVED`。reader policy は module-private で、default accepted は `WrapperPrivateCacheStorage` / `WrapperCloneOutOwnedValue` だけ、lookup / insert / effect / observation は typed vocabulary 経由で fail-closed に分類されることを確認した。
 - latest `origin/main` F5lg/F5lh merge 後、`run_source_policy_regressions.js` が `stdlib declaration doc gaps increased: 2804 > 2756` で止まった。原因は merge で入った `glyf.nepl` の glyph paint / stroke-only composition order block の新規 helper 宣言に `//:` doc が無かったことだったため、baseline 更新ではなく各宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
 - latest `origin/main` F5li merge 後も、F5li shadow request block の writer authority / shadow request helper 宣言で `stdlib declaration doc gaps increased: 2791 > 2756` が再発した。こちらも baseline 更新ではなく、各 helper 宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- latest `origin/main` F5lj merge 後も、F5lj shadow source coverage config block の helper 宣言で `stdlib declaration doc gaps increased: 2784 > 2756` が再発した。こちらも baseline 更新ではなく、各 helper 宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
 
 ### 検証
 
@@ -78604,6 +78605,9 @@ MERGE_APPROVED
 - pass after latest `origin/main` F5li merge: `trunk build`
 - pass after latest `origin/main` F5li merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-reader-policy-after-f5li-merge-doc-fix.json`
 - checked JSON after latest `origin/main` F5li merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lj merge: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lj merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lj merge: `node nodesrc/test_stdlib_documentation_contract.js`
 
 ### 残件
 

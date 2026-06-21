@@ -18298,9 +18298,15 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig \config:
         config
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_config: shadow source coverage config を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_config %fn GuiSfntSimpleGlyphRasterCoverageConfig GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig \coverage_config:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig coverage_config
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_config_coverage_config: shadow source coverage config の raw coverage config を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_config_coverage_config %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig GuiSfntSimpleGlyphRasterCoverageConfig \config:
     *field::get_ref config "coverage_config"
 
@@ -18324,24 +18330,45 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner:
     shadow_paint %GuiPaint
     blend %GuiBlendMode
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner: shadow source coverage owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner %fn GuiSfntSimpleGlyphRenderShadowRequestOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Option GuiPaint fn Option GuiStroke fn GuiPoint fn GuiPoint fn i32 fn i32 fn i32 fn GuiPaint fn GuiBlendMode GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner \request_owner\source_shape\source_fill\source_stroke\source_placement_origin\shadow_offset\shadow_blur_radius\shadow_spread\shadow_extent\shadow_paint\blend:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner request_owner source_shape source_fill source_stroke source_placement_origin shadow_offset shadow_blur_radius shadow_spread shadow_extent shadow_paint blend
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_shape: source coverage shape authority を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
     *field::get_ref owner "source_shape"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_fill: shadow source の fill metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_fill %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner Option GuiPaint \owner:
     *field::get_ref owner "source_fill"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_stroke: shadow source の stroke metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_stroke %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner Option GuiStroke \owner:
     *field::get_ref owner "source_stroke"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_placement_origin: shadow offset 適用後の source placement origin を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_source_placement_origin %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner GuiPoint \owner:
     *field::get_ref owner "source_placement_origin"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_shadow_extent: blur と spread から検査済みの shadow extent を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_shadow_extent %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner i32 \owner:
     *field::get_ref owner "shadow_extent"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_blend: shadow source coverage owner の blend mode を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_blend %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner GuiBlendMode \owner:
     *field::get_ref owner "blend"
 
@@ -18384,37 +18411,61 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError:
     coverage_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind
     source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape
 
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorRecovery: shadow source coverage start error から[回収/かいしゅう]した request owner と config
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorRecovery:
     request_owner %GuiSfntSimpleGlyphRenderShadowRequestOwner
     config %GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error: shadow source coverage start error と回復 payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind fn GuiSfntSimpleGlyphRenderShadowRequestOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig fn Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind fn Option GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError \kind\request_owner\config\coverage_error\source_shape:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError kind request_owner config coverage_error source_shape
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_simple: lower payload なしの shadow source coverage start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind fn GuiSfntSimpleGlyphRenderShadowRequestOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError \kind\request_owner\config:
     let coverage_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind none
     let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error kind request_owner config coverage_error source_shape
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_coverage_failed: raster coverage shape 生成失敗を start error へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_coverage_failed %fn GuiSfntSimpleGlyphRenderShadowRequestOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig fn GuiSfntSimpleGlyphRasterCoverageStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError \request_owner\config\coverage_error_value:
     let kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind gui_sfnt_simple_glyph_render_shadow_source_coverage_error_kind_from_coverage coverage_error_value
     let coverage_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind some coverage_error_value
     let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error kind request_owner config coverage_error source_shape
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_with_shape: 検査済み source shape を持つ start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_with_shape %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind fn GuiSfntSimpleGlyphRenderShadowRequestOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig fn GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError \kind\request_owner\config\source_shape_value:
     let coverage_error %Option GuiSfntSimpleGlyphRasterCoverageStartErrorKind none
     let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape some source_shape_value
     gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error kind request_owner config coverage_error source_shape
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_kind: shadow source coverage start error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery: start error から request owner と config を[回収/かいしゅう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorRecovery \error:
     let request_owner %GuiSfntSimpleGlyphRenderShadowRequestOwner field::get error "request_owner"
     let config %GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig field::get error "config"
     GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorRecovery request_owner config
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_error_kind_from_coverage: raster coverage error kind を shadow source coverage error kind へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_error_kind_from_coverage %fn GuiSfntSimpleGlyphRasterCoverageStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRasterCoverageStartErrorKind::InvalidWidth:
@@ -18434,6 +18485,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_error_kind_from_coverage 
         _:
             GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind::CoverageUnexpectedLowerError
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_add_i32: i32 加算を i64 roundtrip で overflow 検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_add_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind \left\right\overflow_kind:
     let sum %i64 add %i64 cast left %i64 cast right
     let narrowed %i32 cast sum
@@ -18442,6 +18496,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_add_i32 %fn i32 f
         then Result::Err overflow_kind
         else Result::Ok narrowed
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_placement_origin: request origin と shadow offset から placement origin を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_placement_origin %fn &GuiPoint fn &GuiPoint Result GuiPoint GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind \origin\offset:
     let origin_x %i32 gui_point_x origin
     let origin_y %i32 gui_point_y origin
@@ -18457,16 +18514,28 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_placement_origin 
                 Result::Ok y:
                     Result::Ok gui_point_new x y
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_extent: spread と blur radius から shadow extent を overflow 検査付きで[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_extent %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind \spread\blur_radius:
     gui_sfnt_simple_glyph_render_shadow_source_coverage_checked_add_i32 spread blur_radius GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorKind::ShadowExtentOverflow
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_stroke_is_valid: shadow source stroke width が正か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_stroke_is_valid %fn &GuiStroke bool \stroke:
     let width %i32 gui_stroke_width stroke
     gt width 0
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_source_has_paint: shadow source に fill または stroke metadata があるか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_source_has_paint %fn Option GuiPaint fn Option GuiStroke bool \fill\stroke:
     not and is_none fill is_none stroke
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_source_stroke_is_valid: optional stroke metadata の width を必要時だけ[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_source_stroke_is_valid %fn Option GuiStroke bool \stroke_option:
     match stroke_option:
         Option::None:
@@ -18474,6 +18543,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_source_stroke_is_valid %f
         Option::Some stroke:
             gui_sfnt_simple_glyph_render_shadow_source_coverage_stroke_is_valid &stroke
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_blend_is_supported: shadow source coverage が扱う blend mode か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_blend_is_supported %fn GuiBlendMode bool \blend:
     match blend:
         GuiBlendMode::SourceOver:
@@ -18485,6 +18557,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_blend_is_supported %fn Gu
         GuiBlendMode::Screen:
             false
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_start: shadow request と coverage config を検査して source coverage owner を[開始/かいし]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_start %fn GuiSfntSimpleGlyphRenderShadowRequestOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig Result GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError \request_owner\config:
     let shadow %GuiShadow gui_sfnt_simple_glyph_render_shadow_request_owner_shadow &request_owner
     let blur_radius %i32 gui_shadow_blur_radius &shadow
@@ -18526,14 +18601,23 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_start %fn GuiSfntSi
                                                                     let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_owner request_owner source_shape source_fill source_stroke source_placement_origin shadow_offset blur_radius spread shadow_extent shadow_paint blend
                                                                     Result::Ok owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_free: shadow source coverage owner が保持する request owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner unit \owner:
     let request_owner %GuiSfntSimpleGlyphRenderShadowRequestOwner field::get owner "request_owner"
     gui_sfnt_simple_glyph_render_shadow_request_owner_free request_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_free: start error 内の request owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartError unit \error:
     let recovery %GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorRecovery gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery error
     gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery_free recovery
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery_free: recovery payload の request owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_start_error_recovery_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageStartErrorRecovery unit \recovery:
     let request_owner %GuiSfntSimpleGlyphRenderShadowRequestOwner field::get recovery "request_owner"
     gui_sfnt_simple_glyph_render_shadow_request_owner_free request_owner
