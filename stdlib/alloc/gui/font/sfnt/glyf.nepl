@@ -24558,6 +24558,476 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_table_register %impure fn
                             let returned_table %GuiSfntSimpleGlyphRenderShadowSourceResourceTableOwner gui_sfnt_simple_glyph_render_shadow_source_resource_table_owner returned_records
                             Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_table_register_error_push_failed returned_table reservation storage_error_value
 
+//: GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner: shadow resource lifetime 付き prepared command
+//:
+//: [目的/もくてき]:
+//: - Copy な `RenderCommand` を外へ[出/だ]さず、registered resource owner と同じ owner に[閉/と]じ[込/こ]めます。
+//: - 後続の formal transport / drain owner が resource と command を同時に[消費/しょうひ]するまで、dangling `AlphaMaskId` command を[作/つく]らないための内部境界です。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner:
+    resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+    command %RenderCommand
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner %fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner fn RenderCommand GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner \resource\command:
+    GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner resource command
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_record %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner GuiSfntSimpleGlyphRenderShadowSourceResourceRecord \owner:
+    let resource %&GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get_ref owner "resource"
+    gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner unit \owner:
+    let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get owner "resource"
+    gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free resource
+
+enum GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind:
+    InvalidMaskId
+    CompositionOrderInvariantFailed
+    ShadowShapeInvalidWidth
+    ShadowShapeInvalidHeight
+    ShadowShapeInvalidSampleScale
+    ShadowShapeCoverageMaxMismatch
+    ShadowShapeCellCountMismatch
+    InvalidAlphaMax
+    ShadowAlphaCellCountMismatch
+    ShadowAlphaStorageLenMismatch
+    ShadowAlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+    RectXOverflow
+    RectYOverflow
+    RectMetadataMismatch
+    PaintMetadataMismatch
+    ShadowOrderMetadataMismatch
+    SourceOrderMetadataMismatch
+    ResourceRecordMismatch
+    UnexpectedTableRegisterState
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind
+    resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected:
+    resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError \kind\resource\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError kind resource order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError \kind\resource:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error kind resource order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_rejected %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected \error:
+    let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get error "resource"
+    GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandRejected impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner .R .R \rejected\callback:
+    let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get rejected "resource"
+    callback resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError unit \error:
+    let resource %GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get error "resource"
+    gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_free resource
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind_from_table_register %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::InvalidMaskId
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::CompositionOrderInvariantFailed:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::CompositionOrderInvariantFailed
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidWidth:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowShapeInvalidWidth
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidHeight:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowShapeInvalidHeight
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidSampleScale:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowShapeInvalidSampleScale
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeCoverageMaxMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowShapeCoverageMaxMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeCellCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowShapeCellCountMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidAlphaMax:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::InvalidAlphaMax
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaCellCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowAlphaCellCountMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaStorageLenMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowAlphaStorageLenMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaStorageCapacityMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowAlphaStorageCapacityMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::UnsupportedBlendMode:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::UnsupportedBlendMode
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectXOverflow:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::RectXOverflow
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectYOverflow:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::RectYOverflow
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::RectMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::PaintMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::PaintMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowOrderMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ShadowOrderMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::SourceOrderMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::SourceOrderMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::DuplicateMaskId:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::UnexpectedTableRegisterState
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed:
+            GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::UnexpectedTableRegisterState
+
+fn gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_equal %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord bool \left\right:
+    let left_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id left
+    let right_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id right
+    let id_matches %bool eq alpha_mask_id_raw &left_id alpha_mask_id_raw &right_id
+    let left_rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect left
+    let right_rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect right
+    let rect_matches %bool gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal left_rect right_rect
+    let left_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint left
+    let right_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint right
+    let paint_matches %bool gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal left_paint right_paint
+    let width_matches %bool eq gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px left gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px right
+    let height_matches %bool eq gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px left gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px right
+    let cell_count_matches %bool eq gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count left gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count right
+    let alpha_max_matches %bool eq gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max left gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max right
+    let shadow_order_matches %bool eq gui_sfnt_simple_glyph_render_shadow_source_resource_record_shadow_order left gui_sfnt_simple_glyph_render_shadow_source_resource_record_shadow_order right
+    let source_order_matches %bool eq gui_sfnt_simple_glyph_render_shadow_source_resource_record_source_order left gui_sfnt_simple_glyph_render_shadow_source_resource_record_source_order right
+    let size_matches %bool and width_matches height_matches
+    let alpha_meta_matches %bool and cell_count_matches alpha_max_matches
+    let order_matches %bool and shadow_order_matches source_order_matches
+    let geometry_matches %bool and rect_matches size_matches
+    let payload_matches %bool and paint_matches alpha_meta_matches
+    and and id_matches geometry_matches and payload_matches order_matches
+
+fn gui_sfnt_simple_glyph_render_shadow_source_registered_resource_prepare_command %impure fn GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandError \resource:
+    let record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record &resource
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id &record
+    let raw %i32 alpha_mask_id_raw &mask_id
+    if le raw 0:
+        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::InvalidMaskId resource
+        else:
+            let reservation %&GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get_ref &resource "reservation"
+            match gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation reservation:
+                Result::Err record_error:
+                    let lower_kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind &record_error
+                    let error_kind %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_kind_from_table_register lower_kind
+                    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error &record_error
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error error_kind resource order_error
+                Result::Ok expected_record:
+                    if not gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_equal &record &expected_record:
+                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_error_simple GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandErrorKind::ResourceRecordMismatch resource
+                        else:
+                            let rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect &record
+                            let paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint &record
+                            let command %RenderCommand render_command_alpha_mask_rect mask_id rect paint
+                            Result::Ok gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner resource command
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner: shadow source software drain cursor の開始 owner
+//:
+//: [目的/もくてき]:
+//: - prepared command owner と RGBA8888 software surface owner を同時に[消費/しょうひ]し、後続の bounded drain step が安全に進める cursor owner を[作/つく]ります。
+//: - この段階では pixel write や SourceOver 合成を実行せず、command payload、shadow resource metadata、surface bounds、F5lp lower order evidence の保持だけを行います。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner:
+    prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+    cell_index %i32
+
+enum GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind:
+    UnexpectedCommand
+    InvalidMaskId
+    CompositionOrderInvariantFailed
+    ShadowShapeInvalidWidth
+    ShadowShapeInvalidHeight
+    ShadowShapeInvalidSampleScale
+    ShadowShapeCoverageMaxMismatch
+    ShadowShapeCellCountMismatch
+    InvalidAlphaMax
+    ShadowAlphaCellCountMismatch
+    ShadowAlphaStorageLenMismatch
+    ShadowAlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+    RectXOverflow
+    RectYOverflow
+    RectMetadataMismatch
+    PaintMetadataMismatch
+    ShadowOrderMetadataMismatch
+    SourceOrderMetadataMismatch
+    ResourceRecordMismatch
+    UnexpectedTableRegisterState
+    CommandMaskIdMismatch
+    CommandRectMismatch
+    CommandPaintMismatch
+    RectInvalidOrigin
+    RectInvalidSize
+    RectRightOverflow
+    RectBottomOverflow
+    SurfaceInvalidGeometry
+    SurfaceBoundsMismatch
+    SurfaceFreeFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind
+    prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+struct GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected:
+    prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner %fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn i32 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner \prepared\surface\cell_index:
+    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner prepared surface cell_index
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \kind\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError kind order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \kind:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error kind order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError \kind\prepared\surface\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError kind prepared surface order_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected %fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected \error:
+    let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get error "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get error "surface"
+    GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected prepared surface
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected impure fn impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner impure fn GuiRgba8888SoftwareSurfaceOwner .R .R \rejected\callback:
+    let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get rejected "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get rejected "surface"
+    callback prepared surface
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_cell_index %fn &GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner i32 \owner:
+    *field::get_ref owner "cell_index"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_table_register %fn GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidMaskId:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::InvalidMaskId
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::CompositionOrderInvariantFailed:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CompositionOrderInvariantFailed
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidWidth:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeInvalidWidth
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidHeight:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeInvalidHeight
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeInvalidSampleScale:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeInvalidSampleScale
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeCoverageMaxMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeCoverageMaxMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowShapeCellCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeCellCountMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::InvalidAlphaMax:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::InvalidAlphaMax
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaCellCountMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowAlphaCellCountMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaStorageLenMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowAlphaStorageLenMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowAlphaStorageCapacityMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowAlphaStorageCapacityMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::UnsupportedBlendMode:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnsupportedBlendMode
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectXOverflow:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectXOverflow
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectYOverflow:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectYOverflow
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::RectMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::PaintMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::PaintMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::ShadowOrderMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowOrderMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::SourceOrderMetadataMismatch:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SourceOrderMetadataMismatch
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::DuplicateMaskId:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedTableRegisterState
+        GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind::TablePushFailed:
+            GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedTableRegisterState
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner Result GuiSfntSimpleGlyphRenderShadowSourceResourceRecord GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \prepared:
+    let resource %&GuiSfntSimpleGlyphRenderShadowSourceRegisteredResourceOwner field::get_ref prepared "resource"
+    let stored_record %GuiSfntSimpleGlyphRenderShadowSourceResourceRecord gui_sfnt_simple_glyph_render_shadow_source_registered_resource_owner_record resource
+    let reservation %&GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner field::get_ref resource "reservation"
+    match gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_from_reservation reservation:
+        Result::Err record_error:
+            let lower_kind %GuiSfntSimpleGlyphRenderShadowSourceResourceTableRegisterErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_kind &record_error
+            let error_kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind gui_sfnt_simple_glyph_render_shadow_source_software_drain_error_kind_from_table_register lower_kind
+            let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind gui_sfnt_simple_glyph_render_shadow_source_resource_table_record_error_order_error &record_error
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error error_kind order_error
+        Result::Ok expected_record:
+            if not gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_record_equal &stored_record &expected_record:
+                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ResourceRecordMismatch
+                else Result::Ok expected_record
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \record:
+    let width_px %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px record
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px record
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeInvalidHeight
+                else:
+                    let max_i32 %i32 2147483647
+                    if gt width_px div_s max_i32 height_px:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeCellCountMismatch
+                        else:
+                            let expected_cell_count %i32 mul width_px height_px
+                            let record_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_cell_count record
+                            if ne record_cell_count expected_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::ShadowShapeCellCountMismatch
+                                else:
+                                    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_alpha_max record
+                                    if le alpha_max 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::InvalidAlphaMax
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_payload %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \prepared\record:
+    let command %&RenderCommand field::get_ref prepared "command"
+    match *command:
+        RenderCommand::AlphaMaskRect payload:
+            let command_mask_id %AlphaMaskId alpha_mask_rect_command_mask_id &payload
+            let record_mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_shadow_source_resource_record_mask_id record
+            let command_raw %i32 alpha_mask_id_raw &command_mask_id
+            let record_raw %i32 alpha_mask_id_raw &record_mask_id
+            if ne command_raw record_raw:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CommandMaskIdMismatch
+                else:
+                    let command_rect %GuiRect alpha_mask_rect_command_rect &payload
+                    let record_rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect record
+                    if not gui_sfnt_simple_glyph_render_shadow_source_resource_table_rect_equal command_rect record_rect:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CommandRectMismatch
+                        else:
+                            let command_paint %GuiPaint alpha_mask_rect_command_paint &payload
+                            let record_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_resource_record_paint record
+                            if not gui_sfnt_simple_glyph_render_shadow_source_resource_table_paint_equal command_paint record_paint:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::CommandPaintMismatch
+                                else Result::Ok unit
+        _:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::UnexpectedCommand
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \origin\extent\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_origin %i32 sub max_i32 extent
+    if gt origin max_origin:
+        then Result::Err overflow_kind
+        else Result::Ok add origin extent
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surface %fn &GuiSfntSimpleGlyphRenderShadowSourceResourceRecord fn &GuiRgba8888SoftwareSurfaceOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \record\surface:
+    let rect %GuiRect gui_sfnt_simple_glyph_render_shadow_source_resource_record_rect record
+    let x %i32 gui_rect_x &rect
+    let y %i32 gui_rect_y &rect
+    if or lt x 0 lt y 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectInvalidOrigin
+        else:
+            let width %i32 gui_rect_width &rect
+            let height %i32 gui_rect_height &rect
+            if or le width 0 le height 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectInvalidSize
+                else:
+                    let record_width %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_width_px record
+                    let record_height %i32 gui_sfnt_simple_glyph_render_shadow_source_resource_record_height_px record
+                    if or ne width record_width ne height record_height:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectMetadataMismatch
+                        else:
+                            match gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent x width GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectRightOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok right:
+                                    match gui_sfnt_simple_glyph_render_shadow_source_software_drain_checked_extent y height GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::RectBottomOverflow:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok bottom:
+                                            let surface_width %i32 gui_rgba8888_software_surface_width surface
+                                            let surface_height %i32 gui_rgba8888_software_surface_height surface
+                                            if or le surface_width 0 le surface_height 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceInvalidGeometry
+                                                else:
+                                                    if or gt right surface_width gt bottom surface_height:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceBoundsMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start %fn &GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner fn &GuiRgba8888SoftwareSurfaceOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartValidationError \prepared\surface:
+    match gui_sfnt_simple_glyph_render_shadow_source_software_drain_rederive_record prepared:
+        Result::Err error:
+            Result::Err error
+        Result::Ok record:
+            match gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_record_shape &record:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple error_kind
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_command_payload prepared &record:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple error_kind
+                        Result::Ok _:
+                            match gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_rect_surface &record surface:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_simple error_kind
+                                Result::Ok _:
+                                    Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner impure fn GuiRgba8888SoftwareSurfaceOwner Result GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError \prepared\surface:
+    match gui_sfnt_simple_glyph_render_shadow_source_software_drain_validate_start &prepared &surface:
+        Result::Err validation_error:
+            let error_kind %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_kind &validation_error
+            let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_validation_error_order_error &validation_error
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error error_kind prepared surface order_error
+        Result::Ok _:
+            Result::Ok gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner prepared surface 0
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \owner:
+    let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get owner "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+    gui_sfnt_simple_glyph_render_shadow_source_resource_prepared_command_owner_free prepared
+    match gui_rgba8888_software_surface_free surface:
+        Result::Err _surface_kind:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind::SurfaceFreeFailed
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainStartError Result unit GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainErrorKind \error:
+    let rejected %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainRejected gui_sfnt_simple_glyph_render_shadow_source_software_drain_start_error_rejected error
+    let prepared %GuiSfntSimpleGlyphRenderShadowSourceResourcePreparedCommandOwner field::get rejected "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get rejected "surface"
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainOwner gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner prepared surface 0
+    gui_sfnt_simple_glyph_render_shadow_source_software_drain_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
