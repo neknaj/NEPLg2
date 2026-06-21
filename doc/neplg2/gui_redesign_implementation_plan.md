@@ -3185,3 +3185,32 @@ Phase F5km では、X11 setup success response の `min-keycode` / `max-keycode`
 - `node nodesrc/test_native_gui_platform_behavior.js`
 - `git diff --check`
 - subagent implementation review で setup-owned range validation、checked count derivation、no reader / no event decode / no fallback scope creep が承認される。
+
+## Phase F5kn: Native Linux X11 setup-owned keyboard mapping reader scheduling boundary
+
+Phase F5kn では、F5km の setup-owned `GetKeyboardMapping` request owner を X11 observation reader の explicit lifecycle state に接続する。これは request scheduling / fd write / reply correlation boundary であり、keymap selection や event decode の意味付けには進まない。
+
+実装:
+
+- `NativeWindowLinuxX11KeyboardMappingRequestWriteState` は `NotConfigured`、`SetupBackedBuildPending`、`RequestPending`、`ReplyPending`、`Ready`、`Failed` を持つ enum とする。
+- reader は optional setup-owned keymap request、written byte length、accepted request sequence、pending reply body bytes / remaining byte count を owner state として保持する。
+- setup-backed configured path では setup ready 後に F5km helper で request を作り、`setup_resource_info` missing と build failure を typed error にする。
+- raw fd write は existing top-level / WM protocol writer と同じ checked arithmetic で進め、8 byte request 全体が accepted された時だけ `next_x11_request_sequence` を進めて keymap sequence として保持する。partial write / would-block では sequence を進めない。
+- matched reply は generic server reply drain で body を捨てず、dedicated pending body owner へ read して would-block から再開する。body が揃った後だけ F5kl parser へ渡し、`NativeWindowLinuxX11KeyboardMappingRawKeysyms` を typed observation error として返す。
+- server error correlation は keymap request sequence を `KeyboardMapping` として扱い、`Unmatched` へ落とさない。
+- source-policy は configured lifecycle state、dedicated body owner、checked write progress、server error / reply correlation、no projection / no event decode / no IME / no runner / no queue / no fallback を検査する。
+
+非目標:
+
+- keycode -> keysym layout selection、modifier group / level selection、portable key projection、keyboard event への接続は扱わない。
+- IME / text input、shortcut policy、Wayland concrete keyboard decoding、Linux runner / CLI dispatch、support gate `Ok` 化は行わない。
+- queue、synthetic readiness、fallback keymap、silent no-op、generic body drain での keymap reply discard は作らない。
+
+完了条件:
+
+- `cargo fmt -p nepl-gui-native -- --check`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping -- --nocapture`
+- `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_keyboard_mapping -- --nocapture`
+- `node nodesrc/test_native_gui_platform_behavior.js`
+- `git diff --check`
+- subagent implementation review で lifecycle state、body retention、sequence assignment、server error correlation、no key selection / no event decode / no fallback が承認される。
