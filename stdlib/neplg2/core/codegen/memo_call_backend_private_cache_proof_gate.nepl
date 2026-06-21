@@ -11490,14 +11490,31 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
             let bridge %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected bridge
 
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result: context-owned reader source を traversal bundle へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - recheck 済み reader context から production source table owner を作り、同じ source authority から fresh witness owner を導出します。
+//:
+//: [契約/けいやく]:
+//: - source table 化は必ず `actual_traversal_body_adapter_sources_from_request_context_result` を通します。split output availability や input-owner adapter をこの helper から直接読んではいけません。
+//: - source validation に成功した後だけ source-derived witness helper へ進みます。candidate extraction や witness 作成に失敗した場合は、その helper が source owner を閉じます。
+//: - この helper は actual Resource IR traversal 完了を意味しません。現在の source plan は wrapper representative ですが、source owner と witness owner の lifecycle を同じ request context に閉じるための bridge です。
+//: - proof table、request proof table、GraphInput、backend bytes、effect mask、sealed backend、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\context:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
 //: selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result: context-bound reader bundle を request-evidence gate へ[渡/わた]す
 //:
 //: [目的/もくてき]:
-//: - stage0 module から request table と reader context を再構築し、production reader output を availability `Ok` として context-bound availability helper、source-derived witness helper、actual traversal bundle gate の順に通します。
+//: - stage0 module から request table と reader context を再構築し、context-owned source table、source-derived witness helper、actual traversal bundle gate の順に通します。
 //:
 //: [契約/けいやく]:
 //: - request table は HIR root から内部再構築します。caller-supplied request table、caller-supplied source table、caller-supplied witness table は受け取りません。
-//: - production availability は必ず `context_bound_reader_traversal_bundle_from_availability_result` を通します。direct output helper、input-owner adapter、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
+//: - production path は必ず `context_bound_reader_traversal_bundle_from_context_result` を通します。availability/output roundtrip、input-owner adapter、GraphInput、proof table push、backend bytes、effect mask、artifact key は作りません。
 //: - source validation failure は `Stage0SourceRejected` へ写し、fresh witness owner を作らないまま返します。source-derived witness helper へ進んだ場合は、candidate failure / witness failure でも source owner を閉じます。
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_stage0_run_summary_result %impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\graph_index:
     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
@@ -11512,8 +11529,7 @@ fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundl
                         Option::Some entry:
                             match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index:
                                 Result::Ok context:
-                                    let availability_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result &module context
-                                    match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_availability_result context availability_result:
+                                    match selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result &module context:
                                         Result::Ok bundle:
                                             selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result &module root 8 context_body_module_fingerprint bundle
                                         Result::Err e:
