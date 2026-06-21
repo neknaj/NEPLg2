@@ -1,0 +1,160 @@
+//: # alloc/gui/render2d/compositor_batch_range
+//: RGBA8888 compositor row batch range bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5lz の `GuiRgba8888CompositorFrameEntryOwner` から 1 batch [分/ぶん]の row range metadata を[取/と]り[出/だ]します。
+//: - compositor frame metadata を row batch range owner と[束/たば]ね、後続の row byte storage / tile transport が frame continuation として[戻/もど]せるようにします。
+//:
+//: ### [契約/けいやく]
+//: - entry owner を cursor へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_batch_cursor_next_batch` と `gui_rgba8888_row_batch_range_prepare` をそれぞれ 1 [回/かい]だけ[呼/よ]びます。
+//: - lower error は kind / category を[読/よ]んでから entry owner へ[正規化/せいきか]し、caller が recovery / free を[選/えら]べるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - complete cursor は lower `CursorIndexPastEnd` error として entry owner に[戻/もど]します。
+//: - この module は range metadata までで[止/と]まります。row byte storage、tile / RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_batch_range" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/row_batch_cursor" as *
+#import "alloc/gui/render2d/row_batch_range" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888CompositorBatchRangeErrorKind:
+    CursorNextBatchFailed %GuiRgba8888RowBatchCursorErrorKind
+    RowBatchRangePrepareFailed %GuiRgba8888RowBatchRangePrepareErrorKind
+
+impl Clone for GuiRgba8888CompositorBatchRangeErrorKind:
+    fn clone %fn &GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorBatchRangeErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888CompositorBatchRangeOwner:
+    range %GuiRgba8888RowBatchRangeOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+pub struct GuiRgba8888CompositorBatchRangeError:
+    kind %GuiRgba8888CompositorBatchRangeErrorKind
+    category %Option GuiError
+    entry %GuiRgba8888CompositorFrameEntryOwner
+
+fn gui_rgba8888_compositor_batch_range_owner_new %fn GuiRgba8888RowBatchRangeOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchRangeOwner \range\metadata:
+    GuiRgba8888CompositorBatchRangeOwner range metadata
+
+fn gui_rgba8888_compositor_batch_range_error_new %fn GuiRgba8888CompositorBatchRangeErrorKind fn Option GuiError fn GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorBatchRangeError \kind\category\entry:
+    GuiRgba8888CompositorBatchRangeError kind category entry
+
+fn gui_rgba8888_compositor_batch_range_cursor_error_new %fn GuiRgba8888RowBatchCursorStepError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchRangeError \lower\metadata:
+    let lower_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_step_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_batch_cursor_step_error_category_value &lower
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_step_error_cursor lower
+    let entry %GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryOwner cursor metadata
+    let kind %GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind::CursorNextBatchFailed lower_kind
+    gui_rgba8888_compositor_batch_range_error_new kind category entry
+
+fn gui_rgba8888_compositor_batch_range_prepare_error_new %fn GuiRgba8888RowBatchRangePrepareError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchRangeError \lower\metadata:
+    let lower_kind %GuiRgba8888RowBatchRangePrepareErrorKind gui_rgba8888_row_batch_range_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_batch_range_prepare_error_category_value &lower
+    let batch %GuiRgba8888RowBatchCursorBatchOwner gui_rgba8888_row_batch_range_prepare_error_batch lower
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_finish_cursor batch
+    let entry %GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryOwner cursor metadata
+    let kind %GuiRgba8888CompositorBatchRangeErrorKind GuiRgba8888CompositorBatchRangeErrorKind::RowBatchRangePrepareFailed lower_kind
+    gui_rgba8888_compositor_batch_range_error_new kind category entry
+
+pub fn gui_rgba8888_compositor_batch_range_owner_metadata %fn &GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+pub fn gui_rgba8888_compositor_batch_range_owner_range %fn &GuiRgba8888CompositorBatchRangeOwner GuiRgba8888RowBatchRange \owner:
+    let range %&GuiRgba8888RowBatchRangeOwner field::get_ref owner "range"
+    gui_rgba8888_row_batch_range_owner_range range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_batch_index %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_batch_index &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_row_start %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_row_start &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_row_count %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_row_count &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_width %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_width &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_height %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_height &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_stride_bytes %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_stride_bytes &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_byte_len %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_byte_len &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_start_byte_offset %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_start_byte_offset &range
+
+pub fn gui_rgba8888_compositor_batch_range_owner_byte_count %fn &GuiRgba8888CompositorBatchRangeOwner i32 \owner:
+    let range %GuiRgba8888RowBatchRange gui_rgba8888_compositor_batch_range_owner_range owner
+    gui_rgba8888_row_batch_range_byte_count &range
+
+pub fn gui_rgba8888_compositor_batch_range_error_kind %fn &GuiRgba8888CompositorBatchRangeError GuiRgba8888CompositorBatchRangeErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_compositor_batch_range_error_category_value %fn &GuiRgba8888CompositorBatchRangeError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_batch_range_prepare: compositor entry から 1 batch の range metadata を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - metadata を entry から Copy してから cursor を[取/と]り[出/だ]します。
+//: - next batch と range prepare の lower boundary だけを[順番/じゅんばん]に[呼/よ]び、payload transport へは[進/すす]みません。
+pub fn gui_rgba8888_compositor_batch_range_prepare %fn GuiRgba8888CompositorFrameEntryOwner Result GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorBatchRangeError \entry:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata &entry
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor entry
+    match gui_rgba8888_row_batch_cursor_next_batch cursor:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_batch_range_cursor_error_new lower metadata
+        Result::Ok batch:
+            match gui_rgba8888_row_batch_range_prepare batch:
+                Result::Err lower:
+                    Result::Err gui_rgba8888_compositor_batch_range_prepare_error_new lower metadata
+                Result::Ok range:
+                    Result::Ok gui_rgba8888_compositor_batch_range_owner_new range metadata
+
+pub fn gui_rgba8888_compositor_batch_range_owner_finish_entry %fn GuiRgba8888CompositorBatchRangeOwner GuiRgba8888CompositorFrameEntryOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_range_owner_metadata &owner
+    let range %GuiRgba8888RowBatchRangeOwner field::get owner "range"
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_range_owner_finish_cursor range
+    GuiRgba8888CompositorFrameEntryOwner cursor metadata
+
+pub fn gui_rgba8888_compositor_batch_range_error_finish_entry %fn GuiRgba8888CompositorBatchRangeError GuiRgba8888CompositorFrameEntryOwner \error:
+    field::get error "entry"
+
+pub fn gui_rgba8888_compositor_batch_range_owner_free %fn GuiRgba8888CompositorBatchRangeOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \owner:
+    let range %GuiRgba8888RowBatchRangeOwner field::get owner "range"
+    gui_rgba8888_row_batch_range_owner_free range
+
+pub fn gui_rgba8888_compositor_batch_range_error_free %fn GuiRgba8888CompositorBatchRangeError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let entry %GuiRgba8888CompositorFrameEntryOwner gui_rgba8888_compositor_batch_range_error_finish_entry error
+    gui_rgba8888_compositor_frame_entry_owner_free entry

@@ -105,6 +105,8 @@ const allocRender2dCompositorFrameEntry = read("stdlib/alloc/gui/render2d/compos
 const allocRender2dCompositorFrameEntryImpl = withoutComments(allocRender2dCompositorFrameEntry);
 const allocRender2dCompositorBatchDrain = read("stdlib/alloc/gui/render2d/compositor_batch_drain.nepl");
 const allocRender2dCompositorBatchDrainImpl = withoutComments(allocRender2dCompositorBatchDrain);
+const allocRender2dCompositorBatchRange = read("stdlib/alloc/gui/render2d/compositor_batch_range.nepl");
+const allocRender2dCompositorBatchRangeImpl = withoutComments(allocRender2dCompositorBatchRange);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -350,6 +352,7 @@ const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surfa
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
 const guiRender2dCompositorFrameEntryTests = read("tests/stdlib/gui_render2d_compositor_frame_entry.n.md");
 const guiRender2dCompositorBatchDrainTests = read("tests/stdlib/gui_render2d_compositor_batch_drain.n.md");
+const guiRender2dCompositorBatchRangeTests = read("tests/stdlib/gui_render2d_compositor_batch_range.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -26386,6 +26389,128 @@ assert(
         guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_metadata_recovery_ok") &&
         guiRender2dCompositorBatchDrainTests.includes("render2d_compositor_batch_drain_no_payload_no_platform_no_fallback"),
     "F5ma compositor batch drain focused doctest must cover facade, empty complete, full budget continuation, negative budget recovery, metadata recovery, and no payload/platform/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5mb") &&
+            doc.includes("compositor batch range") &&
+            doc.includes("GuiRgba8888CompositorBatchRangeOwner") &&
+            doc.includes("gui_rgba8888_row_batch_cursor_next_batch") &&
+            doc.includes("gui_rgba8888_row_batch_range_prepare") &&
+            doc.includes("row byte storage") &&
+            doc.includes("fallback"),
+        `F5mb ${name} must document compositor batch range bridge, metadata recovery, deferred payload transport, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mb") &&
+        implementationPlan.includes("Hilbert plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("error struct は `kind/category/entry`") &&
+        implementationPlan.includes("metadata は `entry` を `finish_cursor` する前"),
+    "F5mb implementation plan must retain plan review approval, normalized error owner, and metadata-before-finish refinements",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_batch_range" as *'), "alloc/gui/render2d facade must export F5mb compositor batch range");
+assert(
+    allocRender2dCompositorBatchRangeImpl.includes("pub enum GuiRgba8888CompositorBatchRangeErrorKind:") &&
+        allocRender2dCompositorBatchRangeImpl.includes("CursorNextBatchFailed %GuiRgba8888RowBatchCursorErrorKind") &&
+        allocRender2dCompositorBatchRangeImpl.includes("RowBatchRangePrepareFailed %GuiRgba8888RowBatchRangePrepareErrorKind") &&
+        allocRender2dCompositorBatchRangeImpl.includes("pub struct GuiRgba8888CompositorBatchRangeOwner:") &&
+        allocRender2dCompositorBatchRangeImpl.includes("range %GuiRgba8888RowBatchRangeOwner") &&
+        allocRender2dCompositorBatchRangeImpl.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorBatchRangeImpl.includes("pub struct GuiRgba8888CompositorBatchRangeError:") &&
+        allocRender2dCompositorBatchRangeImpl.includes("entry %GuiRgba8888CompositorFrameEntryOwner"),
+    "alloc/gui/render2d/compositor_batch_range F5mb must define typed lower error kind, metadata-preserving owner, and normalized entry-bearing error",
+);
+assertNoMatch(
+    allocRender2dCompositorBatchRangeImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorBatchRangeOwner|GuiRgba8888CompositorBatchRangeError)\b/,
+    "alloc/gui/render2d/compositor_batch_range F5mb owner and error must not implement Clone or Copy",
+);
+const compositorBatchRangePrepare = functionSlice(allocRender2dCompositorBatchRangeImpl, "gui_rgba8888_compositor_batch_range_prepare");
+assertOrderedFragments(
+    compositorBatchRangePrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata &entry",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor entry",
+        "match gui_rgba8888_row_batch_cursor_next_batch cursor:",
+        "Result::Err gui_rgba8888_compositor_batch_range_cursor_error_new lower metadata",
+        "match gui_rgba8888_row_batch_range_prepare batch:",
+        "Result::Err gui_rgba8888_compositor_batch_range_prepare_error_new lower metadata",
+        "Result::Ok gui_rgba8888_compositor_batch_range_owner_new range metadata",
+    ],
+    "alloc/gui/render2d/compositor_batch_range F5mb must copy metadata before finishing entry cursor, then call next_batch and row_batch_range_prepare in order",
+);
+assert(
+    (compositorBatchRangePrepare.match(/\bgui_rgba8888_row_batch_cursor_next_batch\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_batch_range F5mb prepare helper must call lower row batch cursor next_batch exactly once",
+);
+assert(
+    (compositorBatchRangePrepare.match(/\bgui_rgba8888_row_batch_range_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_batch_range F5mb prepare helper must call lower row batch range prepare exactly once",
+);
+assertNoMatch(
+    compositorBatchRangePrepare,
+    /\b(?:gui_rgba8888_row_batch_cursor_status|row_byte|row_tile|rle|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_batch_range F5mb prepare helper must not inspect cursor status or enter row byte/tile/RLE/host/platform/fallback APIs",
+);
+assertNoMatch(
+    compositorBatchRangePrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_batch_range F5mb prepare helper must preserve NEPL prefix style without parentheses",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorBatchRangeImpl, "gui_rgba8888_compositor_batch_range_cursor_error_new"),
+    [
+        "let lower_kind %GuiRgba8888RowBatchCursorErrorKind gui_rgba8888_row_batch_cursor_step_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_batch_cursor_step_error_category_value &lower",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_step_error_cursor lower",
+        "let entry %GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+        "GuiRgba8888CompositorBatchRangeErrorKind::CursorNextBatchFailed lower_kind",
+        "gui_rgba8888_compositor_batch_range_error_new kind category entry",
+    ],
+    "alloc/gui/render2d/compositor_batch_range F5mb cursor error wrapper must read lower kind/category before normalizing lower cursor to entry",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorBatchRangeImpl, "gui_rgba8888_compositor_batch_range_prepare_error_new"),
+    [
+        "let lower_kind %GuiRgba8888RowBatchRangePrepareErrorKind gui_rgba8888_row_batch_range_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_batch_range_prepare_error_category_value &lower",
+        "let batch %GuiRgba8888RowBatchCursorBatchOwner gui_rgba8888_row_batch_range_prepare_error_batch lower",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_finish_cursor batch",
+        "let entry %GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+        "GuiRgba8888CompositorBatchRangeErrorKind::RowBatchRangePrepareFailed lower_kind",
+        "gui_rgba8888_compositor_batch_range_error_new kind category entry",
+    ],
+    "alloc/gui/render2d/compositor_batch_range F5mb range error wrapper must read lower kind/category before normalizing lower batch to entry",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorBatchRangeImpl, "gui_rgba8888_compositor_batch_range_owner_finish_entry"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_range_owner_metadata &owner",
+        "let range %GuiRgba8888RowBatchRangeOwner field::get owner \"range\"",
+        "let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_range_owner_finish_cursor range",
+        "GuiRgba8888CompositorFrameEntryOwner cursor metadata",
+    ],
+    "alloc/gui/render2d/compositor_batch_range F5mb success recovery must copy metadata before consuming lower range owner",
+);
+assertNoMatch(
+    allocRender2dCompositorBatchRangeImpl,
+    /\bgui_rgba8888_compositor_batch_range_(?:row_byte|row_tile|rle|present|publish|host|platform|video_memory)\b/,
+    "alloc/gui/render2d/compositor_batch_range F5mb must not expose row byte, RLE, present, host, or platform APIs",
+);
+assert(
+    guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_facade_ok") &&
+        guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_first_batch_ok") &&
+        guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_continuation_ok") &&
+        guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_complete_cursor_recovery_ok") &&
+        guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_metadata_recovery_ok") &&
+        guiRender2dCompositorBatchRangeTests.includes("render2d_compositor_batch_range_no_payload_no_platform_no_fallback"),
+    "F5mb compositor batch range focused doctest must cover facade, first range, continuation, complete cursor recovery, metadata recovery, and no payload/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

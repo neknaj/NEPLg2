@@ -4223,6 +4223,54 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ma.json
 ```
 
+## Phase F5mb: render2d compositor batch range bridge boundary
+
+目的:
+
+- F5lz の `GuiRgba8888CompositorFrameEntryOwner` を authority とし、既存 F5bw `gui_rgba8888_row_batch_cursor_next_batch` と F5by `gui_rgba8888_row_batch_range_prepare` を compositor metadata 付きで接続する。
+- lower `gui_rgba8888_row_batch_cursor_next_batch` と `gui_rgba8888_row_batch_range_prepare` をそれぞれ 1 回だけ呼び、1 batch 分の row range metadata を `GuiRgba8888CompositorBatchRangeOwner` として返す。
+- frame entry metadata は success owner と同じ owner boundary に保持し、success / error recovery のどちらでも `GuiRgba8888CompositorFrameEntryOwner` を再構成できるようにする。
+- この phase では row byte storage、tile / RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Hilbert plan review は `PLAN_APPROVED`。
+- F5mb は F5ma の scheduler-only continuation と既存 F5by row range metadata boundary の間をつなぐ thin compositor bridge として承認された。
+- refinement として、heterogeneous lower owner-bearing error を直接保持せず、error construction 時点で lower kind / category を読み、lower cursor または batch owner を消費して `GuiRgba8888CompositorFrameEntryOwner` へ正規化し、error struct は `kind/category/entry` を保持すること、complete cursor は terminal へ変換せず lower `CursorIndexPastEnd` を `CursorNextBatchFailed` として owner-bearing recovery で固定すること、source policy で direct cursor status、row byte / tile / RLE / std present / host / platform / fallback 禁止、`next_batch` exact once、`row_batch_range_prepare` exact once を検査することが条件になった。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_batch_range.nepl` を追加する。
+- `GuiRgba8888CompositorBatchRangeErrorKind`、`GuiRgba8888CompositorBatchRangeOwner`、`GuiRgba8888CompositorBatchRangeError` を追加する。
+- error kind は Copy value とし、success owner と error は owner-bearing struct として Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_batch_range_prepare` は metadata を entry から Copy してから cursor を取り出し、lower next batch と lower row batch range prepare を順に呼ぶ。
+- cursor step failure と row range prepare failure は lower kind / category を読んでから `GuiRgba8888CompositorFrameEntryOwner` へ正規化し、error は `kind/category/entry` を保持する。
+- success owner は lower row batch range owner と metadata を保持し、range metadata accessor と `finish_entry` / `free` を提供する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor batch range を再公開する。
+- `tests/stdlib/gui_render2d_compositor_batch_range.n.md` を追加し、facade、first range metadata、continuation、complete cursor recovery、metadata recovery、no payload / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mb source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Hilbert approval、facade export、typed lower error variants、success owner / error no Clone / Copy、exact one lower next batch call、exact one lower range prepare call、cursor status direct call 禁止、metadata-before-entry-finish、lower kind/category before owner normalization、row byte / tile / RLE / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5ma compositor batch drain regression、row batch range regression、source policy、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、complete cursor recovery missing、payload / host leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_range.n.md --no-tree -o tmp_gui_render2d_compositor_batch_range_f5mb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_batch_range.nepl --no-tree -o tmp_gui_render2d_compositor_batch_range_module_f5mb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5mb_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_range.n.md --no-tree -o tmp_gui_render2d_row_batch_range_f5mb_regression.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mb.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

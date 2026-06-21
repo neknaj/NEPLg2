@@ -8265,6 +8265,24 @@ The wrapper must copy metadata before `finish_cursor`. `terminal_finish_entry` a
 
 F5ma must call `gui_rgba8888_row_batch_drain_budget` exactly once. It must not call `gui_rgba8888_row_batch_cursor_status`, `gui_rgba8888_row_batch_cursor_next_batch`, row batch range, row byte storage, row tile plan/payload, RLE encode, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
 
+## Render2d compositor batch range boundary
+
+F5mb is the first payload metadata bridge above the F5lz entry owner. It consumes `GuiRgba8888CompositorFrameEntryOwner`, copies the entry metadata, takes the lower cursor, asks F5bw for exactly one batch, and then asks F5by to prepare the row range metadata:
+
+```text
+metadata = copy entry metadata
+cursor = gui_rgba8888_compositor_frame_entry_finish_cursor entry
+batch_or_error = gui_rgba8888_row_batch_cursor_next_batch cursor
+range_or_error = gui_rgba8888_row_batch_range_prepare batch
+wrap lower range owner with metadata
+```
+
+`GuiRgba8888CompositorBatchRangeOwner` keeps the lower `GuiRgba8888RowBatchRangeOwner` and copied `GuiRgba8888CompositorFrameEntryMetadata`. It exposes Copy range metadata through compositor-owned accessors so callers do not need to consume the lower owner merely to inspect frame/batch row range data. `owner_finish_entry` copies wrapper metadata before consuming the lower range owner and reconstructs `GuiRgba8888CompositorFrameEntryOwner` from the continuation cursor.
+
+`GuiRgba8888CompositorBatchRangeError` does not keep heterogeneous lower owner-bearing errors. Error construction reads lower kind and category first, then normalizes the lower cursor or lower batch owner back into `GuiRgba8888CompositorFrameEntryOwner`. Cursor next-batch failure maps to `CursorNextBatchFailed lower_kind`; row range prepare failure maps to `RowBatchRangePrepareFailed lower_kind`. Complete cursor remains a lower next-batch error, usually `CursorIndexPastEnd`, so this bridge does not introduce a second completion terminal.
+
+F5mb must call `gui_rgba8888_row_batch_cursor_next_batch` exactly once and `gui_rgba8888_row_batch_range_prepare` exactly once. It must not call `gui_rgba8888_row_batch_cursor_status`, row byte storage, row tile plan/payload, RLE encode, std present, host import, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
