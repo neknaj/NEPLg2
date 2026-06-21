@@ -7017,6 +7017,18 @@ F5me は compositor tile plan owner を lower tile plan owner へ分解する前
 
 F5me は row tile plan storage ref、direct row byte storage API、raw `RegionToken` / `MemPtr`、RLE、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。この phase は no RLE / host present の compositor tile payload bridge で止まり、payload transport と std present は後続 boundary で扱う。
 
+### Render2d compositor tile RLE count boundary
+
+F5mf は F5me の `GuiRgba8888CompositorTilePayloadOwner` を、lower `gui_rgba8888_row_tile_rle_cursor_start` と `gui_rgba8888_row_tile_rle_count_start` へ順に 1 回ずつ通す compositor tile RLE count start bridge である。これは RLE cursor と run count owner を compositor metadata と束ねる phase であり、drain、completed count、encode、std present、host present、platform backend、fallback / silent no-op を作る phase ではない。
+
+F5mf の success owner は `GuiRgba8888CompositorTileRleCountOwner` であり、lower `GuiRgba8888RowTileRleCountOwner` と `GuiRgba8888CompositorFrameEntryMetadata` を保持する。start error は `GuiRgba8888CompositorTileRleCountStartError` であり、`CursorStartFailed lower_kind` または `CountStartFailed lower_kind`、coarse `GuiError` category、回収済み `GuiRgba8888CompositorTilePayloadOwner` を保持する。finish error は `GuiRgba8888CompositorTileRleCountFinishError` であり、`PayloadFinishFailed lower_kind`、coarse `GuiError` category、回収済み `GuiRgba8888CompositorFrameEntryOwner` を保持する。success owner / start error / finish error は Clone / Copy を実装しない。error kind と metadata は Copy value である。
+
+F5mf は compositor tile payload owner を lower payload owner へ分解する前に metadata を Copy value として読む。cursor start failure では lower row tile RLE start error から kind / category を読んでから lower row tile payload owner を `GuiRgba8888CompositorTilePayloadOwner` へ正規化し、start error は `kind/category/payload` を持つ。count start failure では lower row tile RLE count error から kind / category を読んでから lower cursor owner を payload owner へ戻し、同じく `kind/category/payload` を持つ。accumulated run count、cursor next pixel index、cursor status accessor は lower count owner helper に委譲する。
+
+finish では owner_finish_payload が metadata を Copy してから lower count owner を消費し、lower cursor owner、lower payload owner の順に戻して `GuiRgba8888CompositorTilePayloadOwner` を復元する。`owner_finish_entry` は F5me の payload finish entry recovery へ委譲し、payload finish failure では lower kind / category を読んでから entry owner を取る。`owner_free` は finish failure と finish 成功後の entry free failure を別の free error kind として返す。
+
+F5mf は row tile RLE drain、count step、completed count、encode cursor / writer / storage / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。この phase は no drain / encode / present の compositor tile RLE count bridge で止まり、payload transport と std present は後続 boundary で扱う。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
