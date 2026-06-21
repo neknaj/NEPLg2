@@ -1,3 +1,53 @@
+# 2026-06-21 selfhost private effect Resource no-escape materializer
+
+## 目的
+
+- PrivateState / PrivateCache method body の actual Resource traversal summary を、既存 private-effect Resource no-escape producer が読む observation table へ正規化する境界を追加した。
+- proof table helper は既存 producer を必ず呼び、materializer 内で proof key / proof record / proof table constructor を直接呼ばないようにした。
+- Missing / Unknown は pure mask に使わず、actual traversal 本体、memo_call request evidence、backend bytes、effect mask、artifact key、public surface hash には接続しない。
+
+## subagent review
+
+- Epicurus の計画 review は `PLAN_APPROVED`。
+- 指摘は、次 slice の root cause が actual Resource traversal output から no-escape observation table を作り、既存 producer 経由で proof-aware materializer へ渡す境界であること、proof source authority を typed traversal payload に限定すること、body module fingerprint / Missing / Unknown / owner borrow を固定することだった。
+- 対応として、Drop 用 Resource materializer と同型の private-effect materializerを追加し、key に operation を含め、effect は `PrivateState` / `PrivateCache`、escape は `NotApplicable` だけを受理する形にした。
+
+## 実装内容
+
+- `memo_trait_operation_private_effect_resource_no_escape_materializer.nepl` を追加した。
+- traversal summary status は `AllTraversedPlacesPrivate` / `EscapingPlaceObserved` / `ResourceGraphMissing` / `TraversalUnsupported` を持ち、それぞれ `NoEscapeProven` / `MayEscape` / `Missing` / `Unknown` に写す。
+- traversal record key は `SelfhostTypeId` / operation / body module fingerprint / HIR body root / effect / original escape state の完全一致にした。
+- `selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_proof_table_result` は observation table owner を内部で閉じ、proof table は既存 producer だけで作る。
+- source policy、設計 doc、private effect design、todo を更新した。
+
+## main merge 対応
+
+- latest `origin/main` F5ls merge 後、`glyf.nepl` の shadow source resource reservation / F5lr command bridge declaration doc gap を `neplg2:test[skip]` 付きの stdlib comment で解消した。
+- F5ls の `gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_owner` で、nested `match` arm が 1 段浅くなり full stdlib compile が `parser.token.expected` で止まっていたため、`origin_y - shadow_extent` の result 分岐を outer `Result::Ok rect_x` の内側へ戻した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_materializer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-materializer-doctest.json -j 1`
+- pass after latest F5ls merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest F5ls merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest F5ls merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest F5ls merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_after_indent_fix.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with CRLF warning only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_resource_materializer.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## 未接続
+
+- actual Resource IR traversal / collector が real traversal summary table を発行する boundary。
+- scanner / upper orchestrator が actual proof source と同じ body module fingerprint で proof-aware public impl materializer へ渡す boundary。
+- Resource summary body hash / capability policy hash / artifact policy hash への private effect mask policy projection。
+- memo_call backend request-evidence proof と private effect mask の接続。
+
 # 2026-06-21 selfhost public impl materializer / orchestrator private effect proof transport
 
 ## 目的

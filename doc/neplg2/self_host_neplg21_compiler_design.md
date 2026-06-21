@@ -2887,7 +2887,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materi
 
 残件:
 
-- actual Resource IR traversal / materializer が `PrivateState` / `PrivateCache` の fresh region / non-escape observation table を発行し、checker-layer producer で proof table へ変換してから、scanner / upper orchestrator が同じ body module fingerprint と一緒に渡す。
+- actual Resource IR traversal が `PrivateState` / `PrivateCache` の fresh region / non-escape traversal summary table を発行し、private-effect Resource materializer / producer で proof table へ変換してから、scanner / upper orchestrator が同じ body module fingerprint と一緒に渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 
@@ -2899,7 +2899,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materi
 
 status mapping は `NoEscapeProven -> Proven`、`MayEscape -> Refuted`、`Missing -> Missing`、`Unknown -> Unknown` である。`Missing` / `Unknown` を pure mask に使わず、最終的な `NoEscapeProven` / `MayEscape` への更新は既存 private-effect gate が exact key lookup 後に行う。Drop body 用 `InternalAlloc` proof table とは別 module / 別 proof type のまま保ち、Drop no-escape gate と private effect gate を混ぜない。
 
-この checkpoint は Resource traversal 本体、operation evidence、aggregate proof、memo_call backend request evidence、effect mask、backend bytes、proof store、`.neplobj` / `.neplproof` artifact key を作らない。actual Resource IR traversal / materializer がこの observation table を発行し、upper orchestrator が proof-aware public impl materializer へ同じ body module fingerprint と proof table を渡す接続は後続 boundary として残る。
+この checkpoint は Resource traversal 本体、operation evidence、aggregate proof、memo_call backend request evidence、effect mask、backend bytes、proof store、`.neplobj` / `.neplproof` artifact key を作らない。actual Resource IR traversal summary からこの observation table を作る materializer と、upper orchestrator が proof-aware public impl materializer へ同じ body module fingerprint と proof table を渡す接続は後続 boundary として残る。
 
 source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / materializer / purity gate / Drop proof layer の import 禁止、typed key equality、owner cleanup、duplicate rejection、placeholder rejection、PrivateState / PrivateCache 限定、Missing / Unknown fail-closed を確認する。
 
@@ -2909,6 +2909,43 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_res
 - pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
 - pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1/1。
 - pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1 passed / 0 failed。
+
+## 2026-06-21 selfhost private effect Resource no-escape materializer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_materializer.nepl` を追加し、actual Resource traversal が返す typed summary table を `SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable` へ正規化する checker-layer materializer を固定した。
+
+accepted authority は `SelfhostTypeId`、operation、body module fingerprint、HIR body root、effect、元 escape state、traversal status、traversal reason を持つ typed record だけである。source text、span、display name、diagnostic、public surface hash、payload hash を proof authority にしない。`body_module_fingerprint == 0`、duplicate key、`PrivateState` / `PrivateCache` 以外の effect、`NotApplicable` 以外の escape は table push と materializer loop の両方で fail-closed に拒否する。
+
+traversal status mapping は `AllTraversedPlacesPrivate -> NoEscapeProven`、`EscapingPlaceObserved -> MayEscape`、`ResourceGraphMissing -> Missing`、`TraversalUnsupported -> Unknown` である。`Missing` / `Unknown` を pure mask に使わず、reason は status の typed 説明として保持するだけで、materializer は reason から status を再推論しない。
+
+`selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_proof_table_result` は observation table を作ったあと、必ず既存 `selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_table_result` に委譲して proof table を作る。materializer は proof key / proof record / proof table constructor を直接呼ばず、内部 observation table owner を success / failure の両方で閉じる。返した proof table owner は caller が既存 proof-aware materializer / orchestrator へ borrow として渡し、使用後に閉じる。
+
+この checkpoint は actual Resource traversal 本体、operation evidence、aggregate proof、memo_call backend request evidence、effect mask、backend bytes、proof store、`.neplobj` / `.neplproof` artifact key、public surface hash authority を作らない。actual traversal summary table の producer、summary / proof table を同じ body module fingerprint で upper orchestrator へ渡す bridge、Resource summary hash / artifact policy hash への private effect mask policy 投影は後続 boundary として残る。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / scanner/materializer / purity gate / Drop proof layer の import 禁止、typed key equality、owner cleanup、duplicate rejection、placeholder rejection、PrivateState / PrivateCache 限定、Missing / Unknown fail-closed、producer 経由 proof table generation、proof key / record / table constructor bypass 禁止を確認する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_materializer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-materializer-doctest.json -j 1`。1/1。
+- pass after latest F5ls merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest F5ls merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest F5ls merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest F5ls merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_resource_reservation.n.md --no-tree -o tmp_gui_font_render_shadow_source_resource_reservation_after_indent_fix.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_resource_materializer.json`
+- checked JSON: `caseCount: 13`、`passedCount: 13`、`failedCount: 0`
+
+残件:
+
+- actual Resource IR traversal / collector が `PrivateState` / `PrivateCache` の fresh region / non-escape traversal summary table を発行する。
+- scanner / upper orchestrator が materializer / producer で作った proof table owner を、actual proof source と同じ body module fingerprint で proof-aware public impl materializer へ渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
 
 ## 2026-06-21 selfhost memo_call backend production actual traversal reader checkpoint
 

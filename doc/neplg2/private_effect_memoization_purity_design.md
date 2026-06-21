@@ -512,12 +512,21 @@ fingerprint、HIR body root、effect、元 escape state をすべて含み、`Pr
 pure mask しない。この checkpoint は Resource traversal 本体、memo_call backend request
 evidence、effect mask、sealed backend、artifact key を作らない。
 
+2026-06-21 の private effect Resource no-escape materializer checkpoint では、actual Resource
+traversal が返す typed summary table を producer 用 observation table へ正規化する
+checker-layer materializer を追加した。summary key は `SelfhostTypeId`、operation、body module
+fingerprint、HIR body root、effect、元 escape state の完全一致であり、`PrivateState` /
+`PrivateCache` + `NotApplicable` 以外は fail closed に拒否する。`AllTraversedPlacesPrivate`
+だけを `NoEscapeProven` に写し、`ResourceGraphMissing` / `TraversalUnsupported` は
+`Missing` / `Unknown` として保持する。proof table helper は既存 producer を必ず呼び、
+proof key を materializer 内で直接合成しない。
+
 ## 現時点の未実装
 
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
-- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape observation を actual Resource traversal から自動発行し、既存 private-effect proof producer と upper orchestrator へ接続する処理。
+- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape traversal summary を actual Resource traversal から自動発行し、既存 private-effect materializer / proof producer と upper orchestrator へ接続する処理。
 - sealed private cache taint の impure call / unknown call / public field / global state escape 診断。
 - `private_cache_*` intrinsic の typecheck signature と stdlib memo backend integration regression。

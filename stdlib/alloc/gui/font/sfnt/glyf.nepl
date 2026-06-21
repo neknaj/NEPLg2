@@ -24080,10 +24080,10 @@ fn gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_rect_from_own
             Result::Err error_kind
         Result::Ok rect_x:
             match gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_checked_sub_i32 origin_y shadow_extent GuiSfntSimpleGlyphRenderShadowSourceResourceReservationStartErrorKind::RectYOverflow:
-        Result::Err error_kind:
-            Result::Err error_kind
-        Result::Ok rect_y:
-            Result::Ok gui_rect_new rect_x rect_y width_px height_px
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok rect_y:
+                    Result::Ok gui_rect_new rect_x rect_y width_px height_px
 
 //: gui_sfnt_simple_glyph_render_shadow_source_resource_reservation_owner_start: shadow source owner を alpha mask resource reservation owner へ[進/すす]める
 //:
