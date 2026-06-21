@@ -7822,6 +7822,64 @@ The completed invariant revalidates the F5lo owner and nested F5lk edge owner, t
 
 F5lp must not consume fill/stroke owners, call F5lg or F5lh glyph paint composition helpers, allocate resource IDs, emit render commands, reserve tables, sample pixels, write software surfaces, call platform/backend APIs, invoke fallback, use shadow rasterizers, or drain a compositor.
 
+## SFNT simple glyph render shadow source sample cursor boundary
+
+F5lq consumes the completed F5lp shadow source composition order owner and exposes the shadow contribution as a cell-by-cell value sample stream. It is still pre-resource, pre-command, pre-pixel, pre-platform, and pre-compositor.
+
+Carson plan review was `PLAN_APPROVED`. The review confirmed that F5lq should use only the completed F5lp owner as direct authority, keep fill/stroke owners and command/resource APIs out of this boundary, preserve lower F5lp order invariant evidence through `order_error`, and compute sample positions from the shadow shape local cell with checked arithmetic.
+
+The sample is copyable and value-only:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSample:
+    position GuiPoint
+    alpha i32
+    alpha_max i32
+    shadow_paint GuiPaint
+    blend GuiBlendMode
+    shadow_order i32
+    source_order i32
+```
+
+The cursor owns the F5lp composition order owner and the current cell index:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceSampleCursor:
+    owner GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    cell_index i32
+```
+
+The cursor, start error, step error, sampled terminal payload, and terminal are owner-bearing and must not implement `Clone` / `Copy`.
+
+Start and step first re-run the F5lp completed owner invariant. If it fails, F5lq reports `CompositionOrderInvariantFailed` and stores the returned lower F5lp error kind in `order_error`. Start errors recover the original owner. Step errors recover the original cursor. This preserves the root composition-order reason instead of collapsing it into a generic sample read failure.
+
+F5lq then revalidates the nested F5lo packed shadow storage through the F5lp owner:
+
+```text
+shadow shape dimensions and sample scale are positive
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+alpha_max > 0
+packed owner cell_count equals shadow cell_count
+alpha Vec len and cap equal shadow cell_count
+```
+
+Read accepts only `cell_index < cell_count`. `cell_index == cell_count` is reserved for `step` completion and is rejected by read. `cell_index > cell_count` is rejected before completion, so forged cursor progress cannot become a successful completed state.
+
+Position construction is:
+
+```text
+source_placement_origin + local - shadow_extent
+```
+
+where `local_y = cell_index / width_px` and `local_x = cell_index - local_y * width_px`. The implementation performs checked i32 subtraction for `local - shadow_extent` and checked i32 addition for the origin before calling `gui_point_new`.
+
+The sample payload copies alpha from the nested F5lo alpha cells and copies `shadow_paint`, `blend`, `shadow_order`, and `source_order` from the F5lp owner. It does not allocate a resource id, emit a render command, or write pixels.
+
+Free paths close exactly one F5lp composition order owner: cursor free closes the owner, start error free closes the recovered owner, step error free closes the recovered cursor, and terminal free closes either the sampled cursor or the completed owner.
+
+F5lq must not call fill/stroke owners, F5lg/F5lh composition helpers, render command constructors, resource table or reservation helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizers, compositor APIs, or owner-bearing Vec allocation/push helpers.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

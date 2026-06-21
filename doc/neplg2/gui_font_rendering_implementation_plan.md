@@ -3676,6 +3676,52 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lp.json
 ```
 
+## Phase F5lq: sfnt simple glyph render shadow source sample cursor
+
+目的:
+
+- F5lp completed shadow source composition order owner を direct authority とし、shadow alpha mask を後続 bridge が消費できる sample cursor boundary にする。
+- F5lp に固定済みの `shadow_paint`、`blend`、`shadow_order`、`source_order` を sample payload にコピーする。
+- resource reservation、render command、pixel write、platform API、font fallback、shadow rasterizer、2D compositor へ進まない。
+
+plan review:
+
+- Carson plan review は `PLAN_APPROVED`。
+- F5lq は F5lp owner だけを direct authority とし、start / step の先頭で F5lp invariant を再検査する。
+- F5lp invariant failure は `CompositionOrderInvariantFailed` とし、lower F5lp error kind を `order_error` に保持して root cause を隠さない。
+- sample position は shadow local cell から `source_placement_origin + (local - shadow_extent)` を checked i32 arithmetic で作る。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceSample` を追加する。`position`、`alpha`、`alpha_max`、`shadow_paint`、`blend`、`shadow_order`、`source_order` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCursor` を追加する。F5lp owner と `cell_index` を所有し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind`、start error、step error、sampled payload、terminal を追加する。
+- owner shadow storage invariant を追加し、F5lp owner 内の F5lo packed mask owner から shadow shape、cell count、alpha max、alpha Vec len/cap を再検査する。
+- cursor position helper を追加し、local x/y、shadow extent subtraction、origin addition を checked i32 arithmetic で検査してから `gui_point_new` を呼ぶ。
+- cursor start / read / step / free / error free / terminal free helper を追加する。
+- docs / source policy / focused doctest label / todo / note を F5lq に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Carson approval、F5lp authority、sample `Clone` / `Copy`、owner-bearing cursor/start error/step error/terminal no `Clone` / `Copy`、lower `order_error` evidence、shadow storage invariant、bounds order、checked position、alpha read、order metadata copy、free/recovery、command/resource/platform/compositor/Vec allocation禁止、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md` に F5lp authority、order error evidence、shadow shape/storage、checked position、alpha read、order metadata、step terminal、recovery/free、no command/resource/platform policy の coverage label を追加する。
+- implementation review で F5lq が F5lp owner 以外を direct authority にしていないこと、resource / command / platform / compositor へ進んでいないこと、free path が F5lp owner を二重解放しないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lq 後の shadow source resource/command bridge、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_sample_cursor.n.md --no-tree -o tmp_gui_font_render_shadow_source_sample_cursor_f5lq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md --no-tree -o tmp_gui_font_render_shadow_source_composition_order_f5lq_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lq.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lq.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -6569,6 +6569,49 @@ completed owner invariant は F5lo owner invariant、nested F5lk edge owner inva
 
 F5lp は F5lo owner の alpha cells を再パックせず、fill / stroke owner を消費せず、F5lg / F5lh の paint composition helper を再利用しない。sample cursor、resource reservation、render command、software surface、platform/backend API、shadow rasterizer、2D compositor も呼ばない。
 
+### SFNT simple glyph render shadow source sample cursor boundary
+
+F5lq は F5lp completed shadow source composition order owner を direct authority とし、shadow alpha mask を cell ごとの sample stream として読み出す境界である。この phase はまだ resource reservation、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+sample は value-only であり、`position`、`alpha`、`alpha_max`、`shadow_paint`、`blend`、`shadow_order`、`source_order` を持つ。cursor は F5lp owner と `cell_index` を所有するため、cursor、start error、step error、terminal は `Clone` / `Copy` を実装しない。
+
+cursor start と step は最初に F5lp completed owner invariant を再検査する。失敗時は F5lq error kind を `CompositionOrderInvariantFailed` とし、lower F5lp error kind を `order_error` として保持する。これにより、F5lo/F5lk 由来の根本原因を F5lq で単なる sample cursor failure に潰さない。
+
+shadow storage invariant は F5lp owner 内の F5lo packed mask owner を参照し、次を再検査する。
+
+```text
+shadow_shape.width_px > 0
+shadow_shape.height_px > 0
+shadow_shape.sample_scale > 0
+shadow_shape.coverage_max == sample_scale * sample_scale
+shadow_shape.cell_count == width_px * height_px
+alpha_max > 0
+owner.cell_count == shadow_shape.cell_count
+alpha_cells.len == shadow_shape.cell_count
+alpha_cells.cap == shadow_shape.cell_count
+```
+
+cursor bounds は fail-closed に扱う。
+
+```text
+cell_index < 0          -> CellIndexNegative
+cell_index > cell_count -> CellIndexOutOfRange
+cell_index == cell_count -> Completed owner
+cell_index < cell_count -> read sample
+```
+
+sample position は F5lo の shadow shape local cell から、F5lp に固定された source placement と shadow extent を使って作る。
+
+```text
+source_placement_origin + (local_x - shadow_extent, local_y - shadow_extent)
+```
+
+`local_y = cell_index / width_px`、`local_x = cell_index - local_y * width_px` とし、`local_x - shadow_extent`、`local_y - shadow_extent`、origin への加算はすべて i32 checked arithmetic で検査してから `gui_point_new` へ渡す。
+
+sample read は `vec::get` で alpha slot を読み、slot missing、negative alpha、`alpha > alpha_max` を typed error として返す。成功時は F5lp owner に固定された `shadow_paint`、`blend`、`shadow_order`、`source_order` を sample へコピーする。
+
+F5lq は fill / stroke owner、F5lg / F5lh composition helper、resource table、resource reservation、render command、software surface、platform/backend API、shadow rasterizer、2D compositor、Vec allocation / push を呼ばない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

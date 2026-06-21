@@ -22925,6 +22925,540 @@ fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_reco
     let shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get recovery "shadow_owner"
     gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free shadow_owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourceSample: shadow source の 1 pixel sample
+//:
+//: [目的/もくてき]:
+//: - F5lp の shadow source composition order owner から、後続 bridge が[消費/しょうひ]する 1 cell 分の shadow contribution を[切/き]り[出/だ]します。
+//: - sample は value-only であり、alpha storage や packed mask owner の[所有権/しょゆうけん]は cursor 側が[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSample:
+    position %GuiPoint
+    alpha %i32
+    alpha_max %i32
+    shadow_paint %GuiPaint
+    blend %GuiBlendMode
+    shadow_order %i32
+    source_order %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSample:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSample \sample:
+        *sample
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSample:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSample \sample:
+        sample
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample: shadow sample value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample %fn GuiPoint fn i32 fn i32 fn GuiPaint fn GuiBlendMode fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceSample \position\alpha\alpha_max\shadow_paint\blend\shadow_order\source_order:
+    GuiSfntSimpleGlyphRenderShadowSourceSample position alpha alpha_max shadow_paint blend shadow_order source_order
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_position: sample position を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_position %fn &GuiSfntSimpleGlyphRenderShadowSourceSample GuiPoint \sample:
+    *field::get_ref sample "position"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_alpha: sample alpha を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_alpha %fn &GuiSfntSimpleGlyphRenderShadowSourceSample i32 \sample:
+    *field::get_ref sample "alpha"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_alpha_max: sample alpha max を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_alpha_max %fn &GuiSfntSimpleGlyphRenderShadowSourceSample i32 \sample:
+    *field::get_ref sample "alpha_max"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_shadow_paint: sample shadow paint を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_shadow_paint %fn &GuiSfntSimpleGlyphRenderShadowSourceSample GuiPaint \sample:
+    *field::get_ref sample "shadow_paint"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_blend: sample blend mode を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_blend %fn &GuiSfntSimpleGlyphRenderShadowSourceSample GuiBlendMode \sample:
+    *field::get_ref sample "blend"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_shadow_order: sample shadow order を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_shadow_order %fn &GuiSfntSimpleGlyphRenderShadowSourceSample i32 \sample:
+    *field::get_ref sample "shadow_order"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_source_order: sample source order を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_source_order %fn &GuiSfntSimpleGlyphRenderShadowSourceSample i32 \sample:
+    *field::get_ref sample "source_order"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCursor: shadow source sample stream の owner cursor
+//:
+//: [目的/もくてき]:
+//: - F5lp の composition order owner を[保持/ほじ]し、shadow alpha mask cell を[順/じゅん]に[読/よ]む[位置/いち]を cell_index で[表/あらわ]します。
+//: - cursor は packed mask storage を間接的に所有するため Clone / Copy を実装しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCursor:
+    owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    cell_index %i32
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor: shadow sample cursor を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn i32 GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \owner\cell_index:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCursor owner cell_index
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index: cursor の cell index を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursor i32 \cursor:
+    *field::get_ref cursor "cell_index"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_cell_count: cursor owner の shadow cell count を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursor i32 \cursor:
+    let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref cursor "owner"
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count shadow_owner
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind: shadow sample cursor 境界の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind:
+    CompositionOrderInvariantFailed
+    ShadowShapeInvalidWidth
+    ShadowShapeInvalidHeight
+    ShadowShapeInvalidSampleScale
+    ShadowShapeCoverageMaxMismatch
+    ShadowShapeCellCountMismatch
+    InvalidAlphaMax
+    AlphaCellCountMismatch
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    CellIndexNegative
+    CellIndexOutOfRange
+    AlphaSlotMissing
+    AlphaNegative
+    AlphaExceedsMax
+    PositionXOverflow
+    PositionYOverflow
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError: shadow sample cursor start の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind
+    owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error: sample cursor start error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError \kind\owner\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError kind owner order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_simple: lower order error なしの start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError \kind\owner:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error kind owner order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_with_order: lower F5lp order error を[保持/ほじ]する start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError \kind\owner\order_error_value:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error kind owner order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_kind: start error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_order_error: lower order error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_owner: start error から owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError: shadow sample cursor step の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind
+    cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor
+    order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error: sample cursor step error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError \kind\cursor\order_error:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError kind cursor order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_simple: lower order error なしの step error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError \kind\cursor:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error kind cursor order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_with_order: lower F5lp order error を[保持/ほじ]する step error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_with_order %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError \kind\cursor\order_error_value:
+    let order_error %Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind some order_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error kind cursor order_error
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_kind: step error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_order_error: step error の lower order error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_order_error %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError Option GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind \error:
+    *field::get_ref error "order_error"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_cursor: step error から cursor を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \error:
+    field::get error "cursor"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal: shadow sample cursor step の結果
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled:
+    sample %GuiSfntSimpleGlyphRenderShadowSourceSample
+    cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled: sample と[継続/けいぞく] cursor を[束/たば]ねる
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled %fn GuiSfntSimpleGlyphRenderShadowSourceSample fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled \sample\cursor:
+    GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled sample cursor
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled_sample: sampled payload の sample を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled_sample %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled GuiSfntSimpleGlyphRenderShadowSourceSample \sampled:
+    *field::get_ref sampled "sample"
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled_cursor: sampled payload から[継続/けいぞく] cursor を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled_cursor %fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled GuiSfntSimpleGlyphRenderShadowSourceSampleCursor \sampled:
+    field::get sampled "cursor"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal: sample cursor step の terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal:
+    Sampled %GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled
+    Completed %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_count_checked_mul: shadow shape [検査/けんさ]用 i32 [乗算/じょうざん]を overflow [検査/けんさ]付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_add_i32: position [計算/けいさん]用 i32 [加算/かさん]を overflow [検査/けんさ]付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_add_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \left\right\overflow_kind:
+    let sum %i64 add %i64 cast left %i64 cast right
+    let narrowed %i32 cast sum
+    let round_trip %i64 %i64 cast narrowed
+    if ne round_trip sum:
+        then Result::Err overflow_kind
+        else Result::Ok narrowed
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_sub_i32: position [計算/けいさん]用 i32 [減算/げんざん]を overflow [検査/けんさ]付きで[行/おこな]う
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_sub_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \left\right\overflow_kind:
+    let difference %i64 sub %i64 cast left %i64 cast right
+    let narrowed %i32 cast difference
+    let round_trip %i64 %i64 cast narrowed
+    if ne round_trip difference:
+        then Result::Err overflow_kind
+        else Result::Ok narrowed
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_validate_shadow_shape: shadow shape の arithmetic invariant を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_validate_shadow_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ShadowShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants: F5lp owner 内の F5lo shadow storage を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \owner:
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape shadow_owner
+    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_validate_shadow_shape &shadow_shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max shadow_owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::InvalidAlphaMax
+                else:
+                    let shadow_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shadow_shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count shadow_owner
+                    if ne owner_cell_count shadow_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::AlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_len shadow_owner
+                            if ne alpha_cells_len shadow_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::AlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_cells_cap shadow_owner
+                                    if ne alpha_cells_cap shadow_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::AlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_invariants: F5lp owner と shadow storage をまとめて[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner:
+        Result::Err _order_error:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CompositionOrderInvariantFailed
+        Result::Ok _:
+            gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_invariants: cursor の owner と cell index を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursor Result unit GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \cursor:
+    let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref cursor "owner"
+    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index cursor
+            if lt cell_index 0:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CellIndexNegative
+                else:
+                    let cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_cell_count cursor
+                    if gt cell_index cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CellIndexOutOfRange
+                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_position: cursor cell index から shadow sample position を[計算/けいさん]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_position %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursor Result GuiPoint GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \cursor:
+    let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref cursor "owner"
+    let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+    let shadow_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_shadow_shape shadow_owner
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shadow_shape
+    let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index cursor
+    let local_y %i32 div_s cell_index width_px
+    let local_x %i32 sub cell_index mul local_y width_px
+    let shadow_extent %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_extent owner
+    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_sub_i32 local_x shadow_extent GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::PositionXOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok delta_x:
+            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_sub_i32 local_y shadow_extent GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::PositionYOverflow:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok delta_y:
+                    let origin %GuiPoint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_placement_origin owner
+                    let origin_x %i32 gui_point_x &origin
+                    let origin_y %i32 gui_point_y &origin
+                    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_add_i32 origin_x delta_x GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::PositionXOverflow:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok x:
+                            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_checked_add_i32 origin_y delta_y GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::PositionYOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok y:
+                                    Result::Ok gui_point_new x y
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start: F5lp owner から shadow sample cursor を[開始/かいし]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start %fn GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner Result GuiSfntSimpleGlyphRenderShadowSourceSampleCursor GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants &owner:
+        Result::Err order_error:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_with_order GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CompositionOrderInvariantFailed owner order_error
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_simple error_kind owner
+                Result::Ok _:
+                    let cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor gui_sfnt_simple_glyph_render_shadow_source_sample_cursor owner 0
+                    Result::Ok cursor
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_read: [現在/げんざい]の alpha cell と order metadata から sample を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_read %fn &GuiSfntSimpleGlyphRenderShadowSourceSampleCursor Result GuiSfntSimpleGlyphRenderShadowSourceSample GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind \cursor:
+    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_invariants cursor:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let owner %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref cursor "owner"
+            let shadow_owner %&GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner field::get_ref owner "shadow_owner"
+            let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index cursor
+            let cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_cell_count shadow_owner
+            if ge cell_index cell_count:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CellIndexOutOfRange
+                else:
+                    let alpha_cells %&Vec i32 field::get_ref shadow_owner "alpha_cells"
+                    match vec::get alpha_cells cell_index:
+                        Option::None:
+                            Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::AlphaSlotMissing
+                        Option::Some alpha:
+                            if lt alpha 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::AlphaNegative
+                                else:
+                                    let alpha_max %i32 gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_alpha_max shadow_owner
+                                    if gt alpha alpha_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::AlphaExceedsMax
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_position cursor:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok position:
+                                                    let shadow_paint %GuiPaint gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_paint owner
+                                                    let blend %GuiBlendMode gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_blend owner
+                                                    let shadow_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order owner
+                                                    let source_order %i32 gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order owner
+                                                    let sample %GuiSfntSimpleGlyphRenderShadowSourceSample gui_sfnt_simple_glyph_render_shadow_source_sample position alpha alpha_max shadow_paint blend shadow_order source_order
+                                                    Result::Ok sample
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_step: 1 sample を[返/かえ]して cursor を[進/すす]める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_step %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor Result GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError \cursor:
+    let owner_ref %&GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get_ref &cursor "owner"
+    match gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants owner_ref:
+        Result::Err order_error:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_with_order GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CompositionOrderInvariantFailed cursor order_error
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_shadow_storage_invariants owner_ref:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_simple error_kind cursor
+                Result::Ok _:
+                    let cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index &cursor
+                    let cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_owner_cell_count &cursor
+                    if gt cell_index cell_count:
+                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_simple GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::CellIndexOutOfRange cursor
+                        else:
+                            if eq cell_index cell_count:
+                                then:
+                                    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get cursor "owner"
+                                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal::Completed owner
+                                else:
+                                    match gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_read &cursor:
+                                        Result::Err error_kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_simple error_kind cursor
+                                        Result::Ok sample:
+                                            let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get cursor "owner"
+                                            let expected_next_cell_index %i32 add cell_index 1
+                                            let next_cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor gui_sfnt_simple_glyph_render_shadow_source_sample_cursor owner expected_next_cell_index
+                                            let next_cell_index %i32 gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_cell_index &next_cursor
+                                            if ne next_cell_index expected_next_cell_index:
+                                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_simple GuiSfntSimpleGlyphRenderShadowSourceSampleCursorErrorKind::ProgressInvariantInvalid next_cursor
+                                                else:
+                                                    let sampled %GuiSfntSimpleGlyphRenderShadowSourceSampleCursorSampled gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled sample next_cursor
+                                                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal::Sampled sampled
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free: cursor が[保持/ほじ]する F5lp owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursor unit \cursor:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get cursor "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_free: start error が[保持/ほじ]する F5lp owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorStartError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_free: step error が[保持/ほじ]する cursor を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorError unit \error:
+    let cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor field::get error "cursor"
+    gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
+
+//: gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_terminal_free: terminal variant が[保持/ほじ]する owner / cursor を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal::Sampled sampled:
+            let cursor %GuiSfntSimpleGlyphRenderShadowSourceSampleCursor gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_sampled_cursor sampled
+            gui_sfnt_simple_glyph_render_shadow_source_sample_cursor_free cursor
+        GuiSfntSimpleGlyphRenderShadowSourceSampleCursorTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
