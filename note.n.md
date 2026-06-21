@@ -223,6 +223,41 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI font F5lf packed stroke mask owner
+
+## 目的
+
+- F5lb completed stroke coverage mask owner を direct authority とし、raw stroke coverage cell を normalized alpha cell へ変換する。
+- F5bf fill raster packed mask owner は直接再利用せず、stroke の `GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner` authority を保持する。
+- completion 時に raw stroke coverage cell Vec を解放し、completed packed stroke mask owner には join geometry owner、shape、alpha cell Vec、cell count、alpha max だけを保持する。
+- glyph paint composition、render command、pixel write、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderStrokePackedMaskConfig`、transition owner、completed owner、start / conversion error、bounded terminal を追加した。
+- start は alpha max、shape invariant、F5lc join geometry invariant、alpha scale overflow、raw cell count / len / cap、alpha Vec allocation を検査する。
+- pack owner invariant は cell index、shape、F5lc join geometry invariant、alpha Vec len / cap、raw cell count / len / cap を budget / read / push / completion より前に検査する。
+- step は 1 raw coverage cell を integer-only alpha に正規化し、push failure では lower storage error と returned alpha Vec を保持して同じ cell index で回収する。
+- completion は exact full のみ成功し、raw coverage cell Vec を free して join geometry owner / shape / alpha cells を completed packed stroke mask owner へ移す。
+- Mendel の plan review は `CHANGES_REQUESTED`。F5lf contract/source-policy が未定義である点、F5bf direct reuse 禁止、F5lb completed owner direct authority、completion-time raw cell release、shadow/compositor 禁止の明文化が必要という指摘を受け、spec / detailed design / implementation plan / source policy / focused doctest を F5lf 専用に追加した。
+- Kierkegaard の implementation review は `REVIEW_APPROVED`。F5lb completed stroke coverage owner direct authority、F5bf direct reuse なし、completion-time raw cell free、completed owner に raw cells / coverage owner が残らないこと、push failure recovery が確認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_stroke_packed_mask_f5lf.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lf_probe.json -j 1` は 1259 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lf.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lf.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5lf は `origin/main` 側で merge 済み。この作業 branch では latest `origin/main` merge として統合し、production actual traversal reader 変更との同居を検証した。
+- glyph paint composition、render command、pixel write、platform API、font fallback、shadow rasterization、2D compositor は引き続き別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5le quadratic side edge scan policy
 
 ## 目的
@@ -78354,6 +78389,19 @@ MERGE_APPROVED
 - pass after latest `origin/main` F5le merge fix: `node nodesrc/issues.js check --dir issues`
 - pass after latest `origin/main` F5le merge fix: `node nodesrc/run_source_policy_regressions.js`
 - pass after latest `origin/main` F5le merge fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5lf merge fix: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lf merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_final_after_f5lf_merge.json -j 1`。1692/1692。
+- pass after latest `origin/main` F5lf merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_stroke_packed_mask_f5lf_merge.json -j 1`。1/1。
+- pass after latest `origin/main` F5lf merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-production-reader-after-f5lf-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5lf merge fix: `trunk build`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-production-reader-after-f5lf-merge.json`
+- checked JSON after latest `origin/main` F5lf merge fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lf merge fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lf merge fix: `git diff --check`。CRLF warning のみ。
 
 ### 残件
 

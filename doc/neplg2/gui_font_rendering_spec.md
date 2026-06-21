@@ -6283,6 +6283,32 @@ step は 1 cell 分の coverage を計算し、F5la `gui_sfnt_simple_glyph_rende
 
 F5lb は packed stroke mask、glyph paint composition、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。quadratic side edge の exact offset curve はこの boundary でも主張せず、config-driven flattening policy として扱う。
 
+### SFNT simple glyph render stroke packed mask owner boundary
+
+F5lf は F5lb の completed stroke coverage mask owner を direct authority とし、raw stroke coverage cell を normalized alpha cell へ変換する境界である。F5bf の fill raster packed mask owner は型 authority が `GuiSfntSimpleGlyphRasterCoverageMaskOwner` / raster edge owner であるため直接再利用しない。F5lf は F5lb completed owner の内側にある F5lc join geometry owner を stroke authority として保持する。
+
+F5lf config は value-only の `alpha_max` を持ち、`alpha_max <= 0` を `InvalidAlphaMax` として拒否する。start は completed stroke coverage owner の shape、F5lc join geometry invariant、raw cell count / len / cap、`coverage_max * alpha_max` overflow、alpha Vec allocation を検査する。start error は consuming coverage owner と config を保持し、storage failure と closure invariant failure を typed evidence として分ける。
+
+pack owner は completed stroke coverage owner、alpha cell Vec、config、cell index を所有する。drain / step / completion は budget、raw cell read、alpha push、completion より前に pack owner invariant を検査する。
+
+```text
+cell_index >= 0
+shape invariant is valid
+F5lc join geometry invariant is valid
+cell_index <= shape.cell_count
+alpha_cells.len == cell_index
+alpha_cells.cap == shape.cell_count
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+```
+
+1 step は raw stroke coverage cell を 1 個読み、`0 <= coverage <= shape.coverage_max` を検査してから `coverage * alpha_max / shape.coverage_max` で alpha へ正規化する。`coverage > max_i32 / alpha_max` の場合は `AlphaScaleOverflow` として失敗する。`vec::push` failure は returned alpha Vec と pre-push `cell_index` を pack owner に戻す。
+
+completion は `cell_index == shape.cell_count` の exact state でのみ成功する。成功時には raw stroke coverage cell Vec を `vec::free` し、completed packed stroke mask owner は `join_geometry_owner`、shape、alpha cell Vec、cell count、alpha max だけを保持する。completed owner は raw coverage cells や F5bf raster edge owner を保持しない。
+
+F5lf は glyph paint composition、render command、pixel write、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

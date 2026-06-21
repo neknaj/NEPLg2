@@ -26025,6 +26025,12 @@ struct GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner:
 fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner %fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner \join_geometry_owner\shape\cells\cell_count:
     GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner join_geometry_owner shape cells cell_count
 
+//: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape: completed coverage owner の shape を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape %fn &GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shape"
+
 //: gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cell_count: completed coverage owner の状態を扱う
 //:
 //: [目的/もくてき]:
@@ -27629,6 +27635,649 @@ fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_terminal_free %impure fn Gu
             gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free completed
         GuiSfntSimpleGlyphRenderStrokeCoverageScanTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_render_stroke_coverage_scan_owner_free owner
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskConfig: stroke coverage cell を alpha cell へ[正規化/せいきか]する[設定/せってい]
+//:
+//: [目的/もくてき]:
+//: - F5lb で[完成/かんせい]した stroke coverage mask を、後続の glyph paint composition が[読/よ]める alpha cell mask へ[変換/へんかん]する policy です。
+//: - owner を[保持/ほじ]しない value-only record なので `Clone` / `Copy` を[許可/きょか]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokePackedMaskConfig:
+    alpha_max %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokePackedMaskConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskConfig GuiSfntSimpleGlyphRenderStrokePackedMaskConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokePackedMaskConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig GuiSfntSimpleGlyphRenderStrokePackedMaskConfig \config:
+        config
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_config: stroke packed mask config を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_config %fn i32 GuiSfntSimpleGlyphRenderStrokePackedMaskConfig \alpha_max:
+    GuiSfntSimpleGlyphRenderStrokePackedMaskConfig alpha_max
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max: alpha 最大値を読み出す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskConfig i32 \config:
+    *field::get_ref config "alpha_max"
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner: resumable stroke packed mask conversion owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner:
+    coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner
+    alpha_cells %Vec i32
+    config %GuiSfntSimpleGlyphRenderStrokePackedMaskConfig
+    cell_index %i32
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner: resumable stroke packed mask owner を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner fn Vec i32 fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig fn i32 GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner \coverage_owner\alpha_cells\config\cell_index:
+    GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner coverage_owner alpha_cells config cell_index
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index: pack owner の進行 cell index を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner i32 \owner:
+    *field::get_ref owner "cell_index"
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_len: alpha cell storage の len を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_cap: alpha cell storage の capacity を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskOwner: completed stroke packed alpha mask owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokePackedMaskOwner:
+    join_geometry_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells %Vec i32
+    cell_count %i32
+    alpha_max %i32
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner: completed stroke packed mask owner を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner %fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokePackedMaskOwner \join_geometry_owner\shape\alpha_cells\cell_count\alpha_max:
+    GuiSfntSimpleGlyphRenderStrokePackedMaskOwner join_geometry_owner shape alpha_cells cell_count alpha_max
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_shape: completed stroke packed mask の shape を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_shape %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shape"
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_cell_count: completed stroke packed mask の cell 数を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_max: completed stroke packed mask の alpha 最大値を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_max %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner i32 \owner:
+    *field::get_ref owner "alpha_max"
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_cells_len: completed alpha cell storage の len を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_cells_cap: completed alpha cell storage の capacity を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind: stroke packed mask start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind:
+    InvalidAlphaMax
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    ClosureInvariantFailed
+    AlphaScaleOverflow
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    AlphaStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskStartError: stroke packed mask start recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokePackedMaskStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind
+    coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner
+    config %GuiSfntSimpleGlyphRenderStrokePackedMaskConfig
+    join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error: start failure payload を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error %fn GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig fn Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskStartError \kind\coverage_owner\config\join_geometry_error\storage_error:
+    GuiSfntSimpleGlyphRenderStrokePackedMaskStartError kind coverage_owner config join_geometry_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple: 追加原因なしの start failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig GuiSfntSimpleGlyphRenderStrokePackedMaskStartError \kind\coverage_owner\config:
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error kind coverage_owner config join_geometry_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_join_geometry_failed: join geometry invariant 失敗を保持する start failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_join_geometry_failed %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskStartError \coverage_owner\config\join_geometry_error_value:
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind some join_geometry_error_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ClosureInvariantFailed coverage_owner config join_geometry_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_storage_failed: alpha storage allocation failure を保持する start failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig fn StdErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskStartError \coverage_owner\config\storage_error_value:
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::AlphaStorageAllocFailed coverage_owner config join_geometry_error storage_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_coverage_owner: start error から coverage owner を回収する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_coverage_owner %fn GuiSfntSimpleGlyphRenderStrokePackedMaskStartError GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner \error:
+    field::get error "coverage_owner"
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_count_checked_mul: start 検査用の i32 乗算 overflow を検出する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind Result i32 GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_start: start 時の shape contract を検査する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_packed_mask_start_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_stroke_packed_mask_start_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_alpha_scale_is_valid_for_start: coverage と alpha の積が i32 に収まるか検査する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_alpha_scale_is_valid_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape fn &GuiSfntSimpleGlyphRenderStrokePackedMaskConfig Result unit GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind \shape\config:
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max config
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+    match gui_sfnt_simple_glyph_render_stroke_packed_mask_start_count_checked_mul coverage_max alpha_max GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::AlphaScaleOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_start: completed coverage owner から pack owner を開始する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskConfig Result GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner GuiSfntSimpleGlyphRenderStrokePackedMaskStartError \coverage_owner\config:
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max &config
+    if le alpha_max 0:
+        then Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::InvalidAlphaMax coverage_owner config
+        else:
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape &coverage_owner
+            match gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_start &shape:
+                Result::Err shape_error:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple shape_error coverage_owner config
+                Result::Ok _:
+                    let join_geometry_owner %&GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get_ref &coverage_owner "join_geometry_owner"
+                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner:
+                        Result::Err join_geometry_error:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_join_geometry_failed coverage_owner config join_geometry_error
+                        Result::Ok _:
+                            match gui_sfnt_simple_glyph_render_stroke_packed_mask_alpha_scale_is_valid_for_start &shape &config:
+                                Result::Err scale_error:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple scale_error coverage_owner config
+                                Result::Ok _:
+                                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cell_count &coverage_owner
+                                    if ne owner_cell_count shape_cell_count:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::RawCellCountMismatch coverage_owner config
+                                        else:
+                                            let raw_cells_len %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_len &coverage_owner
+                                            if ne raw_cells_len shape_cell_count:
+                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::RawCellStorageLenMismatch coverage_owner config
+                                                else:
+                                                    let raw_cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_cap &coverage_owner
+                                                    if ne raw_cells_cap shape_cell_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_simple GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind::RawCellStorageCapacityMismatch coverage_owner config
+                                                        else:
+                                                            let alpha_cells_result %Result Vec i32 StdErrorKind vec::with_capacity shape_cell_count
+                                                            match alpha_cells_result:
+                                                                Result::Err storage_error:
+                                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_storage_failed coverage_owner config storage_error
+                                                                Result::Ok alpha_cells:
+                                                                    let owner %GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner coverage_owner alpha_cells config 0
+                                                                    Result::Ok owner
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind: stroke packed mask conversion failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind:
+    CellIndexNegative
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    ClosureInvariantFailed
+    CellIndexExceedsCellCount
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    RawCellSlotMissing
+    RawCoverageNegative
+    RawCoverageExceedsMax
+    AlphaScaleOverflow
+    AlphaStoragePushFailed
+    CompletionIncomplete
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskError: stroke packed mask conversion recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokePackedMaskError:
+    owner %GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner
+    kind %GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind
+    cell_index %Option i32
+    storage_error %Option StdErrorKind
+    join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error: conversion failure payload を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error %fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind fn Option i32 fn Option StdErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner\kind\cell_index\storage_error\join_geometry_error:
+    GuiSfntSimpleGlyphRenderStrokePackedMaskError owner kind cell_index storage_error join_geometry_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple: 追加原因なしの conversion failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple %fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner\kind:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind none
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_error owner kind cell_index storage_error join_geometry_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_with_cell_index: cell index 付きの conversion failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_with_cell_index %fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind fn i32 GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner\kind\cell_index_value:
+    let cell_index %Option i32 some cell_index_value
+    let storage_error %Option StdErrorKind none
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_error owner kind cell_index storage_error join_geometry_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_storage_failed: alpha cell push failure を保持する conversion failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner fn StdErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner\storage_error_value:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind some storage_error_value
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_error owner GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::AlphaStoragePushFailed cell_index storage_error join_geometry_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_join_geometry_failed: join geometry invariant 失敗を保持する conversion failure を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_join_geometry_failed %fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner fn GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner\join_geometry_error_value:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind none
+    let join_geometry_error %Option GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind some join_geometry_error_value
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_error owner GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ClosureInvariantFailed cell_index storage_error join_geometry_error
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_owner: conversion error から pack owner を回収する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_owner %fn GuiSfntSimpleGlyphRenderStrokePackedMaskError GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner \error:
+    field::get error "owner"
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_count_checked_mul: conversion 検査用の i32 乗算 overflow を検出する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind Result i32 GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_pack: conversion 中の shape contract を検査する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_pack %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_packed_mask_error_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_stroke_packed_mask_error_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants: pack owner と raw coverage owner の不変条件を検査する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner Result unit GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index owner
+    if lt cell_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::CellIndexNegative
+        else:
+            let coverage_owner %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get_ref owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape coverage_owner
+            match gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_pack &shape:
+                Result::Err shape_error:
+                    Result::Err shape_error
+                Result::Ok _:
+                    let join_geometry_owner %&GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get_ref coverage_owner "join_geometry_owner"
+                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner:
+                        Result::Err _join_geometry_error:
+                            Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ClosureInvariantFailed
+                        Result::Ok _:
+                            let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                            if gt cell_index shape_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::CellIndexExceedsCellCount
+                                else:
+                                    let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_len owner
+                                    if ne alpha_cells_len cell_index:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::AlphaStorageLenMismatch
+                                        else:
+                                            let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_cap owner
+                                            if ne alpha_cells_cap shape_cell_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::AlphaStorageCapacityMismatch
+                                                else:
+                                                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cell_count coverage_owner
+                                                    if ne owner_cell_count shape_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::RawCellCountMismatch
+                                                        else:
+                                                            let raw_cells_len %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_len coverage_owner
+                                                            if ne raw_cells_len shape_cell_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::RawCellStorageLenMismatch
+                                                                else:
+                                                                    let raw_cells_cap %i32 gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_cells_cap coverage_owner
+                                                                    if ne raw_cells_cap shape_cell_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::RawCellStorageCapacityMismatch
+                                                                        else Result::Ok unit
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_read_coverage_cell: 現在 cell の raw coverage を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_read_coverage_cell %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner Result i32 GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index owner
+    let coverage_owner %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get_ref owner "coverage_owner"
+    let cells %&Vec i32 field::get_ref coverage_owner "cells"
+    match vec::get cells cell_index:
+        Option::None:
+            Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::RawCellSlotMissing
+        Option::Some coverage_value:
+            if lt coverage_value 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::RawCoverageNegative
+                else:
+                    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape coverage_owner
+                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+                    if gt coverage_value coverage_max:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::RawCoverageExceedsMax
+                        else Result::Ok coverage_value
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_normalize_alpha: raw coverage を alpha cell 値へ正規化する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_normalize_alpha %fn &GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind \owner\coverage_value:
+    let coverage_owner %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get_ref owner "coverage_owner"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape coverage_owner
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+    let config %&GuiSfntSimpleGlyphRenderStrokePackedMaskConfig field::get_ref owner "config"
+    let alpha_max %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max config
+    let max_i32 %i32 2147483647
+    let max_coverage %i32 div_s max_i32 alpha_max
+    if gt coverage_value max_coverage:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::AlphaScaleOverflow
+        else:
+            let scaled %i32 mul coverage_value alpha_max
+            Result::Ok div_s scaled coverage_max
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_step: 1 cell を alpha cell storage へ push する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_step %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner Result GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner:
+    match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_read_coverage_cell &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple owner error_kind
+                Result::Ok coverage_value:
+                    match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_normalize_alpha &owner coverage_value:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple owner error_kind
+                        Result::Ok alpha_value:
+                            let cell_index %i32 field::get owner "cell_index"
+                            let coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get owner "coverage_owner"
+                            let config %GuiSfntSimpleGlyphRenderStrokePackedMaskConfig field::get owner "config"
+                            let alpha_cells %Vec i32 field::get owner "alpha_cells"
+                            match vec::push alpha_cells alpha_value:
+                                Result::Ok next_alpha_cells:
+                                    let next_cell_index %i32 add cell_index 1
+                                    let next_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner coverage_owner next_alpha_cells config next_cell_index
+                                    Result::Ok next_owner
+                                Result::Err e:
+                                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &e
+                                    let returned_alpha_cells %Vec i32 vec::vec_push_error_vec e
+                                    let returned_owner %GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner coverage_owner returned_alpha_cells config cell_index
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_storage_failed returned_owner storage_error_value
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_complete: full alpha cell storage を completed owner にする
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_complete %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner Result GuiSfntSimpleGlyphRenderStrokePackedMaskOwner GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner:
+    match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index &owner
+            let coverage_ref %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get_ref &owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape coverage_ref
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            if ne cell_index cell_count:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple owner GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::CompletionIncomplete
+                else:
+                    let config %GuiSfntSimpleGlyphRenderStrokePackedMaskConfig field::get owner "config"
+                    let alpha_max %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max &config
+                    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+                    let coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get owner "coverage_owner"
+                    let join_geometry_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get coverage_owner "join_geometry_owner"
+                    let shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get coverage_owner "shape"
+                    let raw_cells %Vec i32 field::get coverage_owner "cells"
+                    let raw_cell_count %i32 field::get coverage_owner "cell_count"
+                    vec::free raw_cells
+                    let completed %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner gui_sfnt_simple_glyph_render_stroke_packed_mask_owner join_geometry_owner shape_value alpha_cells raw_cell_count alpha_max
+                    Result::Ok completed
+
+//: GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal: bounded stroke packed mask drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal:
+    PackedMaskCompleted %GuiSfntSimpleGlyphRenderStrokePackedMaskOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_drain_to_complete_budget: budget 内で packed mask conversion を進める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner impure fn i32 Result GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal GuiSfntSimpleGlyphRenderStrokePackedMaskError \owner\remaining_steps:
+    match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            let coverage_owner %&GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get_ref &owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_shape coverage_owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            let cell_index %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index &owner
+            if eq cell_index cell_count:
+                then:
+                    match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_complete owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok completed:
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal::PackedMaskCompleted completed
+                else:
+                    if le remaining_steps 0:
+                        then Result::Ok GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal::StepBudgetExhausted owner
+                        else:
+                            let old_cell_index %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index &owner
+                            let old_alpha_cells_len %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_len &owner
+                            match gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_step owner:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    let next_cell_index %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_cell_index &next_owner
+                                    let required_cell_index %i32 add old_cell_index 1
+                                    let next_alpha_cells_len %i32 gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_alpha_cells_len &next_owner
+                                    let required_alpha_cells_len %i32 add old_alpha_cells_len 1
+                                    if or ne next_cell_index required_cell_index ne next_alpha_cells_len required_alpha_cells_len:
+                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_packed_mask_error_simple next_owner GuiSfntSimpleGlyphRenderStrokePackedMaskErrorKind::ProgressInvariantInvalid
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_drain_to_complete_budget next_owner next_remaining_steps
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_free: pack owner と保持 owner / alpha storage を解放する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner unit \owner:
+    let coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get owner "coverage_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free coverage_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free: completed packed mask owner と alpha storage を解放する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskOwner unit \owner:
+    let join_geometry_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get owner "join_geometry_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_free join_geometry_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_free: start error が保持する coverage owner を解放する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskStartError unit \error:
+    let coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get error "coverage_owner"
+    gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free coverage_owner
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_error_free: conversion error が保持する pack owner を解放する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_error_free %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_free owner
+
+//: gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_terminal_free: bounded terminal payload を解放する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal::PackedMaskCompleted completed:
+            gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free completed
+        GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal::StepBudgetExhausted owner:
+            gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_free owner
 
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:

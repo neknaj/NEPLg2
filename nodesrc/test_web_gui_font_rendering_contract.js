@@ -522,6 +522,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeEdgeClosureOwnerTes
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_join_geometry.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_mask_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_coverage_scan_converter.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -604,6 +605,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageMaskWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -18665,7 +18667,7 @@ assert(
     "GUI font docs must pin F5lb F5la authority, F5lc bevel/miter/round connector policy, explicit quadratic scan policy, and later geometry work",
 );
 const renderStrokeCoverageScanStartIndex = renderStrokeCoverageMaskEndIndex;
-const renderStrokeCoverageScanEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeCoverageScanStartIndex);
+const renderStrokeCoverageScanEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokePackedMaskConfig:", renderStrokeCoverageScanStartIndex);
 const renderStrokeCoverageScanRegion = allocFontSfntGlyfImpl.slice(renderStrokeCoverageScanStartIndex, renderStrokeCoverageScanEndIndex);
 assert(renderStrokeCoverageScanStartIndex >= 0 && renderStrokeCoverageScanEndIndex > renderStrokeCoverageScanStartIndex, "alloc/gui/font/sfnt/glyf F5lb stroke coverage scan converter region must exist before fill alpha sample cursor");
 for (const fragment of [
@@ -19041,6 +19043,265 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_push_budget_completion_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_no_fill_scan_packed_render_platform"),
     "F5le render stroke coverage scan converter focused doctest must cover F5la authority, join geometry revalidation, cell bounds, line scan, bevel/miter/round join geometry, explicit quadratic policy, push/budget/completion, and no fill-scan/packed/render/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke packed mask owner boundary"), "GUI font spec must document F5lf render stroke packed mask owner boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke packed mask owner boundary"), "GUI font detailed design must document F5lf render stroke packed mask owner boundary");
+assert(implementationPlan.includes("## Phase F5lf: sfnt simple glyph render stroke packed mask owner"), "GUI font implementation plan must include F5lf phase");
+assert(
+    implementationPlan.includes("Mendel plan review は `CHANGES_REQUESTED`") &&
+        detailedDesign.includes("F5lf consumes the completed F5lb stroke coverage mask owner as the only direct authority") &&
+        detailedDesign.includes("The existing F5bf fill raster packed mask owner is not reused directly") &&
+        detailedDesign.includes("releases the raw stroke coverage cell Vec before returning the completed owner") &&
+        spec.includes("F5lb の completed stroke coverage mask owner を direct authority") &&
+        spec.includes("completed packed stroke mask owner は `join_geometry_owner`、shape、alpha cell Vec、cell count、alpha max だけを保持する"),
+    "GUI font docs must pin F5lf F5lb authority, no F5bf direct reuse, raw cell release, and completed owner payload",
+);
+const renderStrokePackedMaskStartIndex = renderStrokeCoverageScanEndIndex;
+const renderStrokePackedMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokePackedMaskStartIndex);
+const renderStrokePackedMaskRegion = allocFontSfntGlyfImpl.slice(renderStrokePackedMaskStartIndex, renderStrokePackedMaskEndIndex);
+assert(renderStrokePackedMaskStartIndex >= 0 && renderStrokePackedMaskEndIndex > renderStrokePackedMaskStartIndex, "alloc/gui/font/sfnt/glyf F5lf stroke packed mask owner region must exist before fill alpha sample cursor");
+const renderStrokePackedMaskConfigType = textSliceBetween(
+    renderStrokePackedMaskRegion,
+    "struct GuiSfntSimpleGlyphRenderStrokePackedMaskConfig:",
+    "struct GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner:",
+);
+const renderStrokePackedMaskPackOwnerType = textSliceBetween(
+    renderStrokePackedMaskRegion,
+    "struct GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner:",
+    "struct GuiSfntSimpleGlyphRenderStrokePackedMaskOwner:",
+);
+const renderStrokePackedMaskCompletedOwnerType = textSliceBetween(
+    renderStrokePackedMaskRegion,
+    "struct GuiSfntSimpleGlyphRenderStrokePackedMaskOwner:",
+    "enum GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind:",
+);
+assert(renderStrokePackedMaskConfigType.includes("alpha_max %i32"), "alloc/gui/font/sfnt/glyf F5lf config must include alpha_max");
+assertMatch(
+    renderStrokePackedMaskConfigType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderStrokePackedMaskConfig\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderStrokePackedMaskConfig\b/,
+    "alloc/gui/font/sfnt/glyf F5lf config is value-only and must implement Clone/Copy",
+);
+for (const fragment of [
+    "coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner",
+    "alpha_cells %Vec i32",
+    "config %GuiSfntSimpleGlyphRenderStrokePackedMaskConfig",
+    "cell_index %i32",
+]) {
+    assert(renderStrokePackedMaskPackOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lf pack owner must include ${fragment}`);
+}
+for (const fragment of [
+    "join_geometry_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner",
+    "shape %GuiSfntSimpleGlyphRasterCoverageShape",
+    "alpha_cells %Vec i32",
+    "cell_count %i32",
+    "alpha_max %i32",
+]) {
+    assert(renderStrokePackedMaskCompletedOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lf completed owner must include ${fragment}`);
+}
+assertNoMatch(
+    renderStrokePackedMaskCompletedOwnerType,
+    /coverage_owner|\n\s+cells\s+%Vec i32|GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner/,
+    "alloc/gui/font/sfnt/glyf F5lf completed packed owner must not retain raw coverage cells, coverage owner, or F5bf raster edge authority",
+);
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner",
+    "GuiSfntSimpleGlyphRenderStrokePackedMaskOwner",
+    "GuiSfntSimpleGlyphRenderStrokePackedMaskStartError",
+    "GuiSfntSimpleGlyphRenderStrokePackedMaskError",
+    "GuiSfntSimpleGlyphRenderStrokePackedMaskPackTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lf ${typeName} owns transition state and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderStrokePackedMaskRegion,
+    /pub struct GuiSfntSimpleGlyphRenderStrokePackedMask(?:PackOwner|Owner|StartError|Error)|pub enum GuiSfntSimpleGlyphRenderStrokePackedMask(?:StartErrorKind|ErrorKind|PackTerminal)|pub fn gui_sfnt_simple_glyph_render_stroke_packed_mask_(?:pack_owner_start|pack_owner_step|pack_owner_drain_to_complete_budget)\b/,
+    "alloc/gui/font/sfnt/glyf F5lf owner-bearing boundary and pack operations must remain private",
+);
+const renderStrokePackedMaskStartErrorKindType = textSliceBetween(
+    renderStrokePackedMaskRegion,
+    "enum GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind:",
+    "impl Clone for GuiSfntSimpleGlyphRenderStrokePackedMaskStartErrorKind:",
+);
+for (const fragment of [
+    "InvalidAlphaMax",
+    "ShapeInvalidWidth",
+    "ShapeInvalidHeight",
+    "ShapeInvalidSampleScale",
+    "ShapeCoverageMaxMismatch",
+    "ShapeCellCountMismatch",
+    "ClosureInvariantFailed",
+    "AlphaScaleOverflow",
+    "RawCellCountMismatch",
+    "RawCellStorageLenMismatch",
+    "RawCellStorageCapacityMismatch",
+    "AlphaStorageAllocFailed",
+]) {
+    assert(renderStrokePackedMaskStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lf start error kind must include ${fragment}`);
+}
+const renderStrokePackedMaskStartErrorCoverageOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_coverage_owner");
+const renderStrokePackedMaskStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_start");
+const renderStrokePackedMaskInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants");
+const renderStrokePackedMaskReadCell = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_read_coverage_cell");
+const renderStrokePackedMaskNormalize = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_normalize_alpha");
+const renderStrokePackedMaskStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_step");
+const renderStrokePackedMaskComplete = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_complete");
+const renderStrokePackedMaskDrain = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_drain_to_complete_budget");
+const renderStrokePackedMaskPackFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_free");
+const renderStrokePackedMaskCompletedFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_owner_free");
+const renderStrokePackedMaskStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_free");
+const renderStrokePackedMaskErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_error_free");
+const renderStrokePackedMaskTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_terminal_free");
+assert(renderStrokePackedMaskStartErrorCoverageOwner.includes("field::get error \"coverage_owner\""), "alloc/gui/font/sfnt/glyf F5lf start error must expose consuming coverage owner recovery");
+assertOrderedFragments(
+    renderStrokePackedMaskStart,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max &config",
+        "InvalidAlphaMax",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_start &shape",
+        "field::get_ref &coverage_owner \"join_geometry_owner\"",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_join_geometry_failed coverage_owner config join_geometry_error",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_alpha_scale_is_valid_for_start &shape &config",
+        "RawCellCountMismatch",
+        "RawCellStorageLenMismatch",
+        "RawCellStorageCapacityMismatch",
+        "vec::with_capacity shape_cell_count",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_start_error_storage_failed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf start must validate alpha, shape, F5lc invariant, scale overflow, raw cells, then allocate alpha cells",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskInvariant,
+    [
+        "CellIndexNegative",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_validate_shape_for_pack &shape",
+        "field::get_ref coverage_owner \"join_geometry_owner\"",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke_coverage join_geometry_owner",
+        "ClosureInvariantFailed",
+        "CellIndexExceedsCellCount",
+        "AlphaStorageLenMismatch",
+        "AlphaStorageCapacityMismatch",
+        "RawCellCountMismatch",
+        "RawCellStorageLenMismatch",
+        "RawCellStorageCapacityMismatch",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf invariant must check index, shape, F5lc invariant, alpha storage, and raw stroke coverage storage",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskReadCell,
+    [
+        "field::get_ref coverage_owner \"cells\"",
+        "vec::get cells cell_index",
+        "RawCellSlotMissing",
+        "RawCoverageNegative",
+        "RawCoverageExceedsMax",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf raw stroke cell read must use typed slot and coverage range errors",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskNormalize,
+    [
+        "gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_config_alpha_max config",
+        "let max_coverage %i32 div_s max_i32 alpha_max",
+        "AlphaScaleOverflow",
+        "let scaled %i32 mul coverage_value alpha_max",
+        "Result::Ok div_s scaled coverage_max",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf alpha normalization must guard overflow and use integer scaling",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskStep,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants &owner",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_read_coverage_cell &owner",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_normalize_alpha &owner coverage_value",
+        "vec::push alpha_cells alpha_value",
+        "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+        "let returned_alpha_cells %Vec i32 vec::vec_push_error_vec e",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_error_storage_failed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf step must check invariant before read/push and recover Vec push failure",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskComplete,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants &owner",
+        "CompletionIncomplete",
+        "let config %GuiSfntSimpleGlyphRenderStrokePackedMaskConfig field::get owner \"config\"",
+        "let alpha_cells %Vec i32 field::get owner \"alpha_cells\"",
+        "let coverage_owner %GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner field::get owner \"coverage_owner\"",
+        "let join_geometry_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner field::get coverage_owner \"join_geometry_owner\"",
+        "let raw_cells %Vec i32 field::get coverage_owner \"cells\"",
+        "vec::free raw_cells",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_owner join_geometry_owner shape_value alpha_cells raw_cell_count alpha_max",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf completion must free raw stroke cells and preserve join geometry owner exactly once",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskDrain,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_invariants &owner",
+        "eq cell_index cell_count",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_complete owner",
+        "PackedMaskCompleted",
+        "StepBudgetExhausted",
+        "gui_sfnt_simple_glyph_render_stroke_packed_mask_pack_owner_step owner",
+        "ProgressInvariantInvalid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf drain must check invariant before completion/budget/read/push and keep typed terminals",
+);
+for (const [slice, name] of [
+    [renderStrokePackedMaskStart, "start"],
+    [renderStrokePackedMaskInvariant, "invariant"],
+    [renderStrokePackedMaskReadCell, "raw read"],
+    [renderStrokePackedMaskNormalize, "normalize"],
+    [renderStrokePackedMaskStep, "step"],
+    [renderStrokePackedMaskComplete, "complete"],
+    [renderStrokePackedMaskDrain, "drain"],
+    [renderStrokePackedMaskPackFree, "pack free"],
+    [renderStrokePackedMaskCompletedFree, "completed free"],
+    [renderStrokePackedMaskStartErrorFree, "start error free"],
+    [renderStrokePackedMaskErrorFree, "error free"],
+    [renderStrokePackedMaskTerminalFree, "terminal free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|GuiSfntSimpleGlyphRasterCoverageMaskOwner|gui_sfnt_simple_glyph_raster_coverage_mask_owner_|GuiSfntSimpleGlyphRasterPackedMask|gui_sfnt_simple_glyph_raster_packed_mask|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|shadow|compositor)\b/,
+        `alloc/gui/font/sfnt/glyf F5lf ${name} must not reuse fill packed mask, emit render/platform work, fallback, shadow, or compositor`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lf ${name} must preserve NEPL prefix style without parentheses`);
+}
+assertOrderedFragments(
+    renderStrokePackedMaskPackFree,
+    [
+        "vec::free alpha_cells",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_mask_owner_free coverage_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf pack owner free must release alpha cells before raw stroke coverage owner",
+);
+assertOrderedFragments(
+    renderStrokePackedMaskCompletedFree,
+    [
+        "vec::free alpha_cells",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_free join_geometry_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lf completed owner free must release alpha cells before join geometry owner",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_f5lb_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_shape_raw_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_owner_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_read_alpha_normalize_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_push_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_completion_raw_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokePackedMaskOwnerTests.includes("render_stroke_packed_mask_no_fill_reuse_render_platform_shadow"),
+    "F5lf render stroke packed mask focused doctest must cover F5lb authority, shape/raw validation, invariant, read/normalize, push recovery, raw free, and no fill reuse/render/platform/shadow policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");

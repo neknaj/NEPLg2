@@ -3148,6 +3148,56 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lb.json
 ```
 
+## Phase F5lf: sfnt simple glyph render stroke packed mask owner
+
+目的:
+
+- F5lb の completed stroke coverage mask owner を direct authority とし、raw stroke coverage cell を normalized alpha cell へ変換する。
+- F5bf fill raster packed mask owner を直接再利用せず、stroke の `GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner` authority を保持する専用 owner boundary にする。
+- completion 時に raw stroke coverage cell Vec を解放し、completed packed stroke mask owner は join geometry owner、shape、alpha cell Vec、cell count、alpha max だけを保持する。
+- glyph paint composition、render command、pixel write、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+plan review:
+
+- Mendel plan review は `CHANGES_REQUESTED`。
+- F5lf の方向性は妥当だが、実装前に spec / detailed design / implementation plan / source policy / focused doctest label で contract を明文化する必要があると指摘された。
+- F5bf direct reuse は stroke authority を失うため禁止し、F5lb completed stroke coverage owner を direct authority とする stroke 専用 owner にする。
+- raw stroke coverage cells は completion 時に必ず解放し、completed owner が raw cells や F5bf raster edge owner を保持しないことを source policy で固定する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokePackedMaskConfig` を追加する。`alpha_max` だけを持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner` を transition owner として追加する。completed stroke coverage owner、alpha cell Vec、config、cell index を保持する。
+- `GuiSfntSimpleGlyphRenderStrokePackedMaskOwner` を completed owner として追加する。join geometry owner、shape、alpha cell Vec、cell count、alpha max を保持し、raw coverage cells は保持しない。
+- start error / conversion error / bounded terminal を owner-bearing にし、coverage owner / pack owner を回収できるようにする。
+- start は alpha max、shape invariant、F5lc join geometry invariant、alpha scale overflow、raw cell count / len / cap、alpha Vec allocation を検査する。
+- pack owner invariant は cell index、shape、F5lc join geometry invariant、alpha Vec len / cap、raw cell count / len / cap を検査し、budget / read / push / completion より前に必ず通す。
+- raw coverage read は missing slot、negative coverage、coverage exceeds max を typed error にする。
+- alpha normalization は `coverage > max_i32 / alpha_max` を検査してから `coverage * alpha_max / coverage_max` を integer-only で行う。
+- step は 1 raw coverage cell を 1 alpha cell へ変換して push し、push failure では lower storage error と returned alpha Vec を保持する。
+- completion は exact full のみ成功し、raw coverage cell Vec を free して join geometry owner / shape / alpha cell Vec を completed packed stroke mask owner へ移す。
+- docs / source policy / focused doctest label / todo / note を F5lf に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Mendel plan review result、F5lb completed stroke coverage owner authority、F5bf direct reuse 禁止、config `Clone` / `Copy`、private pack/completed owner、owner no `Clone` / `Copy`、start validation、start error coverage owner recovery、pack invariant before budget/read/push/completion、typed raw cell errors、alpha normalization overflow guard、push failure recovery、bounded terminal、completion raw cell free、completed owner no raw cells、free functions、forbidden render/platform/fallback/shadow/compositor、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md` に F5lb authority、shape/raw validation、owner invariant、read/normalize、push recovery、completion raw free、no fill reuse/render/platform/shadow policy の coverage label を追加する。
+- implementation review で raw stroke coverage owner が start/error/free path から回収可能であること、completed owner が raw coverage Vec を保持しないこと、join geometry owner が exactly once 引き継がれることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5lf 後の glyph paint composition order、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_packed_mask_owner.n.md --no-tree -o tmp_gui_font_render_stroke_packed_mask_f5lf.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lf.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lf.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
