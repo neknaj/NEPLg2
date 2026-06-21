@@ -7478,6 +7478,60 @@ The owner, start error, and recovery payload do not implement `Clone` / `Copy`. 
 
 F5li does not change F5bh or F5kq. The no-shadow fill and stroke paths continue to reject shadow-bearing `GuiGlyphPaint` so a caller cannot accidentally route a shadow paint through a non-shadow path.
 
+## SFNT simple glyph render shadow source coverage config boundary
+
+F5lj turns a F5li shadow request into a validated source coverage plan. It deliberately keeps the boundary before edge draining and before mask allocation. The input coverage dimensions are caller supplied, matching the F5bd rule that coverage shape is not inferred from edge storage.
+
+The direct inputs are:
+
+```text
+GuiSfntSimpleGlyphRenderShadowRequestOwner
+GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig
+```
+
+Darwin plan review 1 was `CHANGES_REQUESTED`. The initial plan validated `spread + blur_radius` without storing the result, did not revalidate source fill/stroke metadata, and kept both coverage config and source shape in the success owner. The revised plan stores `shadow_extent`, revalidates source metadata, removes coverage config from the success owner, and makes `source_shape` the only canonical coverage authority. Darwin revised plan review was `PLAN_APPROVED`.
+
+The config is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageConfig:
+    coverage_config GuiSfntSimpleGlyphRasterCoverageConfig
+```
+
+The success owner is owner-bearing and not copyable:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner:
+    request_owner GuiSfntSimpleGlyphRenderShadowRequestOwner
+    source_shape GuiSfntSimpleGlyphRasterCoverageShape
+    source_fill Option GuiPaint
+    source_stroke Option GuiStroke
+    source_placement_origin GuiPoint
+    shadow_offset GuiPoint
+    shadow_blur_radius i32
+    shadow_spread i32
+    shadow_extent i32
+    shadow_paint GuiPaint
+    blend GuiBlendMode
+```
+
+`source_shape is the only canonical coverage authority` on success. `coverage_config` is only retained by config/start-error recovery, so later boundaries cannot accidentally rederive a different shape from the original config. Source policy pins this by checking that the success owner has no `coverage_config` field.
+
+Validation order is:
+
+1. Read the shadow from the request owner and revalidate `blur_radius >= 0`.
+2. Revalidate `spread >= 0`.
+3. Read fill/stroke metadata, require at least one source, and revalidate optional stroke width.
+4. Read blend and require SourceOver.
+5. Read caller supplied coverage config and validate it with `gui_sfnt_simple_glyph_raster_coverage_shape_from_config`.
+6. Compute `source_placement_origin = request_origin + shadow.offset` with checked per-axis i32 overflow before `gui_point_new`.
+7. Compute and store `shadow_extent = spread + blur_radius` with checked i32 overflow.
+8. Read shadow paint and create the owner.
+
+F5lj maps only shape/config coverage errors. Since `shape_from_config` does not inspect edge storage or allocate cells, edge count/storage/allocation lower errors are not expected. The generic `CoverageUnexpectedLowerError` is a fail-closed guard if that lower helper contract changes.
+
+F5lj must not call raster edge owner start/drain, coverage mask writer start, scan conversion, packed mask conversion, fill/stroke composition owners, alpha-mask resource reservation, render command constructors, software drain, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
