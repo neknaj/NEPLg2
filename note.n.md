@@ -1,3 +1,38 @@
+# 2026-06-21 Agent2 GUI font F5li shadow request boundary
+
+## 目的
+
+- F5kq と同じ completed path command stream writer owner を direct authority とし、shadow rasterization 前の request owner を作る。
+- SingleShadow だけを扱い、ShadowRun は別 boundary へ残す。
+- fill / stroke mask owner や composition owner を消費せず、後続の shadow source 選択に必要な fill / stroke metadata だけを保持する。
+- render command、resource table、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind` / error / helper を追加し、completed path writer authority 検査を F5kq と F5li で共有する。
+- F5kq の start は共通 helper 結果を F5kq typed error へ写す形へ整理し、既存の stroke request contract を維持する。
+- `GuiSfntSimpleGlyphRenderShadowRequestConfig`、request owner、start error、single writer+config recovery payload、owner/start-error/recovery free path を追加した。
+- start は shadow presence、ShadowRun rejection、blur/spread 非負、source fill/stroke metadata、optional stroke width、SourceOver-only、completed path writer authority の順に検査する。
+- Socrates の plan review 1 は `CHANGES_REQUESTED`。optional stroke metadata の width 再検査と、F5kq writer invariant の重複排除が必要だったため修正した。
+- Socrates の revised plan review は `PLAN_APPROVED`。
+- Socrates の implementation review は `REVIEW_APPROVED`。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md --no-tree -o tmp_gui_font_render_shadow_request_f5li.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5li_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5li.json -j 1` は 1271 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5li.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5li.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5li 後続として、shadow mask geometry / rasterization、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lh stroke-only composition order
 
 ## 目的
