@@ -514,6 +514,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests = read
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageConfigTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_config.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceEdgeDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
@@ -602,6 +603,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowRequestTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageConfigTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceEdgeDrainTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
@@ -16566,7 +16568,7 @@ assert(
     "GUI font docs must pin F5lk approved plan, custom path sink scalar drain, skip tag rejection, and zero-edge completion",
 );
 const renderShadowSourceEdgeStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:");
-const renderShadowSourceEdgeEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceEdgeStartIndex);
+const renderShadowSourceEdgeEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner:", renderShadowSourceEdgeStartIndex);
 const renderShadowSourceEdgeRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceEdgeStartIndex, renderShadowSourceEdgeEndIndex);
 const renderShadowSourceEdgeContextType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:"),
@@ -16758,6 +16760,217 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceEdgeDrainTests.includes("render_shadow_source_edge_recovery_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceEdgeDrainTests.includes("render_shadow_source_edge_no_mask_scan_blur_resource_platform_compositor"),
     "F5lk render shadow source edge focused doctest must cover context, ownership split, context revalidation, shape arithmetic, scalar drain, skip rejection, empty owner, recovery/free, and no mask/blur/resource/platform/compositor policy",
+);
+assert(spec.includes("### SFNT simple glyph render shadow source coverage mask writer owner boundary"), "GUI font spec must document F5ll render shadow source coverage mask writer owner boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render shadow source coverage mask writer owner boundary"), "GUI font detailed design must document F5ll render shadow source coverage mask writer owner boundary");
+assert(implementationPlan.includes("## Phase F5ll: sfnt simple glyph render shadow source coverage mask writer owner"), "GUI font implementation plan must include F5ll phase");
+assert(
+    implementationPlan.includes("Turing revised plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("Turing revised plan review is `PLAN_APPROVED`") &&
+        detailedDesign.includes("edges.cap == raster_edge_capacity") &&
+        spec.includes("zero-edge glyph"),
+    "GUI font docs must pin F5ll approved plan, exact nested edge capacity check, and zero-edge nonzero-cell semantics",
+);
+const renderShadowSourceCoverageMaskStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner:");
+const renderShadowSourceCoverageMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceCoverageMaskStartIndex);
+const renderShadowSourceCoverageMaskRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceCoverageMaskStartIndex, renderShadowSourceCoverageMaskEndIndex);
+const renderShadowSourceCoverageMaskWriterType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner "),
+);
+const renderShadowSourceCoverageMaskOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner "),
+);
+const renderShadowSourceCoverageMaskErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind:"),
+);
+assert(renderShadowSourceCoverageMaskStartIndex >= 0 && renderShadowSourceCoverageMaskEndIndex > renderShadowSourceCoverageMaskStartIndex, "alloc/gui/font/sfnt/glyf F5ll shadow source coverage mask writer region must exist before stroke segment plan");
+for (const fragment of [
+    "edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner",
+    "source_shape %GuiSfntSimpleGlyphRasterCoverageShape",
+    "cells %Vec i32",
+    "written_cell_count %i32",
+]) {
+    assert(renderShadowSourceCoverageMaskWriterType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ll writer owner must include ${fragment}`);
+}
+for (const fragment of [
+    "edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner",
+    "source_shape %GuiSfntSimpleGlyphRasterCoverageShape",
+    "cells %Vec i32",
+    "cell_count %i32",
+]) {
+    assert(renderShadowSourceCoverageMaskOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ll completed owner must include ${fragment}`);
+}
+for (const fragment of [
+    "EdgeOwnerInvariantFailed",
+    "CachedShapeMismatch",
+    "CellStorageAllocFailed",
+    "CellStorageInitialLenMismatch",
+    "CellStorageLenMismatch",
+    "CellStorageCapacityMismatch",
+    "WrittenCellCountNegative",
+    "WrittenCellCountExceeded",
+    "MaskFull",
+    "CoverageNegative",
+    "CoverageExceedsMax",
+    "CellStoragePushFailed",
+]) {
+    assert(renderShadowSourceCoverageMaskErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ll error kind must include ${fragment}`);
+}
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind\b/,
+    "alloc/gui/font/sfnt/glyf F5ll error kind is value-only and must implement Clone/Copy",
+);
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner",
+    "GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner",
+    "GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError",
+    "GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError",
+    "GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError",
+    "GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5ll ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMask(?:WriterOwner|Owner|StartError|PushError|CompletionError)|pub enum GuiSfntSimpleGlyphRenderShadowSourceCoverageMask(?:ErrorKind|CompletionTerminal)|pub fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_(?:start|push_cell|complete)\b/,
+    "alloc/gui/font/sfnt/glyf F5ll owner-bearing boundary and writer operations must remain private",
+);
+for (const fragment of [
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_kind ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_error ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_error ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_owner ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_kind ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_error ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_owner ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_kind ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_owner ",
+]) {
+    assert(renderShadowSourceCoverageMaskRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5ll recovery accessor surface must include ${fragment}`);
+}
+const renderShadowSourceCoverageMaskEdgeInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants");
+const renderShadowSourceCoverageMaskWriterInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants");
+const renderShadowSourceCoverageMaskStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_start");
+const renderShadowSourceCoverageMaskPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_cell");
+const renderShadowSourceCoverageMaskComplete = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_complete");
+assertOrderedFragments(
+    renderShadowSourceCoverageMaskEdgeInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants &context",
+        "gui_sfnt_simple_glyph_render_path_command_writer_authority writer",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner",
+        "plan_line_to_count",
+        "CompletionLineEdgeCountMismatch",
+        "plan_quadratic_to_count",
+        "CompletionQuadraticEdgeCountMismatch",
+        "raster_edge_capacity",
+        "CompletionEdgeCountMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add line_edge_count quadratic_edge_count",
+        "EdgeCountMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_len owner",
+        "CompletionStorageLenMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_cap owner",
+        "CompletionStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ll edge invariant must revalidate completed F5lk owner against nested writer plan and exact capacity",
+);
+assertOrderedFragments(
+    renderShadowSourceCoverageMaskWriterInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner edge_owner",
+        "CachedShapeMismatch",
+        "WrittenCellCountNegative",
+        "WrittenCellCountExceeded",
+        "CellStorageLenMismatch",
+        "CellStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ll writer invariant must check cached shape, progress, and exact cell storage",
+);
+assertOrderedFragments(
+    renderShadowSourceCoverageMaskStart,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants &edge_owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner &edge_owner",
+        "gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &source_shape",
+        "vec::with_capacity cell_count",
+        "CellStorageInitialLenMismatch",
+        "CellStorageCapacityMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape cells 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ll start must revalidate F5lk owner, cache canonical shape, and allocate exact cell capacity",
+);
+assertOrderedFragments(
+    renderShadowSourceCoverageMaskPush,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants &owner",
+        "MaskFull",
+        "CoverageNegative",
+        "CoverageExceedsMax",
+        "vec::push cells coverage_value",
+        "vec::vec_push_error_kind &push_error",
+        "vec::vec_push_error_vec push_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape_value returned_cells written_cell_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ll push must validate range and recover returned Vec with pre-push progress",
+);
+assertOrderedFragments(
+    renderShadowSourceCoverageMaskComplete,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants &owner",
+        "eq written_cell_count cell_count",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner edge_owner source_shape_value cells written_cell_count",
+        "CoverageMaskIncomplete",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ll completion must produce completed owner only for exact full cell coverage",
+);
+assert(
+    (renderShadowSourceCoverageMaskRegion.match(/\bvec::with_capacity\b/g) || []).length === 1 &&
+        (renderShadowSourceCoverageMaskRegion.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ll region must allocate the coverage cell Vec once and push only through one helper",
+);
+assertOrderedFragments(
+    renderShadowSourceCoverageMaskRegion,
+    [
+        "vec::free cells",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ll free path must release raw cells before the F5lk edge owner",
+);
+assertNoMatch(
+    renderShadowSourceCoverageMaskRegion,
+    /\b(?:path_sink_scalars|GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner|gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_|GuiSfntSimpleGlyphRasterCoverageScan|gui_sfnt_simple_glyph_raster_coverage_scan|GuiSfntSimpleGlyphRasterPackedMask|gui_sfnt_simple_glyph_raster_packed_mask|GuiSfntSimpleGlyphRenderStrokeCoverageMask|gui_sfnt_simple_glyph_render_stroke_coverage_mask|GuiSfntSimpleGlyphRenderStrokePackedMask|gui_sfnt_simple_glyph_render_stroke_packed_mask|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriter|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|alpha_cells|RenderCommand|render_command_|AlphaMaskId|RenderTarget|DrawTarget|render2d|software_surface|backend|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|blur_kernel|shadow_raster|compositor|packed_mask)\b/,
+    "alloc/gui/font/sfnt/glyf F5ll region must stay at shadow source coverage cell writing and not use generic mask writers, scan/packed paths, fill/stroke masks, render/platform/compositor APIs, or fallback",
+);
+for (const [slice, name] of [
+    [renderShadowSourceCoverageMaskEdgeInvariant, "edge invariant"],
+    [renderShadowSourceCoverageMaskWriterInvariant, "writer invariant"],
+    [renderShadowSourceCoverageMaskStart, "start"],
+    [renderShadowSourceCoverageMaskPush, "push"],
+    [renderShadowSourceCoverageMaskComplete, "complete"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5ll ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_f5lk_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_no_second_config_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_edge_plan_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_exact_cell_allocation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_push_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_exact_completion_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_zero_edge_nonzero_cell_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskWriterTests.includes("render_shadow_source_coverage_mask_writer_no_scan_blur_packed_render_platform"),
+    "F5ll render shadow source coverage mask writer focused doctest must cover F5lk authority, no second config, edge revalidation, exact allocation, push recovery, exact completion, zero-edge nonzero-cell, and no scan/blur/packed/render/platform policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");

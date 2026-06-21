@@ -19758,6 +19758,388 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_terminal_free %impure f
         GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner: shadow source coverage cell writer
+//:
+//: [目的/もくてき]:
+//: - F5lk completed edge owner と raw coverage cell Vec を[所有/しょゆう]します。
+//: - 後続 shadow source scan converter が `push_cell` で cell coverage を[積/つ]むための writer boundary です。
+//: - coverage scan、blur、packed mask、render command、platform API には[接続/せつぞく]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner:
+    edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape %GuiSfntSimpleGlyphRasterCoverageShape
+    cells %Vec i32
+    written_cell_count %i32
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \edge_owner\source_shape\cells\written_cell_count:
+    GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner edge_owner source_shape cells written_cell_count
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner i32 \owner:
+    *field::get_ref owner "written_cell_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "source_shape"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_len %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::len cells
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_cap %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::cap cells
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner: completed shadow source raw coverage mask
+//:
+//: [目的/もくてき]:
+//: - raw shadow source coverage cell Vec が source shape の cell count まで[埋/う]まった状態を[保持/ほじ]します。
+//: - blur / spread / packing / composition は後続 boundary の責務です。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner:
+    edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape %GuiSfntSimpleGlyphRasterCoverageShape
+    cells %Vec i32
+    cell_count %i32
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner \edge_owner\source_shape\cells\cell_count:
+    GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner edge_owner source_shape cells cell_count
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_source_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "source_shape"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cells_len %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::len cells
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cells_cap %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::cap cells
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind: shadow source coverage writer failure
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind:
+    EdgeOwnerInvariantFailed
+    CachedShapeMismatch
+    CellStorageAllocFailed
+    CellStorageInitialLenMismatch
+    CellStorageLenMismatch
+    CellStorageCapacityMismatch
+    WrittenCellCountNegative
+    WrittenCellCountExceeded
+    MaskFull
+    CoverageNegative
+    CoverageExceedsMax
+    CellStoragePushFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError:
+    kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
+    edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape
+    edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn Option GuiSfntSimpleGlyphRasterCoverageShape fn Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \kind\edge_owner\source_shape\edge_error\storage_error:
+    GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError kind edge_owner source_shape edge_error storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_failed %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \edge_owner\edge_error_value:
+    let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape none
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind some edge_error_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::EdgeOwnerInvariantFailed edge_owner source_shape edge_error storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \edge_owner\source_shape_value\storage_error_value:
+    let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape some source_shape_value
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageAllocFailed edge_owner source_shape edge_error storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_shape %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \kind\edge_owner\source_shape_value:
+    let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape some source_shape_value
+    let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error kind edge_owner source_shape edge_error storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
+    *field::get_ref error "edge_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner \error:
+    field::get error "edge_owner"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError: push failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError:
+    owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
+    coverage_value %i32
+    kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value\kind\storage_error:
+    GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError owner coverage_value kind storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value\kind:
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error owner coverage_value kind storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error owner coverage_value GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStoragePushFailed storage_error
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError: completion failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError:
+    owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
+    kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError \owner\kind:
+    GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError owner kind
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal: coverage writer completion terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal:
+    CoverageMaskCompleted %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner
+    CoverageMaskIncomplete %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner GuiSfntSimpleGlyphRasterCoverageShape \edge_owner:
+    let context %&GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get_ref edge_owner "context"
+    *field::get_ref context "source_shape"
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal %fn GuiSfntSimpleGlyphRasterCoverageShape fn GuiSfntSimpleGlyphRasterCoverageShape bool \left\right:
+    let left_origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 &left
+    let right_origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 &right
+    let left_origin_y2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 &left
+    let right_origin_y2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_y2 &right
+    let left_width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &left
+    let right_width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &right
+    let left_height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &left
+    let right_height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &right
+    let left_sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &left
+    let right_sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale &right
+    let left_coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &left
+    let right_coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &right
+    let left_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &left
+    let right_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &right
+    and and eq left_origin_x2 right_origin_x2 eq left_origin_y2 right_origin_y2 and eq left_width_px right_width_px and eq left_height_px right_height_px and eq left_sample_scale right_sample_scale and eq left_coverage_max right_coverage_max eq left_cell_count right_cell_count
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner:
+    let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext *field::get_ref owner "context"
+    match gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants &context:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
+            match gui_sfnt_simple_glyph_render_path_command_writer_authority writer:
+                Result::Err writer_error:
+                    let writer_error_kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority writer_error_kind
+                Result::Ok _:
+                    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
+                    let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner
+                    let line_edge_count %i32 *field::get_ref owner "line_edge_count"
+                    let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                    if ne line_edge_count plan_line_to_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionLineEdgeCountMismatch
+                        else:
+                            let quadratic_edge_count %i32 *field::get_ref owner "quadratic_edge_count"
+                            let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                            if ne quadratic_edge_count plan_quadratic_to_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionQuadraticEdgeCountMismatch
+                                else:
+                                    let edge_count %i32 *field::get_ref owner "edge_count"
+                                    let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &capacity
+                                    if ne edge_count raster_edge_capacity:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionEdgeCountMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add line_edge_count quadratic_edge_count GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ProgressInvariantInvalid:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok counted_edges:
+                                                    if ne edge_count counted_edges:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeCountMismatch
+                                                        else:
+                                                            let edges_len %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_len owner
+                                                            if ne edges_len edge_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageLenMismatch
+                                                                else:
+                                                                    let edges_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_cap owner
+                                                                    if ne edges_cap raster_edge_capacity:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageCapacityMismatch
+                                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \owner:
+    let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref owner "edge_owner"
+    match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner:
+        Result::Err _edge_error:
+            Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::EdgeOwnerInvariantFailed
+        Result::Ok _:
+            let cached_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape owner
+            let actual_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner edge_owner
+            if not gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal cached_shape actual_shape:
+                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CachedShapeMismatch
+                else:
+                    let written_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count owner
+                    if lt written_cell_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::WrittenCellCountNegative
+                        else:
+                            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &cached_shape
+                            if gt written_cell_count cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::WrittenCellCountExceeded
+                                else:
+                                    let cells_len %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_len owner
+                                    if ne cells_len written_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageLenMismatch
+                                        else:
+                                            let cells_cap %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_cap owner
+                                            if ne cells_cap cell_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageCapacityMismatch
+                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \edge_owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants &edge_owner:
+        Result::Err edge_error:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_failed edge_owner edge_error
+        Result::Ok _:
+            let source_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner &edge_owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &source_shape
+            match vec::with_capacity cell_count:
+                Result::Err storage_error:
+                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_failed edge_owner source_shape storage_error
+                Result::Ok cells:
+                    let cells_len %i32 vec::len &cells
+                    if ne cells_len 0:
+                        then:
+                            vec::free cells
+                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_shape GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageInitialLenMismatch edge_owner source_shape
+                        else:
+                            let cells_cap %i32 vec::cap &cells
+                            if ne cells_cap cell_count:
+                                then:
+                                    vec::free cells
+                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_shape GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageCapacityMismatch edge_owner source_shape
+                                else:
+                                    let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape cells 0
+                                    Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_cell %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value:
+    match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple owner coverage_value error_kind
+        Result::Ok _:
+            let source_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape &owner
+            let written_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count &owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &source_shape
+            if ge written_cell_count cell_count:
+                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::MaskFull
+                else:
+                    if lt coverage_value 0:
+                        then Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CoverageNegative
+                        else:
+                            let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &source_shape
+                            if gt coverage_value coverage_max:
+                                then Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple owner coverage_value GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CoverageExceedsMax
+                                else:
+                                    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
+                                    let source_shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get owner "source_shape"
+                                    let cells %Vec i32 field::get owner "cells"
+                                    match vec::push cells coverage_value:
+                                        Result::Ok next_cells:
+                                            let next_written_cell_count %i32 add written_cell_count 1
+                                            let next_owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape_value next_cells next_written_cell_count
+                                            Result::Ok next_owner
+                                        Result::Err push_error:
+                                            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                                            let returned_cells %Vec i32 vec::vec_push_error_vec push_error
+                                            let returned_owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape_value returned_cells written_cell_count
+                                            Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_failed returned_owner coverage_value storage_error_value
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_complete %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError \owner:
+    match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error owner error_kind
+        Result::Ok _:
+            let source_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape &owner
+            let written_cell_count %i32 gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count &owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &source_shape
+            if eq written_cell_count cell_count:
+                then:
+                    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
+                    let source_shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get owner "source_shape"
+                    let cells %Vec i32 field::get owner "cells"
+                    let completed %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner edge_owner source_shape_value cells written_cell_count
+                    Result::Ok GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskCompleted completed
+                else Result::Ok GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskIncomplete owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner unit \owner:
+    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
+    let cells %Vec i32 field::get owner "cells"
+    vec::free cells
+    gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner unit \owner:
+    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
+    let cells %Vec i32 field::get owner "cells"
+    vec::free cells
+    gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError unit \error:
+    let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get error "edge_owner"
+    gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskCompleted owner:
+            gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_free owner
+        GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskIncomplete owner:
+            gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner: stroke segment expansion [前/まえ]の count plan owner
 //:
 //: [目的/もくてき]:
