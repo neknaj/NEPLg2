@@ -2653,12 +2653,69 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions",
-        "Result::Ok _body_root:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result context",
+        "Result::Ok body_root:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result module context body_root",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e",
     ],
-    "reader source plan helper must resolve DefId-linked body root before producing the shared source authority for output and operation producer paths",
+    "reader source plan helper must resolve DefId-linked body root and pass that root into the module-private HIR body reader before producing source authority",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result"),
+    [
+        "selfhost_hir_module_get_expr module body_root",
+        "Option::Some expr:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result context expr",
+        "Option::None:",
+        "ActualWalkerTraversalBodyReadFailed selfhost_hir_expr_id_index body_root",
+    ],
+    "HIR body reader must read the resolver-provided body root from the module instead of reusing the request root or falling back to wrapper sources",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result"),
+    [
+        "match expr.payload:",
+        "SelfhostHirExprPayload::Error:",
+        "UnsupportedTraversalSource",
+        "SelfhostHirExprPayload::Unit:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result context",
+        "SelfhostHirExprPayload::FnValue _identity:",
+        "FunctionIdentityObservation",
+        "SelfhostHirExprPayload::MemoizedFunctionValue _identity:",
+        "FunctionIdentityObservation",
+        "SelfhostHirExprPayload::Call call:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind call",
+        "SelfhostHirExprPayload::Block _children:",
+        "UnsupportedTraversalSource",
+        "SelfhostHirExprPayload::If _branches:",
+        "UnsupportedTraversalSource",
+    ],
+    "HIR body reader must classify the typed SelfhostHirExprPayload directly and keep the Unit wrapper representative separate from unsupported and identity-observation paths",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result")),
+    /selfhost_hir_expr_kind|call\.name|span|diagnostic|source_text|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "HIR body source classification must not use lossy expr-kind tags, display names, spans, diagnostics, or synthesize proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind"),
+    [
+        "match call.effect:",
+        "SelfhostEffectKind::Pure:",
+        "UnsupportedTraversalSource",
+        "SelfhostEffectKind::PrivateState:",
+        "PrivateStateEffectOperation",
+        "SelfhostEffectKind::PrivateCache:",
+        "PrivateCacheEffectOperation",
+        "SelfhostEffectKind::ExternalIo:",
+        "UnsupportedTraversalSource",
+    ],
+    "HIR call body classification must use typed call.effect and keep private effects distinct from unsupported ordinary calls",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind")),
+    /call\.name|span|diagnostic|source_text|PrivateCacheNoEscapeProven|RequestEvidenceProven|resource_graph_input_push|proof_table_push|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "HIR call body classification must not use diagnostic call names or create proof/backend artifacts",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result"),
@@ -3591,6 +3648,8 @@ assertOrdered(
         "availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "hir_body_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "hir_body_function_identity_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -3628,6 +3687,10 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "reader_context_reader_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77",
+        "hir_body_private_cache_effect_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_call_effect_result 77 SelfhostEffectKind::PrivateCache",
+        "hir_body_function_identity_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_fn_value_result 77",
         "reader_context_available_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 0",
         "reader_context_key_mismatch_rejected",

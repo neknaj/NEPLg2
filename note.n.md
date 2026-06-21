@@ -1,3 +1,42 @@
+# 2026-06-22 selfhost memo_call backend body HIR source reader checkpoint
+
+## 目的
+
+- resolver が返した body root を無視せず、`actual_traversal_body_reader_sources_from_request_context_result` の production source authority を module-private HIR body reader へ接続する。
+- stage0 sentinel の `Unit` だけを wrapper representative source pair とし、PrivateCache / PrivateState effect、function identity observation、unsupported payload を accepted source に混ぜない。
+- source text、span、display name、diagnostic、HIR expr kind tag、proof / backend / artifact record を body reader authority にしない。
+
+## subagent review
+
+- Wegener は、`resolution_lookup_result -> body_root -> module-private HIR body source reader -> source table` の順序、`SelfhostHirExprPayload` 直 match、Unit sentinel 限定の accepted representative、fresh witness は source-derived path から作る方針を承認した。
+- 指摘に従い、recursive traversal 未実装の payload は accepted にせず、PrivateCache / PrivateState は typed effect source、function value は identity observation source、その他は unsupported source へ fail-closed にした。
+
+## 実装
+
+- `actual_traversal_body_reader_hir_body_sources_from_root_result` / `actual_traversal_body_reader_hir_body_sources_from_expr_result` を追加し、resolver body root の `SelfhostHirExprPayload` を直接分類するようにした。
+- `Unit` は既存 wrapper source pair 2 件へ写すが、no-escape proof ではなく source representative だけとして扱う。
+- `Call` は `call.name` ではなく `call.effect` を読み、`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` / `UnsupportedTraversalSource` へ分類する。
+- `FnValue` / `MemoizedFunctionValue` は `FunctionIdentityObservation` source とし、literal / Var / Block / If / Error は現 checkpoint では unsupported source にした。
+- stage0 module builder を body expr 差し替え可能にし、PrivateCache call body と function value body の source count smoke を summary に追加した。
+- contract test、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-lowering-reader-progress.json`。17/17。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_body_hir_reader.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## 未接続
+
+- full Resource IR / HIR lowering traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する境界。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projection。
+
 # 2026-06-22 selfhost memo_call backend body resolution resolver checkpoint
 
 ## 目的

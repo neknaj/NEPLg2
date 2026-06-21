@@ -2996,6 +2996,14 @@ resolver は source text、span、display name、diagnostic、HIR arena id の�
 
 この checkpoint は actual Resource IR / HIR lowering body reader 本体ではない。`actual_traversal_body_reader_sources_from_request_context_result` は resolver を通った後、既存の wrapper representative source plan を読む。次の境界では resolver が返した body root を使い、actual lowering result から traversal source / operation event / fresh-region witness を発行する。
 
+## 2026-06-22 selfhost memo_call backend body HIR source reader checkpoint
+
+`actual_traversal_body_reader_sources_from_request_context_result` は、resolver が返した `body_root_expr_id` を無視せず、module-private HIR body reader に渡すようにした。reader は `SelfhostHirExprPayload` を直接 match し、`Unit` の stage0 sentinel だけを wrapper representative の `PrivateCacheStoragePlace` + `CloneOutOwnedValueEdge` source pair へ写す。これは no-escape proof ではなく、既存 source validation / operation projection / source-derived witness path へ渡す accepted representative である。
+
+`Call` は表示名 `name` ではなく typed payload の `effect` を読む。`PrivateCache` は `PrivateCacheEffectOperation`、`PrivateState` は `PrivateStateEffectOperation`、その他の ordinary / unsafe / IO / nondet call は `UnsupportedTraversalSource` へ倒す。`FnValue` / `MemoizedFunctionValue` は function identity observation source とし、literal、`Var`、`Block`、`If`、`Error` は現 checkpoint では recursive lowering 未実装として unsupported source にする。
+
+この checkpoint は fresh region witness、proof table、GraphInput、effect mask、backend bytes、sealed representation、artifact key を作らない。private effect や identity observation source は accepted wrapper source に混ぜず、既存の context-bound source validation、source-to-operation projection、classifier / normalizer、source-derived witness 境界で fail-closed に扱う。次は full Resource IR / HIR traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行し、PrivateCache / PrivateState effect masking と sealed backend representation へ同じ body identity を渡す。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
