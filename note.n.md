@@ -75859,3 +75859,17 @@ MERGE_APPROVED
 - pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
 - pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-21 Agent2 GUI font rendering F5kq stroke request boundary
+
+- F5kq では、completed path command stream writer owner を authority として glyph stroke request owner を作る境界を追加した。fill alpha mask owner / raster edge owner は stroke geometry authority にしない。
+- McClintock の plan review は `PLAN_APPROVED`。指摘条件に従い、この slice は stroke request validation owner までに限定し、stroke segment expansion、stroke edge owner、coverage mask、packed mask、`RenderCommand`、platform API、fallback には進まない。
+- `GuiSfntSimpleGlyphRenderStrokeRequestConfig`、`GuiSfntSimpleGlyphRenderStrokeRequestOwner`、owner-bearing `GuiSfntSimpleGlyphRenderStrokeRequestStartError` を追加した。start validation は missing stroke、invalid stroke width、shadow paint、unsupported blend、completed path command writer invariant の順に fail closed する。
+- optional fill paint は後続の composition order boundary 用 metadata として保存するだけで、hidden fill render success にはしない。owner / start error free と writer recovery helper は path command writer authority を回収できるようにした。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest を更新した。
+- pass: `git fetch origin`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5kq.json -j 1`
+- implementation review は McClintock が `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5kq 後続として、stroke segment expansion plan、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。

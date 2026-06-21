@@ -5978,6 +5978,47 @@ shadow rasterizer
 2D compositor
 ```
 
+### SFNT simple glyph render stroke request boundary
+
+F5kq は glyph stroke rasterization の最初の境界である。authority は completed path command stream writer owner であり、F5bg / F5bh の fill alpha mask owner ではない。fill alpha mask owner は fill coverage と fill paint / blend に束ねられた後段の owner なので、stroke width、contour order、stroke-only / fill+stroke ordering の authority にはしない。
+
+この phase は stroke request owner だけを作る。stroke offset curve、join / cap / miter / dash expansion、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へは進まない。
+
+request config は full glyph paint を受ける。
+
+```text
+RenderStrokeRequestConfig:
+    origin
+    paint
+```
+
+start は次を検査する。
+
+```text
+1. stroke が None なら MissingStrokePaint
+2. stroke.width <= 0 なら StrokeWidthInvalid
+3. shadows が SingleShadow または ShadowRun なら UnsupportedShadowPaint
+4. blend が SourceOver 以外なら UnsupportedBlendMode
+5. completed path command stream writer owner の plan / capacity / len / progress invariant
+```
+
+success owner は completed path command stream writer owner、origin、optional fill metadata、validated stroke、SourceOver blend を保持する。fill metadata は後続 composition order のために保持するだけであり、この phase で fill mask を消費したり fill render success にしたりしない。
+
+F5kq は次を呼ばない。
+
+```text
+fill alpha mask owner
+raster edge owner
+coverage / packed mask owner
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke rasterizer
+shadow rasterizer
+2D compositor
+```
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

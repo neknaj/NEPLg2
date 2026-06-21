@@ -2538,6 +2538,59 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5kq: sfnt simple glyph render stroke request boundary
+
+目的:
+
+- completed path command stream writer owner を authority として、glyph stroke rasterization 専用の request owner を追加する。
+- fill alpha mask owner、raster edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+- full `GuiGlyphPaint` を受け、stroke request として扱える subset だけを明示的に受理する。
+
+plan review:
+
+- McClintock plan review は `PLAN_APPROVED`。
+- fill alpha mask owner は fill coverage と fill paint / blend に束ねられた後段 owner であり、stroke width、join / cap / miter / dash、contour order、stroke-only / fill+stroke ordering の authority にはならないと確認した。
+- raster edge owner も fill coverage 用の edge stream であり、stroke offset curve の authority にしない。
+- revised plan では completed path command stream writer owner を authority とし、F5kq では stroke request validation owner だけを作る。stroke segment expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、composition order は後続 phase に分ける。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeRequestConfig` を追加する。`origin` と full `GuiGlyphPaint` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderStrokeRequestOwner` を追加する。completed path command stream writer owner、origin、optional fill metadata、validated stroke、blend を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind` を追加する。`MissingStrokePaint`、`StrokeWidthInvalid`、`UnsupportedShadowPaint`、`UnsupportedBlendMode`、path command writer invariant failure を enum reason として持つ。
+- `GuiSfntSimpleGlyphRenderStrokeRequestStartError` を追加する。original writer、config、optional capacity context を保持し、caller が writer authority を回収できるようにする。
+- start validation order は次で固定する。
+  - stroke `None`
+  - stroke width `<= 0`
+  - `SingleShadow` / `ShadowRun`
+  - non-`SourceOver` blend
+  - F5az capacity derivation
+  - stored capacity equality
+  - path sink / raster mask scalar capacity equality
+  - path sink scalar len equals capacity
+  - raster mask scalar len equals 0
+  - writer progress counts and last path command index match plan
+- fill は optional metadata として保存するだけで、fill mask owner を消費しない。fill+stroke は hidden fill render success にならない。
+- owner free / start error free helper を追加し、path command writer authority を exactly once close する。
+- focused doctest label と source policy を追加し、fill alpha mask / raster edge / coverage / RenderCommand / DrawTarget / RenderTarget / platform / fallback / compositor 禁止、owner 型の非 Clone / 非 Copy、括弧なし prefix style を検査する。
+
+完了条件:
+
+- source policy が docs、McClintock plan approval、completed path command stream authority、no fill alpha mask reuse、SourceOver-only validation、stroke width validation、path command writer invariant、owner recovery/free、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md` に config、completed path authority、missing/invalid stroke、shadow/blend reject、fill metadata preservation、owner recovery、no fill mask / command / platform policy の coverage label を追加する。
+- implementation review で stroke request が fill alpha mask owner や raster edge owner を authority にしていないこと、F5bh fill-only binding が変更されていないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke request boundary 接続済み、後続の stroke segment expansion / stroke edge / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5kq.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

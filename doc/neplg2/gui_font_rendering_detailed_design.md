@@ -6724,6 +6724,58 @@ For direct validation failures, `lower_kind` is `Option::None`. When F5bg start 
 
 F5bh must not call `RenderCommand` constructors, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, stroke rasterizers, shadow rasterizers, or 2D compositor APIs. Unsupported stroke / shadow must not become a hidden fill-only success.
 
+## SFNT simple glyph render stroke request boundary
+
+F5kq introduces the first dedicated glyph stroke rasterization boundary. The authority is the completed path command stream writer owner produced by the collection-backed path command stream, not the raster edge owner and not the fill alpha mask owner. The completed path command stream writer owner still carries the ordered `MoveTo` / `LineTo` / `QuadraticTo` path authority and contour-derived progress counts. A raster edge owner is already shaped for fill coverage, and a fill alpha mask owner has already bound fill paint and alpha storage. F5kq therefore does not consume the fill alpha mask owner.
+
+The request config accepts full paint:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeRequestConfig:
+    origin GuiPoint
+    paint GuiGlyphPaint
+```
+
+The success owner is a request owner, not a raster owner:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeRequestOwner:
+    writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    origin GuiPoint
+    fill Option GuiPaint
+    stroke GuiStroke
+    blend GuiBlendMode
+```
+
+The optional fill value is preserved only as metadata for a later composition-order boundary. F5kq does not turn fill+stroke into a fill render success and does not allocate or consume a fill alpha mask.
+
+Validation order is part of the contract:
+
+```text
+stroke None -> MissingStrokePaint
+stroke.width <= 0 -> StrokeWidthInvalid
+SingleShadow / ShadowRun -> UnsupportedShadowPaint
+non SourceOver blend -> UnsupportedBlendMode
+F5az capacity derivation
+stored capacity equality
+path sink scalar capacity equality
+raster mask scalar capacity equality
+path sink scalar len equality
+raster mask scalar len == 0
+writer written_count equals plan.total_count
+writer path_sink_scalar_count equals capacity.path_sink_scalar_capacity
+writer kind counts equal plan kind counts
+writer last index equals plan.last_path_command_index
+```
+
+unsupported blend modes are rejected before the request owner is created. The current stroke request does not emit a command, but accepting Copy / Multiply / Screen here would let a later stroke renderer accidentally treat unsupported blend as SourceOver.
+
+Every failure is owner-bearing and returns the original path command writer authority. `GuiSfntSimpleGlyphRenderStrokeRequestStartError` keeps the config plus optional derived capacity context so validation failures can be diagnosed without reconstructing a fake owner. The owner and start error must not implement `Clone` / `Copy`; the config and error kind may implement `Clone` / `Copy`.
+
+F5kq must not call byte-backed lookup helpers, old traversal helpers, fill alpha mask helpers, raster edge helpers, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke rasterizers, shadow rasterizers, or compositor APIs.
+
+Later stroke phases are deliberately separate: stroke segment expansion plan, stroke edge owner, stroke coverage mask owner, packed stroke mask owner, and then glyph paint composition order. F5kq only proves that a caller has a validated stroke request over the correct geometry authority.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

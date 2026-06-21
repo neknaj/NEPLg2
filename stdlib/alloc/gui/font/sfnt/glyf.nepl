@@ -17600,6 +17600,241 @@ fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_free %impure fn GuiSfntS
     let packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner field::get error "packed_owner"
     gui_sfnt_simple_glyph_raster_packed_mask_owner_free packed_owner
 
+//: GuiSfntSimpleGlyphRenderStrokeRequestConfig: stroke request を path command authority へ[結/むす]びつける設定
+//:
+//: [目的/もくてき]:
+//: - full glyph paint を受け取り、stroke rasterization 専用境界が扱う stroke subset を明示的に取り出します。
+//: - fill は後続の composition order が参照できる metadata として保持しますが、この境界では fill mask や render command を作りません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeRequestConfig:
+    origin %GuiPoint
+    paint %GuiGlyphPaint
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeRequestConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeRequestConfig GuiSfntSimpleGlyphRenderStrokeRequestConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeRequestConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeRequestConfig GuiSfntSimpleGlyphRenderStrokeRequestConfig \config:
+        config
+
+fn gui_sfnt_simple_glyph_render_stroke_request_config %fn GuiPoint fn GuiGlyphPaint GuiSfntSimpleGlyphRenderStrokeRequestConfig \origin\paint:
+    GuiSfntSimpleGlyphRenderStrokeRequestConfig origin paint
+
+fn gui_sfnt_simple_glyph_render_stroke_request_config_origin %fn &GuiSfntSimpleGlyphRenderStrokeRequestConfig GuiPoint \config:
+    *field::get_ref config "origin"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_config_paint %fn &GuiSfntSimpleGlyphRenderStrokeRequestConfig GuiGlyphPaint \config:
+    *field::get_ref config "paint"
+
+//: GuiSfntSimpleGlyphRenderStrokeRequestOwner: stroke rasterization 前の request owner
+//:
+//: [目的/もくてき]:
+//: - completed path command stream authority と、検査済み stroke paint / origin / blend を同じ owner に[束/たば]ねます。
+//: - この owner は stroke geometry expansion、coverage mask、fill alpha mask、render command emission をまだ行いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeRequestOwner:
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    origin %GuiPoint
+    fill %Option GuiPaint
+    stroke %GuiStroke
+    blend %GuiBlendMode
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiPoint fn Option GuiPaint fn GuiStroke fn GuiBlendMode GuiSfntSimpleGlyphRenderStrokeRequestOwner \writer\origin\fill\stroke\blend:
+    GuiSfntSimpleGlyphRenderStrokeRequestOwner writer origin fill stroke blend
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner_origin %fn &GuiSfntSimpleGlyphRenderStrokeRequestOwner GuiPoint \owner:
+    *field::get_ref owner "origin"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner_fill %fn &GuiSfntSimpleGlyphRenderStrokeRequestOwner Option GuiPaint \owner:
+    *field::get_ref owner "fill"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner_stroke %fn &GuiSfntSimpleGlyphRenderStrokeRequestOwner GuiStroke \owner:
+    *field::get_ref owner "stroke"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner_blend %fn &GuiSfntSimpleGlyphRenderStrokeRequestOwner GuiBlendMode \owner:
+    *field::get_ref owner "blend"
+
+//: GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind: stroke request start の[失敗/しっぱい][理由/りゆう]
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind:
+    MissingStrokePaint
+    UnsupportedShadowPaint
+    UnsupportedBlendMode
+    StrokeWidthInvalid
+    OwnerPlanRejected
+    StoredCapacityMismatch
+    PathSinkScalarCapacityMismatch
+    RasterMaskScalarCapacityMismatch
+    PathSinkScalarLenMismatch
+    RasterMaskScalarLenNotZero
+    InnerWrittenCountMismatch
+    InnerPathSinkScalarCountMismatch
+    InnerMoveToCountMismatch
+    InnerLineToCountMismatch
+    InnerQuadraticToCountMismatch
+    InnerSkipNoSegmentCountMismatch
+    InnerLastPathCommandIndexMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeRequestStartError: stroke request start の owner recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeRequestStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    config %GuiSfntSimpleGlyphRenderStrokeRequestConfig
+    capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
+    derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error %fn GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderStrokeRequestConfig fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderStrokeRequestStartError \kind\writer\config\capacity_error\derived_capacity:
+    GuiSfntSimpleGlyphRenderStrokeRequestStartError kind writer config capacity_error derived_capacity
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderStrokeRequestConfig GuiSfntSimpleGlyphRenderStrokeRequestStartError \kind\writer\config:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    gui_sfnt_simple_glyph_render_stroke_request_start_error kind writer config capacity_error derived_capacity
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_capacity_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderStrokeRequestConfig fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphRenderStrokeRequestStartError \writer\config\capacity_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    gui_sfnt_simple_glyph_render_stroke_request_start_error GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::OwnerPlanRejected writer config capacity_error derived_capacity
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity %fn GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderStrokeRequestConfig fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderStrokeRequestStartError \kind\writer\config\derived_capacity_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
+    gui_sfnt_simple_glyph_render_stroke_request_start_error kind writer config capacity_error derived_capacity
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeRequestStartError GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_config %fn &GuiSfntSimpleGlyphRenderStrokeRequestStartError GuiSfntSimpleGlyphRenderStrokeRequestConfig \error:
+    *field::get_ref error "config"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_writer %fn GuiSfntSimpleGlyphRenderStrokeRequestStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner \error:
+    field::get error "writer"
+
+fn gui_sfnt_simple_glyph_render_stroke_request_stroke_width_is_valid %fn &GuiStroke bool \stroke:
+    let width %i32 *field::get_ref stroke "width"
+    gt width 0
+
+fn gui_sfnt_simple_glyph_render_stroke_request_blend_is_supported %fn GuiBlendMode bool \blend:
+    match blend:
+        GuiBlendMode::SourceOver:
+            true
+        GuiBlendMode::Copy:
+            false
+        GuiBlendMode::Multiply:
+            false
+        GuiBlendMode::Screen:
+            false
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner_start %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderStrokeRequestConfig Result GuiSfntSimpleGlyphRenderStrokeRequestOwner GuiSfntSimpleGlyphRenderStrokeRequestStartError \writer\config:
+    let paint %GuiGlyphPaint gui_sfnt_simple_glyph_render_stroke_request_config_paint &config
+    let stroke_option %Option GuiStroke gui_glyph_paint_stroke &paint
+    match stroke_option:
+        Option::None:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_simple GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::MissingStrokePaint writer config
+        Option::Some stroke:
+            if not gui_sfnt_simple_glyph_render_stroke_request_stroke_width_is_valid &stroke:
+                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_simple GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::StrokeWidthInvalid writer config
+                else:
+                    let shadows %GuiShadowRef gui_glyph_paint_shadows &paint
+                    match shadows:
+                        GuiShadowRef::SingleShadow _shadow:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_simple GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::UnsupportedShadowPaint writer config
+                        GuiShadowRef::ShadowRun _id:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_simple GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::UnsupportedShadowPaint writer config
+                        GuiShadowRef::NoShadow:
+                            let blend %GuiBlendMode gui_glyph_paint_blend &paint
+                            if not gui_sfnt_simple_glyph_render_stroke_request_blend_is_supported blend:
+                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_simple GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::UnsupportedBlendMode writer config
+                                else:
+                                    let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref &writer "owner"
+                                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+                                        Result::Err capacity_error:
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_capacity_failed writer config capacity_error
+                                        Result::Ok derived_capacity:
+                                            let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity owner
+                                            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches &stored_capacity &derived_capacity:
+                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::StoredCapacityMismatch writer config derived_capacity
+                                                else:
+                                                    let path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &derived_capacity
+                                                    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap owner
+                                                    if ne path_sink_scalars_cap path_sink_scalar_capacity:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::PathSinkScalarCapacityMismatch writer config derived_capacity
+                                                        else:
+                                                            let raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &derived_capacity
+                                                            let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap owner
+                                                            if ne raster_mask_scalars_cap raster_mask_scalar_capacity:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::RasterMaskScalarCapacityMismatch writer config derived_capacity
+                                                                else:
+                                                                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len owner
+                                                                    if ne path_sink_scalars_len path_sink_scalar_capacity:
+                                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::PathSinkScalarLenMismatch writer config derived_capacity
+                                                                        else:
+                                                                            let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len owner
+                                                                            if ne raster_mask_scalars_len 0:
+                                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::RasterMaskScalarLenNotZero writer config derived_capacity
+                                                                                else:
+                                                                                    let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count &plan
+                                                                                    let inner_written_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count &writer
+                                                                                    if ne inner_written_count total_count:
+                                                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerWrittenCountMismatch writer config derived_capacity
+                                                                                        else:
+                                                                                            let inner_path_sink_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count &writer
+                                                                                            if ne inner_path_sink_scalar_count path_sink_scalar_capacity:
+                                                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerPathSinkScalarCountMismatch writer config derived_capacity
+                                                                                                else:
+                                                                                                    let inner_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count &writer
+                                                                                                    let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                                                                                                    if ne inner_move_to_count plan_move_to_count:
+                                                                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerMoveToCountMismatch writer config derived_capacity
+                                                                                                        else:
+                                                                                                            let inner_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count &writer
+                                                                                                            let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                                                                                                            if ne inner_line_to_count plan_line_to_count:
+                                                                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerLineToCountMismatch writer config derived_capacity
+                                                                                                                else:
+                                                                                                                    let inner_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count &writer
+                                                                                                                    let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                                                                                                    if ne inner_quadratic_to_count plan_quadratic_to_count:
+                                                                                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerQuadraticToCountMismatch writer config derived_capacity
+                                                                                                                        else:
+                                                                                                                            let inner_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count &writer
+                                                                                                                            let plan_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
+                                                                                                                            if ne inner_skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerSkipNoSegmentCountMismatch writer config derived_capacity
+                                                                                                                                else:
+                                                                                                                                    let inner_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_last_path_command_index &writer
+                                                                                                                                    let plan_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index &plan
+                                                                                                                                    if ne inner_last_path_command_index plan_last_path_command_index:
+                                                                                                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_request_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerLastPathCommandIndexMismatch writer config derived_capacity
+                                                                                                                                        else:
+                                                                                                                                            let origin %GuiPoint gui_sfnt_simple_glyph_render_stroke_request_config_origin &config
+                                                                                                                                            let fill %Option GuiPaint gui_glyph_paint_fill &paint
+                                                                                                                                            let request_owner %GuiSfntSimpleGlyphRenderStrokeRequestOwner gui_sfnt_simple_glyph_render_stroke_request_owner writer origin fill stroke blend
+                                                                                                                                            Result::Ok request_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_request_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeRequestOwner unit \owner:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
+
+fn gui_sfnt_simple_glyph_render_stroke_request_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeRequestStartError unit \error:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get error "writer"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:
