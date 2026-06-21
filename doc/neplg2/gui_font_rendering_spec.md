@@ -6967,6 +6967,16 @@ success metadata は `gui_rgba8888_row_batch_cursor_start plan` の前に plan �
 
 F5lz は row batch drain、row batch range、row byte storage、tile plan / payload、RLE encode、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
 
+### Render2d compositor batch drain boundary
+
+F5ma は F5lz の `GuiRgba8888CompositorFrameEntryOwner` を、F5bx の `gui_rgba8888_row_batch_drain_budget` へ 1 回だけ委譲する compositor batch drain continuation boundary である。これは row batch cursor の status / next batch / progress invariant を再実装する phase ではなく、lower row batch drain の terminal / error に F5lz metadata を保持して、scheduler continuation が compositor entry owner として戻れるようにする phase である。
+
+F5ma の terminal は `GuiRgba8888CompositorBatchDrainTerminal` であり、`Completed` / `StepBudgetExhausted` の status、lower `GuiRgba8888RowBatchDrainTerminal`、`GuiRgba8888CompositorFrameEntryMetadata` を保持する。error は `GuiRgba8888CompositorBatchDrainError` であり、`RowBatchDrainFailed lower_kind`、coarse `GuiError` category、lower owner-bearing drain error、metadata を保持する。terminal / error は Clone / Copy を実装しない。status、error kind、metadata は Copy value である。
+
+F5ma は entry owner を cursor へ分解する前に metadata を Copy value として読む。terminal / error から entry owner を再構成するときも、lower terminal / error を消費する前に wrapper metadata を読む。empty dirty cursor は lower drain の契約どおり負 budget でも Completed になり、ready cursor への負 budget は InvalidBudget の owner-bearing error になる。
+
+F5ma は row batch range、row byte storage、tile plan / payload、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。row batch range 以降の payload transport と std present は後続の compositor drain continuation boundary で扱う。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

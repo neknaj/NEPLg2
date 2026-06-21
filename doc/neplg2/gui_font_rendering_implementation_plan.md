@@ -4176,6 +4176,53 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lz.json
 ```
 
+## Phase F5ma: render2d compositor batch drain continuation boundary
+
+目的:
+
+- F5lz の `GuiRgba8888CompositorFrameEntryOwner` を authority とし、既存 F5bx row batch drain を compositor continuation として 1 step だけ包む。
+- lower `gui_rgba8888_row_batch_drain_budget` を 1 回だけ呼び、cursor status / next batch / progress invariant は row batch drain boundary に委譲する。
+- frame entry metadata は drain terminal / error と同じ owner boundary に保持し、budget exhaustion、completion、error recovery のいずれでも continuation entry を再構成できるようにする。
+- この phase では row batch range、row byte storage、tile / RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Hilbert plan review は `PLAN_APPROVED`。
+- F5ma は F5lz entry owner と F5bx row batch drain の薄い continuation wrapper に限ると承認された。
+- refinement として、lower `gui_rgba8888_row_batch_drain_budget` を 1 回だけ呼び、`gui_rgba8888_row_batch_cursor_status` / `gui_rgba8888_row_batch_cursor_next_batch` を直接呼ばないこと、metadata は `entry` を `finish_cursor` する前に Copy value として読むこと、terminal / error finish entry でも lower terminal / error を消費する前に wrapper metadata を読むこと、terminal / error は Clone / Copy を実装しないこと、empty dirty + negative budget の Completed と ready cursor + negative budget の InvalidBudget owner recovery を別々に固定することが条件になった。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_batch_drain.nepl` を追加する。
+- `GuiRgba8888CompositorBatchDrainStatus`、`GuiRgba8888CompositorBatchDrainErrorKind`、`GuiRgba8888CompositorBatchDrainTerminal`、`GuiRgba8888CompositorBatchDrainError` を追加する。
+- status / kind は Copy value とし、terminal / error は lower owner と metadata を保持する owner-bearing struct として Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_batch_drain_budget` は metadata を entry から Copy してから cursor を取り出し、lower row batch drain の terminal / error を metadata と束ねる。
+- `gui_rgba8888_compositor_batch_drain_terminal_finish_entry` と `gui_rgba8888_compositor_batch_drain_error_finish_entry` は wrapper metadata を lower owner 消費前に読み、`GuiRgba8888CompositorFrameEntryOwner` を再構成する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor batch drain を再公開する。
+- `tests/stdlib/gui_render2d_compositor_batch_drain.n.md` を追加し、facade、empty negative completed、full dirty budget continuation、negative budget error recovery、metadata recovery、no payload / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ma source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Hilbert approval、facade export、typed status / error kind、terminal / error no Clone / Copy、exact one lower drain call、cursor status / next batch direct call 禁止、metadata-before-entry-finish、metadata-before-lower-consume、row batch range / row byte / tile / RLE / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5lz compositor frame entry regression、row batch drain regression、source policy、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で lower drain の再実装、metadata-after-move、owner loss、payload / host leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5ma.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_batch_drain.nepl --no-tree -o tmp_gui_render2d_compositor_batch_drain_module_f5ma.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_frame_entry.n.md --no-tree -o tmp_gui_render2d_compositor_frame_entry_f5ma_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5ma_regression.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ma.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
