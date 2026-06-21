@@ -1,3 +1,40 @@
+# 2026-06-21 Agent2 GUI font F5kt stroke source segment metric preparation boundary
+
+## 目的
+
+- F5ks の source segment value を authority として、後続の stroke offset geometry が必要とする checked metric value を準備する。
+- F5ks cursor / terminal owner は消費せず、value-only `Result` helper に留める。
+- join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へは進まない。
+
+## subagent review
+
+- Lorentz の F5kt plan review は `PLAN_APPROVED`。
+- 指摘条件は、F5kt を offset geometry 完了ではなく metric preparation として切ること、F5ks cursor を消費しないこと、i32 delta ではなく i64 cast 後に subtraction すること、`dx * dx` / `dy * dy` と合計を checked にすること、zero-length line と fully degenerate quadratic を typed error にし partial-degenerate quadratic は zero tangent length を value に残すことだった。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric` と `GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric` を追加し、source coordinates、stroke width、delta、squared length を持つ copyable value にした。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric` enum と typed `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind` を追加した。
+- i64 max と safe square operand `3037000499` は小さい literal から構成し、square operand と square sum を fail-closed に検査する helper を追加した。
+- line prepare は cast-before-subtract、checked square / sum、zero-length rejection を行う。
+- quadratic prepare は start-control / control-end tangent metric をそれぞれ checked に作り、fully degenerate のみ拒否し、片側 tangent 0 は value として残す。
+- docs、source policy、focused doctest、todo を F5kt に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_f5kt.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kt.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kt.json`
+- checked JSON: `tmp/playground-editor-tests-f5kt.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Cicero の implementation review は `REVIEW_APPROVED`。value-only metric preparation、checked i64 arithmetic、degenerate policy、F5ks cursor owner / edge / coverage / command / platform 非接続が承認された。
+
 # 2026-06-21 Agent2 GUI native F5kp Linux X11 keymap projection evidence boundary
 
 ## 目的

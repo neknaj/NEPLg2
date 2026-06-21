@@ -6068,6 +6068,18 @@ F5ks は start / step の前に F5kr と同等の authority invariant を再検�
 
 `SkipNoSegment` は path command count / skip count には含まれるが、path sink scalar stream には record を持たない。したがって scalar stream に tag `4` が現れた場合は skip terminal ではなく `UnexpectedSkipNoSegmentTag` として stream corruption を返す。skip reason を scalar stream から復元しない。
 
+### SFNT simple glyph render stroke source segment metric preparation boundary
+
+F5kt は F5ks が返す source segment value を authority として、後続の stroke offset geometry が必要とする per-segment metric を value-only に準備する境界である。これは stroke offset geometry の完成ではなく、join / cap / dash / miter policy、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+F5kt は F5ks cursor / terminal owner を消費しない。`GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine` または `GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic` を借用し、成功時は copyable metric value を返す。失敗は owner recovery を必要としない typed error kind だけで返す。
+
+Line metric は original doubled start/end coordinate、stroke width、`dx`、`dy`、`length_squared` を持つ。`dx` / `dy` は座標を i64 へ cast してから subtraction で求め、i32 delta を先に作らない。`dx * dx`、`dy * dy`、合計は checked arithmetic で検査し、0 length line は `LineDegenerate` として fail closed する。
+
+Quadratic metric は original doubled start/control/end coordinate、stroke width、start to control tangent delta、control to end tangent delta、それぞれの squared length を持つ。両方の tangent length が 0 の fully degenerate quadratic は `QuadraticFullyDegenerate` として拒否する。片側 tangent だけが 0 の quadratic は zero tangent length を value に残し、ここでは flattening や normalization をしない。
+
+F5kt は internal misuse に備えて source segment の `segment_index >= 0` と `stroke_width > 0` も再検査する。これは F5ks 正常 path では既に満たされるが、metric boundary の契約として fail closed にする。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

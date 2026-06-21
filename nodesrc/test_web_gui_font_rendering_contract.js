@@ -512,6 +512,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests = 
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
@@ -585,6 +586,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeRequestTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
@@ -16078,7 +16080,8 @@ assert(
     "GUI font docs must pin F5ks approved plan, path sink scalar authority, SkipNoSegment no-scalar rule, and stored-owner revalidation",
 );
 const renderStrokeSourceSegmentCursorStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:");
-const renderStrokeSourceSegmentCursorEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSourceSegmentCursorStartIndex);
+const renderStrokeSourceSegmentMetricStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:");
+const renderStrokeSourceSegmentCursorEndIndex = renderStrokeSourceSegmentMetricStartIndex;
 const renderStrokeSourceSegmentCursorRegion = allocFontSfntGlyfImpl.slice(renderStrokeSourceSegmentCursorStartIndex, renderStrokeSourceSegmentCursorEndIndex);
 const renderStrokeSourceSegmentLineType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine:"),
@@ -16455,6 +16458,238 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_owner_recovery_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests.includes("render_stroke_source_segment_cursor_no_offset_edge_mask_command_platform"),
     "F5ks render stroke source segment cursor focused doctest must cover plan authority, move state, line/quadratic source geometry, reject paths, completion counts, recovery, and no offset/edge/mask/command/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render stroke source segment metric preparation boundary"), "GUI font spec must document F5kt render stroke source segment metric preparation boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render stroke source segment metric preparation boundary"), "GUI font detailed design must document F5kt render stroke source segment metric preparation boundary");
+assert(implementationPlan.includes("## Phase F5kt: sfnt simple glyph render stroke source segment metric preparation boundary"), "GUI font implementation plan must include F5kt phase");
+assert(
+    implementationPlan.includes("Lorentz plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("safe square operand range is derived inside F5kt from small literals as `3037000499`") &&
+        detailedDesign.includes("Quadratic partial degeneracy remains explicit data") &&
+        spec.includes("i64 へ cast してから subtraction"),
+    "GUI font docs must pin F5kt approved plan, checked i64 metric arithmetic, and partial-degenerate quadratic policy",
+);
+const renderStrokeSourceSegmentMetricEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeSourceSegmentMetricStartIndex);
+const renderStrokeSourceSegmentMetricRegion = allocFontSfntGlyfImpl.slice(renderStrokeSourceSegmentMetricStartIndex, renderStrokeSourceSegmentMetricEndIndex);
+const renderStrokeSourceSegmentLineMetricType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:"),
+);
+const renderStrokeSourceSegmentQuadraticMetricType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:"),
+);
+const renderStrokeSourceSegmentMetricEnumType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:"),
+);
+const renderStrokeSourceSegmentMetricErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:"),
+);
+assert(renderStrokeSourceSegmentMetricStartIndex >= 0 && renderStrokeSourceSegmentMetricEndIndex > renderStrokeSourceSegmentMetricStartIndex, "alloc/gui/font/sfnt/glyf F5kt stroke source segment metric region must exist before fill alpha sample cursor");
+for (const fragment of [
+    "segment_index %i32",
+    "start_x2 %i32",
+    "start_y2 %i32",
+    "end_x2 %i32",
+    "end_y2 %i32",
+    "stroke_width %i32",
+    "dx %i64",
+    "dy %i64",
+    "length_squared %i64",
+]) {
+    assert(renderStrokeSourceSegmentLineMetricType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kt line metric must include ${fragment}`);
+}
+for (const fragment of [
+    "segment_index %i32",
+    "start_x2 %i32",
+    "start_y2 %i32",
+    "control_x2 %i32",
+    "control_y2 %i32",
+    "end_x2 %i32",
+    "end_y2 %i32",
+    "stroke_width %i32",
+    "start_control_dx %i64",
+    "start_control_dy %i64",
+    "control_end_dx %i64",
+    "control_end_dy %i64",
+    "start_control_length_squared %i64",
+    "control_end_length_squared %i64",
+]) {
+    assert(renderStrokeSourceSegmentQuadraticMetricType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kt quadratic metric must include ${fragment}`);
+}
+for (const fragment of [
+    "Line %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric",
+    "Quadratic %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric",
+]) {
+    assert(renderStrokeSourceSegmentMetricEnumType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kt metric enum must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric",
+    "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind",
+]) {
+    assert(allocFontSfntGlyfImpl.includes(`impl Clone for ${typeName}:`), `alloc/gui/font/sfnt/glyf F5kt ${typeName} must implement Clone`);
+    assert(allocFontSfntGlyfImpl.includes(`impl Copy for ${typeName}:`), `alloc/gui/font/sfnt/glyf F5kt ${typeName} must implement Copy`);
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:|pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:|pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic\b/,
+    "alloc/gui/font/sfnt/glyf F5kt metric boundary types and prepare helpers must remain private",
+);
+for (const fragment of [
+    "SegmentIndexNegative",
+    "StrokeWidthInvalid",
+    "LineDeltaSquareOverflow",
+    "LineLengthSquareOverflow",
+    "LineDegenerate",
+    "QuadraticStartControlDeltaSquareOverflow",
+    "QuadraticStartControlLengthSquareOverflow",
+    "QuadraticControlEndDeltaSquareOverflow",
+    "QuadraticControlEndLengthSquareOverflow",
+    "QuadraticFullyDegenerate",
+]) {
+    assert(renderStrokeSourceSegmentMetricErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5kt error kind must include ${fragment}`);
+}
+const renderStrokeSourceSegmentMetricI64Max = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max");
+assertOrderedFragments(
+    renderStrokeSourceSegmentMetricI64Max,
+    [
+        "let billion %i64 %i64 cast 1000000000",
+        "mul %i64 cast 922337203 billion",
+        "add high_part %i64 cast 685477580",
+        "add mul base %i64 cast 10 %i64 cast 7",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt i64 max helper must build i64 max from small literals",
+);
+const renderStrokeSourceSegmentMetricSquareLimit = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand");
+assertOrderedFragments(
+    renderStrokeSourceSegmentMetricSquareLimit,
+    ["mul %i64 cast 3037 %i64 cast 1000000", "%i64 cast 499"],
+    "alloc/gui/font/sfnt/glyf F5kt square operand limit must build 3037000499 from small literals",
+);
+const renderStrokeSourceSegmentMetricCheckedSquare = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square");
+assertOrderedFragments(
+    renderStrokeSourceSegmentMetricCheckedSquare,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand",
+        "let negative_limit %i64 sub %i64 cast 0 limit",
+        "if gt value limit",
+        "Result::Err overflow_kind",
+        "if lt value negative_limit",
+        "Result::Err overflow_kind",
+        "Result::Ok mul value value",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt checked square must reject unsafe operands before multiplying",
+);
+const renderStrokeSourceSegmentMetricCheckedSquareSum = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum");
+assertOrderedFragments(
+    renderStrokeSourceSegmentMetricCheckedSquareSum,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max",
+        "let max_y %i64 sub max_i64 x_square",
+        "if gt y_square max_y",
+        "Result::Err overflow_kind",
+        "Result::Ok add x_square y_square",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt checked square sum must reject overflow before adding",
+);
+const renderStrokeSourceSegmentLineMetricPrepare = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare");
+assertOrderedFragments(
+    renderStrokeSourceSegmentLineMetricPrepare,
+    [
+        "if lt segment_index 0",
+        "SegmentIndexNegative",
+        "if le stroke_width 0",
+        "StrokeWidthInvalid",
+        "let dx %i64 sub %i64 cast end_x2 %i64 cast start_x2",
+        "let dy %i64 sub %i64 cast end_y2 %i64 cast start_y2",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDeltaSquareOverflow",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDeltaSquareOverflow",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum dx_square dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineLengthSquareOverflow",
+        "if eq length_squared %i64 cast 0",
+        "LineDegenerate",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric segment_index start_x2 start_y2 end_x2 end_y2 stroke_width dx dy length_squared",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt line metric prepare must use checked i64 deltas, checked length, and degenerate rejection",
+);
+const renderStrokeSourceSegmentQuadraticMetricPrepare = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare");
+assertOrderedFragments(
+    renderStrokeSourceSegmentQuadraticMetricPrepare,
+    [
+        "if lt segment_index 0",
+        "SegmentIndexNegative",
+        "if le stroke_width 0",
+        "StrokeWidthInvalid",
+        "let start_control_dx %i64 sub %i64 cast control_x2 %i64 cast start_x2",
+        "let start_control_dy %i64 sub %i64 cast control_y2 %i64 cast start_y2",
+        "let control_end_dx %i64 sub %i64 cast end_x2 %i64 cast control_x2",
+        "let control_end_dy %i64 sub %i64 cast end_y2 %i64 cast control_y2",
+        "QuadraticStartControlDeltaSquareOverflow",
+        "QuadraticStartControlLengthSquareOverflow",
+        "QuadraticControlEndDeltaSquareOverflow",
+        "QuadraticControlEndLengthSquareOverflow",
+        "let start_control_zero %bool eq start_control_length_squared %i64 cast 0",
+        "let control_end_zero %bool eq control_end_length_squared %i64 cast 0",
+        "if and start_control_zero control_end_zero",
+        "QuadraticFullyDegenerate",
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric segment_index start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width start_control_dx start_control_dy control_end_dx control_end_dy start_control_length_squared control_end_length_squared",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt quadratic metric prepare must preserve partial degeneracy and reject fully degenerate curves",
+);
+const renderStrokeSourceSegmentMetricPrepareLine = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line");
+const renderStrokeSourceSegmentMetricPrepareQuadratic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic");
+assertOrderedFragments(
+    renderStrokeSourceSegmentMetricPrepareLine,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare segment",
+        "Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt line enum prepare must wrap checked metric as value enum",
+);
+assertOrderedFragments(
+    renderStrokeSourceSegmentMetricPrepareQuadratic,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare segment",
+        "Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric",
+    ],
+    "alloc/gui/font/sfnt/glyf F5kt quadratic enum prepare must wrap checked metric as value enum",
+);
+for (const [slice, name] of [
+    [renderStrokeSourceSegmentMetricI64Max, "i64 max"],
+    [renderStrokeSourceSegmentMetricSquareLimit, "square limit"],
+    [renderStrokeSourceSegmentMetricCheckedSquare, "checked square"],
+    [renderStrokeSourceSegmentMetricCheckedSquareSum, "checked square sum"],
+    [renderStrokeSourceSegmentLineMetricPrepare, "line prepare"],
+    [renderStrokeSourceSegmentQuadraticMetricPrepare, "quadratic prepare"],
+    [renderStrokeSourceSegmentMetricPrepareLine, "line enum prepare"],
+    [renderStrokeSourceSegmentMetricPrepareQuadratic, "quadratic enum prepare"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor|gui_sfnt_simple_glyph_render_stroke_source_segment_cursor|path_sink_scalars|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor|vec::push|vec::with_capacity|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5kt ${name} must not consume cursor owners, allocate, rasterize, use coverage, emit commands, call platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5kt ${name} must preserve NEPL prefix style without parentheses`);
+}
+assertNoMatch(
+    renderStrokeSourceSegmentMetricRegion,
+    /\b(?:GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor|gui_sfnt_simple_glyph_render_stroke_source_segment_cursor|path_sink_scalars|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRasterPackedMask|GuiSfntSimpleGlyphRasterCoverage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdge(?:Owner|DrainOwner)?|gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge(?:_drain|_owner|_start|_push)|gui_sfnt_simple_glyph_raster_coverage|alpha_cells|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|stroke_raster|shadow_raster|compositor|vec::push|vec::with_capacity|vec::clone|vec::copy)\b/,
+    "alloc/gui/font/sfnt/glyf F5kt region must stay before cursor owner consumption, edge owner, coverage, command/target/platform APIs, fallback, rasterizer, compositor, and owner-bearing vec operations",
+);
+assertNoMatch(renderStrokeSourceSegmentMetricRegion, /[()]/, "alloc/gui/font/sfnt/glyf F5kt region must preserve NEPL prefix style without parentheses");
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_line_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_quadratic_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_cast_before_subtract_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_checked_square_overflow_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_checked_sum_overflow_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_degenerate_reject_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_partial_degenerate_preserved_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests.includes("render_stroke_source_segment_metric_no_owner_edge_mask_command_platform"),
+    "F5kt render stroke source segment metric focused doctest must cover value metrics, checked i64 arithmetic, degeneracy policy, and no owner/edge/mask/command/platform policy",
 );
 assert(spec.includes("### SFNT simple glyph render fill alpha mask sample cursor boundary"), "GUI font spec must document F5bi render fill alpha mask sample cursor boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render fill alpha mask sample cursor boundary"), "GUI font detailed design must document F5bi render fill alpha mask sample cursor boundary");

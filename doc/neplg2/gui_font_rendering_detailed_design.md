@@ -6911,6 +6911,67 @@ SkipNoSegment participates in the lower path command count and skip count, but i
 
 Every failure is owner-bearing. Start errors return the plan owner, step errors return the cursor, and terminal/free helpers close the held F5kr plan owner exactly once.
 
+## SFNT simple glyph render stroke source segment metric preparation boundary
+
+F5kt consumes only borrowed F5ks source segment values and prepares checked metric values for later stroke offset geometry. It is not the stroke offset expansion boundary. It does not consume the F5ks cursor or terminal owner, does not allocate, and does not choose join, cap, dash, or miter behavior.
+
+Prepared line metric:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    segment_index i32
+    start_x2 i32
+    start_y2 i32
+    end_x2 i32
+    end_y2 i32
+    stroke_width i32
+    dx i64
+    dy i64
+    length_squared i64
+```
+
+Prepared quadratic metric:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    segment_index i32
+    start_x2 i32
+    start_y2 i32
+    control_x2 i32
+    control_y2 i32
+    end_x2 i32
+    end_y2 i32
+    stroke_width i32
+    start_control_dx i64
+    start_control_dy i64
+    control_end_dx i64
+    control_end_dy i64
+    start_control_length_squared i64
+    control_end_length_squared i64
+```
+
+`GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric` is a copyable enum with `Line` and `Quadratic` variants. All F5kt success values are value-only and implement `Clone` / `Copy`.
+
+Validation order is part of the contract:
+
+```text
+segment_index >= 0
+stroke_width > 0
+cast source coordinates to i64
+compute deltas with i64 subtraction
+check each delta is within the safe square operand range
+compute delta squares
+check square sum against i64 max before addition
+reject zero-length line
+reject fully degenerate quadratic
+```
+
+The safe square operand range is derived inside F5kt from small literals as `3037000499`. This avoids relying on unchecked `i64` multiplication for values whose square cannot fit in signed i64. `i64::MAX` is also constructed from small literals and used before adding two nonnegative squared components.
+
+Quadratic partial degeneracy remains explicit data. If `start_control_length_squared == 0` but `control_end_length_squared > 0`, or the reverse, F5kt returns a success metric with the zero tangent visible. The later offset geometry boundary must decide how to use that evidence; F5kt must not silently normalize or flatten it.
+
+F5kt must not call F5ks cursor step, path sink scalar storage, stroke edge owner, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke rasterizers, shadow rasterizers, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

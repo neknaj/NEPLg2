@@ -2685,6 +2685,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5kt: sfnt simple glyph render stroke source segment metric preparation boundary
+
+目的:
+
+- F5ks の source segment value を authority として、後続の stroke offset geometry が必要とする per-segment metric を value-only に準備する。
+- F5ks cursor / terminal owner は消費せず、`&GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine` / `&GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic` から pure `Result` を返す。
+- join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+
+plan review:
+
+- Lorentz plan review は `PLAN_APPROVED`。
+- F5kt は actual offset geometry expansion 完了ではなく、stroke source segment metric preparation として切る。
+- prepared value は segment index、original doubled coordinates、stroke width、computed deltas、i64 squared lengths を保持する。
+- coordinate は i64 へ cast してから subtraction し、i32 delta を先に作らない。
+- `dx * dx` / `dy * dy` と合計は checked arithmetic にし、既存 raster helper の unchecked i64 math を使い回さない。
+- zero-length line と fully degenerate quadratic は typed error にする。partial-degenerate quadratic は zero tangent length を value に残し、silent normalization はしない。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric` と `GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric` を追加する。source coordinates、stroke width、delta、squared length を持つ value-only 型にし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric` enum を追加し、Line / Quadratic metric を copyable value として束ねる。
+- `GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind` を追加する。segment index、stroke width、delta square overflow、length square overflow、degenerate segment を typed error に分ける。
+- i64 max と safe square operand を小さい literal から作る helper、checked square helper、checked square sum helper を追加する。
+- `gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare` と `gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare`、enum wrapping prepare helper を追加する。
+- focused doctest label と source policy を追加し、F5kt が F5ks cursor owner、path sink scalar storage、stroke edge owner、coverage、RenderCommand、DrawTarget / RenderTarget、platform、fallback、rasterizer、compositor、Vec allocation に進まないことを検査する。
+
+完了条件:
+
+- source policy が docs、Lorentz plan approval、metric field、copyable success value、private boundary、error kind、i64 cast-before-subtraction、checked square / checked sum、line degeneracy、quadratic partial degeneracy policy、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md` に line metric、quadratic metric、cast-before-subtraction、checked square overflow、checked sum overflow、degenerate rejection、partial-degenerate preservation、no owner / no edge / no mask / no command / no platform policy の coverage label を追加する。
+- implementation review で F5kt が value-only metric preparation に留まり、F5ks cursor owner を消費せず、offset / edge / coverage / command / platform へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke source segment metric preparation boundary 接続済み、後続の stroke offset geometry expansion / stroke edge owner / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_f5kt.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kt.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

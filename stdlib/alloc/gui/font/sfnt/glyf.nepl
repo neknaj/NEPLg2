@@ -18767,6 +18767,264 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_terminal_free %impu
         GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorTerminal::Completed plan_owner:
             gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
 
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric: line stroke [展開/てんかい]の[前段/ぜんだん] metric
+//:
+//: [目的/もくてき]:
+//: - source line segment から i64 delta と squared length を checked に[作/つく]り、後続の offset geometry が scalar stream を[読/よ]み[直/なお]さずに[使/つか]える value として[保持/ほじ]します。
+//: - join / cap / dash / miter、stroke edge、coverage、pixel [生成/せいせい]はここでは[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+    dx %i64
+    dy %i64
+    length_squared %i64
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric \metric:
+        *metric
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric \metric:
+        metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i64 fn i64 fn i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric \segment_index\start_x2\start_y2\end_x2\end_y2\stroke_width\dx\dy\length_squared:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric segment_index start_x2 start_y2 end_x2 end_y2 stroke_width dx dy length_squared
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
+    *field::get_ref metric "dx"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
+    *field::get_ref metric "dy"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
+    *field::get_ref metric "length_squared"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric: quadratic stroke [展開/てんかい]の[前段/ぜんだん] metric
+//:
+//: [目的/もくてき]:
+//: - source quadratic segment から start to control と control to end の tangent delta と squared length を checked に[作/つく]ります。
+//: - [片側/かたがわ] tangent が 0 の[場合/ばあい]も value に[残/のこ]し、完全に[退化/たいか]した curve だけを typed error にします。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+    start_control_dx %i64
+    start_control_dy %i64
+    control_end_dx %i64
+    control_end_dy %i64
+    start_control_length_squared %i64
+    control_end_length_squared %i64
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric \metric:
+        *metric
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric \metric:
+        metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i64 fn i64 fn i64 fn i64 fn i64 fn i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric \segment_index\start_x2\start_y2\control_x2\control_y2\end_x2\end_y2\stroke_width\start_control_dx\start_control_dy\control_end_dx\control_end_dy\start_control_length_squared\control_end_length_squared:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric segment_index start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width start_control_dx start_control_dy control_end_dx control_end_dy start_control_length_squared control_end_length_squared
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric:
+    *field::get_ref metric "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "start_control_dx"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "start_control_dy"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "control_end_dx"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "control_end_dy"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "start_control_length_squared"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
+    *field::get_ref metric "control_end_length_squared"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric: prepared stroke source segment metric
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:
+    Line %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric
+    Quadratic %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric \metric:
+        *metric
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric \metric:
+        metric
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind: source segment metric [生成/せいせい]の[失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
+    SegmentIndexNegative
+    StrokeWidthInvalid
+    LineDeltaSquareOverflow
+    LineLengthSquareOverflow
+    LineDegenerate
+    QuadraticStartControlDeltaSquareOverflow
+    QuadraticStartControlLengthSquareOverflow
+    QuadraticControlEndDeltaSquareOverflow
+    QuadraticControlEndLengthSquareOverflow
+    QuadraticFullyDegenerate
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \kind:
+        kind
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max %fn i64:
+    let billion %i64 %i64 cast 1000000000
+    let high_part %i64 mul %i64 cast 922337203 billion
+    let base %i64 add high_part %i64 cast 685477580
+    add mul base %i64 cast 10 %i64 cast 7
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand %fn i64:
+    add mul %i64 cast 3037 %i64 cast 1000000 %i64 cast 499
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square %fn i64 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind Result i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \value\overflow_kind:
+    let limit %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max_abs_square_operand
+    let negative_limit %i64 sub %i64 cast 0 limit
+    if gt value limit:
+        then Result::Err overflow_kind
+        else:
+            if lt value negative_limit:
+                then Result::Err overflow_kind
+                else Result::Ok mul value value
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum %fn i64 fn i64 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind Result i64 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \x_square\y_square\overflow_kind:
+    let max_i64 %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_i64_max
+    let max_y %i64 sub max_i64 x_square
+    if gt y_square max_y:
+        then Result::Err overflow_kind
+        else Result::Ok add x_square y_square
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_segment_index segment
+    if lt segment_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::SegmentIndexNegative
+        else:
+            let stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_stroke_width segment
+            if le stroke_width 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::StrokeWidthInvalid
+                else:
+                    let start_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_start_x2 segment
+                    let start_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_start_y2 segment
+                    let end_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_end_x2 segment
+                    let end_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_end_y2 segment
+                    let dx %i64 sub %i64 cast end_x2 %i64 cast start_x2
+                    let dy %i64 sub %i64 cast end_y2 %i64 cast start_y2
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDeltaSquareOverflow:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok dx_square:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDeltaSquareOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok dy_square:
+                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum dx_square dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineLengthSquareOverflow:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok length_squared:
+                                            if eq length_squared %i64 cast 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::LineDegenerate
+                                                else:
+                                                    let metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric segment_index start_x2 start_y2 end_x2 end_y2 stroke_width dx dy length_squared
+                                                    Result::Ok metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_segment_index segment
+    if lt segment_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::SegmentIndexNegative
+        else:
+            let stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_stroke_width segment
+            if le stroke_width 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::StrokeWidthInvalid
+                else:
+                    let start_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_start_x2 segment
+                    let start_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_start_y2 segment
+                    let control_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_control_x2 segment
+                    let control_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_control_y2 segment
+                    let end_x2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_end_x2 segment
+                    let end_y2 %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_end_y2 segment
+                    let start_control_dx %i64 sub %i64 cast control_x2 %i64 cast start_x2
+                    let start_control_dy %i64 sub %i64 cast control_y2 %i64 cast start_y2
+                    let control_end_dx %i64 sub %i64 cast end_x2 %i64 cast control_x2
+                    let control_end_dy %i64 sub %i64 cast end_y2 %i64 cast control_y2
+                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square start_control_dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticStartControlDeltaSquareOverflow:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok start_control_dx_square:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square start_control_dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticStartControlDeltaSquareOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok start_control_dy_square:
+                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum start_control_dx_square start_control_dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticStartControlLengthSquareOverflow:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok start_control_length_squared:
+                                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square control_end_dx GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticControlEndDeltaSquareOverflow:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok control_end_dx_square:
+                                                    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square control_end_dy GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticControlEndDeltaSquareOverflow:
+                                                        Result::Err error_kind:
+                                                            Result::Err error_kind
+                                                        Result::Ok control_end_dy_square:
+                                                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checked_square_sum control_end_dx_square control_end_dy_square GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticControlEndLengthSquareOverflow:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok control_end_length_squared:
+                                                                    let start_control_zero %bool eq start_control_length_squared %i64 cast 0
+                                                                    let control_end_zero %bool eq control_end_length_squared %i64 cast 0
+                                                                    if and start_control_zero control_end_zero:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind::QuadraticFullyDegenerate
+                                                                        else:
+                                                                            let metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric segment_index start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 stroke_width start_control_dx start_control_dy control_end_dx control_end_dy start_control_length_squared control_end_length_squared
+                                                                            Result::Ok metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_line %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLine Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_prepare segment:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok metric:
+            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_prepare_quadratic %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadratic Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind \segment:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_prepare segment:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok metric:
+            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:
