@@ -971,6 +971,9 @@ assertOrdered(
         "ActualTraversalBodyInputUnavailable %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputUnsupported %SelfhostMemoCallBackendPrivateCacheProofKey",
         "ActualTraversalBodyInputMalformed %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind",
+        "ActualTraversalBodyInputEmpty %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyInputKeyMismatch %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "ActualTraversalBodyInputGraphMismatch %i32",
         "ActualWalkerTraversalBodyReadFailed %i32",
         "ActualWalkerTraversalPlaceReadFailed %i32",
         "ActualWalkerTraversalEdgeReadFailed %i32",
@@ -2688,9 +2691,7 @@ assertOrdered(
         "field::get context \"graph_id\"",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context",
         "Result::Ok output:",
-        "field::get output \"walker_input\"",
-        "field::get output \"observations\"",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result input observations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output",
         "ActualTraversalBodyInputProducerNotConnected fallback_key",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_unavailable_sources_from_request_result fallback_key graph_id",
         "ActualTraversalBodyInputMissing missing_key",
@@ -2698,7 +2699,51 @@ assertOrdered(
         "ActualTraversalBodyInputUnsupported unsupported_key",
         "ActualTraversalBodyInputMalformed scanner_error",
     ],
-    "actual traversal body context source helper must consume available owners through the input adapter, keep producer-not-connected as the only unavailable fallback, and preserve all real reader rejections as typed errors",
+    "actual traversal body context source helper must consume available owners through the context-bound output helper, keep producer-not-connected as the only unavailable fallback, and preserve all real reader rejections as typed errors",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result")),
+    /actual_traversal_body_adapter_sources_from_input_owners_result/,
+    "actual traversal body request context helper must not bypass context-bound source validation by calling the input-owner adapter directly",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_source_record_validate_result"),
+    [
+        "field::get context \"key\"",
+        "field::get context \"graph_id\"",
+        "selfhost_memo_call_backend_private_cache_proof_key_eq record.key expected_key",
+        "selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id expected_graph_id",
+        "ActualTraversalBodyInputGraphMismatch record.graph_id.index",
+        "ActualTraversalBodyInputKeyMismatch record.key",
+    ],
+    "actual traversal body context source validation must compare both proof key and graph id before accepting available reader output records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources",
+        "eq n 0",
+        "field::get context \"key\"",
+        "ActualTraversalBodyInputEmpty key",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_loop context sources 0 n",
+    ],
+    "actual traversal body context source table validation must reject empty available outputs before the full record loop",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result"),
+    [
+        "field::get output \"walker_input\"",
+        "field::get output \"observations\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_input_owners_result input observations",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
+        "Result::Ok _valid:",
+        "Result::Ok sources",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Err e",
+    ],
+    "actual traversal body context output helper must validate source tables after owner conversion and close rejected source owners",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result"),
@@ -2821,6 +2866,16 @@ assert.doesNotMatch(
     "actual traversal body request context helper must only route rechecked context into availability/source adapters and must not synthesize proof, fresh witness, backend, effect, or artifact records",
 );
 assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body context output helper must only validate and route source table owners and must not synthesize proof, fresh witness, backend, effect, or artifact records",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_source_record_validate_result")),
+    /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "actual traversal body context source record validation must only compare authority fields and must not synthesize proof, fresh witness, backend, effect, or artifact records",
+);
+assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_output_from_parts_result")),
     /PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|resource_graph_input_push|proof_table_push|RequestEvidenceProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
     "actual traversal body reader split connector must not synthesize proof, fresh witness, backend, effect, or artifact records",
@@ -2850,6 +2905,10 @@ assertOrdered(
         "availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "reader_context_unavailable_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_context_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_context_key_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_context_graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
+        "reader_context_empty_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unavailable_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
         "availability_unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind",
@@ -2877,6 +2936,14 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result",
         "reader_context_unavailable_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77",
+        "reader_context_available_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 0",
+        "reader_context_key_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 78 0",
+        "reader_context_graph_mismatch_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_stage0_with_context_result 77 1",
+        "reader_context_empty_source_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_empty_source_count_result 77 0",
         "availability_missing_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_missing_source_count_result",
         "availability_unavailable_rejected",
@@ -2888,7 +2955,7 @@ assertOrdered(
         "placeholder_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result",
     ],
-    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, typed availability, reader connector, reader context fallback, and malformed placeholder body inputs",
+    "actual traversal body input adapter stage0 must cover unavailable fallback, accepted-shaped, observation-shaped, unsupported, merged, typed availability, reader connector, reader context fallback, context-bound available output, context mismatch rejections, and malformed placeholder body inputs",
 );
 assert.doesNotMatch(
     code,

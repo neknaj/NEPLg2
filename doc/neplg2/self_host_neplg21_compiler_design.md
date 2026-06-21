@@ -2695,7 +2695,31 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 残件:
 
 - real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
-- reader producer が available の場合だけ context path から production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続。
+- reader producer が available の場合だけ context-bound output validation を通して production request path へ `ActualWalkerEventSplitOutput` owner を渡す接続。
+- actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
+- accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
+
+## 2026-06-21 memo_call backend actual traversal body context-bound reader output checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ActualTraversalBodyReaderRequestContext` と real body reader の available output をつなぐ request-local source table validation boundary を追加した。
+
+この checkpoint は actual Resource IR body traversal 本体ではない。real reader が返す `ResourceWalkerInput` owner と `ObservationBanTable` owner は stage0 fixture で作っており、production availability も引き続き `ProducerNotConnected` fallback のままである。今回固定したのは、available output から作った source table を request context と同じ proof key / Resource graph id に束縛してから返す契約である。
+
+`actual_traversal_body_adapter_sources_from_request_context_result` の `Ok output` branch は、input-owner adapter を直接呼ばず、`actual_traversal_body_adapter_sources_from_request_context_output_result` へ委譲する。output helper は existing input-owner adapter で owner を source table owner へ変換した後、`actual_traversal_body_context_sources_validate_result` で非空、proof key 一致、graph id 一致を検査する。検査失敗時は source table owner を閉じてから `ActualTraversalBodyInputEmpty`、`ActualTraversalBodyInputKeyMismatch`、`ActualTraversalBodyInputGraphMismatch` の typed bridge error を返す。
+
+空 source table は accepted available output として扱わない。空 table を成功にすると、「全 record が context と一致した」という空真で request-local source を消したまま後段へ進めてしまう。key mismatch は別 body fingerprint / request occurrence の source 混入を止めるため、graph mismatch は同じ request key でも別 Resource graph の place / edge source 混入を止めるために分離した。
+
+public stage0 summary には `reader_context_available_source_count`、`reader_context_key_mismatch_rejected`、`reader_context_graph_mismatch_rejected`、`reader_context_empty_source_rejected` を追加した。これらは context-bound available output helper の smoke であり、context、walker input、observation table、source table、operation table、fresh witness table、proof table、backend bytes、effect mask、artifact key は public API に出さない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。context-bound output helper を経由すること、context source record validation が `proof_key_eq` と `resource_graph_id_eq` の両方を使うこと、empty source を拒否すること、rejected source table owner を閉じること、context helper が input-owner adapter を直呼びしないこと、proof / fresh witness / GraphInput / backend / effect mask / artifact record を合成しないことを固定している。行数や doc comment 量を制限する検査は追加していない。
+
+計算量は source record 数を `s` とすると O(s) 時間、O(1) 追加空間である。後続で source table に request-key / graph index を持たせる最適化は可能だが、available output を request context で非空かつ完全一致に検査する semantic boundary は今固定する必要がある。
+
+残件:
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続。
 - actual traversal 由来 fresh witness table の生成と、source table owner との key / graph / ordinal 照合。
 - accepted source と fresh witness が揃った producer-owned actual traversal bundle の request-evidence bridge 接続。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。

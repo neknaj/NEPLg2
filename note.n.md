@@ -77090,3 +77090,39 @@ MERGE_APPROVED
 - pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
 - pass: `node nodesrc/test_native_gui_platform_behavior.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-21 selfhost memo_call backend actual traversal body context-bound reader output checkpoint
+
+### 実装
+
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` の selfhost memo_call backend proof chain で、available reader output から作った source table を `ActualTraversalBodyReaderRequestContext` に束縛する境界を追加した。
+- `ActualWalkerEventProducerBridgeErrorKind` に `ActualTraversalBodyInputEmpty`、`ActualTraversalBodyInputKeyMismatch`、`ActualTraversalBodyInputGraphMismatch` を追加した。空 table、別 request key、別 graph id を bool や generic Err に潰さず、match の網羅性で扱える typed error として分けるためである。
+- `actual_traversal_body_adapter_sources_from_request_context_result` の `Ok output` branch は、input-owner adapter を直接呼ばず `actual_traversal_body_adapter_sources_from_request_context_output_result` を通る。この helper は source table owner 生成後に非空、proof key 一致、graph id 一致を検査し、拒否時は source table owner を閉じる。
+- public stage0 summary に `reader_context_available_source_count`、`reader_context_key_mismatch_rejected`、`reader_context_graph_mismatch_rejected`、`reader_context_empty_source_rejected` を追加した。これらは context-bound available output validation の smoke であり、actual Resource IR traversal、fresh witness、Resource proof、effect mask、sealed backend、artifact key の完了を意味しない。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に actual traversal body context-bound reader output checkpoint を追加した。
+- `issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md` に checkpoint、禁止事項、残件を追記した。
+- `todo.md` の memo_call backend 残件を actual traversal body context-bound reader output checkpoint 後の real traversal body reader、fresh witness、effect masking、artifact projection へ更新した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、context-bound output helper 経由、proof key / graph id 比較、empty source rejection、rejected source table cleanup、input-owner adapter 直呼び禁止、proof / fresh witness / backend / effect / artifact 合成禁止を固定した。
+- 行数や doc comment 量を制限する検査は追加していない。Zenn 方針の丁寧な contract / 現状説明 / doctest を優先する。
+
+### subagent review
+
+- Wegener implementation review は `REVIEW_APPROVED`。blocking / required / optional 指摘は無かった。proof key / graph id の typed validation、empty source table rejection、rejected source table owner cleanup、context helper の input-owner adapter 直呼び禁止、proof / fresh witness / backend / effect / artifact 非合成、private helper 非公開、行数 / doc comment 量制限なしが確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-context-bound-reader-output-doctest.json`
+- pass: `git diff --check` (CRLF warning only)
+
+### 残件
+
+- real HIR lowering result / Resource IR body から `ResourceWalkerInput` / `ObservationBanTable` owner を作る producer を実装する。
+- production availability の `ProducerNotConnected` fallback を real reader output に置き換え、available output を context-bound validation helper へ渡す接続を実装する。
+- actual traversal 由来 fresh witness table を source table owner と別 authority として生成し、matching key / graph / ordinal を検査する。
+- accepted source と fresh witness が揃った場合だけ producer-owned actual traversal bundle を request-evidence bridge へ接続する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projectionを後続で実装する。
