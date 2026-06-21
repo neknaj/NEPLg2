@@ -1,3 +1,43 @@
+# 2026-06-21 Agent2 GUI font F5lm shadow source coverage scan converter boundary
+
+## 目的
+
+- F5ll shadow source coverage mask writer owner を direct authority として消費し、F5lk shadow source raster edge を even-odd rule で走査して raw coverage cell を書き込む。
+- F5be の scan owner / error / terminal や generic coverage writer owner へ詰め替えず、shadow source 専用の owner / error / terminal を使う。
+- blur、spread mutation、packed mask、render command、resource、pixel write、platform API、2D compositor へ進まない。
+- zero-edge glyph でも nonzero cell count は正当として扱い、通常の sample loop で 0 coverage cell を push する。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig`、resumable scan owner、start error、scan error、bounded terminal、free/recovery helper を追加した。
+- config は `quadratic_segment_count` だけを持つ value-only record とし、`Clone` / `Copy` を許可した。
+- start は `quadratic_segment_count > 0`、F5ll writer invariant、source shape invariant、not-started writer、cell storage exactness を検査する。
+- edge read は nested F5lk edge owner invariant、edge index bounds、edge Vec len/cap、slot presence を検査する。
+- line edge と config-driven quadratic edge の coverage scan は F5be の owner-free integer geometry helper だけを再利用し、F5be owner / writer へは接続しない。
+- step は 1 cell coverage を計算し、F5ll `push_cell` だけで writer へ積む。push failure では returned writer と pre-push cell index を owner-bearing error で回収する。
+- bounded drain は exact full のときだけ F5ll completion を呼び、incomplete / budget exhausted / progress invariant failure を typed に分ける。
+- Kuhn plan review は `PLAN_APPROVED`。F5ll writer authority、pure helper allowlist、F5be owner/error/terminal 禁止、F5ll source-policy region split が条件として確認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_f5lm.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5lm_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lm.json -j 1` は 1295 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lm.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lm.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Kuhn implementation review 1 は `CHANGES_REQUESTED`。実装本体の ownership / recovery blocker は無く、source policy が approved 4 helper 以外の `gui_sfnt_simple_glyph_raster_coverage_scan_*` helper を将来許す点を指摘された。
+- 指摘対応として、F5lm source policy に approved 4 helper 以外の `gui_sfnt_simple_glyph_raster_coverage_scan_*` を拒否する negative allowlist を追加した。
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` と `node nodesrc/test_web_gui_font_rendering_contract.js` は source policy 強化後も pass。
+- Kuhn follow-up implementation review は `REVIEW_APPROVED`。
+
+## 残件
+
+- F5lm 後続として、shadow source blur / packing / composition、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5ll shadow source coverage mask writer owner boundary
 
 ## 目的

@@ -7625,6 +7625,48 @@ Completion returns `CoverageMaskCompleted` only when `written_cell_count == sour
 
 F5ll must not call generic raster coverage writer / scan / packed-mask helpers, stroke coverage writer / scan / packed-mask helpers, path-sink scalar drains, generic raster edge owner/drain helpers, blur kernel construction, render command constructors, resource table, software surface, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
 
+## SFNT simple glyph render shadow source coverage scan converter boundary
+
+F5lm consumes the F5ll shadow source coverage mask writer owner as the only direct authority. It scans the nested F5lk shadow source raster edges and writes raw source coverage cells through the F5ll `push_cell` boundary. It does not allocate blur kernels, mutate spread geometry, pack alpha cells, reserve resources, emit render commands, write pixels, call platform APIs, or drain a compositor.
+
+Kuhn plan review was `PLAN_APPROVED`. The review explicitly allowed reuse of owner-free integer geometry helpers from F5be (`sample_coordinate`, `scaled_edge_coordinate`, `line_crosses_scaled`, and `quadratic_point_scaled`) because they carry no F5be writer authority. F5lm must still keep its own config, owner, start error, scan error, terminal, recovery, and free paths, and source policy must forbid F5be owner / error / terminal / direct writer-owner paths.
+
+The scan config is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig:
+    quadratic_segment_count i32
+```
+
+The resumable scan owner is owner-bearing and non-copyable:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageScanOwner:
+    writer GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
+    config GuiSfntSimpleGlyphRenderShadowSourceCoverageScanConfig
+    cell_index i32
+```
+
+Start validation first rejects `quadratic_segment_count <= 0`, then calls `gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants`. Lower F5ll error kinds are stored in the start error payload instead of being collapsed into a string or silent failure. Shape validation is repeated at this trust boundary because scan conversion uses division, modulo, sample loops, and coverage range:
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+```
+
+The writer must not already be started. `written_cell_count == 0`, `cells.len == 0`, and `cells.cap == source_shape.cell_count` are checked before the scan owner is created.
+
+Edge reads go through the F5ll writer into the nested F5lk edge owner. F5lm revalidates the F5lk edge owner before reading and checks edge index bounds, edge Vec length, capacity, and slot presence. The completed edge owner remains the source of edge authority; F5lm does not reconstruct a generic raster edge owner.
+
+Cell coverage uses the same integer sampling model as F5be. Each cell is split into `sample_scale * sample_scale` subpixel samples. A sample is inside when the total line / quadratic crossing count is odd. Line crossing uses strict y activation and i64 cross-product comparison. Quadratic edges are evaluated with the F5lm `quadratic_segment_count` and source/control/end points; each segment is tested with the line crossing helper.
+
+`gui_sfnt_simple_glyph_render_shadow_source_coverage_scan_owner_step` computes one cell coverage, then pushes through `gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_cell`. Push failure reconstructs the scan owner with the returned writer and the pre-push `cell_index`. The bounded drain only calls completion when `cell_index == cell_count`; incomplete completion is an error, budget exhaustion is a typed terminal, and post-step progress must advance both `cell_index` and writer `written_cell_count` by exactly one.
+
+Zero-edge glyphs are valid. With zero edges the crossing count is always zero, so F5lm writes zero coverage cells through the same loop instead of using a zero-fill shortcut or completing a partial mask.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
