@@ -3044,9 +3044,15 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 この checkpoint も full Resource IR traversal、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key を作らない。固定したのは body reader source + fresh witness bundle producer boundary の ownership と error taxonomy であり、次はこの boundary の source producer を real traversal 由来の accepted / escaping / observation / unsupported source と fresh witness producer に置き換える。
 
+2026-06-22 follow-up では、`actual_traversal_body_reader_bundle_from_request_context_result` を direct source-derived witness path から per-context operation-classified collector path へ寄せた。body reader source table は `actual_walker_operation_producer_bridge_operations_from_sources_result` で operation table に投影し、`actual_traversal_body_reader_events_from_context_operations_result` で context-owned unified event stream を作り、`actual_walker_event_split_result` で walker input / observation table owner に分配する。split output は `actual_walker_traversal_source_collect_from_walker_input_result` で collector-owned source table に戻し、その collector output だけを `actual_traversal_bundle_source_derived_witness_result` へ渡す。
+
+この follow-up は `collector_owned_traversal_bundle_with_owners_result` や `actual_traversal_bundle_stage0_with_sources_result` の fixture witness metadata を production body reader bundle path に使わない。source helper の失敗、operation table projection failure、event build failure、split failure、collector failure は `Stage0SourceRejected` として source/build 境界で閉じ、collector 後の `RegionProofUnsupported` / `RegionProofObservationRejected` / `RegionProofMayEscape` / fresh witness rejection は包み直さず返す。これにより、body reader bundle producer は source-only smoke ではなく operation classifier / unified event split / collector / source-derived witness の lifecycle に接続された。
+
+この follow-up も full Resource IR walker 本体ではない。現時点では HIR body reader source plan が operation-classified collector path へ収束しただけであり、actual Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する boundary は後続に残る。
+
 残件:
 
-- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。HIR body problem source と body reader bundle producer boundary は context-owned source-derived witness/candidate bundle path まで接続済みなので、次は実 traversal の accepted source と witness producer を同じ body identity で置き換える。
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を発行する。HIR body problem source と body reader bundle producer boundary は operation-classified collector path と source-derived witness/candidate bundle path まで接続済みなので、次は実 traversal の accepted source / event / witness producer を同じ body identity で置き換える。
 - event producer convergence で揃えた source / operation authority を、private-effect graph scanner / collector / materializer / proof producer と request-evidence bridge の両方へ同じ body identity で渡す。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 

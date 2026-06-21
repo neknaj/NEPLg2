@@ -1,3 +1,44 @@
+# 2026-06-22 selfhost memo_call backend operation-classified body reader bundle checkpoint
+
+## 目的
+
+- actual body reader bundle producer を、source table から直接 source-derived witness へ進む path から、per-context operation classifier / unified event split / collector / source-derived witness path へ収束させる。
+- production body reader bundle path では `collector_owned_traversal_bundle_with_owners_result` や `actual_traversal_bundle_stage0_with_sources_result` の fixture witness metadata を使わない。
+- full Resource IR walker 本体、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はまだ作らない。
+
+## subagent review
+
+- Galileo plan review は `PLAN_CHANGES_REQUESTED`。
+- 指摘 1: `collector_owned_traversal_bundle_with_owners_result` は `witness_body_module_fingerprint / graph_index / root/support ordinal / status` を受ける stage0 fixture witness path なので、production body reader path に使わず、split output から collector-owned source table を作って `actual_traversal_bundle_source_derived_witness_result` へ進む新 helper が必要。
+- 指摘 2: per-context bundle helper では root-wide classifier を fuel 付きで隠さず、context-owned classifier helper 相当を使うべき。
+- 指摘に従い、`actual_traversal_body_reader_events_from_context_operations_result` を使う per-context classifier path と、split output から source-derived witness へ進む helper を追加した。
+- Galileo implementation review は `REVIEW_APPROVED`。direct witness bypass 回避、per-context classifier path、fixture witness metadata 不使用、source / operation / event / split owner cleanup、collector 後の typed rejection を包み直していないこと、contract/doc/note/todo の整合性が確認された。
+
+## 実装
+
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_context_sources_result` を追加し、context source table を validate -> operation table projection -> context-owned unified event stream -> split output の順で処理するようにした。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_split_output_result` を追加し、split output owner を collector-owned source tableへ戻してから source-derived witness helper に渡すようにした。
+- `selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result` は source helper 成功後、direct witness helper ではなく context-source bundle helperへ委譲するようにした。
+- contract test は direct source-derived witness bypass、stage0 witness fixture、root-wide classifier、GraphInput / proof / backend / effect / artifact 合成を禁止するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-operation-classified-body-reader-bundle.json`。17/17。
+- checked JSON: `tmp/selfhost-memo-call-backend-operation-classified-body-reader-bundle.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_operation_classified_body_reader_bundle.json`
+- checked JSON: `output/playground_editor_selfhost_operation_classified_body_reader_bundle.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`, `erroredCount: 0`。
+
+## 未接続
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、backend bytes、`.neplobj` / `.neplproof` stable key projection。
+
 # 2026-06-22 selfhost memo_call backend actual body reader bundle producer checkpoint
 
 ## 目的
