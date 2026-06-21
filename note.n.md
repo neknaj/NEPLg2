@@ -1,3 +1,39 @@
+# 2026-06-22 Agent2 GUI render2d F5mh compositor tile RLE completed count bridge boundary
+
+## 目的
+
+- F5mf/F5mg の `GuiRgba8888CompositorTileRleCountOwner` を lower `gui_rgba8888_row_tile_rle_count_completed_prepare` へ 1 回だけ通す compositor bridge を追加した。
+- completed count を encoded transport の exact capacity evidence として扱えるように、lower completed owner と compositor metadata を `GuiRgba8888CompositorTileRleCountCompletedOwner` に束ねた。
+- この checkpoint は count step 再実行、drain、encode / storage / packet、std present、host / platform API、fallback / silent no-op へ進まない。
+
+## subagent review
+
+- Plato plan review は `PLAN_APPROVED`。
+- 指摘に従い、lower completed error では kind / category / total run count / cursor next pixel index を lower error 消費前に読み、lower completed error が返す original count owner を metadata 付き `GuiRgba8888CompositorTileRleCountOwner` へ戻す形にした。
+- success / error の finish / free は lower owner へ直接 free せず、F5mf の count owner finish / free へ委譲する。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_count_completed.nepl` を追加し、completed owner、completed error、typed error kind、metadata / total / cursor accessors、count owner recovery、finish entry、free helper を実装した。
+- `stdlib/alloc/gui/render2d.nepl` facade に `compositor_tile_rle_count_completed` を追加した。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_count_completed.n.md` を追加し、success total/index/metadata、pending rejection、count owner recovery、finish delegation、no count step / encode / present / fallback label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mh contract に合わせて更新した。
+- `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_completed_f5mh.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count_completed.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_completed_module_f5mh.json -j 1`。21/21。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_f5mh_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_f5mh_regression.json -j 1`。2/2。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mh.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- F5mh 後続は encode / storage / packet と std present への payload transport / present continuation に分ける。
+
 # 2026-06-22 selfhost memo_call backend body reader accepted source count checkpoint
 
 ## 目的
