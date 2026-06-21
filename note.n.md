@@ -1,3 +1,45 @@
+# 2026-06-22 selfhost memo_call backend body reader explicit accepted source checkpoint
+
+## 目的
+
+- default wrapper representative と、actual traversal が明示的に返す accepted source を分ける。
+- accepted として数えてよい source kind を専用 enum に閉じ、private effect / observation / unsupported / unavailable / cache operation を accepted count に混ぜない。
+- full Resource IR / HIR lowering traversal、fresh witness table producer、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key はこの checkpoint では作らない。
+
+## subagent review
+
+- Chandrasekhar plan review は `PLAN_APPROVED`。
+- `Unit` leaf で default wrapper を即時発行すると、`Block(Unit, PrivateCache)` で wrapper accepted source と problem source が混ざるため不適切と確認した。
+- 代替として、default wrapper とは別の explicit accepted source append helper と stage0 smoke を追加する方針が承認された。
+- Singer implementation review は `REVIEW_APPROVED`。accepted enum が 2 variant のみに閉じていること、append helper が table length ordinal / success 後 accepted count 加算 / problem count 維持 / cleanup 二重化回避になっていること、smoke helper が default wrapper duplication と lower proof/backend/effect/artifact 合成を避けていることが確認された。
+- レビュー補足を受け、contract test は accepted enum の variant 名を完全一致で検査し、将来の第3 accepted variant 追加も失敗するように強化した。
+
+## 実装
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind` を追加し、`PrivateCacheStoragePlace` と `CloneOutOwnedValueEdge` だけを accepted source vocabulary にした。
+- explicit accepted append helper は source table length から operation ordinal を決め、push 成功後だけ `accepted_source_count` を 1 増やす。
+- explicit accepted source pair を state helper 経由で追加し、finalizer 後も source count が 2 のままである stage0 smoke を追加した。
+- public stage0 summary に `explicit_accepted_source_count` を追加した。reader context、source table owner、fresh witness、proof table、backend artifact は public API に出していない。
+- contract test は accepted enum の完全一致、wildcard fallback 禁止、owner cleanup、accepted/problem count の保存、default wrapper helper 非使用、proof / backend / effect / artifact 合成禁止を固定した。
+- 設計 doc と `todo.md` を更新し、残作業を full Resource IR / HIR lowering traversal 由来の source / event / witness producer に絞った。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-accepted-source-helper.json`。17/17。
+- checked JSON: `tmp/selfhost-memo-call-backend-accepted-source-helper.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_accepted_source_helper.json`
+- checked JSON: `output/playground_editor_selfhost_accepted_source_helper.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 # 2026-06-22 selfhost memo_call backend body reader accepted source count checkpoint
 
 ## 目的

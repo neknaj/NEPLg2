@@ -1034,26 +1034,27 @@
 //:     let checks6 checks_push checks5 check_eq_i32 2 unwrap summary.availability_available_source_count
 //:     let checks7 checks_push checks6 check_eq_i32 2 unwrap summary.reader_connector_available_source_count
 //:     let checks8 checks_push checks7 check_eq_i32 2 unwrap summary.reader_context_reader_source_count
-//:     let checks9 checks_push checks8 check_eq_i32 1 unwrap summary.hir_body_private_cache_effect_source_count
-//:     let checks10 checks_push checks9 check_eq_i32 1 unwrap summary.hir_body_function_identity_source_count
-//:     let checks11 checks_push checks10 check_eq_i32 2 unwrap summary.hir_body_block_unit_source_count
-//:     let checks12 checks_push checks11 check_eq_i32 1 unwrap summary.hir_body_block_private_cache_effect_source_count
-//:     let checks13 checks_push checks12 check_eq_i32 2 unwrap summary.reader_context_available_source_count
-//:     let checks14 checks_push checks13 check body_adapter_context_rejection_result_eq summary.reader_context_key_mismatch_rejected 11 expected_key 0
-//:     let checks15 checks_push checks14 check body_adapter_context_rejection_result_eq summary.reader_context_graph_mismatch_rejected 12 expected_key 0
-//:     let checks16 checks_push checks15 check body_adapter_context_rejection_result_eq summary.reader_context_empty_source_rejected 10 expected_key 0
-//:     let checks17 checks_push checks16 check body_adapter_missing_result_eq summary.availability_missing_rejected expected_key
-//:     let checks18 checks_push checks17 check body_adapter_unavailable_result_eq summary.availability_unavailable_rejected expected_key
-//:     let checks19 checks_push checks18 check body_adapter_unsupported_result_eq summary.availability_unsupported_rejected expected_key
-//:     let checks20 checks_push checks19 check body_adapter_i32_result_is_err summary.availability_malformed_rejected
-//:     let checks21 checks_push checks20 check body_adapter_error_kind_result_eq summary.resolution_missing_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionMissing expected_key
-//:     let checks22 checks_push checks21 check body_adapter_error_kind_result_eq summary.resolution_unavailable_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionUnavailable expected_key
-//:     let checks23 checks_push checks22 check body_adapter_error_kind_result_eq summary.resolution_unsupported_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionUnsupported expected_key
-//:     let checks24 checks_push checks23 check body_adapter_error_kind_result_eq summary.resolution_fingerprint_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionFingerprintMismatch expected_key
-//:     let checks25 checks_push checks24 check body_adapter_error_kind_result_eq summary.resolution_root_missing_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionRootMissing expected_key
-//:     let checks26 checks_push checks25 check body_adapter_error_kind_result_eq summary.resolution_duplicate_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionDuplicate expected_key
-//:     let checks27 checks_push checks26 check body_adapter_i32_result_is_err summary.placeholder_rejected
-//:     let shown checks_print_report checks27
+//:     let checks9 checks_push checks8 check_eq_i32 2 unwrap summary.explicit_accepted_source_count
+//:     let checks10 checks_push checks9 check_eq_i32 1 unwrap summary.hir_body_private_cache_effect_source_count
+//:     let checks11 checks_push checks10 check_eq_i32 1 unwrap summary.hir_body_function_identity_source_count
+//:     let checks12 checks_push checks11 check_eq_i32 2 unwrap summary.hir_body_block_unit_source_count
+//:     let checks13 checks_push checks12 check_eq_i32 1 unwrap summary.hir_body_block_private_cache_effect_source_count
+//:     let checks14 checks_push checks13 check_eq_i32 2 unwrap summary.reader_context_available_source_count
+//:     let checks15 checks_push checks14 check body_adapter_context_rejection_result_eq summary.reader_context_key_mismatch_rejected 11 expected_key 0
+//:     let checks16 checks_push checks15 check body_adapter_context_rejection_result_eq summary.reader_context_graph_mismatch_rejected 12 expected_key 0
+//:     let checks17 checks_push checks16 check body_adapter_context_rejection_result_eq summary.reader_context_empty_source_rejected 10 expected_key 0
+//:     let checks18 checks_push checks17 check body_adapter_missing_result_eq summary.availability_missing_rejected expected_key
+//:     let checks19 checks_push checks18 check body_adapter_unavailable_result_eq summary.availability_unavailable_rejected expected_key
+//:     let checks20 checks_push checks19 check body_adapter_unsupported_result_eq summary.availability_unsupported_rejected expected_key
+//:     let checks21 checks_push checks20 check body_adapter_i32_result_is_err summary.availability_malformed_rejected
+//:     let checks22 checks_push checks21 check body_adapter_error_kind_result_eq summary.resolution_missing_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionMissing expected_key
+//:     let checks23 checks_push checks22 check body_adapter_error_kind_result_eq summary.resolution_unavailable_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionUnavailable expected_key
+//:     let checks24 checks_push checks23 check body_adapter_error_kind_result_eq summary.resolution_unsupported_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionUnsupported expected_key
+//:     let checks25 checks_push checks24 check body_adapter_error_kind_result_eq summary.resolution_fingerprint_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionFingerprintMismatch expected_key
+//:     let checks26 checks_push checks25 check body_adapter_error_kind_result_eq summary.resolution_root_missing_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionRootMissing expected_key
+//:     let checks27 checks_push checks26 check body_adapter_error_kind_result_eq summary.resolution_duplicate_rejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyResolutionDuplicate expected_key
+//:     let checks28 checks_push checks27 check body_adapter_i32_result_is_err summary.placeholder_rejected
+//:     let shown checks_print_report checks28
 //:     checks_exit_code shown
 //: ```
 
@@ -1637,6 +1638,18 @@ enum SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicy
     ClosureAllocationIdentityObservation
     RawIdentityObservation
     RawRepresentationObservation
+
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind: body traversal が accepted として[数/かぞ]えてよい source tag
+//:
+//: [目的/もくてき]:
+//: - default wrapper representative ではなく、actual traversal が明示的に返す accepted source だけを state に追加するための語彙です。
+//:
+//: [契約/けいやく]:
+//: - この enum は accepted graph candidate に寄与する source だけを持ちます。private effect、observation、unsupported、unavailable source はここに追加しません。
+//: - helper はこの enum を traversal source kind へ写して source table へ入れるだけです。fresh witness、proof table、GraphInput、backend bytes、effect mask、artifact key は作りません。
+enum SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind:
+    PrivateCacheStoragePlace
+    CloneOutOwnedValueEdge
 
 //: SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind: actual traversal body input が available でない理由
 //:
@@ -2285,6 +2298,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollect
 //: - accepted source count と merged source count は real body input の shape と source table owner merge を adapter が扱えることだけを表します。production HIR-root path が actual Resource IR traversal を読んだことや、fresh private region proof / effect mask / sealed backend representation が完了したことを意味しません。
 //: - availability fields は、real body reader が返すべき `Result<ActualWalkerEventSplitOutput, AvailabilityErrorKind>` の分岐を stage0 fixture で固定します。`availability_available_source_count` と `reader_connector_available_source_count` だけが owner 消費 path へ進み、それ以外は typed error として fail-closed になります。
 //: - `reader_context_reader_source_count` は HIR-root request entry から module-private reader context を作り、production reader output を source table にできることを確認する smoke です。context 自体は public API に出しません。
+//: - `explicit_accepted_source_count` は default wrapper representative ではない accepted source pair が state helper 経由で追加され、finalizer で wrapper pair を重ねないことを確認します。
 //: - `hir_body_private_cache_effect_source_count` と `hir_body_function_identity_source_count` は、resolver が返した body root payload を source 分類へ写す smoke です。private effect や identity observation は accepted wrapper source に混ぜず、後続で fail-closed にします。
 //: - `hir_body_block_unit_source_count` と `hir_body_block_private_cache_effect_source_count` は、Block child traversal が neutral leaf では wrapper pair を 1 回だけ作り、problem source がある場合は wrapper と混ぜないことを確認します。
 //: - `reader_context_available_source_count` は context と一致する available reader output だけを source table にできることを確認します。key / graph / empty source の拒否 fields は、reader output が別 request の source を混ぜた場合に fail-closed になることを確認するための typed `Result` payload です。
@@ -2297,6 +2311,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputSta
     availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    explicit_accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     hir_body_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     hir_body_function_identity_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     hir_body_block_unit_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
@@ -3177,6 +3192,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOpera
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind: reader operation policy kind の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind: accepted source kind を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - accepted source kind は owner を持たない tag です。copy は proof や backend artifact の複製ではありません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind: accepted source kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed: reader seed evidence を値として[複製/ふくせい]する
@@ -9642,6 +9670,35 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_accepted_source_traversal_source_kind: accepted source tag を traversal source kind へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard fallback は使いません。accepted source vocabulary が増えた場合、region root / support のどちらに属するかを明示します。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_accepted_source_traversal_source_kind %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind \accepted_kind:
+    match accepted_kind:
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::PrivateCacheStoragePlace:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::CloneOutOwnedValueEdge:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result: state に explicit accepted source を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `accepted_source_count` は append 成功後だけ増やします。
+//: - operation ordinal は source table length から決めます。accepted source 件数を ordinal には使いません。
+//: - push failure は source table push helper が owner を消費するため、state cleanup helper を呼びません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \state\context\from_index\to_index\accepted_kind:
+    let problem_source_count %i32 field::get state "problem_source_count"
+    let accepted_source_count %i32 field::get state "accepted_source_count"
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get state "sources"
+    let operation_ordinal %i32 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources
+    let source_kind %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_accepted_source_traversal_source_kind accepted_kind
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal from_index to_index source_kind:
+        Result::Ok next_sources:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources problem_source_count add accepted_source_count 1
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result: wrapper representative source pair を[追加/ついか]する
 //:
 //: [契約/けいやく]:
@@ -9901,6 +9958,29 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_
     match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
         Result::Ok sources0:
             selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_append_source_result sources0 context 0 0 0 policy
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_sources_from_context_result: explicit accepted source state を source table owner へ[確定/かくてい]する
+//:
+//: [目的/もくてき]:
+//: - default wrapper representative ではなく、actual traversal が返す accepted source pair を state helper 経由で追加した場合に、finalizer が wrapper pair を重ねないことを確認します。
+//:
+//: [契約/けいやく]:
+//: - ここで作るのは source table owner だけです。fresh witness、proof table、GraphInput、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_sources_from_context_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok sources0:
+            let state0 %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new sources0
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result state0 context 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::PrivateCacheStoragePlace:
+                Result::Ok state1:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_accepted_source_kind_result state1 context 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderAcceptedSourceKind::CloneOutOwnedValueEdge:
+                        Result::Ok state2:
+                            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result state2 context
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
         Result::Err e:
             Result::Err e
 
@@ -10666,6 +10746,49 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context
                                             resolved_result
                                         Result::Err e:
                                             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing 0
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_source_count_result: explicit accepted source 確定後の source 数を[数/かぞ]える
+//:
+//: [契約/けいやく]:
+//: - explicit accepted source pair は source state helper で追加し、finalizer を通します。default wrapper pair が重なる場合は count が増えるため、この smoke で検出します。
+//: - source table count だけを読み、fresh witness、proof table、effect mask、backend artifact は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_source_count_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
+                Result::Ok table:
+                    let result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root body_module_fingerprint 0:
+                                Result::Ok context:
+                                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_sources_from_context_result context:
+                                        Result::Ok sources:
+                                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+                                                Result::Ok _valid:
+                                                    let count %i32 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources
+                                                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                                                    Result::Ok count
+                                                Result::Err e:
+                                                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
                                 Result::Err e:
                                     Result::Err e
                         Option::None:
@@ -11637,6 +11760,7 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_in
     let availability_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availability_available_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue
     let reader_connector_available_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_count_from_parts_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_empty_observations_result
     let reader_context_reader_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_result 77
+    let explicit_accepted_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_explicit_accepted_source_count_result 77
     let hir_body_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_call_effect_result 77 SelfhostEffectKind::PrivateCache
     let hir_body_function_identity_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_body_fn_value_result 77
     let hir_body_block_unit_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_block_unit_result 77
@@ -11657,7 +11781,7 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_in
     let resolution_root_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_source_count_with_resolution_result 77 77 missing_body_root SelfhostMemoCallBackendPrivateCacheActualTraversalBodyLoweringAvailabilityStatus::BodyLoweringAvailable
     let resolution_duplicate_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_context_duplicate_resolution_result 77
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_input_result selfhost_memo_call_backend_private_cache_resource_walker_stage0_placeholder_input_result
-    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary unavailable_source_count accepted_source_count observation_source_count unsupported_source_count merged_source_count availability_available_source_count reader_connector_available_source_count reader_context_reader_source_count hir_body_private_cache_effect_source_count hir_body_function_identity_source_count hir_body_block_unit_source_count hir_body_block_private_cache_effect_source_count reader_context_available_source_count reader_context_key_mismatch_rejected reader_context_graph_mismatch_rejected reader_context_empty_source_rejected availability_missing_rejected availability_unavailable_rejected availability_unsupported_rejected availability_malformed_rejected resolution_missing_rejected resolution_unavailable_rejected resolution_unsupported_rejected resolution_fingerprint_mismatch_rejected resolution_root_missing_rejected resolution_duplicate_rejected placeholder_rejected
+    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyAdapterInputStage0Summary unavailable_source_count accepted_source_count observation_source_count unsupported_source_count merged_source_count availability_available_source_count reader_connector_available_source_count reader_context_reader_source_count explicit_accepted_source_count hir_body_private_cache_effect_source_count hir_body_function_identity_source_count hir_body_block_unit_source_count hir_body_block_private_cache_effect_source_count reader_context_available_source_count reader_context_key_mismatch_rejected reader_context_graph_mismatch_rejected reader_context_empty_source_rejected availability_missing_rejected availability_unavailable_rejected availability_unsupported_rejected availability_malformed_rejected resolution_missing_rejected resolution_unavailable_rejected resolution_unsupported_rejected resolution_fingerprint_mismatch_rejected resolution_root_missing_rejected resolution_duplicate_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_region_proof_fail_with_table: region proof table を閉じて error を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_region_proof_fail_with_table %impure fn SelfhostMemoCallBackendPrivateCacheRegionProofTable impure fn SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind Result SelfhostMemoCallBackendPrivateCacheRegionProofTable SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \table\error:
