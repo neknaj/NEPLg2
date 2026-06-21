@@ -77368,3 +77368,56 @@ MERGE_APPROVED
 - pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
 - pass: PowerShell形式で `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`。17/17。
 - pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-seed-availability-doctest.json`
+
+## 2026-06-21 selfhost private effect boundary model checkpoint
+
+### 実装
+
+- `SelfhostEffectKind` に `PrivateState` / `PrivateCache` を追加し、`effect.nepl` の equality を stable code helper 経由にした。
+- proof solver では `selfhost_proof_private_effect_allowed` を追加し、`NoEscapeProven` だけ accepted、`NotApplicable` / `MayEscape` は `PrivateEffectEscapeNotProven` へ fail-closed にした。
+- method body effect checker は `InternalAlloc` / `PrivateState` / `PrivateCache` だけ escape state を保持し、observable effect では escape state を `NotApplicable` へ戻すようにした。
+- operation purity gate は `PrivateState` / `PrivateCache` を `InternalAlloc` と同じ no-escape proof required effect として扱う。NoEscapeProven は Pure 相当、MayEscape は Impure、NotApplicable は Unknown にする。
+- Drop no-escape gate は private effect を proof 合成せず pass-through し、Resource no-escape producer / materializer / graph input scanner / traversal collector は enum coverage と error payload equality だけを private effect 対応にした。
+- public function signature hash は existing effect code を維持し、`PrivateState = 332006`、`PrivateCache = 332007` を append-only code として追加した。
+- `memo_trait_public_function_signature` の doctest に残っていた legacy parenthesis call を中間 let に分け、selfhost parser の current syntax でも受理される形へ更新した。
+
+### ドキュメント
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に selfhost private effect boundary model checkpoint を追加した。
+- `issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md` に checkpoint、subagent 指摘、検証、残件を追記した。
+- `todo.md` の private effect 残件を、actual Resource IR proof producer、Resource summary / artifact policy hash、memo_call backend effect masking へ更新した。
+- `nodesrc/test_selfhost_documentation_contract.js` に private effect boundary の required pattern を追加した。ただし同 contract の `declarationNoDoc` baseline は HEAD 時点でも 71 > 57 で、今回差分とは別の既存失敗である。
+
+### subagent review
+
+- Halley review は blocking 指摘あり。`memo_trait_public_function_signature` で既存 stable effect code を移動していたため、schema version 1 のまま既存 public signature hash を silently に変えると指摘された。
+- 指摘を反映し、`UnsafeMemory = 332003`、`ExternalIo = 332004`、`Nondet = 332005` を維持し、`PrivateState` / `PrivateCache` だけを append-only code にした。契約テストも shifted mapping ではなく append-only invariant を固定するように更新した。
+
+### 検証
+
+- pass: `git pull --ff-only`。Already up to date.
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl -i stdlib/neplg2/core/proof/solver/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --dist web/dist -o tmp/private-effects-selfhost-doctests.json`。5/5。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effects.json`。13/13。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl -i stdlib/neplg2/core/proof/solver/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --dist web/dist -o tmp/private-effects-selfhost-doctests-after-trunk.json`。5/5。
+- known pre-existing failure: `node nodesrc/test_selfhost_documentation_contract.js` は `declarationNoDoc: 71 > 57` で失敗する。private effect 追加 requirement は通過しており、残った baseline gap は今回の private effect boundary とは別の既存 documentation debt。
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 5 分で timeout。今回触った source-policy contract は focused contract suite で pass 済み。
+
+### 残件
+
+- actual Resource IR proof producer から `PrivateState` / `PrivateCache` の fresh region / non-escape evidence を発行して selfhost private effect gate へ接続する。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を含める。
+- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / mask 完了と誤認しない上位 orchestration を追加する。
+- sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。

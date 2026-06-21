@@ -8,7 +8,7 @@
 //: - `SelfhostEffectKind`、`SelfhostEffectEscapeState`、`SelfhostEffectContext`、`SelfhostEffectBoundaryError` を match し、文字列や bool flag ではなく enum による静的検査を効かせます。
 //:
 //: [契約/けいやく]:
-//: - `InternalAlloc` は no-escape が証明された場合だけ pure / impure context で許可します。
+//: - `InternalAlloc` / `PrivateState` / `PrivateCache` は no-escape が証明された場合だけ pure / impure context で許可します。
 //: - `UnsafeMemory` は `UnsafeBoundary` の中だけ許可します。safe な pure / impure context へ自動 fold してはいけません。
 //: - `ExternalIo` と `Nondet` は impure context と unsafe boundary では許可し、pure context では `ImpureEffectInPureContext` として拒否します。
 //:
@@ -45,7 +45,7 @@ fn selfhost_proof_effect_allowed_result %fn SelfhostEffectContext SelfhostProofR
 //:
 //: [契約/けいやく]:
 //: - `reason` は `SelfhostEffectBoundaryError` の concrete variant です。失敗理由を message 文字列で表してはいけません。
-//: - 代表的な reason は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary`、`SelfhostEffectBoundaryError::ImpureEffectInPureContext`、`SelfhostEffectBoundaryError::InternalAllocEscapeNotProven` です。
+//: - 代表的な reason は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary`、`SelfhostEffectBoundaryError::ImpureEffectInPureContext`、`SelfhostEffectBoundaryError::InternalAllocEscapeNotProven`、`SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` です。
 //: - `fact.span` は effect を観測した source / Resource IR 側の evidence であり、この solver は source text を再読しません。
 //: - `fact.effect` の `SelfhostEffectKind` と `fact.escape` の `SelfhostEffectEscapeState` は refutation payload に残り、表示用文字列から再構成しません。
 //:
@@ -83,15 +83,42 @@ fn selfhost_proof_internal_alloc_allowed %fn SelfhostEffectObservationFact fn Se
         SelfhostEffectEscapeState::MayEscape:
             selfhost_proof_effect_invalid fact context SelfhostEffectBoundaryError::InternalAllocEscapeNotProven
 
+//: selfhost_proof_private_effect_allowed: private effect の no-escape 条件を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostEffectKind::PrivateState` / `SelfhostEffectKind::PrivateCache` を、指定 context で許可できるか判定します。
+//: - private region が外部観測可能な state/cache boundary へ逃げていないことを、Resource IR 由来の escape fact なしに推測しないための境界です。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostEffectEscapeState::NoEscapeProven` だけを成功にします。
+//: - `SelfhostEffectEscapeState::NotApplicable` と `SelfhostEffectEscapeState::MayEscape` はどちらも `SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` として拒否します。
+//: - この helper は private effect 用です。caller は `fact.effect` の match で `PrivateState` / `PrivateCache` branch から到達させます。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Proven`: private region の no-escape が証明済みで、指定 context の effect boundary を通過できます。
+//: - `Refuted(SelfhostProofRefutation::EffectBoundaryInvalid)`: private region の no-escape が未証明または反証済みです。
+//:
+//: [計算量/けいさんりょう]:
+//: - escape state の match だけなので O(1) です。
+fn selfhost_proof_private_effect_allowed %fn SelfhostEffectObservationFact fn SelfhostEffectContext SelfhostProofResult \fact\context:
+    match fact.escape:
+        SelfhostEffectEscapeState::NoEscapeProven:
+            selfhost_proof_effect_allowed_result context
+        SelfhostEffectEscapeState::NotApplicable:
+            selfhost_proof_effect_invalid fact context SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven
+        SelfhostEffectEscapeState::MayEscape:
+            selfhost_proof_effect_invalid fact context SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven
+
 //: selfhost_proof_solve_effect_pure_context: pure context の effect boundary を[解/と]く
 //:
 //: [目的/もくてき]:
 //: - pure 関数内で観測された effect が、外部観測可能な副作用を持たないことを検査します。
-//: - `SelfhostEffectKind::InternalAlloc` のみ no-escape proof 付きで許可し、I/O、nondeterminism、unsafe memory を typed refutation にします。
+//: - `SelfhostEffectKind::InternalAlloc` / `PrivateState` / `PrivateCache` は no-escape proof 付きでのみ許可し、I/O、nondeterminism、unsafe memory を typed refutation にします。
 //:
 //: [契約/けいやく]:
 //: - `SelfhostEffectKind::Pure` は `SelfhostEffectContext::PureContext` の成功です。
 //: - `SelfhostEffectKind::InternalAlloc` は `selfhost_proof_internal_alloc_allowed` に委譲します。
+//: - `SelfhostEffectKind::PrivateState` / `SelfhostEffectKind::PrivateCache` は `selfhost_proof_private_effect_allowed` に委譲します。
 //: - `SelfhostEffectKind::UnsafeMemory` は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary` で拒否します。
 //: - `SelfhostEffectKind::ExternalIo` と `SelfhostEffectKind::Nondet` は `SelfhostEffectBoundaryError::ImpureEffectInPureContext` で拒否します。
 //:
@@ -107,6 +134,10 @@ fn selfhost_proof_solve_effect_pure_context %fn SelfhostEffectObservationFact Se
             selfhost_proof_effect_allowed_result SelfhostEffectContext::PureContext
         SelfhostEffectKind::InternalAlloc:
             selfhost_proof_internal_alloc_allowed fact SelfhostEffectContext::PureContext
+        SelfhostEffectKind::PrivateState:
+            selfhost_proof_private_effect_allowed fact SelfhostEffectContext::PureContext
+        SelfhostEffectKind::PrivateCache:
+            selfhost_proof_private_effect_allowed fact SelfhostEffectContext::PureContext
         SelfhostEffectKind::UnsafeMemory:
             selfhost_proof_effect_invalid fact SelfhostEffectContext::PureContext SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary
         SelfhostEffectKind::ExternalIo:
@@ -123,6 +154,7 @@ fn selfhost_proof_solve_effect_pure_context %fn SelfhostEffectObservationFact Se
 //: [契約/けいやく]:
 //: - `SelfhostEffectKind::Pure`、`SelfhostEffectKind::ExternalIo`、`SelfhostEffectKind::Nondet` は `SelfhostEffectContext::ImpureContext` の成功です。
 //: - `SelfhostEffectKind::InternalAlloc` は pure context と同じく no-escape proof を要求し、未証明なら `SelfhostEffectBoundaryError::InternalAllocEscapeNotProven` です。
+//: - `SelfhostEffectKind::PrivateState` / `SelfhostEffectKind::PrivateCache` も no-escape proof を要求し、未証明なら `SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` です。
 //: - `SelfhostEffectKind::UnsafeMemory` は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary` で拒否します。
 //:
 //: [戻/もど]り[値/ち]:
@@ -137,6 +169,10 @@ fn selfhost_proof_solve_effect_impure_context %fn SelfhostEffectObservationFact 
             selfhost_proof_effect_allowed_result SelfhostEffectContext::ImpureContext
         SelfhostEffectKind::InternalAlloc:
             selfhost_proof_internal_alloc_allowed fact SelfhostEffectContext::ImpureContext
+        SelfhostEffectKind::PrivateState:
+            selfhost_proof_private_effect_allowed fact SelfhostEffectContext::ImpureContext
+        SelfhostEffectKind::PrivateCache:
+            selfhost_proof_private_effect_allowed fact SelfhostEffectContext::ImpureContext
         SelfhostEffectKind::UnsafeMemory:
             selfhost_proof_effect_invalid fact SelfhostEffectContext::ImpureContext SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary
         SelfhostEffectKind::ExternalIo:
@@ -151,7 +187,7 @@ fn selfhost_proof_solve_effect_impure_context %fn SelfhostEffectObservationFact 
 //: - safe context の solver と異なり、effect kind ごとの拒否を行わず、`SelfhostEffectContext::UnsafeBoundary` で許可された事実だけを proof evidence に残します。
 //:
 //: [契約/けいやく]:
-//: - `SelfhostEffectKind::Pure`、`SelfhostEffectKind::InternalAlloc`、`SelfhostEffectKind::UnsafeMemory`、`SelfhostEffectKind::ExternalIo`、`SelfhostEffectKind::Nondet` はすべて成功です。
+//: - `SelfhostEffectKind::Pure`、`SelfhostEffectKind::InternalAlloc`、`SelfhostEffectKind::PrivateState`、`SelfhostEffectKind::PrivateCache`、`SelfhostEffectKind::UnsafeMemory`、`SelfhostEffectKind::ExternalIo`、`SelfhostEffectKind::Nondet` はすべて成功です。
 //: - `SelfhostProofEvidence::EffectAllowed UnsafeBoundary` は boundary context を示す証拠であり、個別の effect kind は evidence payload には保存されません。
 //: - この helper は unsafe boundary の存在を検証しません。caller が `SelfhostEffectContext::UnsafeBoundary` を選んだ事実が authority です。
 //: - unsafe boundary の導入可否や capability は別の stage が検査します。
@@ -166,6 +202,10 @@ fn selfhost_proof_solve_effect_unsafe_boundary %fn SelfhostEffectObservationFact
         SelfhostEffectKind::Pure:
             selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
         SelfhostEffectKind::InternalAlloc:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+        SelfhostEffectKind::PrivateState:
+            selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
+        SelfhostEffectKind::PrivateCache:
             selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
         SelfhostEffectKind::UnsafeMemory:
             selfhost_proof_effect_allowed_result SelfhostEffectContext::UnsafeBoundary
@@ -183,7 +223,7 @@ fn selfhost_proof_solve_effect_unsafe_boundary %fn SelfhostEffectObservationFact
 //: [契約/けいやく]:
 //: - `SelfhostEffectContext::PureContext`、`SelfhostEffectContext::ImpureContext`、`SelfhostEffectContext::UnsafeBoundary` の各 branch は、それぞれ専用 solver にだけ委譲します。
 //: - この public entry は diagnostic message を作らず、`SelfhostProofResult` の proven/refuted payload をそのまま返します。
-//: - 委譲先で拒否される代表的な理由は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary`、`SelfhostEffectBoundaryError::ImpureEffectInPureContext`、`SelfhostEffectBoundaryError::InternalAllocEscapeNotProven` です。
+//: - 委譲先で拒否される代表的な理由は `SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary`、`SelfhostEffectBoundaryError::ImpureEffectInPureContext`、`SelfhostEffectBoundaryError::InternalAllocEscapeNotProven`、`SelfhostEffectBoundaryError::PrivateEffectEscapeNotProven` です。
 //:
 //: [戻/もど]り[値/ち]:
 //: - `Proven(SelfhostProofEvidence::EffectAllowed context)`: 指定 context で effect が許可されます。

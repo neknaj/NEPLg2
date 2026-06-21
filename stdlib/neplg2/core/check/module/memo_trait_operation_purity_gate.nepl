@@ -144,6 +144,8 @@ pub struct SelfhostMemoTraitOperationPurityGateStage0Summary:
     pure_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
     alloc_no_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
     alloc_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    private_cache_no_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    private_state_unknown_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
     missing_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
     unexpected_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
     no_drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind
@@ -220,12 +222,29 @@ pub fn selfhost_memo_trait_operation_drop_check_new %fn SelfhostMemoTraitOperati
 //:
 //: [契約/けいやく]:
 //: - `InternalAlloc` は `NoEscapeProven` の場合だけ `Pure` です。
+//: - `PrivateState` / `PrivateCache` も `NoEscapeProven` の場合だけ `Pure` です。
 //: - `MayEscape` は実際に外へ出得る fact なので `Impure` とし、`NotApplicable` は no-escape proof がまだ接続されていない `Unknown` として扱います。
 pub fn selfhost_memo_trait_operation_purity_gate_effect_kind %fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationEffectPurityKind \effect\escape:
     match effect:
         SelfhostEffectKind::Pure:
             SelfhostMemoTraitOperationEffectPurityKind::Pure
         SelfhostEffectKind::InternalAlloc:
+            match escape:
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    SelfhostMemoTraitOperationEffectPurityKind::Pure
+                SelfhostEffectEscapeState::MayEscape:
+                    SelfhostMemoTraitOperationEffectPurityKind::Impure
+                SelfhostEffectEscapeState::NotApplicable:
+                    SelfhostMemoTraitOperationEffectPurityKind::Unknown
+        SelfhostEffectKind::PrivateState:
+            match escape:
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    SelfhostMemoTraitOperationEffectPurityKind::Pure
+                SelfhostEffectEscapeState::MayEscape:
+                    SelfhostMemoTraitOperationEffectPurityKind::Impure
+                SelfhostEffectEscapeState::NotApplicable:
+                    SelfhostMemoTraitOperationEffectPurityKind::Unknown
+        SelfhostEffectKind::PrivateCache:
             match escape:
                 SelfhostEffectEscapeState::NoEscapeProven:
                     SelfhostMemoTraitOperationEffectPurityKind::Pure
@@ -558,17 +577,19 @@ pub fn selfhost_memo_trait_operation_drop_evidence_eq %fn SelfhostMemoTraitOpera
                     true
 
 //: selfhost_memo_trait_operation_purity_gate_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_operation_purity_gate_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind SelfhostMemoTraitOperationPurityGateStage0Summary \pure_method\alloc_no_escape_method\alloc_escape_method\missing_method\unexpected_method\no_drop_required\pure_drop\unknown_drop\drop_required\unexpected_drop:
-    SelfhostMemoTraitOperationPurityGateStage0Summary pure_method alloc_no_escape_method alloc_escape_method missing_method unexpected_method no_drop_required pure_drop unknown_drop drop_required unexpected_drop
+fn selfhost_memo_trait_operation_purity_gate_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind SelfhostMemoTraitOperationPurityGateStage0Summary \pure_method\alloc_no_escape_method\alloc_escape_method\private_cache_no_escape_method\private_state_unknown_method\missing_method\unexpected_method\no_drop_required\pure_drop\unknown_drop\drop_required\unexpected_drop:
+    SelfhostMemoTraitOperationPurityGateStage0Summary pure_method alloc_no_escape_method alloc_escape_method private_cache_no_escape_method private_state_unknown_method missing_method unexpected_method no_drop_required pure_drop unknown_drop drop_required unexpected_drop
 
 //: selfhost_memo_trait_operation_purity_gate_stage0: purity gate の smoke API
 //:
 //: [目的/もくてき]:
-//: - pure body、private allocation no-escape body、allocation escape body、missing body、operation mismatch、Drop なし proof、pure Drop、unknown Drop、Drop proof 欠落、unexpected Drop fact を代表的に確認します。
+//: - pure body、private allocation no-escape body、allocation escape body、private cache no-escape body、private state 未証明 body、missing body、operation mismatch、Drop なし proof、pure Drop、unknown Drop、Drop proof 欠落、unexpected Drop fact を代表的に確認します。
 pub fn selfhost_memo_trait_operation_purity_gate_stage0 %fn void SelfhostMemoTraitOperationPurityGateStage0Summary \void:
     let pure_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
     let alloc_no_escape_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven
     let alloc_escape_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape
+    let private_cache_no_escape_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::NoEscapeProven
+    let private_state_unknown_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::PrivateState SelfhostEffectEscapeState::NotApplicable
     let missing_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Missing SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
     let unexpected_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
     let no_drop_check %SelfhostMemoTraitOperationDropCheck selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
@@ -579,6 +600,8 @@ pub fn selfhost_memo_trait_operation_purity_gate_stage0 %fn void SelfhostMemoTra
     let pure_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq pure_method_check
     let alloc_no_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Hash alloc_no_escape_method_check
     let alloc_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq alloc_escape_method_check
+    let private_cache_no_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq private_cache_no_escape_method_check
+    let private_state_unknown_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Hash private_state_unknown_method_check
     let missing_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Hash missing_method_check
     let unexpected_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Copy unexpected_method_check
     let no_drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop no_drop_check
@@ -586,4 +609,4 @@ pub fn selfhost_memo_trait_operation_purity_gate_stage0 %fn void SelfhostMemoTra
     let unknown_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop unknown_drop_check
     let drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop drop_required_check
     let unexpected_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq unexpected_drop_check
-    selfhost_memo_trait_operation_purity_gate_stage0_summary_new pure_method alloc_no_escape_method alloc_escape_method missing_method unexpected_method no_drop_required pure_drop unknown_drop drop_required unexpected_drop
+    selfhost_memo_trait_operation_purity_gate_stage0_summary_new pure_method alloc_no_escape_method alloc_escape_method private_cache_no_escape_method private_state_unknown_method missing_method unexpected_method no_drop_required pure_drop unknown_drop drop_required unexpected_drop

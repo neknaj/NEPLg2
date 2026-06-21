@@ -118,6 +118,16 @@ assert.match(
     "private payload hash helper must use only typed payload fields and preserve normalizer placeholder errors",
 );
 assert.match(
+    functionBlock(source, "selfhost_memo_trait_public_function_signature_effect_code"),
+    /SelfhostEffectKind::Pure:[\s\S]*332001[\s\S]*SelfhostEffectKind::InternalAlloc:[\s\S]*332002[\s\S]*SelfhostEffectKind::PrivateState:[\s\S]*332006[\s\S]*SelfhostEffectKind::PrivateCache:[\s\S]*332007[\s\S]*SelfhostEffectKind::UnsafeMemory:[\s\S]*332003[\s\S]*SelfhostEffectKind::ExternalIo:[\s\S]*332004[\s\S]*SelfhostEffectKind::Nondet:[\s\S]*332005/,
+    "function signature effect hash material must keep existing stable codes unchanged and append private effect codes",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_function_signature_schema_version[\s\S]*既存 effect の stable code[\s\S]*append-only/,
+    "schema contract must document that new effects use append-only codes unless schema version changes",
+);
+assert.match(
     functionBlock(source, "selfhost_memo_trait_public_function_signature_function_type_hash_result"),
     /selfhost_type_arena_function_arg_count[\s\S]*selfhost_type_arena_function_result[\s\S]*selfhost_memo_trait_public_function_signature_function_args_hash_result[\s\S]*selfhost_memo_trait_public_function_signature_type_hash_with_fuel_result[\s\S]*FunctionSignatureTypeNotFunction/,
     "function type hash must reject non-functions and recursively include argument and result type hashes",

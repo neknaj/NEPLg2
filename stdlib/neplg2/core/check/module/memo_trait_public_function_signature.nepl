@@ -50,10 +50,13 @@
 //:             let checks1 checks_push checks0 check is_ok summary.zero_arg_function
 //:             let checks2 checks_push checks1 check is_ok summary.unit_arg_function
 //:             let checks3 checks_push checks2 check summary.zero_and_unit_arg_differ
-//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_function_signature_error_kind_eq (unwrap_err summary.private_rejected) SelfhostMemoTraitPublicFunctionSignatureErrorKind::PrivateVisibilityRejected
-//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_function_signature_error_kind_eq (unwrap_err summary.key_missing_rejected) SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyMissing
+//:             let private_error %SelfhostMemoTraitPublicFunctionSignatureErrorKind unwrap_err summary.private_rejected
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_function_signature_error_kind_eq private_error SelfhostMemoTraitPublicFunctionSignatureErrorKind::PrivateVisibilityRejected
+//:             let missing_key_error %SelfhostMemoTraitPublicFunctionSignatureErrorKind unwrap_err summary.key_missing_rejected
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_function_signature_error_kind_eq missing_key_error SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyMissing
 //:             let expected_type %SelfhostMemoTraitPublicFunctionSignatureErrorKind SelfhostMemoTraitPublicFunctionSignatureErrorKind::TypeHashRejected SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::FunctionSignatureTypeNotFunction
-//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_function_signature_error_kind_eq (unwrap_err summary.non_function_rejected) expected_type
+//:             let non_function_error %SelfhostMemoTraitPublicFunctionSignatureErrorKind unwrap_err summary.non_function_rejected
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_function_signature_error_kind_eq non_function_error expected_type
 //:             let shown checks_print_report checks6
 //:             checks_exit_code shown
 //:         Result::Err _e:
@@ -192,6 +195,7 @@ pub fn selfhost_memo_trait_public_function_signature_input_new %fn SelfhostModul
 //:
 //: [契約/けいやく]:
 //: - effect folding、type node code、function argument fold、parameter binding fold、nominal key fold のどれかを変える場合はこの version を更新します。
+//: - 既存 effect の stable code は schema version を変えずに移動してはなりません。新しい effect は append-only の code を使います。
 fn selfhost_memo_trait_public_function_signature_schema_version %fn void i32 \void:
     1
 
@@ -296,6 +300,10 @@ fn selfhost_memo_trait_public_function_signature_effect_code %fn SelfhostEffectK
             332001
         SelfhostEffectKind::InternalAlloc:
             332002
+        SelfhostEffectKind::PrivateState:
+            332006
+        SelfhostEffectKind::PrivateCache:
+            332007
         SelfhostEffectKind::UnsafeMemory:
             332003
         SelfhostEffectKind::ExternalIo:

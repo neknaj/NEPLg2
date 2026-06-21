@@ -2798,6 +2798,44 @@ subagent review:
 - producer-owned actual traversal bundle を request-evidence bridge へ接続し、stage0 seed fixture ではなく real traversal output から accepted source と witness を供給する境界。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、stable artifact key projection。
 
+## 2026-06-21 selfhost private effect boundary model checkpoint
+
+`SelfhostEffectKind` に `PrivateState` と `PrivateCache` を追加し、selfhost proof solver / method body effect summary / operation purity gate が private effect を `InternalAlloc` と同じ「no-escape proof が必要な内部効果」として扱う boundary を固定した。
+
+この checkpoint は actual mask proof ではない。`PrivateState` / `PrivateCache` は Resource IR 側の `NoEscapeProven` evidence がある場合だけ public operation evidence では Pure 相当へ畳める。`NotApplicable` や `MayEscape` は `PrivateEffectEscapeNotProven` で fail-closed にし、pure / impure context の solver でも missing proof を `ImpureEffectInPureContext` に混ぜない。`UnsafeBoundary` だけは effect kind を問わず accepted にし、通常の Pure / Impure 判定と unsafe 境界を分離する。
+
+method body effect checker は `InternalAlloc`、`PrivateState`、`PrivateCache` だけについて escape state を保持する。`UnsafeMemory`、`ExternalIo`、`Nondet` は観測可能効果として summary rank では優先するが、no-escape fact へ渡す escape state は `NotApplicable` に戻す。Drop no-escape gate は `PrivateState` / `PrivateCache` を `InternalAlloc` proof として合成せず、private effect fact をそのまま purity gate へ戻す。
+
+Resource graph input scanner、Resource traversal collector、Resource no-escape producer/materializer は enum coverage と typed error payload だけを private effect 対応にした。`InternalAlloc + NotApplicable` だけを actual no-escape proof production の対象にする既存制約は維持し、`PrivateCacheMask` / `PrivateStateMask`、`SelfhostPrivateCache` / `SelfhostPrivateState`、proof artifact synthesis は作らない。
+
+public function signature hash では既存 effect の stable code を移動しない。`UnsafeMemory = 332003`、`ExternalIo = 332004`、`Nondet = 332005` を維持し、`PrivateState = 332006`、`PrivateCache = 332007` を append-only code として追加した。schema version を変えずに既存 code を移動すると既存 public signature hash を silently に変えるため、contract に append-only rule を追加した。
+
+subagent review:
+
+- Halley review は `CHANGES_REQUESTED`。`memo_trait_public_function_signature` で既存 effect stable code をずらしていたため、schema version 1 のまま既存 public signature hash を silently に変える blocker として指摘された。
+- 指摘を受け、`UnsafeMemory` / `ExternalIo` / `Nondet` の code を既存値へ戻し、`PrivateState` / `PrivateCache` だけを append-only code にした。contract も shifted mapping ではなく append-only invariant を固定するように更新した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl -i stdlib/neplg2/core/proof/solver/effect.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --dist web/dist -o tmp/private-effects-selfhost-doctests.json`。5/5。
+
+残件:
+
+- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape evidence を発行し、selfhost private effect gate へ渡す。
+- Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を入れる。
+- memo_call backend の request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache hit / miss / size / clear / raw identity observation ban を接続する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
