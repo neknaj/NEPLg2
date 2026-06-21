@@ -2822,6 +2822,49 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/core/gui
 git diff --check
 ```
 
+## Phase F5kw: sfnt simple glyph render stroke source contour authority boundary
+
+目的:
+
+- completed F5ku metric owner と F5av/F5aw path command value authority を照合し、stroke geometry が使う source contour provenance owner を追加する。
+- F5ku metric owner だけでは失われる path command index、contour/edge index、MoveTo / SkipNoSegment count、contour span start/end/count を explicit value として保持する。
+- F5ba/F5az scalar stream や座標一致から contour adjacency を復元せず、offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+
+plan review:
+
+- Boole plan review は `PLAN_CHANGES_REQUESTED`。
+- 指摘に従い、F5ku metric owner だけを actual stroke offset geometry の source authority にせず、F5kw で path command value stream と contour span authority を再照合する。
+- `SkipNoSegment` は drawable metric を持たないため、provenance slot ではなく count として扱う。
+- contour boundary / wrap / skipped terminal edge は coordinate equality で推測せず、collection contour span の start/end/count を provenance に保存する。
+- F5ku metric owner と同じ count を持つ別 source を誤って受け入れないよう、collection-backed curve segment を読み直し、line start/end と quadratic start/control/end の metric coordinate guard を追加する。
+- scope は source contour provenance owner / drain / error / free / source policy / docs / focused labels に限定する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance` を追加し、metric/path command/edge/contour/contour-local/span/event/tag provenance を保持する。
+- `GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeSourceContourOwner` を追加する。
+- start error kind、drain error kind、owner-bearing error、drain terminal を追加し、metric owner invariant、path command cursor、contour span、source curve segment read/kind/coordinate mismatch、metric/tag mismatch、push failure、completion mismatch を typed error に分ける。
+- start / step / push / free helper を追加する。step は MoveTo / SkipNoSegment を count だけ進め、LineTo / QuadraticTo は F5ku metric、path command value、collection-backed curve segment 座標を照合して provenance Vec へ push する。
+- docs/source policy は path command value authority、contour span guard、source metric coordinate guard、exact Vec capacity、skipped command count、no scalar reread / no geometry / no render / no platform を検査する。
+
+完了条件:
+
+- source policy が F5kw docs、Boole review result、path command tag complete owner、F5ku metric owner、source metric provenance fields、contour span guard、source metric coordinate guard、MoveTo / SkipNoSegment count、line/quadratic metric/tag matching、exact-capacity Vec、free helpers、no scalar/geometry/render/platform/fallback 接続を検査する。
+- focused doctest label が source contour authority、metric provenance、command stream value authority、source metric coordinate guard、contour span guard、skipped command counts、completion counts、no scalar/geometry/mask/command/platform policy を固定する。
+- implementation review で F5kw が source contour provenance owner に留まり、actual offset geometry、stroke edge、coverage、render command、platform API へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke source contour authority boundary 接続済み、後続の actual stroke offset geometry expansion / stroke edge owner / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_contour_authority.n.md --no-tree -o tmp_gui_font_render_stroke_source_contour_authority_f5kw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kw.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
