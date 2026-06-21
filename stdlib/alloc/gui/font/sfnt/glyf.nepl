@@ -18654,6 +18654,9 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowSourceEdgeContext:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeContext GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \context:
         context
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_context: shadow source edge context を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_context %fn GuiPoint fn Option GuiPaint fn Option GuiStroke fn GuiShadow fn GuiBlendMode fn GuiSfntSimpleGlyphRasterCoverageShape fn Option GuiPaint fn Option GuiStroke fn GuiPoint fn GuiPoint fn i32 fn i32 fn i32 fn GuiPaint fn GuiBlendMode GuiSfntSimpleGlyphRenderShadowSourceEdgeContext \request_origin\request_fill\request_stroke\request_shadow\request_blend\source_shape\source_fill\source_stroke\source_placement_origin\shadow_offset\shadow_blur_radius\shadow_spread\shadow_extent\shadow_paint\blend:
     GuiSfntSimpleGlyphRenderShadowSourceEdgeContext request_origin request_fill request_stroke request_shadow request_blend source_shape source_fill source_stroke source_placement_origin shadow_offset shadow_blur_radius shadow_spread shadow_extent shadow_paint blend
 
@@ -18677,30 +18680,57 @@ struct GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner:
     current_x2 %i32
     current_y2 %i32
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner: shadow source edge drain owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeContext fn Vec GuiSfntSimpleGlyphRasterEdge fn i32 fn i32 fn i32 fn i32 fn i32 fn bool fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner \writer\context\edges\scalar_index\edge_count\line_edge_count\quadratic_edge_count\move_to_count\has_current_point\current_x2\current_y2:
     GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner writer context edges scalar_index edge_count line_edge_count quadratic_edge_count move_to_count has_current_point current_x2 current_y2
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index: drain owner の scalar index を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "scalar_index"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count: drain owner の edge count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "edge_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count: drain owner の line edge count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_line_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "line_edge_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count: drain owner の quadratic edge count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_quadratic_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "quadratic_edge_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count: drain owner の move-to count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_move_to_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "move_to_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point: drain owner が current point を[持/も]つか[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner bool \owner:
     *field::get_ref owner "has_current_point"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2: drain owner の current x2 を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_x2 %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "current_x2"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2: drain owner の current y2 を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_current_y2 %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner i32 \owner:
     *field::get_ref owner "current_y2"
 
@@ -18721,16 +18751,28 @@ struct GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner:
     quadratic_edge_count %i32
     move_to_count %i32
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_owner: completed shadow source edge owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeContext fn Vec GuiSfntSimpleGlyphRasterEdge fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner \writer\context\edges\scalar_count\edge_count\line_edge_count\quadratic_edge_count\move_to_count:
     GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner writer context edges scalar_count edge_count line_edge_count quadratic_edge_count move_to_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edge_count: completed edge owner の edge count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edge_count %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner i32 \owner:
     *field::get_ref owner "edge_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_len: completed edge owner の edge Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_len %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner i32 \owner:
     let edges %&Vec GuiSfntSimpleGlyphRasterEdge field::get_ref owner "edges"
     vec::len edges
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_cap: completed edge owner の edge Vec capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_edges_cap %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner i32 \owner:
     let edges %&Vec GuiSfntSimpleGlyphRasterEdge field::get_ref owner "edges"
     vec::cap edges
@@ -18826,39 +18868,63 @@ struct GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError:
     derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
     storage_error %Option StdErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error: start error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \kind\source_owner\capacity_error\derived_capacity\storage_error:
     GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError kind source_owner capacity_error derived_capacity storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_simple: owner だけを[持/も]つ start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \kind\source_owner:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_edge_start_error kind source_owner capacity_error derived_capacity storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_kind: start error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_source_owner: start error から source owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_source_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner \error:
     field::get error "source_owner"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_capacity_failed: capacity plan failure を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_capacity_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner\capacity_error_value:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_edge_start_error GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::OwnerPlanRejected source_owner capacity_error derived_capacity storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity: derived capacity を[保持/ほじ]する start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \kind\source_owner\derived_capacity_value:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_edge_start_error kind source_owner capacity_error derived_capacity storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_storage_failed: edge storage allocation failure を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner\derived_capacity_value\storage_error_value:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
     let storage_error %Option StdErrorKind some storage_error_value
     gui_sfnt_simple_glyph_render_shadow_source_edge_start_error GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgeStorageAllocFailed source_owner capacity_error derived_capacity storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority: writer authority error を shadow source edge error に[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected:
@@ -18888,6 +18954,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_author
         GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLastPathCommandIndexMismatch:
             GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::InnerLastPathCommandIndexMismatch
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_from_writer_authority: writer authority error と source owner を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_from_writer_authority %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner\writer_error:
     let writer_error_kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error
     let kind %GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind gui_sfnt_simple_glyph_render_shadow_source_edge_error_kind_from_writer_authority writer_error_kind
@@ -18896,6 +18965,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_from_writer_autho
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_edge_start_error kind source_owner capacity_error derived_capacity storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add: 非負 count 同士を overflow 検査付きで[足/た]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \left\right\overflow_kind:
     let max_i32 %i32 2147483647
     if or lt left 0 lt right 0:
@@ -18906,6 +18978,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_count_checked_add %fn i32 fn 
                 then Result::Err overflow_kind
                 else Result::Ok add left right
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32: i32 加算を i64 roundtrip で overflow 検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \left\right\overflow_kind:
     let sum %i64 add %i64 cast left %i64 cast right
     let narrowed %i32 cast sum
@@ -18914,6 +18989,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 %fn i32 fn i3
         then Result::Err overflow_kind
         else Result::Ok narrowed
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_checked_mul_i32: i32 乗算を i64 roundtrip で overflow 検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_mul_i32 %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \left\right\overflow_kind:
     let product %i64 mul %i64 cast left %i64 cast right
     let narrowed %i32 cast product
@@ -18922,11 +19000,17 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_mul_i32 %fn i32 fn i3
         then Result::Err overflow_kind
         else Result::Ok narrowed
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal: GuiPoint の x/y が[等/ひと]しいか[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal %fn GuiPoint fn GuiPoint bool \left\right:
     let x_matches %bool eq gui_point_x &left gui_point_x &right
     let y_matches %bool eq gui_point_y &left gui_point_y &right
     and x_matches y_matches
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal: RGBA8888 の各 component を[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
     let left_r %i32 cast rgba8888_r &left
     let left_g %i32 cast rgba8888_g &left
@@ -18938,11 +19022,17 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal %fn Rgba8888 fn Rg
     let right_a %i32 cast rgba8888_a &right
     and and eq left_r right_r eq left_g right_g and eq left_b right_b eq left_a right_a
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal: paint color が[等/ひと]しいか[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal %fn GuiPaint fn GuiPaint bool \left\right:
     let left_color %Rgba8888 gui_paint_color &left
     let right_color %Rgba8888 gui_paint_color &right
     gui_sfnt_simple_glyph_render_shadow_source_edge_rgba_equal left_color right_color
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_cap_equal: stroke cap variant が[等/ひと]しいか[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_cap_equal %fn GuiStrokeCap fn GuiStrokeCap bool \left\right:
     match left:
         GuiStrokeCap::Butt:
@@ -18964,6 +19054,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_cap_equal %fn GuiStrokeCap fn
                 _:
                     false
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_join_equal: stroke join variant が[等/ひと]しいか[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_join_equal %fn GuiStrokeJoin fn GuiStrokeJoin bool \left\right:
     match left:
         GuiStrokeJoin::Miter:
@@ -18985,6 +19078,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_join_equal %fn GuiStrokeJoin 
                 _:
                     false
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_dash_equal: stroke dash variant が[等/ひと]しいか[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_dash_equal %fn GuiStrokeDash fn GuiStrokeDash bool \left\right:
     match left:
         GuiStrokeDash::Solid:
@@ -18992,6 +19088,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_dash_equal %fn GuiStrokeDash 
                 GuiStrokeDash::Solid:
                     true
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_stroke_equal: stroke の paint / width / cap / join / dash を[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_stroke_equal %fn GuiStroke fn GuiStroke bool \left\right:
     let left_color %Rgba8888 gui_stroke_color &left
     let right_color %Rgba8888 gui_stroke_color &right
@@ -19007,8 +19106,14 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_stroke_equal %fn GuiStroke fn
     let left_dash %GuiStrokeDash gui_stroke_dash &left
     let right_dash %GuiStrokeDash gui_stroke_dash &right
     let dash_ok %bool gui_sfnt_simple_glyph_render_shadow_source_edge_dash_equal left_dash right_dash
-    and and color_ok width_ok and cap_ok join_ok and miter_ok dash_ok
+    let paint_ok %bool and color_ok width_ok
+    let shape_ok %bool and cap_ok join_ok
+    let tail_ok %bool and miter_ok dash_ok
+    and paint_ok and shape_ok tail_ok
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_option_paint_equal: optional paint を none/some と color で[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_option_paint_equal %fn Option GuiPaint fn Option GuiPaint bool \left\right:
     match left:
         Option::None:
@@ -19020,6 +19125,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_option_paint_equal %fn Option
                 Option::Some right_paint:
                     gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal left_paint right_paint
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_option_stroke_equal: optional stroke を none/some と stroke 内容で[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_option_stroke_equal %fn Option GuiStroke fn Option GuiStroke bool \left\right:
     match left:
         Option::None:
@@ -19031,6 +19139,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_option_stroke_equal %fn Optio
                 Option::Some right_stroke:
                     gui_sfnt_simple_glyph_render_shadow_source_edge_stroke_equal left_stroke right_stroke
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal: blend mode variant が[等/ひと]しいか[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal %fn GuiBlendMode fn GuiBlendMode bool \left\right:
     match left:
         GuiBlendMode::SourceOver:
@@ -19058,6 +19169,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal %fn GuiBlendMode 
                 _:
                     false
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported: shadow source edge boundary で[扱/あつか]える blend mode か[調/しら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported %fn GuiBlendMode bool \blend:
     match blend:
         GuiBlendMode::SourceOver:
@@ -19069,9 +19183,15 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported %fn GuiBle
         GuiBlendMode::Screen:
             false
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_source_has_paint: source fill/stroke のどちらかが[存在/そんざい]するか[調/しら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_source_has_paint %fn Option GuiPaint fn Option GuiStroke bool \fill\stroke:
     not and is_none fill is_none stroke
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_source_stroke_is_valid: optional stroke の width が boundary 上[有効/ゆうこう]か[調/しら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_source_stroke_is_valid %fn Option GuiStroke bool \stroke_option:
     match stroke_option:
         Option::None:
@@ -19079,6 +19199,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_source_stroke_is_valid %fn Op
         Option::Some stroke:
             gt gui_stroke_width &stroke 0
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_checked_placement_origin: request origin と shadow offset を overflow 検査付きで[足/た]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_placement_origin %fn &GuiPoint fn &GuiPoint Result GuiPoint GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \origin\offset:
     let origin_x %i32 gui_point_x origin
     let origin_y %i32 gui_point_y origin
@@ -19094,9 +19217,15 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_placement_origin %fn 
                 Result::Ok y:
                     Result::Ok gui_point_new x y
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_checked_extent: spread と blur radius から shadow extent を overflow 検査付きで[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_checked_extent %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \spread\blur_radius:
     gui_sfnt_simple_glyph_render_shadow_source_edge_checked_add_i32 spread blur_radius GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShadowExtentOverflow
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_shape_invariants: coverage shape の寸法と count derived value を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_shape_invariants %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \shape:
     let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
     if le width_px 0:
@@ -19127,6 +19256,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_shape_invariants %fn &GuiSfnt
                                                         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ShapeCellCountMismatch
                                                         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants: request/source/shadow metadata の整合性を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeContext Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \context:
     let request_fill %Option GuiPaint *field::get_ref context "request_fill"
     let source_fill %Option GuiPaint *field::get_ref context "source_fill"
@@ -19193,6 +19325,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants %fn &GuiSf
                                                                                                                     let source_shape %GuiSfntSimpleGlyphRasterCoverageShape *field::get_ref context "source_shape"
                                                                                                                     gui_sfnt_simple_glyph_render_shadow_source_edge_shape_invariants &source_shape
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_context_from_source_owner: source coverage owner から edge context を[導出/どうしゅつ]して[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_context_from_source_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeContext GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \source_owner:
     let request_owner %&GuiSfntSimpleGlyphRenderShadowRequestOwner field::get_ref source_owner "request_owner"
     let request_origin %GuiPoint gui_sfnt_simple_glyph_render_shadow_request_owner_origin request_owner
@@ -19217,6 +19352,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_context_from_source_owner %fn
         Result::Ok _:
             Result::Ok context
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_owner_start: source coverage owner から shadow source edge drain owner を[開始/かいし]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError \source_owner:
     match gui_sfnt_simple_glyph_render_shadow_source_edge_context_from_source_owner &source_owner:
         Result::Err error_kind:
@@ -19244,10 +19382,10 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_start %impure fn GuiSfn
                                     if ne expected_edge_capacity raster_edge_capacity:
                                         then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_with_capacity GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::RasterEdgeCapacityMismatch source_owner derived_capacity
                                         else:
-                                            match vec::with_capacity raster_edge_capacity:
+                                            let edges_result %Result Vec GuiSfntSimpleGlyphRasterEdge StdErrorKind vec::with_capacity raster_edge_capacity
+                                            match edges_result:
                                                 Result::Err storage_error:
-                                                    let storage_error_kind %StdErrorKind vec::vec_alloc_error_kind &storage_error
-                                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_storage_failed source_owner derived_capacity storage_error_kind
+                                                    Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_storage_failed source_owner derived_capacity storage_error
                                                 Result::Ok edges:
                                                     let edges_len %i32 vec::len &edges
                                                     if ne edges_len 0:
@@ -19276,43 +19414,70 @@ struct GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError:
     tag %Option i32
     storage_error %Option StdErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error: drain failure recovery payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 fn Option i32 fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \kind\owner\scalar_index\tag\storage_error:
     GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError kind owner scalar_index tag storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_kind: drain error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_owner: drain error から drain owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner \error:
     field::get error "owner"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple: 現在 scalar index を[使/つか]う drain error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \kind\owner:
     let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
     let tag %Option i32 none
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error kind owner scalar_index tag storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_with_tag: 問題の path command tag を[持/も]つ drain error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_with_tag %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \kind\owner\tag_value:
     let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
     let tag %Option i32 some tag_value
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error kind owner scalar_index tag storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_push_failed: edge Vec push failure を drain error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\storage_error_value:
     let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
     let tag %Option i32 none
     let storage_error %Option StdErrorKind some storage_error_value
     gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::EdgePushFailed owner scalar_index tag storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner: drain owner の writer から path sink plan を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_plan_from_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan \owner:
     let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
     let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner: drain owner の writer から stored capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \owner:
     let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref owner "writer"
     let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants: drain owner の authority / count / storage invariant を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner:
     let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext *field::get_ref owner "context"
     match gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants &context:
@@ -19392,6 +19557,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants %fn &G
                                                                                                                                                 then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageCapacityMismatch
                                                                                                                                                 else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room: scalar stream に record 幅ぶんの余地があるか[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner\record_width\truncated_kind:
     let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner owner
     let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
@@ -19401,6 +19569,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room %
         then Result::Err truncated_kind
         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar: drain owner の path sink scalar を bounds 検査付きで[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner fn i32 Result i32 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner\index:
     let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner owner
     let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
@@ -19427,7 +19598,11 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_read_scalar %fn &
                                         Option::None:
                                             Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::ScalarSlotMissing
 
-fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner impure fn GuiSfntSimpleGlyphRasterEdge impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn bool impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\edge\next_scalar_index\next_edge_count\next_line_edge_count\next_quadratic_edge_count\next_move_to_count\nnext_has_current_point\nnext_current_x2\nnext_current_y2:
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance: edge を push して drain progress を[進/すす]める
+//:
+//: neplg2:test[skip]
+
+fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_push_edge_advance %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner impure fn GuiSfntSimpleGlyphRasterEdge impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn bool impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\edge\next_scalar_index\next_edge_count\next_line_edge_count\next_quadratic_edge_count\next_move_to_count\next_has_current_point\next_current_x2\next_current_y2:
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
     let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get owner "context"
     let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
@@ -19457,6 +19632,9 @@ enum GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep:
     PushedLineEdge %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
     PushedQuadraticEdge %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_move_to: MoveTo record を[読/よ]み current point だけを[更新/こうしん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_move_to %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
     match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_record_has_room &owner 3 GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::MoveRecordTruncated:
         Result::Err error_kind:
@@ -19488,6 +19666,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_move_to %imp
                                     let next_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner writer context edges add scalar_index 3 edge_count line_edge_count quadratic_edge_count add move_to_count 1 true x2 y2
                                     Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::StateUpdated next_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_line_to: LineTo record を raster line edge に[変換/へんかん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_line_to %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
     if not gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner:
         then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CurrentPointMissing owner
@@ -19531,6 +19712,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_line_to %imp
                                                         Result::Ok next_owner:
                                                             Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::PushedLineEdge next_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_quadratic_to: QuadraticTo record を raster quadratic edge に[変換/へんかん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_quadratic_to %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
     if not gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_has_current_point &owner:
         then Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_simple GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CurrentPointMissing owner
@@ -19584,6 +19768,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step_quadratic_to
                                                                         Result::Ok next_owner:
                                                                             Result::Ok GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep::PushedQuadraticEdge next_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step: 次の path sink tag を[読/よ]み 1 record だけ drain する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainStep GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
     match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants &owner:
         Result::Err error_kind:
@@ -19608,6 +19795,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_step %impure fn G
                                 GuiSfntSimpleGlyphPathCommandTag::SkipNoSegment:
                                     Result::Err gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_with_tag GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::UnexpectedSkipNoSegmentTag owner tag_scalar
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_completion_invariants: drain 完了時の scalar / edge count 一致を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_completion_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner:
     match gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_invariants owner:
         Result::Err error_kind:
@@ -19650,6 +19840,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_completion_invariants %fn &Gu
                                                                 then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageCapacityMismatch
                                                                 else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_complete: 完了済み drain owner を completed edge owner に[変換/へんかん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_complete %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner Result GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner:
     match gui_sfnt_simple_glyph_render_shadow_source_edge_completion_invariants &owner:
         Result::Err error_kind:
@@ -19672,6 +19865,9 @@ enum GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal:
     Completed %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
     StepBudgetExhausted %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget: step budget 内で shadow source edge drain を[進/すす]める
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError \owner\remaining_steps:
     let scalar_index %i32 gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_scalar_index &owner
     let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_shadow_source_edge_capacity_from_owner &owner
@@ -19731,26 +19927,41 @@ fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget %imp
                                             let next_remaining_steps %i32 sub remaining_steps 1
                                             gui_sfnt_simple_glyph_render_shadow_source_edge_drain_to_complete_budget next_owner next_remaining_steps
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free: drain owner の writer と edge storage を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner unit \owner:
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
     let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
     vec::free edges
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free: completed edge owner の writer と edge storage を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner unit \owner:
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
     let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
     vec::free edges
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_free: start error が[保持/ほじ]する source owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeStartError unit \error:
     let source_owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageOwner field::get error "source_owner"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_owner_free source_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_free: drain error が[保持/ほじ]する drain owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainError unit \error:
     let owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainOwner field::get error "owner"
     gui_sfnt_simple_glyph_render_shadow_source_edge_drain_owner_free owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_edge_drain_terminal_free: bounded drain terminal の owner を variant ごとに[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_edge_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal unit \terminal:
     match terminal:
         GuiSfntSimpleGlyphRenderShadowSourceEdgeDrainTerminal::Completed owner:
@@ -19772,19 +19983,34 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner:
     cells %Vec i32
     written_cell_count %i32
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner: shadow source coverage mask writer owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \edge_owner\source_shape\cells\written_cell_count:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner edge_owner source_shape cells written_cell_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count: writer owner の written cell count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_written_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner i32 \owner:
     *field::get_ref owner "written_cell_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape: writer owner の source shape を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_source_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
     *field::get_ref owner "source_shape"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_len: writer owner の coverage cell Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_len %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner i32 \owner:
     let cells %&Vec i32 field::get_ref owner "cells"
     vec::len cells
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_cap: writer owner の coverage cell Vec capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_cells_cap %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner i32 \owner:
     let cells %&Vec i32 field::get_ref owner "cells"
     vec::cap cells
@@ -19802,19 +20028,34 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner:
     cells %Vec i32
     cell_count %i32
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner: completed shadow source coverage mask owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner \edge_owner\source_shape\cells\cell_count:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner edge_owner source_shape cells cell_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_source_shape: completed coverage mask owner の source shape を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_source_shape %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
     *field::get_ref owner "source_shape"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cell_count: completed coverage mask owner の cell count を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner i32 \owner:
     *field::get_ref owner "cell_count"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cells_len: completed coverage mask owner の cell Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cells_len %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner i32 \owner:
     let cells %&Vec i32 field::get_ref owner "cells"
     vec::len cells
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cells_cap: completed coverage mask owner の cell Vec capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_cells_cap %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner i32 \owner:
     let cells %&Vec i32 field::get_ref owner "cells"
     vec::cap cells
@@ -19854,36 +20095,60 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError:
     edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind
     storage_error %Option StdErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error: coverage mask start error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn Option GuiSfntSimpleGlyphRasterCoverageShape fn Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \kind\edge_owner\source_shape\edge_error\storage_error:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError kind edge_owner source_shape edge_error storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_failed: edge owner invariant failure を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_failed %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \edge_owner\edge_error_value:
     let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape none
     let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind some edge_error_value
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::EdgeOwnerInvariantFailed edge_owner source_shape edge_error storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_failed: coverage cell storage allocation failure を start error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \edge_owner\source_shape_value\storage_error_value:
     let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape some source_shape_value
     let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind none
     let storage_error %Option StdErrorKind some storage_error_value
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageAllocFailed edge_owner source_shape edge_error storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_shape: source shape を[保持/ほじ]する start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_shape %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \kind\edge_owner\source_shape_value:
     let source_shape %Option GuiSfntSimpleGlyphRasterCoverageShape some source_shape_value
     let edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind none
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error kind edge_owner source_shape edge_error storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_kind: start error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_error: start error の edge error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \error:
     *field::get_ref error "edge_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_error: start error の storage error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError Option StdErrorKind \error:
     *field::get_ref error "storage_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_owner: start error から edge owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_edge_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner \error:
     field::get error "edge_owner"
 
@@ -19896,23 +20161,41 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError:
     kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
     storage_error %Option StdErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error: coverage cell push error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value\kind\storage_error:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError owner coverage_value kind storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple: storage error なしの push error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value\kind:
     let storage_error %Option StdErrorKind none
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error owner coverage_value kind storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_failed: cell storage push failure を push error に[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_failed %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 fn StdErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value\storage_error_value:
     let storage_error %Option StdErrorKind some storage_error_value
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error owner coverage_value GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStoragePushFailed storage_error
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_kind: push error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_error: push error の storage error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_error %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError Option StdErrorKind \error:
     *field::get_ref error "storage_error"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_owner: push error から writer owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \error:
     field::get error "owner"
 
@@ -19923,12 +20206,21 @@ struct GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError:
     owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
     kind %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error: coverage mask completion error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError \owner\kind:
     GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError owner kind
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_kind: completion error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_kind %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_owner: completion error から writer owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_owner %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner \error:
     field::get error "owner"
 
@@ -19939,10 +20231,16 @@ enum GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal:
     CoverageMaskCompleted %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner
     CoverageMaskIncomplete %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner: F5lk edge owner context から source shape を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner GuiSfntSimpleGlyphRasterCoverageShape \edge_owner:
     let context %&GuiSfntSimpleGlyphRenderShadowSourceEdgeContext field::get_ref edge_owner "context"
     *field::get_ref context "source_shape"
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal: coverage shape の derived fields を[比/くら]べる
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal %fn GuiSfntSimpleGlyphRasterCoverageShape fn GuiSfntSimpleGlyphRasterCoverageShape bool \left\right:
     let left_origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 &left
     let right_origin_x2 %i32 gui_sfnt_simple_glyph_raster_coverage_shape_origin_x2 &right
@@ -19960,6 +20258,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_shape_equal %fn GuiS
     let right_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &right
     and and eq left_origin_x2 right_origin_x2 eq left_origin_y2 right_origin_y2 and eq left_width_px right_width_px and eq left_height_px right_height_px and eq left_sample_scale right_sample_scale and eq left_coverage_max right_coverage_max eq left_cell_count right_cell_count
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants: F5lk edge owner を coverage mask writer の入口で再検査する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind \owner:
     let context %GuiSfntSimpleGlyphRenderShadowSourceEdgeContext *field::get_ref owner "context"
     match gui_sfnt_simple_glyph_render_shadow_source_edge_context_invariants &context:
@@ -20006,6 +20307,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariant
                                                                         then Result::Err GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind::CompletionStorageCapacityMismatch
                                                                         else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants: writer owner の shape / progress / storage invariant を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants %fn &GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner Result unit GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind \owner:
     let edge_owner %&GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get_ref owner "edge_owner"
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner:
@@ -20034,6 +20338,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invaria
                                                 then Result::Err GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskErrorKind::CellStorageCapacityMismatch
                                                 else Result::Ok unit
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_start: edge owner から coverage mask writer owner を[開始/かいし]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_start %impure fn GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError \edge_owner:
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants &edge_owner:
         Result::Err edge_error:
@@ -20041,7 +20348,8 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_start %
         Result::Ok _:
             let source_shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_source_shape_from_edge_owner &edge_owner
             let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &source_shape
-            match vec::with_capacity cell_count:
+            let cells_result %Result Vec i32 StdErrorKind vec::with_capacity cell_count
+            match cells_result:
                 Result::Err storage_error:
                     Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_storage_failed edge_owner source_shape storage_error
                 Result::Ok cells:
@@ -20060,7 +20368,10 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_start %
                                     let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape cells 0
                                     Result::Ok owner
 
-fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_cell %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value:
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_cell: 1 coverage cell を範囲検査付きで[追加/ついか]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_cell %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner impure fn i32 Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError \owner\coverage_value:
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants &owner:
         Result::Err error_kind:
             Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_simple owner coverage_value error_kind
@@ -20092,6 +20403,9 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_push_ce
                                             let returned_owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner edge_owner source_shape_value returned_cells written_cell_count
                                             Result::Err gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_storage_failed returned_owner coverage_value storage_error_value
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_complete: coverage mask writer を完了 terminal へ[変換/へんかん]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_complete %fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner Result GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError \owner:
     match gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_invariants &owner:
         Result::Err error_kind:
@@ -20109,30 +20423,48 @@ fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_complet
                     Result::Ok GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskCompleted completed
                 else Result::Ok GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskIncomplete owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free: writer owner の edge owner と cell storage を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner unit \owner:
     let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
     let cells %Vec i32 field::get owner "cells"
     vec::free cells
     gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_free: completed coverage mask owner の edge owner と cell storage を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner unit \owner:
     let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get owner "edge_owner"
     let cells %Vec i32 field::get owner "cells"
     vec::free cells
     gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_free: start error が[保持/ほじ]する edge owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskStartError unit \error:
     let edge_owner %GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner field::get error "edge_owner"
     gui_sfnt_simple_glyph_render_shadow_source_edge_owner_free edge_owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_free: push error が[保持/ほじ]する writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_push_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskPushError unit \error:
     let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get error "owner"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_free: completion error が[保持/ほじ]する writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_error_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionError unit \error:
     let owner %GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner field::get error "owner"
     gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer_owner_free owner
 
+//: gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_terminal_free: completion terminal の owner を variant ごとに[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_completion_terminal_free %impure fn GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal unit \terminal:
     match terminal:
         GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskCompletionTerminal::CoverageMaskCompleted owner:

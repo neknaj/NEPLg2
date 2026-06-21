@@ -503,12 +503,21 @@ mask boundary がない pure function では dedicated diagnostic により fail
 この effect を body hash と source capability policy hash に含めるまで、Resource summary cache
 で private cache operation を replay / hit させない。
 
+2026-06-21 の private effect Resource no-escape producer checkpoint では、Resource IR 側の
+typed observation table を `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` へ変換する
+checker-layer producer を追加した。proof key は `SelfhostTypeId`、operation、body module
+fingerprint、HIR body root、effect、元 escape state をすべて含み、`PrivateState` /
+`PrivateCache` + `NotApplicable` だけを受理する。`NoEscapeProven` は `Proven`、`MayEscape`
+は `Refuted`、`Missing` / `Unknown` はそのまま proof status として保持し、未証明 state を
+pure mask しない。この checkpoint は Resource traversal 本体、memo_call backend request
+evidence、effect mask、sealed backend、artifact key を作らない。
+
 ## 現時点の未実装
 
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
-- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof の自動発行。
+- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape observation を actual Resource traversal から自動発行し、既存 private-effect proof producer と upper orchestrator へ接続する処理。
 - sealed private cache taint の impure call / unknown call / public field / global state escape 診断。
 - `private_cache_*` intrinsic の typecheck signature と stdlib memo backend integration regression。

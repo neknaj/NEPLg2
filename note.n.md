@@ -241,6 +241,8 @@
 - completion は `written_cell_count == cell_count` のときだけ completed owner を返し、未充足なら writer owner を `CoverageMaskIncomplete` として返す。
 - Turing plan review 1 は `CHANGES_REQUESTED`。F5ll start が F5lk owner の自己整合だけでなく nested writer plan / capacity にも照合する必要があり、`edges.cap == edge_count or raster_edge_capacity` は緩すぎると指摘された。
 - Turing revised plan review は `PLAN_APPROVED`。
+- selfhost branch への latest `origin/main` F5ll merge 後、`stdlib declaration doc gaps increased: 2796 > 2756` が出た。baseline 更新ではなく、F5ll coverage mask writer block の top-level helper に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- 同じ merge 後の full GUI compile で、F5ll coverage mask writer start の typed `Vec` allocation 欠落と `push_cell` signature の `impure fn` 区切り欠落が露呈した。既存 coverage writer pattern に合わせ、typed `vec::with_capacity` result と `impure fn i32` に修正した。
 
 ## 検証
 
@@ -254,6 +256,10 @@
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ll.json` は 13/13 passed。
 - checked JSON: `tmp/playground-editor-tests-f5ll.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 - Turing の implementation review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5ll_after_selfhost_merge_fix.json -j 1`。1/1。
 
 ## 残件
 
@@ -279,6 +285,8 @@
 - Laplace の plan review 1 は `CHANGES_REQUESTED`。generic raster edge drain 経由では completed raster mask writer が必要になり、F5lj の writer state と契約が合わないため修正した。
 - Laplace の revised plan review 1 は `CHANGES_REQUESTED`。`SkipNoSegment` を scalar record として扱う案が誤りだったため、tag 4 rejection に修正した。
 - Laplace revised plan 2 は `PLAN_APPROVED`。
+- selfhost branch への latest `origin/main` F5lk merge 後、`stdlib declaration doc gaps increased: 2825 > 2756` が出た。baseline 更新ではなく、F5lk shadow source edge block の top-level helper に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- 同じ merge 後の full GUI compile で、F5lk shadow source edge block の `and` の多項風記述、typed `Vec` allocation 欠落、`next_*` parameter 名の `\nnext_*` 誤記、`StdErrorKind` の二重変換が露呈した。既存 raster edge drain pattern に合わせ、boolean check を中間値化し、typed `vec::with_capacity` result を match し、parameter 名と allocation error payload を修正した。
 
 ## 検証
 
@@ -293,6 +301,10 @@
 - checked JSON: `tmp/playground-editor-tests-f5lk.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
 - Laplace の implementation review 1 は `CHANGES_REQUESTED`。F5lk 実装本体の blocker はなく、検証欄が pending のままだったことと focused doctest file が untracked であることを指摘されたため修正した。
 - Laplace の implementation re-review は `REVIEW_APPROVED`。
+- pass after selfhost branch merge doc fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch merge compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after selfhost branch merge compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_edge_f5lk_after_selfhost_merge_fix.json -j 1`。1/1。
 
 ## 残件
 
@@ -78689,3 +78701,58 @@ MERGE_APPROVED
 - actual Resource IR / HIR lowering body reader が実 traversal から reader policy source table と fresh-region witness table を発行する。
 - full traversal 由来 source / witness を request-evidence bridge と `memo_trait_operation_private_effect_no_escape_gate` の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-21 selfhost private effect Resource no-escape producer checkpoint
+
+### 実装
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl` を追加し、Resource IR 側 typed observation table から `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を作る checker-layer producer を固定した。
+- proof key は `SelfhostTypeId`、operation、body module fingerprint、HIR body root、effect、元 escape state をすべて含める。`SelfhostTypeId` や root だけの proof reuse はできない。
+- `PrivateState` / `PrivateCache` + `NotApplicable` だけを受理し、`InternalAlloc` や observable effect、`NoEscapeProven` / `MayEscape` 入力は fail-closed に拒否する。
+- `NoEscapeProven -> Proven`、`MayEscape -> Refuted`、`Missing -> Missing`、`Unknown -> Unknown` に写し、`Missing` / `Unknown` を pure mask しない。
+- Drop 用 `InternalAlloc` no-escape producer とは別 module / 別 proof type として保ち、Drop gate と private-effect gate を混ぜない。
+- facade には出さず、`nodesrc/selfhost_ty_sources.js` にも登録しない。backend / memo_call / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / materializer / purity gate / Drop proof layer へ依存しない。
+
+### 検証
+
+- Banach の implementation review は `REVIEW_APPROVED`。producer は HIR summary から proof を合成せず typed Resource observation だけを authority にし、private-effect proof key と同一 key で `PrivateState` / `PrivateCache` + `NotApplicable` だけを受理することを確認した。`Missing` / `Unknown` は mask されず、Drop 用 `InternalAlloc` producer との意味混線もない。
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1 passed / 0 failed。
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF warning のみ。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-final-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-final-doctest.json`。1 passed / 0 failed。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-final.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lk-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5lk-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `trunk build`
+- pass after latest `origin/main` F5lk merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lk-fix.json`
+- checked JSON after latest `origin/main` F5lk merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5ll_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ll-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ll-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `trunk build`
+- pass after latest `origin/main` F5ll merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5ll-fix.json`
+- checked JSON after latest `origin/main` F5ll merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+### 残件
+
+- actual Resource IR traversal / materializer が `PrivateState` / `PrivateCache` の fresh region / non-escape observation table を発行し、この producer で proof table へ変換する。
+- scanner / upper orchestrator が同じ body module fingerprint と proof table を proof-aware public impl materializer へ渡す。
+- memo_call backend の request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。

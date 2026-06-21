@@ -2887,9 +2887,28 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materi
 
 残件:
 
-- actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、scanner / upper orchestrator が同じ body module fingerprint と一緒に渡す。
+- actual Resource IR traversal / materializer が `PrivateState` / `PrivateCache` の fresh region / non-escape observation table を発行し、checker-layer producer で proof table へ変換してから、scanner / upper orchestrator が同じ body module fingerprint と一緒に渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
 - memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+
+## 2026-06-21 selfhost private effect Resource no-escape producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl` を追加し、Resource IR 側 typed observation table を `memo_trait_operation_private_effect_no_escape_gate` が読む `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` へ変換する checker-layer producer を固定した。
+
+この producer は HIR effect summary だけから proof を合成しない。accepted authority は `SelfhostTypeId`、operation、body module fingerprint、HIR body root、effect、元 escape state、Resource observation status を持つ typed record であり、source text、span、display name、diagnostic、public surface hash、payload hash を proof authority にしない。`body_module_fingerprint == 0`、duplicate key、`PrivateState` / `PrivateCache` 以外の effect、`NotApplicable` 以外の escape は fail-closed に拒否する。
+
+status mapping は `NoEscapeProven -> Proven`、`MayEscape -> Refuted`、`Missing -> Missing`、`Unknown -> Unknown` である。`Missing` / `Unknown` を pure mask に使わず、最終的な `NoEscapeProven` / `MayEscape` への更新は既存 private-effect gate が exact key lookup 後に行う。Drop body 用 `InternalAlloc` proof table とは別 module / 別 proof type のまま保ち、Drop no-escape gate と private effect gate を混ぜない。
+
+この checkpoint は Resource traversal 本体、operation evidence、aggregate proof、memo_call backend request evidence、effect mask、backend bytes、proof store、`.neplobj` / `.neplproof` artifact key を作らない。actual Resource IR traversal / materializer がこの observation table を発行し、upper orchestrator が proof-aware public impl materializer へ同じ body module fingerprint と proof table を渡す接続は後続 boundary として残る。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / materializer / purity gate / Drop proof layer の import 禁止、typed key equality、owner cleanup、duplicate rejection、placeholder rejection、PrivateState / PrivateCache 限定、Missing / Unknown fail-closed を確認する。
+
+検証:
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-doctest.json`。1 passed / 0 failed。
 
 ## 2026-06-21 selfhost memo_call backend production actual traversal reader checkpoint
 

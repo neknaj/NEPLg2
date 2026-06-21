@@ -1,0 +1,676 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_resource_no_escape_producer
+//: PrivateState / PrivateCache method body に対する Resource IR no-escape observation を、既存の private-effect no-escape proof table へ[変換/へんかん]する checker-layer producer です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_private_effect_no_escape_gate` は、Eq / Hash method body の `PrivateState` / `PrivateCache` summary と proof table を照合して `NotApplicable` を `NoEscapeProven` または `MayEscape` へ更新します。
+//: - この module は、その前段として Resource IR 側の escape analysis が作った typed observation table を受け取り、gate が読める `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を作ります。
+//: - HIR effect summary だけから proof を作らず、Resource IR 側が明示的に渡した `NoEscapeProven` / `MayEscape` / `Missing` / `Unknown` の status だけを proof status へ写します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord` の typed payload だけです。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash から no-escape を推測しません。
+//: - record key は `SelfhostTypeId`、operation、body module fingerprint、method body root、effect、escape をすべて含みます。`SelfhostTypeId`、operation、body root のどれか 1 つだけの proof reuse は認めません。
+//: - `body_module_fingerprint == 0` は placeholder origin なので、input table への push と producer loop の両方で fail-closed に拒否します。
+//: - `effect` は `PrivateState` または `PrivateCache`、`escape` は `NotApplicable` だけを受理します。`Pure`、`InternalAlloc`、`UnsafeMemory`、`ExternalIo`、`Nondet`、`NoEscapeProven`、`MayEscape` の observation から proof record を作りません。
+//: - 同じ key の Resource observation が複数ある場合は `ResourceRecordDuplicate` として拒否します。record order による first-wins は使いません。
+//: - `NoEscapeProven` は gate 側の `Proven`、`MayEscape` は `Refuted`、`Missing` は `Missing`、`Unknown` は `Unknown` に写します。`Missing` / `Unknown` を pure に mask しません。
+//: - この module は operation evidence record、aggregate proof、memo_call backend request evidence、proof store、generic binder、effect mask、backend artifact、prechecked artifact を作りません。最終的な Pure evidence は既存 purity gate と operation proof connector が担当します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では Resource IR graph traversal 本体はまだ別 stage に残します。この module は、その traversal が後で出力する typed observation table の session-local 境界です。
+//: - facade には re-export しません。full Resource proof orchestration が method body scanner、Resource proof producer、private-effect gate、purity gate をまとめる段階で公開 API を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、計算量、owner cleanup を doc comment で明示することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - Resource observation 数を n とすると、input table push の重複検査は現状 O(n) です。producer loop の malformed direct table 検査は合計 O(n^2) 時間、output proof table に O(n) 空間です。
+//: - sorted index 化、module/body/operation bucket 化、stable proof artifact からの preseed は、key equality、duplicate rejection、owner cleanup、fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_len_result_eq summary.produced_len 4
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_eq summary.proven_status SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_eq summary.refuted_status SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_eq summary.missing_status SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_eq summary.unknown_status SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordDuplicate
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_result_eq summary.placeholder_rejected SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::BodyModuleFingerprintPlaceholder
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_result_eq summary.effect_rejected SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate SelfhostEffectKind::InternalAlloc
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_result_eq summary.escape_rejected SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEscapeNotApplicable SelfhostEffectEscapeState::MayEscape
+//:             let shown checks_print_report checks9
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "private effect Resource no-escape producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_private_effect_no_escape_gate" as *
+
+//: SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus: Resource IR no-escape observation の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - Resource IR 側の escape analysis が「証明済み」「反証済み」「入力不足」「未判定」を bool に潰さず producer へ渡すための typed status です。
+pub enum SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus:
+    NoEscapeProven
+    MayEscape
+    Missing
+    Unknown
+
+//: SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord: method body 1 件に対する Resource no-escape observation
+//:
+//: [契約/けいやく]:
+//: - `type_id`、`operation`、`body_module_fingerprint`、`body_root` は private-effect gate が読む method body identity と同じです。
+//: - `effect` / `escape` は observation が対象にした元の effect summary です。Phase 1 では `PrivateState + NotApplicable` または `PrivateCache + NotApplicable` だけを受理します。
+//: - `status` は Resource IR 側の判定結果であり、この module は HIR や source に戻って status を作り直しません。
+pub struct SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    status %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus
+
+//: SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable: Resource no-escape observation record の session-local owner table
+//:
+//: [契約/けいやく]:
+//: - table は `records` buffer を所有します。caller は producer で使い終えたあと `selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free` で閉じます。
+//: - table は永続 artifact ではありません。`.neplproof` からの復元や preseed は別 boundary が担当します。
+pub struct SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable:
+    records %Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord
+
+//: SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind: Resource no-escape producer の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - input table の構築、typed observation validation、duplicate detection、output proof table 生成の失敗を enum として分けます。
+pub enum SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind:
+    ResourceRecordPushFailed %StdErrorKind
+    ResourceRecordReadFailed %i32
+    ResourceRecordDuplicate
+    BodyModuleFingerprintPlaceholder
+    RecordEffectNotPrivate %SelfhostEffectKind
+    RecordEscapeNotApplicable %SelfhostEffectEscapeState
+    OutputProofTableAllocFailed %StdErrorKind
+    OutputProofTableRejected %SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+
+//: SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision: direct table scan での duplicate 判定
+//:
+//: [目的/もくてき]:
+//: - malformed direct table の earlier duplicate 検査結果を bool に潰さず、producer loop が exhaustive match で分岐できるようにします。
+pub enum SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision:
+    UniqueSoFar
+    DuplicateFound
+
+//: SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary: producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - 4 種の status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection、escape mismatch rejection を確認します。
+pub struct SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary:
+    produced_len %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+    proven_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus
+    refuted_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus
+    missing_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus
+    unknown_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus
+    duplicate_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+    effect_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+    escape_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus: Resource observation status を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus: Resource observation status の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord: Resource observation record を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord: Resource observation record の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind: producer error を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind: producer error の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision: duplicate decision を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision: duplicate decision の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary: smoke summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary: smoke summary の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_record_new: Resource no-escape observation record を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_record_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord \type_id\operation\body_module_fingerprint\body_root\effect\escape\status:
+    SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord type_id operation body_module_fingerprint body_root effect escape status
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_table_new: [空/から]の Resource no-escape observation table を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_table_new %impure fn void Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free: Resource no-escape observation table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len: Resource no-escape observation record 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_record_key_eq: 2 record が同じ method body observation key か[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_record_key_eq %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_effect_kind_eq a.effect b.effect
+                        selfhost_memo_trait_operation_private_effect_resource_no_escape_escape_state_eq a.escape b.escape
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_effect: private effect だけを[受/う]け[入/い]れる
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_effect %fn SelfhostEffectKind Result unit SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \effect:
+    match effect:
+        SelfhostEffectKind::PrivateState:
+            Result::Ok unit
+        SelfhostEffectKind::PrivateCache:
+            Result::Ok unit
+        SelfhostEffectKind::Pure:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate effect
+        SelfhostEffectKind::InternalAlloc:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate effect
+        SelfhostEffectKind::UnsafeMemory:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate effect
+        SelfhostEffectKind::ExternalIo:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate effect
+        SelfhostEffectKind::Nondet:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate effect
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_record_result: Resource observation record の受理条件を[確認/かくにん]する
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_record_result %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord Result unit SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \record:
+    if:
+        eq record.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            match selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_effect record.effect:
+                Result::Ok _effect_ok:
+                    match record.escape:
+                        SelfhostEffectEscapeState::NotApplicable:
+                            Result::Ok unit
+                        SelfhostEffectEscapeState::NoEscapeProven:
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEscapeNotApplicable record.escape
+                        SelfhostEffectEscapeState::MayEscape:
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEscapeNotApplicable record.escape
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key_loop: input table 内の既存 key を[探/さが]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key_loop %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord fn i32 bool \table\record\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len table
+        then:
+            false
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_trait_operation_private_effect_resource_no_escape_record_key_eq existing record
+                        then:
+                            true
+                        else:
+                            selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key_loop table record add idx 1
+                Option::None:
+                    true
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key: input table に同じ key があるか[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord bool \table\record:
+    selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key_loop table record 0
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push: Resource no-escape observation record を table に[追加/ついか]する
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \table\record:
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_record_result record:
+        Result::Ok _unit:
+            if:
+                selfhost_memo_trait_operation_private_effect_resource_no_escape_table_contains_key &table record
+                then:
+                    selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free table
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordDuplicate
+                else:
+                    let records %Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord field::get table "records"
+                    match v::push records record:
+                        Result::Ok next_records:
+                            Result::Ok SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable next_records
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordPushFailed error
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free table
+            Result::Err error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status: Resource status を gate proof status へ[写/うつ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven:
+            SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::MayEscape:
+            SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Missing:
+            SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Unknown:
+            SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_record_to_proof_record: Resource observation を no-escape proof record へ[変換/へんかん]する
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_record_to_proof_record %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \record:
+    let key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new record.type_id record.operation record.body_module_fingerprint record.body_root record.effect record.escape
+    let status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status record.status
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new key status
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_loop: direct table 内の earlier duplicate を[探/さが]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_loop %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord fn i32 fn i32 Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \source\record\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision::UniqueSoFar
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord field::get_ref source "records"
+            match v::get records idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_trait_operation_private_effect_resource_no_escape_record_key_eq existing record
+                        then:
+                            Result::Ok SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision::DuplicateFound
+                        else:
+                            selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_loop source record limit add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_result: 現在 record より前に duplicate があるか[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_result %fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord fn i32 Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \source\record\limit:
+    selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_loop source record limit 0
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_output_push_result: proof record を output proof table へ[追加/ついか]する
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_output_push_result %impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \output\record:
+    let proof_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_record_to_proof_record record
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push output proof_record:
+        Result::Ok next_output:
+            Result::Ok next_output
+        Result::Err gate_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::OutputProofTableRejected gate_error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_produce_loop: Resource observations から proof table を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_produce_loop %impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable impure fn i32 Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \output\source\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len source
+        then:
+            Result::Ok output
+        else:
+            let source_records %&Vec SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord field::get_ref source "records"
+            match v::get source_records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_private_effect_resource_no_escape_validate_record_result record:
+                        Result::Ok _unit:
+                            match selfhost_memo_trait_operation_private_effect_resource_no_escape_duplicate_before_result source record idx:
+                                Result::Ok decision:
+                                    match decision:
+                                        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision::DuplicateFound:
+                                            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free output
+                                            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordDuplicate
+                                        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeDuplicateDecision::UniqueSoFar:
+                                            match selfhost_memo_trait_operation_private_effect_resource_no_escape_output_push_result output record:
+                                                Result::Ok next_output:
+                                                    selfhost_memo_trait_operation_private_effect_resource_no_escape_produce_loop next_output source add idx 1
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free output
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free output
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_table_result: Resource no-escape table を private-effect proof table へ[変換/へんかん]する
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_table_result %impure fn &SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \source:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok output0:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_produce_loop output0 source 0
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::OutputProofTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_effect_kind_code: effect kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            0
+        SelfhostEffectKind::InternalAlloc:
+            1
+        SelfhostEffectKind::PrivateState:
+            2
+        SelfhostEffectKind::PrivateCache:
+            3
+        SelfhostEffectKind::UnsafeMemory:
+            4
+        SelfhostEffectKind::ExternalIo:
+            5
+        SelfhostEffectKind::Nondet:
+            6
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_escape_state_code: escape state を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_escape_state_code %fn SelfhostEffectEscapeState i32 \state:
+    match state:
+        SelfhostEffectEscapeState::NotApplicable:
+            0
+        SelfhostEffectEscapeState::NoEscapeProven:
+            1
+        SelfhostEffectEscapeState::MayEscape:
+            2
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_code: producer error variant を比較用 code へ[写/うつ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_code %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordPushFailed _error:
+            1
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordReadFailed _idx:
+            2
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordDuplicate:
+            3
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            4
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate _effect:
+            5
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEscapeNotApplicable _escape:
+            6
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::OutputProofTableAllocFailed _error:
+            7
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::OutputProofTableRejected _gate_error:
+            8
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_payload_code: producer error payload を比較用 code へ[写/うつ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_payload_code %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordPushFailed error:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_std_error_kind_code error
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordReadFailed idx:
+            idx
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordDuplicate:
+            0
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            0
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEffectNotPrivate effect:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_effect_kind_code effect
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::RecordEscapeNotApplicable escape:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_escape_state_code escape
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::OutputProofTableAllocFailed error:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_std_error_kind_code error
+        SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::OutputProofTableRejected gate_error:
+            add:
+                mul selfhost_memo_trait_operation_private_effect_no_escape_gate_error_kind_code gate_error 100000
+                selfhost_memo_trait_operation_private_effect_no_escape_gate_error_payload_code gate_error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_eq: producer error が同じ分類と payload か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_eq %fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind bool \a\b:
+    and:
+        eq selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_code a selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_code b
+        eq selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_payload_code a selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_payload_code b
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_len_result_eq: producer len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_len_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_result_eq: producer result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_code: proof status を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_code %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+            1
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted:
+            2
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing:
+            3
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown:
+            4
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_eq: proof status が同じ variant か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_eq %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus bool \a\b:
+    eq selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_code a selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_proof_status_code b
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind fn Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary \produced_len\proven_status\refuted_status\missing_status\unknown_status\duplicate_rejected\placeholder_rejected\effect_rejected\escape_rejected:
+    SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary produced_len proven_status refuted_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected escape_rejected
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record: stage0 用 Resource observation record を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord \type_id\operation\module_fingerprint\root\effect\status:
+    selfhost_memo_trait_operation_private_effect_resource_no_escape_record_new type_id operation module_fingerprint root effect SelfhostEffectEscapeState::NotApplicable status
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_push_len: 1 record push の length result を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_push_len %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \record:
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table0 record:
+                Result::Ok table1:
+                    let table_len %i32 selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len &table1
+                    selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free table1
+                    Result::Ok table_len
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_duplicate_len: duplicate input rejection を[確認/かくにん]する
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_duplicate_len %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \record:
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table0 record:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table1 record:
+                        Result::Ok table2:
+                            let table_len %i32 selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len &table2
+                            selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free table2
+                            Result::Ok table_len
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_source_result: 4 status の Resource observation table を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \type_id\root1\root2\root3\root4:
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_new:
+        Result::Ok table0:
+            let proven %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq 770101 root1 SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+            match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table0 proven:
+                Result::Ok table1:
+                    let refuted %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Hash 770101 root2 SelfhostEffectKind::PrivateState SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::MayEscape
+                    match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table1 refuted:
+                        Result::Ok table2:
+                            let missing %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq 770101 root3 SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Missing
+                            match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table2 missing:
+                                Result::Ok table3:
+                                    let unknown %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Hash 770101 root4 SelfhostEffectKind::PrivateState SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Unknown
+                                    selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push table3 unknown
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind::ResourceRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_produced_len: producer output len を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_produced_len %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind \source:
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_table_result &source:
+        Result::Ok proofs:
+            let proof_len %i32 selfhost_memo_trait_operation_private_effect_no_escape_proof_table_len &proofs
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free source
+            Result::Ok proof_len
+        Result::Err e:
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free source
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_stage0: producer の smoke API
+pub fn selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_stage0 %impure fn void Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 7701
+    let root1 %SelfhostHirExprId selfhost_hir_expr_id_new 77011
+    let root2 %SelfhostHirExprId selfhost_hir_expr_id_new 77012
+    let root3 %SelfhostHirExprId selfhost_hir_expr_id_new 77013
+    let root4 %SelfhostHirExprId selfhost_hir_expr_id_new 77014
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_source_result type_id root1 root2 root3 root4:
+        Result::Ok source:
+            let produced_len %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_produced_len source
+            let proven_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+            let refuted_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::MayEscape
+            let missing_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Missing
+            let unknown_status %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus selfhost_memo_trait_operation_private_effect_resource_no_escape_status_to_proof_status SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Unknown
+            let duplicate_record %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq 770101 root1 SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+            let duplicate_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_duplicate_len duplicate_record
+            let placeholder_record %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq 0 root1 SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+            let placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_push_len placeholder_record
+            let effect_record %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq 770101 root1 SelfhostEffectKind::InternalAlloc SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+            let effect_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_push_len effect_record
+            let escape_record %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_resource_no_escape_record_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq 770101 root1 SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::MayEscape SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+            let escape_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind selfhost_memo_trait_operation_private_effect_resource_no_escape_stage0_push_len escape_record
+            Result::Ok selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_stage0_summary_new produced_len proven_status refuted_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected escape_rejected
+        Result::Err _setup:
+            Result::Err StdErrorKind::InvalidOperation
