@@ -38,6 +38,61 @@
 - full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+# 2026-06-22 GUI render2d F5mg compositor tile RLE count step bridge checkpoint
+
+## 目的
+
+- F5mf の `GuiRgba8888CompositorTileRleCountOwner` を、lower `gui_rgba8888_row_tile_rle_count_step_budget` へ compositor metadata 付きで接続する。
+- success step は lower status と metadata 付き next count owner を保持し、zero-budget pending と completion status / accumulated count を caller が確認できるようにする。
+- lower count step error では fake continuation count owner を作らず、kind / category / accumulated run count / cursor next pixel index を読んでから payload owner へ戻す。
+- completed count / encode / storage / packet / std present / host / platform / fallback には進まない。
+
+## subagent review
+
+- Meitner plan review は `PLAN_APPROVED`。
+- F5mg は F5mf count owner の count continuation boundary として妥当であると確認された。
+- 指摘に従い、success step は F5mf count owner finish/free に委譲し、error は count owner を持たないため payload owner へ戻して F5me payload finish/free に委譲する方針にした。
+- Descartes implementation review は `REVIEW_APPROVED`。metadata-before-consume、lower count step exact once、success status + next owner wrapping、error fake continuation 禁止、success/error finish/free 委譲、completed/encode/present leakage なしが確認された。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl` を追加した。
+- `GuiRgba8888CompositorTileRleCountStepErrorKind`、`GuiRgba8888CompositorTileRleCountStep`、`GuiRgba8888CompositorTileRleCountStepError` を追加した。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_count_step_budget` は metadata を Copy してから lower count owner を取り出し、lower count step を 1 回だけ呼ぶ。
+- success では lower status を読んでから next count owner を `GuiRgba8888CompositorTileRleCountOwner` として metadata 付きで包む。
+- lower error では lower kind / category / accumulated run count / cursor next pixel index を読んでから lower cursor owner を payload owner へ戻し、fake continuation owner を作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mg contract に合わせて更新した。
+- `plan.md` との差異はない。Zenn 方針に沿って、Result / enum kind / match / owner-bearing recovery / source policy / doctest で境界を固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_f5mg.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_module_f5mg.json -j 1`。19/19。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_f5mg_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5mg_regression.json -j 1`。2/2。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mg.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- post-`origin/main` merge pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- post-`origin/main` merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- post-`origin/main` merge pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- post-`origin/main` merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_module_f5mg_merge.json -j 1`。19/19。
+- post-`origin/main` merge pass with LF/CRLF warnings only: `git diff --check` / `git diff --cached --check`
+- post-`origin/main` merge pass: `trunk build`
+- post-`origin/main` merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_f5mg_merge.json -j 1`。2/2。
+- post-`origin/main` merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mg-merge.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- main merge pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- main merge pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- main merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_module_f5mg_main_merge.json -j 1`。19/19。
+- main merge pass with LF/CRLF warnings only: `git diff --check` / `git diff --cached --check`
+- main merge pass: `trunk build`
+- main merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_f5mg_main_merge.json -j 1`。2/2。
+- main merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mg-main-merge.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+
 # 2026-06-22 selfhost memo_call backend body reader source state checkpoint
 
 ## 目的

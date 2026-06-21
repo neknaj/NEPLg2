@@ -4494,6 +4494,59 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mf.json
 ```
 
+## Phase F5mg: render2d compositor tile RLE count step bridge boundary
+
+目的:
+
+- F5mf の `GuiRgba8888CompositorTileRleCountOwner` を authority とし、既存 lower `gui_rgba8888_row_tile_rle_count_step_budget` を compositor metadata 付きで接続する。
+- lower count step を 1 回だけ呼び、success では lower step status と metadata 付き next count owner を `GuiRgba8888CompositorTileRleCountStep` として返す。
+- lower count step error では error 側で F5mf count owner を再生成しない。kind / category / accumulated run count / cursor next pixel index を読んだ後で lower cursor を payload owner へ戻し、metadata 付き payload owner へ正規化する。
+- この phase では completed count、encode、storage、packet、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no completed / encode / present の compositor tile RLE count step bridge で止める。
+
+plan review:
+
+- Meitner plan review は `PLAN_APPROVED`。
+- F5mg は F5mf count owner の count continuation boundary として承認された。
+- lower count error は continuation count owner を返さない契約なので、F5mg error は fake continuation count owner を作らず、payload owner へ戻して F5me の finish/free に委譲する。
+- success step は F5mf count owner finish / free に委譲する。
+- error は kind / category / accumulated run count / cursor next pixel index を Copy してから lower cursor owner を payload owner へ戻す。
+- source policy で lower count step exact once、metadata-before-lower-count-consume、status + next owner wrapping、lower error kind/category/progress before cursor-to-payload recovery、fake count owner 禁止、completed / encode / storage / packet / direct byte read / std present / host / platform / fallback 禁止を検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleCountStepErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleCountStep` と `GuiRgba8888CompositorTileRleCountStepError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_count_step_budget` は metadata を count owner から Copy してから lower count owner を取り出し、lower count step を 1 回だけ呼ぶ。
+- success は lower status を読んでから lower next count owner を metadata 付き `GuiRgba8888CompositorTileRleCountOwner` へ戻す。
+- lower error は lower kind / category / accumulated run count / cursor next pixel index を読んでから lower cursor owner を payload owner へ戻し、metadata 付き `GuiRgba8888CompositorTilePayloadOwner` を持つ step error に正規化する。
+- step status / finish owner / error progress / error payload accessors、success finish/free helper、error finish/free helper を追加する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE count step を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md` を追加し、facade、zero-budget pending、completion status / accumulated count、metadata、negative budget payload recovery、no fake owner / completed / encode / present / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mg source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Meitner approval、facade export、typed lower error variant、status + count-owner success step、progress + payload-bearing error、owner-bearing success / error no Clone / Copy、lower count step exact once、metadata-before-lower-count-consume、success lower status before next owner wrapping、lower error kind/category/progress before payload normalization、fake count owner 禁止、success finish/free の F5mf 委譲、error finish/free の F5me 委譲、direct drain / completed count / encode / storage / packet / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5mf compositor tile RLE count regression、F5ce row tile RLE count regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、fake continuation owner、lower error progress loss、completed/encode/present leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_f5mg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_step_module_f5mg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_f5mg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5mg_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mg.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
