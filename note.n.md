@@ -79562,3 +79562,28 @@ MERGE_APPROVED
 - Hilbert initial implementation review は `REVIEW_CHANGES_REQUESTED`。code 本体の blocker はなく、新規 `stdlib/alloc/gui/render2d/compositor_batch_drain.nepl` / `tests/stdlib/gui_render2d_compositor_batch_drain.n.md` が未 tracking のまま commit される危険と、この note の review status 未反映が blocker だったため、明示 staging と note 更新で対応する。
 - Hilbert follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 10 files のみで、新規 module / focused doctest が含まれ、F5ma implementation contract と docs / source policy に commit-blocking finding は無い。
 - F5ma 後続は row batch range / row byte storage / tile / RLE と std present への payload transport / present continuation に分ける。
+
+## 2026-06-22 Agent2 GUI render2d F5mb compositor batch range bridge boundary
+
+- F5mb では、F5lz の `GuiRgba8888CompositorFrameEntryOwner` を lower `gui_rgba8888_row_batch_cursor_next_batch` と `gui_rgba8888_row_batch_range_prepare` へ 1 回ずつ通す `alloc/gui/render2d/compositor_batch_range` を追加した。
+- `GuiRgba8888CompositorBatchRangeErrorKind`、`GuiRgba8888CompositorBatchRangeOwner`、`GuiRgba8888CompositorBatchRangeError` を追加した。error kind は Copy、success owner と error は owner-bearing struct で Clone / Copy なし。
+- `gui_rgba8888_compositor_batch_range_prepare` は `entry` を `finish_cursor` する前に metadata を Copy し、lower next batch と lower row batch range prepare を順に呼ぶ。
+- Hilbert plan review の refinement に従い、F5mb error は heterogeneous lower owner-bearing error を保持しない。cursor step failure / row range prepare failure のどちらも lower kind / category を読んでから lower cursor または batch owner を `GuiRgba8888CompositorFrameEntryOwner` へ正規化し、error は `kind/category/entry` を保持する。
+- complete cursor は terminal へ変換せず、lower `CursorIndexPastEnd` を `CursorNextBatchFailed` の owner-bearing error として回収できるようにした。
+- F5mb は row byte storage、tile / RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、transport、fallback / silent no-op へ進まない。
+- 初期 focused doctest は 3 batch 分を runtime で検査して compile timeout したため、根本対応として F5mb runtime は first range + finish_entry continuation + complete cursor recovery に絞り、multi-batch range arithmetic は lower `gui_render2d_row_batch_range` regression に任せた。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_batch_range.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mb contract に合わせて更新した。
+- `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_range.n.md --no-tree -o tmp_gui_render2d_compositor_batch_range_f5mb.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_batch_range.nepl --no-tree -o tmp_gui_render2d_compositor_batch_range_module_f5mb.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp_gui_render2d_compositor_batch_drain_f5mb_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_range.n.md --no-tree -o tmp_gui_render2d_row_batch_range_f5mb_regression.json -j 1`。2/2。
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mb.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- Hilbert plan review は `PLAN_APPROVED`。
+- Hilbert initial implementation review は `REVIEW_CHANGES_REQUESTED`。code 本体の blocker はなく、新規 `stdlib/alloc/gui/render2d/compositor_batch_range.nepl` / `tests/stdlib/gui_render2d_compositor_batch_range.n.md` が未 tracking のまま commit される危険と、この note の review status 未反映が blocker だったため、明示 staging と note 更新で対応する。
+- Hilbert follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 10 files のみで、新規 module / focused doctest が含まれ、F5mb implementation contract と docs / source policy に commit-blocking finding は無い。
+- F5mb 後続は row byte storage / tile / RLE と std present への payload transport / present continuation に分ける。

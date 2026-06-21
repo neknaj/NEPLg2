@@ -6977,6 +6977,16 @@ F5ma は entry owner を cursor へ分解する前に metadata を Copy value �
 
 F5ma は row batch range、row byte storage、tile plan / payload、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。row batch range 以降の payload transport と std present は後続の compositor drain continuation boundary で扱う。
 
+### Render2d compositor batch range boundary
+
+F5mb は F5lz の `GuiRgba8888CompositorFrameEntryOwner` を、F5bw の `gui_rgba8888_row_batch_cursor_next_batch` と F5by の `gui_rgba8888_row_batch_range_prepare` へ 1 回ずつ通す compositor batch range bridge である。これは row byte storage や tile / RLE payload を作る phase ではなく、1 batch 分の row range metadata を compositor metadata と束ねる phase である。
+
+F5mb の success owner は `GuiRgba8888CompositorBatchRangeOwner` であり、lower `GuiRgba8888RowBatchRangeOwner` と `GuiRgba8888CompositorFrameEntryMetadata` を保持する。error は `GuiRgba8888CompositorBatchRangeError` であり、`CursorNextBatchFailed lower_kind` または `RowBatchRangePrepareFailed lower_kind`、coarse `GuiError` category、回収済み `GuiRgba8888CompositorFrameEntryOwner` を保持する。success owner / error は Clone / Copy を実装しない。error kind と metadata は Copy value である。
+
+F5mb は entry owner を cursor へ分解する前に metadata を Copy value として読む。cursor next-batch failure では lower step error から kind / category を読んでから cursor owner を entry owner へ正規化し、range prepare failure では lower prepare error から kind / category を読んでから batch owner を cursor、さらに entry owner へ正規化する。complete cursor は normal terminal へ変換せず、lower `CursorIndexPastEnd` を `CursorNextBatchFailed` として保持した owner-bearing error で返す。
+
+F5mb は row byte storage、tile plan / payload、RLE、std present、host import、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。row byte storage 以降の payload transport と std present は後続の compositor continuation boundary で扱う。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
