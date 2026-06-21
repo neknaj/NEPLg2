@@ -6557,6 +6557,18 @@ completion は `cell_index == shadow_cell_count` の exact state だけで成功
 
 F5lo は generic F5be packed mask owner、stroke packed mask owner、fill alpha mask owner、composition order、render command、resource table、software surface、platform/backend API、font fallback、shadow rasterizer、2D compositor を呼ばない。
 
+### SFNT simple glyph render shadow source composition order boundary
+
+F5lp は F5lo completed shadow source packed mask owner を direct authority とし、shadow source contribution が source paint より前に合成される順序だけを owner 化する境界である。この phase は fill/stroke glyph paint composition、sample cursor、resource table、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5lp owner は F5lo owner を所有したまま、F5lk context 由来の `source_placement_origin`、`shadow_offset`、`shadow_extent`、`shadow_paint`、`blend` を downstream 用の固定証跡として保持する。`shadow_order = 0`、`source_order = 1` を必須とし、shadow contribution を先に、source paint を後に置く。
+
+start は F5lo completed owner invariant と nested F5lk edge owner invariant を再検査する。F5lo invariant 失敗時は lower packed mask error kind を `packed_error` として保持する。F5lo invariant が nested edge invalidity を `EdgeOwnerInvariantFailed` に畳んだ場合も、F5lp は nested edge invariant を再実行し、具体的な lower edge error kind を `edge_error` として併せて保持する。`blend` は F5lk の SourceOver-only support helper で検査する。
+
+completed owner invariant は F5lo owner invariant、nested F5lk edge owner invariant、F5lk context の placement / shadow metadata / blend と owner に固定した値の一致、SourceOver-only support、`shadow_order = 0`、`source_order = 1` を再検査する。
+
+F5lp は F5lo owner の alpha cells を再パックせず、fill / stroke owner を消費せず、F5lg / F5lh の paint composition helper を再利用しない。sample cursor、resource reservation、render command、software surface、platform/backend API、shadow rasterizer、2D compositor も呼ばない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

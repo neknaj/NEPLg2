@@ -518,6 +518,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageMaskW
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageScanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceBlurMaskTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourcePackedMaskTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_packed_mask_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_composition_order.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric.n.md");
@@ -610,6 +611,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCoverageScanTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceBlurMaskTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourcePackedMaskTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSegmentPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricTests,
@@ -17642,7 +17644,8 @@ assert(
         spec.includes("normalizes each blurred coverage cell"),
     "GUI font docs must pin F5lo approved plan, alpha normalization, and raw blur cell release",
 );
-const renderShadowSourcePackedMaskEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourcePackedMaskStartIndex);
+const renderShadowSourceCompositionOrderStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner:", renderShadowSourcePackedMaskStartIndex);
+const renderShadowSourcePackedMaskEndIndex = renderShadowSourceCompositionOrderStartIndex;
 const renderShadowSourcePackedMaskRegion = allocFontSfntGlyfImpl.slice(renderShadowSourcePackedMaskStartIndex, renderShadowSourcePackedMaskEndIndex);
 const renderShadowSourcePackedMaskConfigType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig:"),
@@ -17664,7 +17667,7 @@ const renderShadowSourcePackedMaskErrorKindType = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind:"),
     allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind:"),
 );
-assert(renderShadowSourcePackedMaskStartIndex >= 0 && renderShadowSourcePackedMaskEndIndex > renderShadowSourcePackedMaskStartIndex, "alloc/gui/font/sfnt/glyf F5lo shadow source packed mask region must exist before stroke segment plan");
+assert(renderShadowSourcePackedMaskStartIndex >= 0 && renderShadowSourcePackedMaskEndIndex > renderShadowSourcePackedMaskStartIndex, "alloc/gui/font/sfnt/glyf F5lo shadow source packed mask region must exist before shadow source composition order");
 for (const fragment of [
     "struct GuiSfntSimpleGlyphRenderShadowSourcePackedMaskConfig:",
     "alpha_max %i32",
@@ -17938,6 +17941,233 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourcePackedMaskTests.includes("render_shadow_source_packed_mask_budget_progress_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourcePackedMaskTests.includes("render_shadow_source_packed_mask_no_generic_stroke_render_platform"),
     "F5lo render shadow source packed mask focused doctest must cover F5ln authority, alpha config, blur invariant, exact alpha allocation, raw read, alpha scale, push recovery, completion free, completed invariant, drain progress, and no generic/stroke/render/platform policy",
+);
+assert(spec.includes("### SFNT simple glyph render shadow source composition order boundary"), "GUI font spec must document F5lp render shadow source composition order boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render shadow source composition order boundary"), "GUI font detailed design must document F5lp render shadow source composition order boundary");
+assert(implementationPlan.includes("## Phase F5lp: sfnt simple glyph render shadow source composition order"), "GUI font implementation plan must include F5lp phase");
+assert(
+    implementationPlan.includes("Hume plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("Hume plan review was `PLAN_APPROVED`") &&
+        detailedDesign.includes("shadow contribution order") &&
+        detailedDesign.includes("lower edge error evidence") &&
+        detailedDesign.includes("collapsed nested edge invalidity") &&
+        spec.includes("shadow_order = 0") &&
+        spec.includes("source_order = 1"),
+    "GUI font docs must pin F5lp approved plan, lower edge evidence, and shadow-before-source order",
+);
+const renderShadowSourceCompositionOrderEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:", renderShadowSourceCompositionOrderStartIndex);
+assert(renderShadowSourceCompositionOrderStartIndex >= 0 && renderShadowSourceCompositionOrderEndIndex > renderShadowSourceCompositionOrderStartIndex, "alloc/gui/font/sfnt/glyf F5lp shadow source composition order region must exist before stroke segment plan");
+const renderShadowSourceCompositionOrderRegion = allocFontSfntGlyfImpl.slice(renderShadowSourceCompositionOrderStartIndex, renderShadowSourceCompositionOrderEndIndex);
+const renderShadowSourceCompositionOrderOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner "),
+);
+const renderShadowSourceCompositionOrderStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind:"),
+);
+const renderShadowSourceCompositionOrderStartErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery:"),
+);
+const renderShadowSourceCompositionOrderStartErrorRecoveryType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error "),
+);
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner:",
+    "shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner",
+    "source_placement_origin %GuiPoint",
+    "shadow_offset %GuiPoint",
+    "shadow_extent %i32",
+    "shadow_paint %GuiPaint",
+    "blend %GuiBlendMode",
+    "shadow_order %i32",
+    "source_order %i32",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError:",
+    "packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind",
+    "edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind",
+    "struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery:",
+]) {
+    assert(renderShadowSourceCompositionOrderRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lp composition order region must include ${fragment}`);
+}
+for (const fragment of [
+    "shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner",
+    "source_placement_origin %GuiPoint",
+    "shadow_offset %GuiPoint",
+    "shadow_extent %i32",
+    "shadow_paint %GuiPaint",
+    "blend %GuiBlendMode",
+    "shadow_order %i32",
+    "source_order %i32",
+]) {
+    assert(renderShadowSourceCompositionOrderOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lp owner must include ${fragment}`);
+}
+for (const fragment of [
+    "PackedMaskInvariantFailed",
+    "EdgeOwnerInvariantFailed",
+    "SourcePlacementOriginMismatch",
+    "ShadowOffsetMismatch",
+    "ShadowExtentMismatch",
+    "ShadowPaintMismatch",
+    "BlendMismatch",
+    "UnsupportedBlendMode",
+    "ShadowOrderMismatch",
+    "SourceOrderMismatch",
+]) {
+    assert(renderShadowSourceCompositionOrderStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lp start error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind",
+    "shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner",
+    "packed_error %Option GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind",
+    "edge_error %Option GuiSfntSimpleGlyphRenderShadowSourceEdgeErrorKind",
+]) {
+    assert(renderShadowSourceCompositionOrderStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5lp start error must include ${fragment}`);
+}
+assert(renderShadowSourceCompositionOrderStartErrorRecoveryType.includes("shadow_owner %GuiSfntSimpleGlyphRenderShadowSourcePackedMaskOwner"), "alloc/gui/font/sfnt/glyf F5lp recovery must keep packed mask owner");
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind\b/,
+    "alloc/gui/font/sfnt/glyf F5lp start error kind is value-only and must implement Clone/Copy",
+);
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner",
+    "GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartError",
+    "GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorRecovery",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5lp ${typeName} owns packed mask authority and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderShadowSourceCompositionOrder(?:Owner|StartError|StartErrorRecovery)|pub enum GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderStartErrorKind|pub fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_(?:owner(?:_start|_invariants)?|start_error)/,
+    "alloc/gui/font/sfnt/glyf F5lp boundary types and owner operations must remain private",
+);
+for (const fragment of [
+    "fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_kind ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_error ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_edge_error ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery ",
+    "fn gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_from_packed_failed ",
+]) {
+    assert(renderShadowSourceCompositionOrderRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5lp recovery accessor surface must include ${fragment}`);
+}
+const renderShadowSourceCompositionOrderContextFromPackedOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_context_from_packed_owner");
+const renderShadowSourceCompositionOrderPackedFailure = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_from_packed_failed");
+const renderShadowSourceCompositionOrderCompletedInvariants = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_invariants");
+const renderShadowSourceCompositionOrderStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_start");
+const renderShadowSourceCompositionOrderOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_free");
+const renderShadowSourceCompositionOrderStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_free");
+const renderShadowSourceCompositionOrderStartErrorRecoveryFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery_free");
+assertOrderedFragments(
+    renderShadowSourceCompositionOrderContextFromPackedOwner,
+    [
+        "field::get_ref shadow_owner \"edge_owner\"",
+        "field::get_ref edge_owner \"context\"",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lp context helper must read metadata through the F5lo packed owner edge authority",
+);
+assertOrderedFragments(
+    renderShadowSourceCompositionOrderPackedFailure,
+    [
+        "match packed_error_value",
+        "GuiSfntSimpleGlyphRenderShadowSourcePackedMaskErrorKind::EdgeOwnerInvariantFailed",
+        "field::get_ref &shadow_owner \"edge_owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_edge_failed shadow_owner packed_error_value edge_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_packed_failed shadow_owner packed_error_value",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lp packed failure helper must recover concrete lower edge evidence when F5lo collapses it",
+);
+assertOrderedFragments(
+    renderShadowSourceCompositionOrderStart,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_invariants &shadow_owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_from_packed_failed shadow_owner packed_error",
+        "field::get_ref &shadow_owner \"edge_owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_edge_failed shadow_owner edge_error",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_context_from_packed_owner &shadow_owner",
+        "field::get_ref &context \"blend\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported blend",
+        "UnsupportedBlendMode",
+        "field::get_ref &context \"source_placement_origin\"",
+        "field::get_ref &context \"shadow_offset\"",
+        "field::get_ref &context \"shadow_extent\"",
+        "field::get_ref &context \"shadow_paint\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner shadow_owner source_placement_origin shadow_offset shadow_extent shadow_paint blend 0 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lp start must revalidate F5lo/F5lk authority, preserve lower errors, and fix shadow-before-source order",
+);
+assertOrderedFragments(
+    renderShadowSourceCompositionOrderCompletedInvariants,
+    [
+        "gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_invariants shadow_owner",
+        "PackedMaskInvariantFailed",
+        "field::get_ref shadow_owner \"edge_owner\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_edge_owner_invariants edge_owner",
+        "EdgeOwnerInvariantFailed",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_context owner",
+        "field::get_ref &context \"source_placement_origin\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal source_placement_origin expected_source_placement_origin",
+        "SourcePlacementOriginMismatch",
+        "field::get_ref &context \"shadow_offset\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_point_equal shadow_offset expected_shadow_offset",
+        "ShadowOffsetMismatch",
+        "field::get_ref &context \"shadow_extent\"",
+        "ne shadow_extent expected_shadow_extent",
+        "ShadowExtentMismatch",
+        "field::get_ref &context \"shadow_paint\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_paint_equal shadow_paint expected_shadow_paint",
+        "ShadowPaintMismatch",
+        "field::get_ref &context \"blend\"",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_blend_equal blend expected_blend",
+        "BlendMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_edge_blend_is_supported blend",
+        "UnsupportedBlendMode",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_shadow_order owner",
+        "ne shadow_order 0",
+        "ShadowOrderMismatch",
+        "gui_sfnt_simple_glyph_render_shadow_source_composition_order_owner_source_order owner",
+        "ne source_order 1",
+        "SourceOrderMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lp invariant must revalidate packed/edge authority, context metadata, blend support, and fixed order",
+);
+assert(renderShadowSourceCompositionOrderOwnerFree.includes("gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free shadow_owner"), "alloc/gui/font/sfnt/glyf F5lp owner free must close packed mask owner authority");
+assert(renderShadowSourceCompositionOrderStartErrorFree.includes("gui_sfnt_simple_glyph_render_shadow_source_composition_order_start_error_recovery_free recovery"), "alloc/gui/font/sfnt/glyf F5lp start error free must use recovery free");
+assert(renderShadowSourceCompositionOrderStartErrorRecoveryFree.includes("gui_sfnt_simple_glyph_render_shadow_source_packed_mask_owner_free shadow_owner"), "alloc/gui/font/sfnt/glyf F5lp recovery free must close packed mask owner authority");
+assertNoMatch(
+    renderShadowSourceCompositionOrderRegion,
+    /\b(?:GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrder|gui_sfnt_simple_glyph_render_glyph_paint_composition_order|GuiSfntSimpleGlyphRenderStrokeOnlyCompositionOrder|gui_sfnt_simple_glyph_render_stroke_only_composition_order|GuiSfntSimpleGlyphRenderFillAlphaMask|gui_sfnt_simple_glyph_render_fill_alpha_mask|GuiSfntSimpleGlyphRenderStrokePackedMask|gui_sfnt_simple_glyph_render_stroke_packed_mask|GuiSfntSimpleGlyphRenderStrokeCoverageMask|gui_sfnt_simple_glyph_render_stroke_coverage_mask|GuiSfntSimpleGlyphRenderShadowSourceBlurMask|gui_sfnt_simple_glyph_render_shadow_source_blur_mask|GuiSfntSimpleGlyphRenderShadowSourceCoverageScan|gui_sfnt_simple_glyph_render_shadow_source_coverage_scan|GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriter|gui_sfnt_simple_glyph_render_shadow_source_coverage_mask_writer|RenderCommand|render_command_|AlphaMaskId|RenderTarget|DrawTarget|ResourceTable|resource_table|ResourceReservation|resource_reservation|render2d|software_surface|backend|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|shadow_raster|compositor|vec::push|vec::with_capacity)\b/,
+    "alloc/gui/font/sfnt/glyf F5lp region must stay at shadow source order metadata and not use fill/stroke composition, sample/resource/render/platform/compositor paths",
+);
+for (const [slice, name] of [
+    [renderShadowSourceCompositionOrderContextFromPackedOwner, "context from packed owner"],
+    [renderShadowSourceCompositionOrderPackedFailure, "packed failure"],
+    [renderShadowSourceCompositionOrderCompletedInvariants, "completed invariant"],
+    [renderShadowSourceCompositionOrderStart, "start"],
+    [renderShadowSourceCompositionOrderOwnerFree, "owner free"],
+    [renderShadowSourceCompositionOrderStartErrorFree, "start error free"],
+    [renderShadowSourceCompositionOrderStartErrorRecoveryFree, "recovery free"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5lp ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_f5lo_authority_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_context_metadata_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_packed_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_edge_error_evidence_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_source_over_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_shadow_before_source_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_completed_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_recovery_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderShadowSourceCompositionOrderTests.includes("render_shadow_source_composition_order_no_fill_stroke_render_platform"),
+    "F5lp render shadow source composition order focused doctest must cover F5lo authority, context metadata, invariants, lower edge evidence, SourceOver, order, recovery, and no fill/stroke/render/platform policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke segment plan boundary"), "GUI font spec must document F5kr render stroke segment plan boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke segment plan boundary"), "GUI font detailed design must document F5kr render stroke segment plan boundary");
