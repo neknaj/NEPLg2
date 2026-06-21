@@ -19,6 +19,7 @@
 - `FnValue` / `MemoizedFunctionValue` は `FunctionIdentityObservation` source とし、literal / Var / Block / If / Error は現 checkpoint では unsupported source にした。
 - stage0 module builder を body expr 差し替え可能にし、PrivateCache call body と function value body の source count smoke を summary に追加した。
 - contract test、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md` を更新した。
+- `origin/main` merge 後に追加されていた `stdlib/alloc/gui/render2d/compositor_batch_drain.nepl` の宣言 doc / doctest marker gap を補い、stdlib documentation contract の baseline を戻した。
 
 ## 検証
 
@@ -31,6 +32,15 @@
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_body_hir_reader.json`
 - checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after `origin/main` merge: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after `origin/main` merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-body-hir-reader-after-main-merge.json`。17/17。
+- pass after `origin/main` merge: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after `origin/main` merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_batch_drain.n.md --no-tree -o tmp/gui_render2d_compositor_batch_drain_after_merge.json -j 1`。1/1。
+- pass after `origin/main` merge: `node nodesrc/issues.js check --dir issues`
+- pass after `origin/main` merge: `git diff --check`。LF/CRLF warning のみ。
+- pass after `origin/main` merge: `trunk build`
+- pass after `origin/main` merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_body_hir_reader_after_main_merge.json`
+- checked JSON after `origin/main` merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 
 ## 未接続
 

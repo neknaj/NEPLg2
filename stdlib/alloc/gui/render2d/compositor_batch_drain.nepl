@@ -30,6 +30,12 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 
+//: GuiRgba8888CompositorBatchDrainStatus: compositor batch drain の[継続/けいぞく]状態
+//:
+//: [目的/もくてき]:
+//: - lower row batch drain の完了 / budget exhaustion を compositor entry 境界の status として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
 pub enum GuiRgba8888CompositorBatchDrainStatus:
     Completed
     StepBudgetExhausted
@@ -42,6 +48,12 @@ impl Copy for GuiRgba8888CompositorBatchDrainStatus:
     fn copy_mark %fn GuiRgba8888CompositorBatchDrainStatus GuiRgba8888CompositorBatchDrainStatus \status:
         status
 
+//: GuiRgba8888CompositorBatchDrainErrorKind: compositor batch drain の[失敗/しっぱい]分類
+//:
+//: [目的/もくてき]:
+//: - lower row batch drain の typed error kind を wrapper 境界で[失/うしな]わずに[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
 pub enum GuiRgba8888CompositorBatchDrainErrorKind:
     RowBatchDrainFailed %GuiRgba8888RowBatchDrainErrorKind
 
@@ -53,17 +65,32 @@ impl Copy for GuiRgba8888CompositorBatchDrainErrorKind:
     fn copy_mark %fn GuiRgba8888CompositorBatchDrainErrorKind GuiRgba8888CompositorBatchDrainErrorKind \kind:
         kind
 
+//: GuiRgba8888CompositorBatchDrainTerminal: drain 成功時の terminal owner
+//:
+//: [目的/もくてき]:
+//: - lower terminal owner と compositor frame entry metadata を[束/たば]ね、caller が entry owner を[再構成/さいこうせい]できるようにします。
+//:
+//: neplg2:test[skip]
 pub struct GuiRgba8888CompositorBatchDrainTerminal:
     status %GuiRgba8888CompositorBatchDrainStatus
     terminal %GuiRgba8888RowBatchDrainTerminal
     metadata %GuiRgba8888CompositorFrameEntryMetadata
 
+//: GuiRgba8888CompositorBatchDrainError: drain 失敗時の error owner
+//:
+//: [目的/もくてき]:
+//: - lower error owner、GUI error category、metadata を[束/たば]ね、error recovery 後に entry owner を[戻/もど]せるようにします。
+//:
+//: neplg2:test[skip]
 pub struct GuiRgba8888CompositorBatchDrainError:
     kind %GuiRgba8888CompositorBatchDrainErrorKind
     category %Option GuiError
     error %GuiRgba8888RowBatchDrainError
     metadata %GuiRgba8888CompositorFrameEntryMetadata
 
+//: gui_rgba8888_compositor_batch_drain_status_from_lower: lower status を compositor status へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_drain_status_from_lower %fn GuiRgba8888RowBatchDrainStatus GuiRgba8888CompositorBatchDrainStatus \status:
     match status:
         GuiRgba8888RowBatchDrainStatus::Completed:
@@ -71,31 +98,58 @@ fn gui_rgba8888_compositor_batch_drain_status_from_lower %fn GuiRgba8888RowBatch
         GuiRgba8888RowBatchDrainStatus::StepBudgetExhausted:
             GuiRgba8888CompositorBatchDrainStatus::StepBudgetExhausted
 
+//: gui_rgba8888_compositor_batch_drain_terminal_new: terminal payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_drain_terminal_new %fn GuiRgba8888CompositorBatchDrainStatus fn GuiRgba8888RowBatchDrainTerminal fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchDrainTerminal \status\terminal\metadata:
     GuiRgba8888CompositorBatchDrainTerminal status terminal metadata
 
+//: gui_rgba8888_compositor_batch_drain_error_new: lower error を compositor error owner へ[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - lower error owner は wrapper error の中へ[移動/いどう]し、category と kind は Copy payload として先に[読/よ]みます。
+//:
+//: neplg2:test[skip]
 fn gui_rgba8888_compositor_batch_drain_error_new %fn GuiRgba8888RowBatchDrainError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorBatchDrainError \lower\metadata:
     let lower_kind %GuiRgba8888RowBatchDrainErrorKind gui_rgba8888_row_batch_drain_error_kind &lower
     let category %Option GuiError gui_rgba8888_row_batch_drain_error_category_value &lower
     let kind %GuiRgba8888CompositorBatchDrainErrorKind GuiRgba8888CompositorBatchDrainErrorKind::RowBatchDrainFailed lower_kind
     GuiRgba8888CompositorBatchDrainError kind category lower metadata
 
+//: gui_rgba8888_compositor_batch_drain_terminal_status: terminal status を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_terminal_status %fn &GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorBatchDrainStatus \terminal:
     *field::get_ref terminal "status"
 
+//: gui_rgba8888_compositor_batch_drain_terminal_emitted_count: lower drain が[出力/しゅつりょく]した row batch 数を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_terminal_emitted_count %fn &GuiRgba8888CompositorBatchDrainTerminal i32 \terminal:
     let lower %&GuiRgba8888RowBatchDrainTerminal field::get_ref terminal "terminal"
     gui_rgba8888_row_batch_drain_terminal_emitted_count lower
 
+//: gui_rgba8888_compositor_batch_drain_terminal_metadata: terminal に[保持/ほじ]した frame entry metadata を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_terminal_metadata %fn &GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorFrameEntryMetadata \terminal:
     *field::get_ref terminal "metadata"
 
+//: gui_rgba8888_compositor_batch_drain_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_error_kind %fn &GuiRgba8888CompositorBatchDrainError GuiRgba8888CompositorBatchDrainErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_rgba8888_compositor_batch_drain_error_category_value: lower error category を Copy payload として[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_error_category_value %fn &GuiRgba8888CompositorBatchDrainError Option GuiError \error:
     *field::get_ref error "category"
 
+//: gui_rgba8888_compositor_batch_drain_error_metadata: error に[保持/ほじ]した frame entry metadata を[返/かえ]す
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_error_metadata %fn &GuiRgba8888CompositorBatchDrainError GuiRgba8888CompositorFrameEntryMetadata \error:
     *field::get_ref error "metadata"
 
@@ -104,6 +158,8 @@ pub fn gui_rgba8888_compositor_batch_drain_error_metadata %fn &GuiRgba8888Compos
 //: [契約/けいやく]:
 //: - metadata を entry から Copy してから cursor を[取/と]り[出/だ]します。
 //: - lower drain の terminal / error を metadata と[束/たば]ね、caller が continuation entry を[再構成/さいこうせい]できます。
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_budget %fn GuiRgba8888CompositorFrameEntryOwner fn i32 Result GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorBatchDrainError \entry\remaining_batches:
     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_frame_entry_metadata &entry
     let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_compositor_frame_entry_finish_cursor entry
@@ -115,22 +171,40 @@ pub fn gui_rgba8888_compositor_batch_drain_budget %fn GuiRgba8888CompositorFrame
             let status %GuiRgba8888CompositorBatchDrainStatus gui_rgba8888_compositor_batch_drain_status_from_lower lower_status
             Result::Ok gui_rgba8888_compositor_batch_drain_terminal_new status lower_terminal metadata
 
+//: gui_rgba8888_compositor_batch_drain_terminal_finish_entry: terminal owner から compositor entry owner を[再構成/さいこうせい]する
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower terminal owner を cursor owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_terminal_finish_entry %fn GuiRgba8888CompositorBatchDrainTerminal GuiRgba8888CompositorFrameEntryOwner \terminal:
     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_terminal_metadata &terminal
     let lower %GuiRgba8888RowBatchDrainTerminal field::get terminal "terminal"
     let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_terminal_finish_cursor lower
     GuiRgba8888CompositorFrameEntryOwner cursor metadata
 
+//: gui_rgba8888_compositor_batch_drain_error_finish_entry: error owner から compositor entry owner を[再構成/さいこうせい]する
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower error owner 内の cursor owner を[戻/もど]します。
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_error_finish_entry %fn GuiRgba8888CompositorBatchDrainError GuiRgba8888CompositorFrameEntryOwner \error:
     let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_batch_drain_error_metadata &error
     let lower %GuiRgba8888RowBatchDrainError field::get error "error"
     let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_drain_error_cursor lower
     GuiRgba8888CompositorFrameEntryOwner cursor metadata
 
+//: gui_rgba8888_compositor_batch_drain_terminal_free: terminal owner 内の lower terminal を[閉/と]じる
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_terminal_free %fn GuiRgba8888CompositorBatchDrainTerminal Result unit GuiRgba8888SoftwareSurfaceErrorKind \terminal:
     let lower %GuiRgba8888RowBatchDrainTerminal field::get terminal "terminal"
     gui_rgba8888_row_batch_drain_terminal_free lower
 
+//: gui_rgba8888_compositor_batch_drain_error_free: error owner 内の lower error を[閉/と]じる
+//:
+//: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_batch_drain_error_free %fn GuiRgba8888CompositorBatchDrainError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
     let lower %GuiRgba8888RowBatchDrainError field::get error "error"
     gui_rgba8888_row_batch_drain_error_free lower
