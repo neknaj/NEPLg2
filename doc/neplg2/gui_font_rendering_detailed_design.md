@@ -7667,6 +7667,61 @@ Cell coverage uses the same integer sampling model as F5be. Each cell is split i
 
 Zero-edge glyphs are valid. With zero edges the crossing count is always zero, so F5lm writes zero coverage cells through the same loop instead of using a zero-fill shortcut or completing a partial mask.
 
+## SFNT simple glyph render shadow source blur mask owner boundary
+
+F5ln consumes the completed F5lm shadow source raw coverage mask owner and produces a completed shadow coverage mask after spread and blur. It is still pre-packing and pre-composition. It does not normalize to alpha cells, reserve resources, emit render commands, write pixels, call platform APIs, or drain a compositor.
+
+Harvey plan review was `PLAN_APPROVED`. The review confirmed that blur should operate before packing, because F5ln still has raw coverage values and can preserve coverage semantics before later alpha normalization. The review also confirmed that the blur owner should keep the nested F5lk edge authority instead of copying shadow paint / blend into this boundary, and that completion must free the raw source cells.
+
+The transition owner is owner-bearing and non-copyable:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceBlurMaskBuildOwner:
+    coverage_owner GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner
+    shadow_shape GuiSfntSimpleGlyphRasterCoverageShape
+    cells Vec i32
+    cell_index i32
+```
+
+The completed owner stores both shapes and the blurred shadow cells:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceBlurMaskOwner:
+    edge_owner GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape GuiSfntSimpleGlyphRasterCoverageShape
+    shadow_shape GuiSfntSimpleGlyphRasterCoverageShape
+    cells Vec i32
+    cell_count i32
+```
+
+The completed owner does not store shadow paint or blend. Later packing / composition must read those values from the nested F5lk context. This keeps F5ln focused on coverage generation and avoids creating a second shadow metadata authority.
+
+F5ln starts by validating the completed F5lm owner:
+
+```text
+F5lk completed edge owner invariant holds
+cached source_shape equals the F5lk context source_shape
+source shape has valid width / height / sample scale / coverage_max / cell_count
+raw cell_count == source_shape.cell_count
+raw cells.len == source_shape.cell_count
+raw cells.cap == source_shape.cell_count
+shadow blur radius >= 0
+shadow spread >= 0
+shadow_extent == spread + blur_radius
+```
+
+Shadow shape is derived, not supplied by the caller. `padding_px = shadow_extent`; origin uses `source_origin_x2/y2 - padding_px * 2`; dimensions use `source_width/height + padding_px * 2`; sample scale and coverage max are copied from the source shape. Origin, dimension, and cell-count arithmetic use checked i32 roundtrip logic before a `GuiSfntSimpleGlyphRasterCoverageShape` value is created.
+
+The spread operation is an inclusive square max-filter spread. For a logical source coordinate `(x, y)`, F5ln reads every coordinate in `[x - spread, x + spread] x [y - spread, y + spread]` and keeps the maximum raw coverage. Read coordinates outside the source shape are zero; they do not reach `vec::get`.
+
+The blur operation is an inclusive square box filter over the spread result. For a logical source coordinate `(x, y)`, F5ln sums the spread values for `[x - blur_radius, x + blur_radius] x [y - blur_radius, y + blur_radius]`, then divides by the kernel count using truncating integer division. Kernel validation checks `(2 * spread + 1)^2`, `(2 * blur_radius + 1)^2`, and `blur_kernel_count * coverage_max`, so accumulation stays within i32.
+
+Step maps the shadow cell index to `(shadow_x, shadow_y)`, subtracts `shadow_extent` to get source logical coordinates, computes the blurred coverage, and pushes one cell into the output Vec. Push failure returns a build owner with the returned Vec and unchanged `cell_index`.
+
+The bounded drain completes only when `cell_index == shadow_shape.cell_count`. Otherwise it either returns `StepBudgetExhausted` or advances by one cell and checks that both `cell_index` and output Vec length advanced by exactly one. Completion destructures the F5lm source coverage owner, frees raw source cells, and returns a completed blur mask owner with the original F5lk edge owner, source shape, shadow shape, blurred cells, and shadow cell count.
+
+F5ln must not call generic raster coverage scan owners, packed-mask helpers, stroke coverage helpers, fill alpha mask helpers, render command constructors, resource table helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

@@ -223,6 +223,49 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI font F5ln shadow source blur mask owner boundary
+
+## 目的
+
+- F5lm completed shadow source raw coverage mask owner を direct authority として消費し、source coverage に spread / blur を適用して shadow coverage mask を作る。
+- raw coverage の段階で spread max-filter と box blur を行い、packed alpha mask / composition は後続 boundary に残す。
+- shadow paint / blend は blur owner にコピーせず、後続が nested F5lk context から読む。
+- completion 時に raw source coverage cells を解放し、completed blur owner には blurred shadow cells と F5lk edge authority を残す。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceBlurMaskBuildOwner`、completed blur mask owner、error kind、start error、build error、bounded terminal、free/recovery helper を追加した。
+- start / build invariant は F5lm completed owner、nested F5lk edge owner invariant、cached source shape equality、source shape arithmetic、raw source cells len/cap、shadow extent / spread / blur metadata を再検査する。
+- shadow shape は `shadow_extent = spread + blur_radius` 由来の padding から checked arithmetic で導出し、sample scale / coverage max は source shape からコピーする。
+- spread は inclusive square max-filter、blur は inclusive square box-filter とし、outside-source coordinates は Vec read 前に 0 coverage とする。
+- kernel axis / cell count と `blur_kernel_count * coverage_max` を checked arithmetic で検査し、blur accumulation が i32 に収まることを要求する。
+- step は 1 shadow cell を計算して output Vec へ push し、push failure では returned Vec と unchanged `cell_index` を持つ owner-bearing error を返す。
+- completion は exact full のときだけ raw source cells を free し、F5lk edge owner、source shape、shadow shape、blurred cells、shadow cell count を持つ completed owner を返す。
+- Harvey plan review は `PLAN_APPROVED`。raw coverage 上で blur を行う順序、F5lm authority、shadow paint / blend をコピーしない設計、push failure / completion free の設計が承認された。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_f5ln.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_scan_f5ln_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ln.json -j 1` は 1301 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ln.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5ln.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Pasteur implementation review は `REVIEW_APPROVED`。
+- selfhost branch への latest `origin/main` F5ln merge 後、`node nodesrc/test_stdlib_documentation_contract.js` が `stdlib declaration doc gaps increased: 2813 > 2756` で失敗した。原因は F5ln の blur mask owner 新規 top-level helper 57 件に doc が無かったことだったため、各 helper に日本語 doc と `neplg2:test[skip]` を追加し、baseline は変更しなかった。
+- F5ln merge 後の full GUI import では `gui_sfnt_simple_glyph_render_shadow_source_blur_mask_build_owner_start` の `vec::with_capacity shadow_cell_count` が型未注釈で、`Result::Ok/Err` が literal arm 扱いになっていた。`let cells_result %Result Vec i32 StdErrorKind vec::with_capacity shadow_cell_count` に束縛してから match し、allocation result の型を根本で固定した。
+- pass after selfhost branch F5ln merge fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after selfhost branch F5ln merge fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_owner_f5ln_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after selfhost branch F5ln merge fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after selfhost branch F5ln merge fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+
+## 残件
+
+- F5ln 後続として、shadow source packing / composition、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lm shadow source coverage scan converter boundary
 
 ## 目的
@@ -78808,6 +78851,20 @@ MERGE_APPROVED
 - pass after latest `origin/main` F5lm merge and GUI doc fix: `trunk build`
 - pass after latest `origin/main` F5lm merge and GUI doc fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5lm-fix.json`
 - checked JSON after latest `origin/main` F5lm merge and GUI doc fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_blur_mask_owner.n.md --no-tree -o tmp_gui_font_render_shadow_source_blur_mask_owner_f5ln_after_selfhost_merge_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_resource_no_escape_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ln-merge-doctest.json`。1/1。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-resource-no-escape-producer-after-f5ln-merge-doctest.json`。1 passed / 0 failed。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `trunk build`
+- pass after latest `origin/main` F5ln merge and GUI doc/compile fix: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-effect-resource-producer-after-f5ln-fix.json`
+- checked JSON after latest `origin/main` F5ln merge and GUI doc/compile fix: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 
 ### 残件
 
