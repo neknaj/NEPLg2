@@ -4323,6 +4323,61 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mc.json
 ```
 
+## Phase F5md: render2d compositor tile plan bridge boundary
+
+目的:
+
+- F5mc の `GuiRgba8888CompositorByteStorageOwner` を authority とし、既存 F5ca `gui_rgba8888_row_tile_plan_prepare` を compositor metadata 付きで接続する。
+- lower `gui_rgba8888_row_tile_plan_prepare` を 1 回だけ呼び、1 batch 分の row tile plan metadata を `GuiRgba8888CompositorTilePlanOwner` として返す。
+- success / prepare error / finish error recovery のどれでも compositor metadata を保持し、byte storage owner または frame entry owner へ戻せるようにする。
+- この phase では tile payload、RLE、std present、host / platform API、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no RLE / host present の tile plan metadata bridge で止める。
+
+plan review:
+
+- Bohr plan review は `PLAN_APPROVED`。
+- F5md は F5mc の compositor byte storage owner と F5ca の row tile plan owner をつなぐ bridge として承認された。
+- prepare error は `kind/category/storage` を持ち、lower kind / category を読んだ後で lower byte storage owner を `GuiRgba8888CompositorByteStorageOwner` へ戻す。
+- finish error は `kind/category/entry` を持ち、F5mc の byte storage finish error から lower finish kind / category を読んだ後で returned entry owner を保持する。
+- owner_free は finish failure と entry free failure を分ける。tile plan finish が成功した後に entry free が失敗した場合を失わず、finish failure では original lower finish kind を保持する。
+- source policy で lower `gui_rgba8888_row_tile_plan_prepare` exact once、direct `gui_rgba8888_row_byte_storage_validate_authority` 禁止、`gui_rgba8888_row_tile_plan_storage_ref` / byte read / raw `RegionToken` / `MemPtr` / source storage 公開禁止、tile payload / RLE / std present / host / platform / fallback 禁止を検査する。
+- focused doctest は success path に加え、invalid `tile_rows` prepare failure で metadata rewrap と `storage` recovery を実行する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_plan.nepl` を追加する。
+- `GuiRgba8888CompositorTilePlanPrepareErrorKind`、`GuiRgba8888CompositorTilePlanFinishErrorKind`、`GuiRgba8888CompositorTilePlanFreeErrorKind` を追加する。
+- `GuiRgba8888CompositorTilePlanOwner`、`GuiRgba8888CompositorTilePlanPrepareError`、`GuiRgba8888CompositorTilePlanFinishError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_plan_prepare` は metadata を byte storage owner から Copy してから lower storage owner を取り出し、lower row tile plan prepare を 1 回だけ呼ぶ。
+- prepare failure は lower kind / category を読んでから `GuiRgba8888CompositorByteStorageOwner` へ正規化し、prepare error は `kind/category/storage` を保持する。
+- descriptor helper は lower `gui_rgba8888_row_tile_plan_descriptor_at` に委譲し、storage-relative descriptor metadata だけを返す。
+- `gui_rgba8888_compositor_tile_plan_owner_finish_byte_storage` は metadata を Copy してから lower tile plan owner を byte storage owner へ戻す。
+- `gui_rgba8888_compositor_tile_plan_owner_finish_entry` は F5mc byte storage finish に委譲し、finish error は `kind/category/entry` を保持する。
+- prepare error / finish error recovery accessor、free helper を追加する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile plan を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_plan.n.md` を追加し、facade、prepare、descriptor metadata、invalid config recovery、finish entry recovery、no payload / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5md source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Bohr approval、facade export、typed lower error variants、success owner / prepare error / finish error no Clone / Copy、exact one lower row tile plan prepare call、metadata-before-storage-owner-consume、lower kind/category before storage normalization、descriptor_at delegation、metadata-before-tile-plan-finish、finish error kind/category before entry recovery、owner_free の finish failure / entry free failure split、direct lower authority validation / raw storage / storage_ref / byte read / payload / RLE / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5mc compositor byte storage regression、F5ca row tile plan regression、source policy、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower finish kind/category loss、entry free failure collapse、payload / host leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_plan_f5md.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_plan.nepl --no-tree -o tmp_gui_render2d_compositor_tile_plan_module_f5md.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_byte_storage.n.md --no-tree -o tmp_gui_render2d_compositor_byte_storage_f5md_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5md_regression.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5md.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
