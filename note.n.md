@@ -31,6 +31,12 @@
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_candidate_builder.json`
 - checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5kv merge: `node nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass after latest `origin/main` F5kv merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_merge_diag.json -j 1`
+- pass after latest `origin/main` F5kv merge: `node nodesrc/run_source_policy_regressions.js`; log `neplg2_source_policy_after_merge_20260621141112.out` reached final `test_zed_extension_no_tracked_target.js`
+- pass after latest `origin/main` F5kv merge: `trunk build`
+- pass after latest `origin/main` F5kv merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_candidate_builder_after_merge.json`
+- checked JSON after latest `origin/main` F5kv merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 
 ### 残件
 
@@ -145,6 +151,50 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI font F5kv core GUI stroke style contract boundary
+
+## 目的
+
+- actual stroke offset geometry の前に、2D renderer と font renderer が共有する stroke style policy を core no_alloc `GuiStroke` に固定する。
+- join / cap / miter / dash を暗黙 default として後続 geometry boundary が発明しないようにする。
+- offset point、join/cap geometry、dash expansion、miter clipping、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へは進まない。
+
+## subagent review
+
+- Volta の F5kv plan review は `PLAN_APPROVED`。
+- 条件は、2 引数 `gui_stroke_new color width` を geometry-capable stroke の正式 constructor として残さないこと、dash `Solid` は explicit no-dash として扱い未対応 dash pattern を solid に近似しないこと、`miter_limit` は raw undocumented `i32` ではなく `f32` または明示 fixed-point contract にすること、scope を core enum / field / accessor / checked constructor / source policy / docs / tests に限定することだった。
+
+## implementation_current
+
+- `GuiStrokeCap`、`GuiStrokeJoin`、`GuiStrokeDash` を `stdlib/core/gui/render_command.nepl` に追加し、`Clone` / `Copy` を実装した。
+- `GuiStrokeProof` を module-private に追加し、`GuiStroke` に `cap`、`join`、`miter_limit %f32`、`dash`、proof を追加した。
+- `gui_stroke_new` を color、width、cap、join、miter limit、dash をすべて受け取る checked constructor に変更し、`width > 0` と `miter_limit > 0.0` が両方成り立つ場合だけ `Ok` にした。NaN miter は positive comparison が false になるため `GuiError::InvalidCommand` になる。
+- direct `GuiStroke` construction は private proof field により外部からできない形にした。
+- `gui_stroke_color` / `gui_stroke_width` / `gui_stroke_cap` / `gui_stroke_join` / `gui_stroke_miter_limit` / `gui_stroke_dash` accessor を追加した。
+- merge integration で accessor comment に `gui_stroke_new` doctest coverage を明記し、宣言単位の stdlib documentation doctest gap を増やさないようにした。
+- merge integration で `GuiStroke` direct construction compile_fail doctest に実診断 `type.stack.extra_values` の `diag_code` を固定した。
+- F5kq / F5kr / F5ks の stroke width read を `gui_stroke_width` に寄せ、`GuiStroke` 内部 field 名への依存を減らした。
+- docs、source policy、render_command doctest、todo を F5kv に合わせて更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5kv.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kv.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core_f5kv.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kv.json`
+- checked JSON: `tmp/playground-editor-tests-f5kv.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Heisenberg の initial implementation review は `REVIEW_CHANGES_REQUESTED`。指摘は、`le miter_limit 0.0` では NaN を拒否できないこと、source policy がその誤った式を固定していたこと、public `GuiStroke` 直構築で checked constructor を迂回できる可能性があることだった。
+- 修正後、Heisenberg の re-review は `REVIEW_APPROVED`。private proof による direct construction bypass 防止、positive validation による NaN miter rejection、source policy / doctest coverage、geometry / edge / coverage / render / platform 非接続が確認された。
+
 # 2026-06-21 Agent2 GUI font F5ku stroke source segment metric owner boundary
 
 ## 目的

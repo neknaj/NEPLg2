@@ -78,6 +78,7 @@ function assertOrderedFragments(text, fragments, message) {
 const spec = read("doc/neplg2/gui_font_rendering_spec.md");
 const detailedDesign = read("doc/neplg2/gui_font_rendering_detailed_design.md");
 const implementationPlan = read("doc/neplg2/gui_font_rendering_implementation_plan.md");
+const gui2dRenderingDesign = read("doc/neplg2/gui_2d_rendering_design.md");
 const redesignDetailedDesign = read("doc/neplg2/gui_redesign_detailed_design.md");
 const redesignPlan = read("doc/neplg2/gui_redesign_implementation_plan.md");
 const guiStandardLibrarySpec = read("doc/neplg2/gui_standard_library_spec.md");
@@ -16984,6 +16985,97 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests.includes("render_stroke_source_segment_metric_owner_metric_error_context_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests.includes("render_stroke_source_segment_metric_owner_no_reread_edge_mask_command_platform"),
     "F5ku render stroke source segment metric owner focused doctest must cover fresh cursor, capacity, push, completion, recovery, metric error context, and no reread/edge/mask/command/platform policy",
+);
+assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
+assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");
+assert(implementationPlan.includes("## Phase F5kv: core GUI stroke style contract boundary"), "GUI font implementation plan must include F5kv phase");
+assert(
+    implementationPlan.includes("Volta plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("The old two-argument `gui_stroke_new color width` shape must not remain") &&
+        detailedDesign.includes("`GuiStroke` carries a module-private proof field") &&
+        detailedDesign.includes("NaN also fails because the positive `gt miter_limit 0.0` comparison is false for NaN") &&
+        spec.includes("2 引数 `gui_stroke_new color width` のような API は geometry-capable stroke の正式入口にしない") &&
+        gui2dRenderingDesign.includes("core no_alloc 実装では、この shared stroke model を `GuiStroke`"),
+    "GUI font docs must pin F5kv approved plan, no two-argument stroke constructor, and 2D/font shared stroke style model",
+);
+assert(renderCommandCoreImpl.includes("struct GuiStrokeProof:"), "core/gui/render_command F5kv must define module-private GuiStrokeProof");
+assertNoMatch(renderCommandCoreImpl, /pub\s+struct\s+GuiStrokeProof:/, "core/gui/render_command F5kv proof type must remain module-private");
+const guiStrokeType = renderCommandCoreImpl.slice(
+    renderCommandCoreImpl.indexOf("pub struct GuiStroke:"),
+    renderCommandCoreImpl.indexOf("impl Clone for GuiStroke:"),
+);
+for (const fragment of [
+    "pub enum GuiStrokeCap:",
+    "Butt",
+    "Square",
+    "Round",
+    "pub enum GuiStrokeJoin:",
+    "Miter",
+    "Bevel",
+    "pub enum GuiStrokeDash:",
+    "Solid",
+]) {
+    assert(renderCommandCoreImpl.includes(fragment), `core/gui/render_command F5kv stroke style must include ${fragment}`);
+}
+for (const fragment of [
+    "color %Rgba8888",
+    "width %i32",
+    "cap %GuiStrokeCap",
+    "join %GuiStrokeJoin",
+    "miter_limit %f32",
+    "dash %GuiStrokeDash",
+    "proof %GuiStrokeProof",
+]) {
+    assert(guiStrokeType.includes(fragment), `core/gui/render_command F5kv GuiStroke must include ${fragment}`);
+}
+const guiStrokeNew = functionSlice(renderCommandCoreImpl, "gui_stroke_new");
+assertOrderedFragments(
+    guiStrokeNew,
+    [
+        "fn gui_stroke_new %fn Rgba8888 fn i32 fn GuiStrokeCap fn GuiStrokeJoin fn f32 fn GuiStrokeDash Result GuiStroke GuiError",
+        "let width_positive %bool gt width 0",
+        "let miter_limit_positive %bool gt miter_limit 0.0",
+        "if and width_positive miter_limit_positive",
+        "Result::Ok GuiStroke color width cap join miter_limit dash gui_stroke_proof width",
+        "Result::Err GuiError::InvalidCommand",
+    ],
+    "core/gui/render_command F5kv gui_stroke_new must require explicit style parameters and accept only positive width/miter",
+);
+assertNoMatch(
+    guiStrokeNew,
+    /le\s+miter_limit\s+0\.0/,
+    "core/gui/render_command F5kv miter validation must not use NaN-accepting <= comparison",
+);
+assert(
+    renderCommandCore.includes("nan miter") &&
+        renderCommandCore.includes("let nan_f %f32 div zero_f zero_f") &&
+        renderCommandCore.includes("let nan_miter %Result GuiStroke GuiError gui_stroke_new"),
+    "core/gui/render_command F5kv doctest must cover NaN miter rejection",
+);
+for (const fragment of [
+    "pub fn gui_stroke_color %fn &GuiStroke Rgba8888",
+    "pub fn gui_stroke_width %fn &GuiStroke i32",
+    "pub fn gui_stroke_cap %fn &GuiStroke GuiStrokeCap",
+    "pub fn gui_stroke_join %fn &GuiStroke GuiStrokeJoin",
+    "pub fn gui_stroke_miter_limit %fn &GuiStroke f32",
+    "pub fn gui_stroke_dash %fn &GuiStroke GuiStrokeDash",
+]) {
+    assert(renderCommandCoreImpl.includes(fragment), `core/gui/render_command F5kv must expose accessor ${fragment}`);
+}
+assertNoMatch(
+    renderCommandCoreImpl,
+    /pub\s+fn\s+gui_stroke_new\s+%fn\s+Rgba8888\s+fn\s+i32\s+GuiStroke\b/,
+    "core/gui/render_command F5kv must remove the two-argument geometry-capable stroke constructor shape",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("let width %i32 gui_stroke_width stroke") &&
+        allocFontSfntGlyfImpl.includes("let stroke_width %i32 gui_stroke_width &stroke"),
+    "alloc/gui/font/sfnt/glyf F5kv must read stroke width through the core accessor",
+);
+assertNoMatch(
+    guiStrokeNew,
+    /\b(?:offset|join resolution|cap geometry|dash expansion|miter clipping|stroke edge|coverage|packed mask|RenderCommand|render_command_|DrawTarget|RenderTarget|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|fallback|compositor)\b/,
+    "core/gui/render_command F5kv constructor must stay contract-only and not perform stroke geometry/render/platform work",
 );
 assert(spec.includes("### SFNT simple glyph render fill alpha mask sample cursor boundary"), "GUI font spec must document F5bi render fill alpha mask sample cursor boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render fill alpha mask sample cursor boundary"), "GUI font detailed design must document F5bi render fill alpha mask sample cursor boundary");

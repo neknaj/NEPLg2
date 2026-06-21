@@ -6023,7 +6023,7 @@ shadow rasterizer
 
 F5kr は F5kq の stroke request owner を authority として、stroke segment expansion の入力になる count-only stroke segment plan owner を作る境界である。ここでは実際の stroke offset geometry、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
 
-現時点の `GuiStroke` は color と width だけを持つ。F5kr は join / cap / dash policy を暗黙に仮定せず、completed path command stream writer owner の plan count と validated stroke width を同じ owner に固定する。
+F5kr 実装時点の `GuiStroke` は color と width だけを持っていた。F5kv 以降の `GuiStroke` は cap / join / miter / dash policy も持つが、F5kr は引き続き stroke geometry policy を解釈せず、completed path command stream writer owner の plan count と validated stroke width を同じ owner に固定する。
 
 success owner は次を保持する。
 
@@ -6093,6 +6093,30 @@ step は F5ks cursor step を 1 回だけ進める。MoveTo terminal は metric 
 metric prepare failure は、進んだ cursor、metric Vec、pre-push count、rejected segment kind、segment index、F5kt error kind を error payload に保持する。push failure は、進んだ cursor、`vec::push` から返った metric Vec、拒否された metric value、pre-push count、segment kind、segment index、storage error を保持する。どちらも通常の resumable drain owner とは扱わない。
 
 completion は F5ks `Completed` で返った F5kr plan owner と metric Vec を束ね、`GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner` を返す。completion 前に `metric_count == draw_segment_count`、`line_metric_count == line_to_count`、`quadratic_metric_count == quadratic_to_count`、Vec len/cap が `draw_segment_count` と一致することを検査する。
+
+### Core GUI stroke style contract boundary
+
+F5kv は actual stroke offset geometry の前に、2D renderer と font renderer が共有する `GuiStroke` style contract を core no_alloc value として固定する境界である。これは geometry expansion ではなく、stroke request に必要な policy を暗黙 default ではなく型付き data として渡せるようにする phase である。
+
+`GuiStroke` は次を保持する。
+
+```text
+GuiStroke:
+    color Rgba8888
+    width i32
+    cap GuiStrokeCap
+    join GuiStrokeJoin
+    miter_limit f32
+    dash GuiStrokeDash
+```
+
+`GuiStrokeCap` は `Butt` / `Square` / `Round`、`GuiStrokeJoin` は `Miter` / `Bevel` / `Round` を持つ。`GuiStrokeDash::Solid` は dash なしを caller が明示した policy であり、未対応 dash pattern を solid に近似する fallback ではない。
+
+`gui_stroke_new` は color、width、cap、join、miter limit、dash をすべて受け取り、`width <= 0` または `miter_limit <= 0.0` を `GuiError::InvalidCommand` として拒否する。2 引数 `gui_stroke_new color width` のような API は geometry-capable stroke の正式入口にしない。
+
+実装は module-private proof field により direct struct construction を外部から塞ぎ、`gui_stroke_new` を通った値だけを `GuiStroke` として作れるようにする。`miter_limit` は `gt miter_limit 0.0` の肯定条件で検査するため、NaN も success value へ入れない。
+
+F5kv は core value / accessor / checked constructor / docs / source policy を固定するだけで、offset point、join resolution、cap geometry、dash expansion、miter clipping、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 

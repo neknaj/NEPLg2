@@ -2596,7 +2596,7 @@ git diff --check
 目的:
 
 - F5kq の stroke request owner を authority として、stroke segment expansion 前の count-only plan owner を追加する。
-- `GuiStroke` は color / width だけなので、join / cap / dash / miter policy を暗黙に仮定しない。
+- F5kr 実装時点の `GuiStroke` は color / width だけだった。F5kv 以降は cap / join / miter / dash policy も保持するが、この phase は stroke geometry policy を解釈せず、count-only plan と width validation に留める。
 - stroke offset geometry、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
 
 plan review:
@@ -2653,7 +2653,7 @@ git diff --check
 plan review:
 
 - Franklin plan review は `PLAN_APPROVED`。
-- F5ks は F5kr の count-only plan の自然な後続であり、現在の `GuiStroke` が color / width のみであるため、この段階で offset geometry や join / cap policy を暗黙に選ばない。
+- F5ks は F5kr の count-only plan の自然な後続であり、この段階で offset geometry や join / cap policy を解釈しない。
 - F5kr start と同等の writer invariant を F5ks start / step 前に再検査する。
 - SkipNoSegment は path command count / skip count には含まれるが path sink scalar stream には record を持たないため、scalar tag `4` は skip terminal ではなく corrupt stream error とする。
 - cursor は `path_sink_scalar_count` まで進み、`path_command_count` を step 数として使わない。
@@ -2772,6 +2772,53 @@ node --check nodesrc/test_web_gui_font_rendering_contract.js
 node nodesrc/test_web_gui_font_rendering_contract.js
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_source_segment_metric_owner.n.md --no-tree -o tmp_gui_font_render_stroke_source_segment_metric_owner_f5ku.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ku.json -j 1
+git diff --check
+```
+
+## Phase F5kv: core GUI stroke style contract boundary
+
+目的:
+
+- actual stroke offset geometry の前に、2D renderer と font renderer が共有する stroke style policy を core no_alloc `GuiStroke` に固定する。
+- join / cap / miter / dash を暗黙 default として geometry boundary が発明しないようにする。
+- offset point、join/cap geometry、dash expansion、miter clipping、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+
+plan review:
+
+- Volta plan review は `PLAN_APPROVED`。
+- F5kv は F5ku の metric owner 後、actual offset geometry 前に必要な root API contract boundary として承認された。
+- 2 引数 `gui_stroke_new color width` は geometry-capable stroke の正式 constructor として残さない。
+- dash `Solid` は no-dash を明示する enum としてよいが、未対応 dash pattern を solid に近似しない。
+- `miter_limit` は raw undocumented `i32` にせず、設計通り `f32` として検査する。
+- `miter_limit` は positive comparison で検査し、NaN を success value に入れない。
+- `GuiStroke` は module-private proof field で direct struct construction による checked constructor bypass を防ぐ。
+- scope は core enums / fields / accessors / checked constructor / source policy / docs / tests に限定する。
+
+変更:
+
+- `GuiStrokeCap`、`GuiStrokeJoin`、`GuiStrokeDash` を `stdlib/core/gui/render_command.nepl` に追加し、`Clone` / `Copy` を実装する。
+- `GuiStrokeProof` を module-private に追加し、`GuiStroke` に `cap`、`join`、`miter_limit`、`dash`、proof を追加する。
+- `gui_stroke_new` を color、width、cap、join、miter limit、dash をすべて受け取る checked constructor に変更し、`width > 0` と `miter_limit > 0.0` が両方成り立つ場合だけ `Ok` にする。
+- `gui_stroke_color`、`gui_stroke_width`、`gui_stroke_cap`、`gui_stroke_join`、`gui_stroke_miter_limit`、`gui_stroke_dash` accessor を追加する。
+- F5kq / F5kr / F5ks 側の width read は `gui_stroke_width` を authority にし、内部 field 名へ依存しない。
+- docs/source policy は explicit style constructor、`f32` miter limit、dash `Solid` の no-fallback semantics、no geometry / no edge / no coverage / no render / no platform を検査する。
+
+完了条件:
+
+- source policy が F5kv docs、Volta plan approval、`GuiStrokeCap` / `GuiStrokeJoin` / `GuiStrokeDash`、module-private proof、full-argument checked constructor、accessors、2 引数 constructor 不在、miter `f32` positive validation、dash `Solid` explicit semantics、no geometry/render/platform 接続を検査する。
+- core GUI doctest または focused stdlib test が explicit stroke style construction、accessor、invalid width、zero/NaN miter limit、direct construction compile failure を検査する。
+- implementation review で F5kv が contract-only に留まり、stroke offset geometry / edge / coverage / render command / platform API へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke style contract boundary 接続済み、後続の actual stroke offset geometry expansion / stroke edge owner / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_stdlib_gui_render_command_doc_contract.js
+node nodesrc/test_stdlib_gui_render_command_doc_contract.js
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5kv.json -j 1
 git diff --check
 ```
 

@@ -6780,7 +6780,7 @@ Later stroke phases are deliberately separate: stroke segment expansion plan, st
 
 F5kr consumes the F5kq stroke request owner and creates a count-only stroke segment plan owner. The authority remains the completed path command stream writer owner contained inside the request owner. F5kr does not reinterpret fill alpha mask output as stroke geometry and does not consume the fill alpha mask owner.
 
-The current `GuiStroke` data model stores color and width only. Therefore F5kr must not silently choose a join, cap, dash, or miter policy. It fixes only the input that is already explicit: the completed path command counts, the drawable source segment count, the origin / fill / stroke / blend metadata, and the validated stroke width.
+When F5kr was introduced, `GuiStroke` stored color and width only, so F5kr could not choose a join, cap, dash, or miter policy. After F5kv, `GuiStroke` carries explicit style policy too, but F5kr still fixes only the input needed for the count plan: the completed path command counts, the drawable source segment count, the origin / fill / stroke / blend metadata, and the validated stroke width. It must not interpret stroke style policy as geometry.
 
 ```text
 GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:
@@ -7031,6 +7031,31 @@ QuadraticSegment:
 push failure must return the advanced cursor, returned metric Vec, rejected metric value, and pre push counts. Metric prepare failure similarly returns the advanced cursor, metric Vec, pre push counts, rejected segment kind, segment index, and F5kt metric error kind. These failure states are owner-bearing recovery payloads, but they are not normal resumable drain owners because the F5ks cursor has already advanced past the rejected source segment.
 
 F5ku must not call `path_sink_scalars` directly, SFNT byte lookup/parser helpers, fill alpha mask owners, raster edge owners, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke/shadow rasterizers, or compositor APIs. It may allocate one metric Vec and push through exactly one helper.
+
+## Core GUI stroke style contract boundary
+
+F5kv is a root API contract phase for glyph stroke geometry. The next offset geometry boundary cannot invent stroke join, cap, miter, or dash defaults, because the 2D renderer and text renderer must share the same stroke policy. F5kv therefore moves the policy into the core no_alloc `GuiStroke` value before any actual stroke offset point, edge, coverage, or compositor work.
+
+The completed `GuiStroke` value stores:
+
+```text
+color Rgba8888
+width i32
+cap GuiStrokeCap
+join GuiStrokeJoin
+miter_limit f32
+dash GuiStrokeDash
+```
+
+`GuiStrokeCap` has `Butt`, `Square`, and `Round`. `GuiStrokeJoin` has `Miter`, `Bevel`, and `Round`. `GuiStrokeDash::Solid` means explicit no-dash; it is not a fallback for unsupported dash patterns. Future dash patterns must become typed values or typed unsupported errors instead of being approximated as solid.
+
+`miter_limit` remains `f32` to match the shared 2D stroke design. It is not an undocumented raw integer scale. The checked constructor accepts only `width > 0` and `miter_limit > 0.0`; every other value is `GuiError::InvalidCommand`. NaN also fails because the positive `gt miter_limit 0.0` comparison is false for NaN.
+
+The old two-argument `gui_stroke_new color width` shape must not remain the formal constructor for geometry-capable stroke. The constructor takes every style policy explicitly so call sites show the policy they are requesting.
+
+`GuiStroke` carries a module-private proof field. External callers cannot construct it directly from public fields, so invalid width or miter limit cannot bypass `gui_stroke_new`. Clone and Copy reconstruct the proof from the already-validated value inside the module.
+
+F5kv is still before stroke geometry. It must not read metric owner storage, create offset points, resolve joins or caps, expand dashes, clip miters, allocate stroke edges, build coverage or packed masks, emit render commands, write pixels, or call platform APIs.
 
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 

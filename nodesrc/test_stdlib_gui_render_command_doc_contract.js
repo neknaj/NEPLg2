@@ -87,6 +87,61 @@ for (const snippet of [
     assertIncludes(renderCommand, snippet, `render_command docs must pin GUI/TUI substrate and backend boundary: ${snippet}`);
 }
 
+for (const snippet of [
+    "pub enum GuiStrokeCap:",
+    "Butt",
+    "Square",
+    "Round",
+    "pub enum GuiStrokeJoin:",
+    "Miter",
+    "Bevel",
+    "pub enum GuiStrokeDash:",
+    "Solid",
+    "struct GuiStrokeProof:",
+    "fn gui_stroke_proof %fn i32 GuiStrokeProof",
+    "pub struct GuiStroke:",
+    "cap %GuiStrokeCap",
+    "join %GuiStrokeJoin",
+    "miter_limit %f32",
+    "dash %GuiStrokeDash",
+    "proof %GuiStrokeProof",
+    "pub fn gui_stroke_new %fn Rgba8888 fn i32 fn GuiStrokeCap fn GuiStrokeJoin fn f32 fn GuiStrokeDash Result GuiStroke GuiError",
+    "let width_positive %bool gt width 0",
+    "let miter_limit_positive %bool gt miter_limit 0.0",
+    "if and width_positive miter_limit_positive",
+    "GuiStroke color width cap join miter_limit dash gui_stroke_proof width",
+    "GuiError::InvalidCommand",
+    "pub fn gui_stroke_color %fn &GuiStroke Rgba8888",
+    "pub fn gui_stroke_width %fn &GuiStroke i32",
+    "pub fn gui_stroke_cap %fn &GuiStroke GuiStrokeCap",
+    "pub fn gui_stroke_join %fn &GuiStroke GuiStrokeJoin",
+    "pub fn gui_stroke_miter_limit %fn &GuiStroke f32",
+    "pub fn gui_stroke_dash %fn &GuiStroke GuiStrokeDash",
+    "core_gui_render_command_gui_stroke_style_doc",
+    "nan miter",
+    "`GuiStrokeDash::Solid` は dash なしの[明示/めいじ] policy",
+]) {
+    assertIncludes(renderCommand, snippet, `render_command must expose explicit stroke style contract: ${snippet}`);
+}
+
+assert.doesNotMatch(
+    renderCommand,
+    /pub\s+struct\s+GuiStrokeProof:|le\s+miter_limit\s+0\.0/,
+    "core/gui render_command must keep stroke proof private and must not use NaN-accepting miter <= 0 validation",
+);
+
+assert.doesNotMatch(
+    renderCommand,
+    /pub\s+fn\s+gui_stroke_new\s+%fn\s+Rgba8888\s+fn\s+i32\s+GuiStroke\b|gui_stroke_new\s+color\s+\d+\s*(?:\n|$)/,
+    "core/gui render_command must not keep the two-argument stroke constructor or doctest call shape",
+);
+
+assert.doesNotMatch(
+    renderCommand,
+    /GuiStroke` は color と width だけ|GuiStroke` は width と color だけ/,
+    "core/gui render_command docs must not describe GuiStroke as color/width-only",
+);
+
 assert.doesNotMatch(
     renderCommand,
     /\b(?:DOM|Canvas|ANSI|TTY|Win32|UIKit|AndroidView|HtmlCanvas|Ssd1306|Skia|terminal)\b|端末/,
