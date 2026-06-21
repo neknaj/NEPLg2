@@ -6527,6 +6527,22 @@ coverage は F5be と同じ doubled-coordinate integer sample space で計算す
 
 bounded drain は `cell_index == cell_count` の exact state だけで F5ll completion を呼ぶ。completion が incomplete terminal を返した場合は `CompletionIncomplete` として失敗させる。`StepBudgetExhausted` は未完了かつ budget が尽きた場合だけ返し、step 後は `cell_index` と writer `written_cell_count` がそれぞれ 1 だけ進んだことを検査する。
 
+### SFNT simple glyph render shadow source blur mask owner boundary
+
+F5ln は F5lm completed shadow source raw coverage mask owner を direct authority とし、raw source coverage に spread と blur を適用して shadow coverage mask owner を作る境界である。この phase は packed alpha mask、resource table、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5ln は shadow paint / blend を blur owner に重複保持しない。後続の packing / composition は completed blur owner に残る F5lk edge owner の context から shadow paint / blend / placement metadata を読む。F5ln は F5lm completed owner の `source_shape` と raw source `cells` を読み、completion 時に raw source cells を解放して、completed blur owner には blurred shadow cells だけを残す。
+
+shadow shape は F5lk context の `shadow_extent == spread + blur_radius` から導出する。`padding_px = shadow_extent`、origin は `source_origin_x2/y2 - padding_px * 2`、width / height は `source_width/height + padding_px * 2` とし、すべて i64 roundtrip による checked arithmetic を通す。`sample_scale` と `coverage_max` は source shape からコピーし、`shadow_cell_count == shadow_width_px * shadow_height_px` を検査する。
+
+spread は source coverage への inclusive square max-filter である。`spread_coverage(x, y)` は source logical coordinate `(x, y)` の周囲 `[x - spread, x + spread] x [y - spread, y + spread]` から最大 coverage を返す。outside-source coordinates contribute zero coverage であり、Vec read の前に out-of-source 判定を行う。
+
+blur は spread 後 coverage への inclusive square box filter である。`blurred_coverage(x, y)` は `[x - blur_radius, x + blur_radius] x [y - blur_radius, y + blur_radius]` の `spread_coverage` を合計し、kernel count で整数除算する。平均は truncating integer average である。F5ln は `(2 * spread + 1)^2`、`(2 * blur_radius + 1)^2`、`blur_kernel_count * coverage_max` を checked arithmetic で検査し、blur accumulation が i32 に収まることを要求する。
+
+build owner は F5lm completed coverage owner、derived shadow shape、output cell Vec、`cell_index` を持つ。start は F5lm completed owner invariant、F5lk context / `shadow_extent` invariant、source shape arithmetic、raw source cells len/cap、kernel bounds を再検査してから、shadow cell count と等しい capacity の output Vec を確保する。step は 1 shadow cell を計算して push し、push failure では returned Vec と unchanged `cell_index` を owner-bearing error として返す。
+
+bounded drain は `cell_index == shadow_cell_count` の exact state だけで completion を呼ぶ。未完了で budget が尽きた場合は `StepBudgetExhausted` を返す。step 後は `cell_index` と output cells len がそれぞれ 1 だけ進んだことを検査する。completion は exact full でなければ `CompletionIncomplete` とし、成功時は raw source cells を解放して completed blur owner を返す。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
