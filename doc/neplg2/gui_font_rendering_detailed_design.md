@@ -7217,6 +7217,20 @@ Miter, bevel, and round joins remain policy records in F5kz. `GuiStrokeJoin` and
 
 F5kz does not build coverage masks, packed masks, render commands, pixel buffers, platform resources, host text measurement, fallback text, shadows, or compositor output.
 
+## SFNT simple glyph render stroke coverage mask writer owner boundary
+
+F5la consumes the completed F5kz stroke edge closure owner as the only direct authority. It must not return to the F5ba/F5az scalar stream, byte-backed glyph lookup, the F5ku metric owner by itself, a fresh F5kw cursor/drain, the F5kx offset geometry drain, the F5ky side edge drain, or the F5kz closure drain.
+
+F5la reuses the shared raster coverage config and shape validation helper without calling the fill coverage writer. The shared helper is allowed because it validates the pixel rectangle, sample scale, coverage max, and cell count arithmetic. The fill raster coverage writer owner, fill coverage scan converter, and fill packed mask owner remain separate authorities and are not reused directly for stroke.
+
+F5la revalidates the completed F5kz closure owner before allocating the stroke coverage cells. The check reuses the F5kz source side-edge invariant, requires side edge / join / left-right counts to match, requires the join Vec len/cap to equal `side_edge_count`, requires `ClosedContourNoCap`, and compares the stored cap / join / miter policy against the nested stroke style still reachable through the completed owner chain.
+
+The writer owner stores the completed F5kz owner, the shared coverage shape, the i32 cell Vec, and `written_cell_count`. The completed owner is produced only when `written_cell_count == shape.cell_count` and Vec len/cap still match the exact cell count. F5la allocates the stroke coverage cell buffer but does not compute stroke coverage.
+
+Start errors keep three independent payload channels: shape validation error, F5kz closure invariant error, and lower storage error. Push errors retain the writer owner and rejected coverage value; lower Vec push failure recovers the returned Vec and the pre-push `written_cell_count`.
+
+A later stroke coverage scan converter must consume the F5la writer before packed stroke mask conversion. F5la does not build stroke coverage scans, packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
