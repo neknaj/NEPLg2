@@ -6657,6 +6657,69 @@ shadow rasterizer
 2D compositor
 ```
 
+### SFNT simple glyph render shadow source resource reservation boundary
+
+F5ls は F5lp completed shadow source composition order owner を、F5bk の `AlphaMaskId` と同じ owner-bearing reservation value に束ねる内部境界である。これは F5lr の per-sample `FillRect` bridge とは別の resource path であり、F5lr cursor / command payload を authority にしない。
+
+この phase は resource table 登録ではない。`RenderCommand::AlphaMaskRect` を発行せず、renderer / host / platform へは渡さず、shadow mask storage が backend で解決可能であることも証明しない。`AlphaMaskId` について証明するのは raw value が nonzero であり、completed owner と同じ owner-bearing value に保持されていることだけである。
+
+F5ls が作る成功 value は次である。
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig:
+    mask_id AlphaMaskId
+
+GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner:
+    owner GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+    shadow_order i32
+    source_order i32
+```
+
+config は value-only で `Clone` / `Copy` を持つ。reservation owner と start error は F5lp owner を保持するため `Clone` / `Copy` を持たない。
+
+validation は fail closed である。
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+F5lp composition order invariant failure -> CompositionOrderInvariantFailed with lower order_error
+shadow_shape.width_px <= 0 -> ShadowShapeInvalidWidth
+shadow_shape.height_px <= 0 -> ShadowShapeInvalidHeight
+shadow_shape.sample_scale <= 0 -> ShadowShapeInvalidSampleScale
+shadow_shape.coverage_max != sample_scale * sample_scale -> ShadowShapeCoverageMaxMismatch
+shadow_shape.cell_count != width_px * height_px -> ShadowShapeCellCountMismatch
+owner.alpha_max <= 0 -> InvalidAlphaMax
+owner.cell_count != shadow_shape.cell_count -> ShadowAlphaCellCountMismatch
+owner.alpha_cells.len != shadow_shape.cell_count -> ShadowAlphaStorageLenMismatch
+owner.alpha_cells.cap != shadow_shape.cell_count -> ShadowAlphaStorageCapacityMismatch
+owner.blend != SourceOver -> UnsupportedBlendMode
+source_placement_origin.x - shadow_extent overflow -> RectXOverflow
+source_placement_origin.y - shadow_extent overflow -> RectYOverflow
+```
+
+成功時の `rect` は F5lp owner の `source_placement_origin - shadow_extent` を左上とし、shadow shape の width / height を size とする。右端 / 下端 overflow、id uniqueness、table lookup、host upload、renderability は後続境界の責務である。`paint` は F5lp owner の `shadow_paint`、`shadow_order` / `source_order` は F5lp owner の order metadata をそのまま保持する。F5ls は alpha Vec を copy しない。
+
+F5ls は次を呼ばない。
+
+```text
+F5lq cursor start / read / step
+F5lr sample command bridge
+render_command_alpha_mask_rect
+render_command_fill_rect
+resource table registration
+Vec push / owner-bearing Vec payload
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+shadow rasterizer
+software surface
+2D compositor drain
+```
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

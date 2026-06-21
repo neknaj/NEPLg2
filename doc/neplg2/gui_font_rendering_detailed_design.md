@@ -7933,6 +7933,72 @@ The `FillRect` emitted by F5lr is only the shadow contribution command for one s
 
 F5lr may call `render_command_fill_rect`, `gui_paint_color`, `gui_paint_solid`, and `rgba8888_new`. It must not call fill/stroke owners, F5lg/F5lh composition helpers, resource table or reservation helpers, software surfaces, platform/backend APIs, font fallback, shadow rasterizers, compositor APIs, or owner-bearing Vec allocation/push helpers.
 
+## SFNT simple glyph render shadow source resource reservation boundary
+
+F5ls is the resource reservation counterpart to F5lr's per-sample correctness bridge. F5lp is the direct authority. The input is a completed `GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner`, not an F5lq cursor and not an F5lr command cursor. This keeps the high-throughput alpha-mask resource path separate from the diagnostic 1x1 `FillRect` bridge.
+
+The reservation owner is private to `alloc/gui/font/sfnt/glyf`:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourceReservationOwner:
+    owner GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+    shadow_order i32
+    source_order i32
+```
+
+The owner keeps the F5lp composition owner alive, and therefore keeps the packed shadow alpha storage alive. The `AlphaMaskId` is only checked as a nonzero value and kept with the owner. It is not registered, unique, uploaded, host-visible, or renderable. Later resource-table and prepared-command boundaries must consume this owner before creating a persistent `RenderCommand::AlphaMaskRect`, otherwise a copyable command could outlive the storage owner.
+
+The value-only config is:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceResourceReservationConfig:
+    mask_id AlphaMaskId
+```
+
+The config may implement `Clone` / `Copy`. The success owner and start error own F5lp authority and must not implement `Clone` / `Copy`.
+
+Validation order is stable:
+
+```text
+validate config mask id
+    AlphaMaskId.raw <= 0 -> InvalidMaskId
+
+validate F5lp composition order owner
+    any lower F5lp invariant failure -> CompositionOrderInvariantFailed with order_error
+
+validate shadow shape
+    width_px <= 0 -> ShadowShapeInvalidWidth
+    height_px <= 0 -> ShadowShapeInvalidHeight
+    sample_scale <= 0 -> ShadowShapeInvalidSampleScale
+    sample_scale * sample_scale overflow or mismatch -> ShadowShapeCoverageMaxMismatch
+    width_px * height_px overflow or mismatch -> ShadowShapeCellCountMismatch
+
+validate shadow alpha storage
+    alpha_max <= 0 -> InvalidAlphaMax
+    owner.cell_count != shape.cell_count -> ShadowAlphaCellCountMismatch
+    alpha_cells.len != shape.cell_count -> ShadowAlphaStorageLenMismatch
+    alpha_cells.cap != shape.cell_count -> ShadowAlphaStorageCapacityMismatch
+
+validate blend
+    SourceOver -> Ok
+    other -> UnsupportedBlendMode
+
+derive rect
+    x = checked_i32 source_placement_origin.x - shadow_extent
+    y = checked_i32 source_placement_origin.y - shadow_extent
+```
+
+The rect is `source_placement_origin - shadow_extent` for the top-left corner, with width and height copied from the validated shadow shape. Right/bottom overflow is not checked here because no command is emitted and no target extent is known yet; a later table / drain / compositor boundary must validate the record against the destination contract. F5ls copies `shadow_paint`, `shadow_order`, and `source_order` into the reservation owner so later boundaries can preserve the F5lp shadow-before-source ordering without reinterpreting command order.
+
+F5ls uses its own resource-reservation error vocabulary for shadow storage invariant failures. It may share the same algorithm as F5lq, but it must not expose sample cursor errors, create a cursor, call `read`, call F5lq `step`, or call F5lr command helpers. `order_error` is `Some` only for the F5lp composition invariant precheck. Mask id errors, storage errors, blend errors, and rect overflow keep `order_error = None`.
+
+Recovery is explicit. A start error keeps the original F5lp owner and config. A consuming success recovery helper returns the original `GuiSfntSimpleGlyphRenderShadowSourceCompositionOrderOwner`. Free helpers close the F5lp owner exactly once.
+
+F5ls must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, F5lq cursor start/read/step, F5lr command helpers, resource table registration, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, shadow rasterizers, software surfaces, alpha Vec copy helpers, owner-bearing Vec payload storage, or a 2D compositor drain.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
