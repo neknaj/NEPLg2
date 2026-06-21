@@ -6484,6 +6484,20 @@ F5lk は `path_sink_scalars` の record だけを読む。record 形式は `Move
 
 `zero drawable edges` は正当な completion である。line/quadratic count が 0 なら edge Vec は len/cap 0 の exact owner として完成できる。F5kr の stroke segment plan のように `NoDrawableStrokeSegments` で拒否しない。
 
+### SFNT simple glyph render shadow source coverage mask writer owner boundary
+
+F5ll は F5lk completed shadow source edge owner を direct authority とし、後続 shadow source coverage scan converter が raw coverage cell を書き込む writer owner を作る境界である。この phase は coverage scan conversion、blur kernel、spread mutation、packed mask、resource table、render command、pixel write、platform API、font fallback、2D compositor へ進まない。
+
+F5ll は generic `GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner` や stroke coverage writer を再利用しない。F5lk の edge owner は shadow request / source shape / shadow metadata を context に持つ専用 authority であり、generic fill edge owner を偽造したり、F5la stroke owner に詰め替えたりしない。
+
+F5ll は新しい coverage config を受け取らない。`source_shape` は F5lj で固定され、F5lk context に保存された canonical value である。F5ll writer はこの `source_shape` を cached canonical value として保持するが、writer invariant では edge owner の context に残る `source_shape` と一致することを再検査する。したがって config / shape authority は追加されない。
+
+start は F5lk owner を nested writer plan / capacity まで再検査する。`line_edge_count == plan.line_to_count`、`quadratic_edge_count == plan.quadratic_to_count`、`edge_count == raster_edge_capacity`、`edge_count == line_edge_count + quadratic_edge_count`、`edges.len == edge_count`、`edges.cap == raster_edge_capacity` をすべて要求する。`edges.cap == edge_count or raster_edge_capacity` のような緩い条件は許可しない。
+
+writer owner は `edge_owner`、cached `source_shape`、raw coverage `cells`、`written_cell_count` を持つ。push は `cells.len == written_cell_count`、`cells.cap == source_shape.cell_count`、`written_cell_count <= source_shape.cell_count`、coverage value が `0..=coverage_max` であることを検査し、Vec push 失敗では返却 Vec と pre-push progress を保持する。completion は `written_cell_count == source_shape.cell_count` の exact state だけを completed owner とし、未満なら incomplete terminal を返す。
+
+zero-edge glyph と nonzero cell count の組み合わせは正当である。F5ll は cell storage writer なので、後続 scan が各 cell に 0 coverage を書く。edge が 0 件であることを理由に F5ll start や completion を拒否しない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

@@ -7589,6 +7589,42 @@ Completion requires `scalar_index == path_sink_scalar_count`, move/line/quadrati
 
 F5lk must not call coverage mask writer start, mask scan conversion, packed mask conversion, blur kernel construction, render command constructors, resource table, software surface, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
 
+## SFNT simple glyph render shadow source coverage mask writer owner boundary
+
+F5ll consumes the completed F5lk shadow source edge owner and creates the raw coverage cell writer for the later shadow source scan converter. It is writer-only. It allocates the raw cell Vec and exposes push / completion / free paths, but it does not compute coverage, build blur kernels, pack alpha cells, reserve resources, emit render commands, write pixels, call platform APIs, or drain a compositor.
+
+Turing plan review 1 was `CHANGES_REQUESTED`. The initial plan allowed `edges.cap == edge_count or raster_edge_capacity` and did not explicitly require F5ll start to revalidate F5lk's completed owner against the nested writer plan / capacity. Turing revised plan review is `PLAN_APPROVED`: F5ll must require `line_edge_count == plan.line_to_count`, `quadratic_edge_count == plan.quadratic_to_count`, `edge_count == raster_edge_capacity`, checked `edge_count == line_edge_count + quadratic_edge_count`, `edges.len == edge_count`, and `edges.cap == raster_edge_capacity`.
+
+The writer owner is:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner:
+    edge_owner GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape GuiSfntSimpleGlyphRasterCoverageShape
+    cells Vec i32
+    written_cell_count i32
+```
+
+The completed owner is:
+
+```text
+GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner:
+    edge_owner GuiSfntSimpleGlyphRenderShadowSourceEdgeOwner
+    source_shape GuiSfntSimpleGlyphRasterCoverageShape
+    cells Vec i32
+    cell_count i32
+```
+
+`source_shape` is a cached canonical value copied from the F5lk context. F5ll does not accept a new coverage config and does not create a second shape authority. Writer invariants compare the cached value against the nested F5lk context value and fail closed on mismatch.
+
+Start revalidates the F5lk context invariants, shared writer authority, nested writer plan and capacity, edge count / storage exactness, then allocates `Vec<i32>` with exact `source_shape.cell_count`. Allocation happens after the owner has been validated; allocation failure returns the original F5lk edge owner inside the start error.
+
+Push validation requires `cells.len == written_cell_count`, `cells.cap == source_shape.cell_count`, `written_cell_count <= source_shape.cell_count`, and `coverage_value` in `0..=source_shape.coverage_max`. Vec push failure reconstructs the writer owner with the returned Vec and the pre-push `written_cell_count`.
+
+Completion returns `CoverageMaskCompleted` only when `written_cell_count == source_shape.cell_count`. If fewer cells have been written, it returns `CoverageMaskIncomplete`. Free paths release raw cells before the F5lk edge owner. A zero-edge glyph may still have nonzero cell count; F5ll does not reject it because the later scan converter is responsible for writing zero coverage cells.
+
+F5ll must not call generic raster coverage writer / scan / packed-mask helpers, stroke coverage writer / scan / packed-mask helpers, path-sink scalar drains, generic raster edge owner/drain helpers, blur kernel construction, render command constructors, resource table, software surface, platform/backend APIs, font fallback, shadow rasterizer, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
