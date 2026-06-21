@@ -9589,22 +9589,55 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_
     let record %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_kind_record context operation_ordinal from_index to_index source_kind
     selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources record
 
-//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources: HIR body traversal failure で source table owner を[閉/と]じる
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState: HIR body reader の source owner と problem source 件数を[分/わ]けて[運/はこ]ぶ state
+//:
+//: [目的/もくてき]:
+//: - source table の record 数と、「accepted wrapper を追加してよいか」を決める problem source 件数を分離します。
+//: - 後続で accepted source や neutral source を traversal 中に発行しても、wrapper 判定が table length に依存しないようにします。
 //:
 //: [契約/けいやく]:
-//: - child range validation、child id read、fuel exhaustion、missing expression のように source table push 以外で失敗した場合だけこの helper を使います。
-//: - source table push 失敗は push helper が owner を閉じるため、この helper を重ねて呼びません。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources\error:
-    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+//: - `sources` owner はこの state が保持します。失敗時は state cleanup helper で閉じます。
+//: - `problem_source_count` は wrapper finalizer の判定専用です。operation ordinal は source table length から決めます。
+//: - 現 checkpoint の HIR reader は finalizer 前に accepted source を発行しません。accepted source を発行する段階では、wrapper 重複を避けるための別 state field を追加します。
+struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState:
+    sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable
+    problem_source_count %i32
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new: source table owner を body reader state に[包/つつ]む
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState \sources:
+    SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState sources 0
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free: body reader state の source table owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState unit \state:
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free field::get state "sources"
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources: body reader state から source table owner を[取/と]り[出/だ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable \state:
+    field::get state "sources"
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state: HIR body traversal failure で state owner を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - source push 以外の traversal failure だけで使います。push failure は push helper が source table owner を消費するため、この helper を重ねて呼びません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \state\error:
+    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free state
     Result::Err error
 
-//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result: traversal order の ordinal で問題 source を[追加/ついか]する
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result: state に problem source を[追加/ついか]する
 //:
 //: [契約/けいやく]:
-//: - wrapper source pair と混ぜない problem source 専用 helper です。ordinal は現在の source table 長から決めるため、depth-first traversal order で一意になります。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources\context\source_kind:
+//: - `problem_source_count` は append 成功後だけ増やします。
+//: - operation ordinal は source table length から決めます。problem source 件数を ordinal には使いません。
+//: - push failure は source table push helper が owner を消費するため、state cleanup helper を呼びません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \state\context\source_kind:
+    let problem_source_count %i32 field::get state "problem_source_count"
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get state "sources"
     let operation_ordinal %i32 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources
-    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal 0 0 source_kind
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal 0 0 source_kind:
+        Result::Ok next_sources:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources add problem_source_count 1
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result: 空 traversal に wrapper representative source pair を[追加/ついか]する
 //:
@@ -9685,65 +9718,65 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_validat
 //: [契約/けいやく]:
 //: - expr id が読めない場合は `ActualWalkerTraversalBodyReadFailed` です。child range / child id / fuel の失敗とは分けます。
 //: - fuel は malformed arena の循環や過剰な深さで走査が止まらないことを防ぐ境界です。fuel exhausted を unsupported source に変えてはいけません。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\sources\expr_id\fuel:
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\state\expr_id\fuel:
     if:
         le fuel 0
         then:
             let idx %i32 selfhost_hir_expr_id_index expr_id
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources sources SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyFuelExhausted idx
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state state SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyFuelExhausted idx
         else:
             match selfhost_hir_module_get_expr module expr_id:
                 Option::Some expr:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context sources expr fuel
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context state expr fuel
                 Option::None:
                     let idx %i32 selfhost_hir_expr_id_index expr_id
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources sources SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyReadFailed idx
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state state SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyReadFailed idx
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result: 検証済み child range を左から[走査/そうさ]する
 //:
 //: [契約/けいやく]:
 //: - child range はこの関数に入る前に bounded validation 済みです。
 //: - child id が読めない場合、蓄積済み source table owner を閉じて `ActualWalkerTraversalBodyChildReadFailed` を返します。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostHirChildRange impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\sources\children\idx\n\fuel:
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostHirChildRange impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\state\children\idx\n\fuel:
     if:
         ge idx n
         then:
-            Result::Ok sources
+            Result::Ok state
         else:
             if:
                 le fuel 0
                 then:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources sources SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyFuelExhausted idx
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state state SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyFuelExhausted idx
                 else:
                     match selfhost_hir_module_get_child module children idx:
                         Option::Some child_expr_id:
                             let child_fuel %i32 sub fuel 1
-                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources child_expr_id child_fuel:
-                                Result::Ok next_sources:
-                                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_sources children add idx 1 n fuel
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context state child_expr_id child_fuel:
+                                Result::Ok next_state:
+                                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_state children add idx 1 n fuel
                                 Result::Err e:
                                     Result::Err e
                         Option::None:
-                            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources sources SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyChildReadFailed idx
+                            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state state SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalBodyChildReadFailed idx
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result: child range を検査してから source を[蓄/たくわ]える
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostHirChildRange impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\sources\children\fuel:
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostHirChildRange impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\state\children\fuel:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_validate_child_range_result module children:
         Result::Ok validated:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context sources validated 0 selfhost_hir_child_range_count validated fuel
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context state validated 0 selfhost_hir_child_range_count validated fuel
         Result::Err e:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources sources e
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state state e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result: call payload と argument child を source へ[写/うつ]す
 //:
 //: [契約/けいやく]:
 //: - call 自体の typed effect source を traversal order で先に残し、その後で argument child range を走査します。
 //: - `call.name`、span、diagnostic text は authority にしません。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostHirCallExpr impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\sources\call\fuel:
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostHirCallExpr impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\state\call\fuel:
     let source_kind %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind call
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context source_kind:
-        Result::Ok sources1:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources1 call.args fuel
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context source_kind:
+        Result::Ok state1:
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state1 call.args fuel
         Result::Err e:
             Result::Err e
 
@@ -9756,41 +9789,42 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_bod
 //: - `Unit` は neutral leaf です。ここでは wrapper source を作らず、root finalizer が traversal 全体の problem source 0 件を確認してから wrapper pair を 1 回だけ追加します。
 //: - `Block` / `If` は child range を検査して走査します。container 自体を unsupported source にしません。
 //: - function value payload は identity observation source として fail-closed にします。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostHirExpr impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\sources\expr\fuel:
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostHirExpr impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\state\expr\fuel:
     match expr.payload:
         SelfhostHirExprPayload::Error:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
         SelfhostHirExprPayload::Unit:
-            Result::Ok sources
+            Result::Ok state
         SelfhostHirExprPayload::BoolLiteral _value:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
         SelfhostHirExprPayload::I32Literal _value:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
         SelfhostHirExprPayload::F32Literal _value:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
         SelfhostHirExprPayload::StrLiteral _value:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
         SelfhostHirExprPayload::Var _identity:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource
         SelfhostHirExprPayload::FnValue _identity:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
         SelfhostHirExprPayload::MemoizedFunctionValue _identity:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
         SelfhostHirExprPayload::Call call:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context sources call fuel
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context state call fuel
         SelfhostHirExprPayload::Block children:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources children fuel
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state children fuel
         SelfhostHirExprPayload::If branches:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources branches fuel
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state branches fuel
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result: traversal source table を accepted wrapper または problem source として[確定/かくてい]する
 //:
 //: [契約/けいやく]:
 //: - problem source が 1 件でもある場合は wrapper pair を追加しません。private effect や observation が wrapper accepted source で隠れないようにします。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources\context:
-    let source_count %i32 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \state\context:
+    let problem_source_count %i32 field::get state "problem_source_count"
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources state
     if:
-        eq source_count 0
+        eq problem_source_count 0
         then:
             selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources context
         else:
@@ -9805,9 +9839,10 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finaliz
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\body_root:
     match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
         Result::Ok sources0:
-            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources0 body_root 64:
-                Result::Ok sources1:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result sources1 context
+            let state0 %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new sources0
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context state0 body_root 64:
+                Result::Ok state1:
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result state1 context
                 Result::Err e:
                     Result::Err e
         Result::Err e:

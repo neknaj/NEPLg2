@@ -2807,6 +2807,16 @@ assert.doesNotMatch(
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_/m,
     "actual body reader bundle producer helpers must stay module-private until full Resource IR traversal owns the public boundary",
 );
+assert.doesNotMatch(
+    code,
+    /^pub\s+struct\s+SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState/m,
+    "actual body reader source state must stay module-private",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_(source_state|append_problem_source_kind|fail_with_source_state|finalize_hir_body_sources|hir_body_sources)/m,
+    "HIR body reader source-state helpers must stay module-private",
+);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result"),
     [
@@ -2843,11 +2853,34 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new",
         "Result::Ok sources0:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources0 body_root 64",
-        "Result::Ok sources1:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result sources1 context",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new sources0",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context state0 body_root 64",
+        "Result::Ok state1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result state1 context",
     ],
-    "HIR body reader root helper must allocate one source table, traverse the resolver-provided body root, and finalize wrapper sources only after traversal",
+    "HIR body reader root helper must allocate one source table, wrap it in source state, traverse the resolver-provided body root, and finalize wrapper sources only after traversal",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState"),
+    [
+        "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
+        "problem_source_count %i32",
+    ],
+    "HIR body reader source state must keep source table owner separate from problem source count",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_new"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState sources 0",
+    ],
+    "HIR body reader source state must start with zero problem sources",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free field::get state \"sources\"",
+    ],
+    "HIR body reader source state free must close the owned source table",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result"),
@@ -2856,7 +2889,7 @@ assertOrdered(
         "ActualWalkerTraversalBodyFuelExhausted idx",
         "selfhost_hir_module_get_expr module expr_id",
         "Option::Some expr:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context sources expr fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_result module context state expr fuel",
         "Option::None:",
         "ActualWalkerTraversalBodyReadFailed idx",
     ],
@@ -2869,17 +2902,17 @@ assertOrdered(
         "SelfhostHirExprPayload::Error:",
         "UnsupportedTraversalSource",
         "SelfhostHirExprPayload::Unit:",
-        "Result::Ok sources",
+        "Result::Ok state",
         "SelfhostHirExprPayload::FnValue _identity:",
         "FunctionIdentityObservation",
         "SelfhostHirExprPayload::MemoizedFunctionValue _identity:",
         "FunctionIdentityObservation",
         "SelfhostHirExprPayload::Call call:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context sources call fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result module context state call fuel",
         "SelfhostHirExprPayload::Block children:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources children fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state children fuel",
         "SelfhostHirExprPayload::If branches:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources branches fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state branches fuel",
     ],
     "HIR body reader must classify typed payloads directly, treat Unit as a neutral leaf, and recurse through Call args, Block children, and If branches",
 );
@@ -2892,9 +2925,9 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_call_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind call",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result sources context source_kind",
-        "Result::Ok sources1:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context sources1 call.args fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result state context source_kind",
+        "Result::Ok state1:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_result module context state1 call.args fuel",
     ],
     "HIR call source traversal must emit the typed effect source before traversing argument children",
 );
@@ -2917,8 +2950,8 @@ assertOrdered(
         "ActualWalkerTraversalBodyFuelExhausted idx",
         "selfhost_hir_module_get_child module children idx",
         "Option::Some child_expr_id:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context sources child_expr_id child_fuel",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_sources children add idx 1 n fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_expr_id_result module context state child_expr_id child_fuel",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_child_range_loop_result module context next_state children add idx 1 n fuel",
         "Option::None:",
         "ActualWalkerTraversalBodyChildReadFailed idx",
     ],
@@ -2927,12 +2960,18 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
-        "eq source_count 0",
+        "field::get state \"problem_source_count\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_into_sources state",
+        "eq problem_source_count 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_wrapper_sources_result sources context",
         "Result::Ok sources",
     ],
-    "HIR body source finalizer must append wrapper sources only when traversal emitted no problem source",
+    "HIR body source finalizer must append wrapper sources based on problem source count, not source table length",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_finalize_hir_body_sources_result")),
+    /actual_walker_traversal_source_table_len|\bsource_count\b/,
+    "HIR body source finalizer must not use source table length as the problem-source predicate",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_call_source_kind"),
@@ -3584,17 +3623,36 @@ assert.doesNotMatch(
     "production reader policy source helper must not synthesize lower proof tables, backend bytes, effect masks, or artifact records",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_sources"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fail_with_source_state"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_source_state_free state",
         "Result::Err error",
     ],
-    "HIR body reader must close the source table exactly at non-push traversal failure boundaries",
+    "HIR body reader must close the source state exactly at non-push traversal failure boundaries",
 );
 assert.doesNotMatch(
-    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_next_source_kind_result")),
-    /fail_with_sources|traversal_source_table_free/,
-    "HIR body reader source append helper must rely on source table push cleanup and must not double-free on push failure",
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result")),
+    /fail_with_source_state|source_state_free|traversal_source_table_free/,
+    "HIR body reader problem source append helper must rely on source table push cleanup and must not double-free on push failure",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result"),
+    [
+        "field::get state \"problem_source_count\"",
+        "field::get state \"sources\"",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_source_kind_result sources context operation_ordinal 0 0 source_kind",
+        "Result::Ok next_sources:",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSourceState next_sources add problem_source_count 1",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "HIR body reader problem source append helper must use source table length for traversal ordinal and increment problem count only after successful append",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_append_problem_source_kind_result")),
+    /resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|PrivateCacheRegionFreshWitnessCandidateAccepted|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "HIR body reader source state append helper must not synthesize proof/backend/effect/artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error"),

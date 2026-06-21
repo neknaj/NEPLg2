@@ -3012,7 +3012,7 @@ body HIR reader は root-only payload 分類から、`Block` / `If` の child ra
 
 problem source がある場合、wrapper source は混ぜない。`PrivateCache` / `PrivateState` call effect、function identity observation、unsupported literal / var / ordinary call は traversal order の unique ordinal で source table に残る。`Block(Unit, PrivateCache call)` のような body は wrapper accepted source 2 件ではなく private-effect problem source 1 件として fail-closed に進む。
 
-body reader failure は source kind へ潰さない。missing expr は `ActualWalkerTraversalBodyReadFailed`、invalid child range は `ActualWalkerTraversalBodyChildRangeInvalid`、child id read failure は `ActualWalkerTraversalBodyChildReadFailed`、fuel exhaustion は `ActualWalkerTraversalBodyFuelExhausted` として public bridge error と availability error の往復変換に残す。source table owner は traversal failure で 1 回だけ閉じ、source push failure は既存 push helper の owner cleanup に任せる。
+body reader failure は source kind へ潰さない。missing expr は `ActualWalkerTraversalBodyReadFailed`、invalid child range は `ActualWalkerTraversalBodyChildRangeInvalid`、child id read failure は `ActualWalkerTraversalBodyChildReadFailed`、fuel exhaustion は `ActualWalkerTraversalBodyFuelExhausted` として public bridge error と availability error の往復変換に残す。source table owner は `ActualTraversalBodyReaderSourceState` が保持し、traversal failure では state cleanup helper が 1 回だけ閉じる。source push failure は既存 push helper の owner cleanup に任せる。
 
 この checkpoint も full Resource IR traversal ではない。fresh-region witness table、Resource proof / GraphInput、request-evidence proof、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key は作らない。次は lowering / Resource IR 由来の accepted / escaping / observation / unsupported source と fresh witness を同じ body identity から発行し、mask orchestration と sealed backend representation へ接続する。
 
@@ -3051,6 +3051,10 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 2026-06-22 second follow-up では、source table validation、source-to-operation projection、context-owned unified event build を `actual_traversal_body_reader_events_from_context_sources_result` に集約した。request context から event table owner を作る入口も `actual_traversal_body_reader_events_from_request_context_result` に分け、output path と bundle path は event table owner を split するだけにした。これにより、output helper と bundle helper が別々に source / operation / event build を実装せず、owner cleanup と typed bridge error の扱いが body reader event producer 境界にまとまる。
 
 この event producer 境界は split、collector、source-derived witness、request evidence gate を持たない。request-context helper は resolver-bound HIR body source reader を 1 回だけ呼び、source validation は context-source event helper へ集約する。bundle path の split failure は `Stage0SourceRejected(NormalizerRejected)`、output path の split failure は `ActualTraversalBodyNormalizerRejected` として、それぞれの外側で写す。
+
+2026-06-22 third follow-up では、HIR body reader 内部に `ActualTraversalBodyReaderSourceState` を追加し、source table owner と `problem_source_count` を分離した。problem append helper は state 内の source table length から operation ordinal を決め、source push が成功した後だけ `problem_source_count` を増やす。finalizer は source table length を「problem source なし」の意味に使わず、`problem_source_count == 0` の場合だけ wrapper representative pair を追加する。
+
+この state は module-private で、event producer / bundle producer / output producer の外部 API は従来どおり source table owner を受け渡す。現 checkpoint の HIR reader は finalizer 前に accepted source を発行しないため、wrapper pair は accepted representative のままである。実 traversal が accepted source を発行し始める段階では、accepted source と wrapper pair が重複しないように state field を追加して判定を分ける。
 
 この follow-up も full Resource IR walker 本体ではない。現時点では HIR body reader source plan が operation-classified collector path へ収束しただけであり、actual Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source、typed walker event、fresh-region witness table を実 traversal 由来で発行する boundary は後続に残る。
 
