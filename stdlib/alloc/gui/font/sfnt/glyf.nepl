@@ -24926,12 +24926,49 @@ impl Copy for GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord:
 fn gui_sfnt_simple_glyph_render_stroke_join_miter_geometry_record %fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn i32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord \join_index\from_side_edge_index\to_side_edge_index\side\stroke_width\miter_limit\from_end_x2\from_end_y2\miter_x2\miter_y2\to_start_x2\to_start_y2:
     GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord join_index from_side_edge_index to_side_edge_index side stroke_width miter_limit from_end_x2 from_end_y2 miter_x2 miter_y2 to_start_x2 to_start_y2
 
+//: GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord: round connector geometry
+//:
+//: [目的/もくてき]:
+//: - source vertex を[中心/ちゅうしん]とする round join を 2 chord の scan-ready geometry として[保持/ほじ]します。
+//: - `arc_mid_*` は offset endpoint の[半径/はんけい]方向から[計算/けいさん]した arc midpoint であり、endpoint chord に[丸/まる]めを[偽装/ぎそう]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord:
+    join_index %i32
+    from_side_edge_index %i32
+    to_side_edge_index %i32
+    side %GuiSfntSimpleGlyphRenderStrokeEdgeSide
+    stroke_width %i32
+    source_center_x2 %f32
+    source_center_y2 %f32
+    from_end_x2 %f32
+    from_end_y2 %f32
+    arc_mid_x2 %f32
+    arc_mid_y2 %f32
+    to_start_x2 %f32
+    to_start_y2 %f32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord \record:
+        *record
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord \record:
+        record
+
+//: gui_sfnt_simple_glyph_render_stroke_join_round_geometry_record: round join two-chord geometry record を構築する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_round_geometry_record %fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn i32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord \join_index\from_side_edge_index\to_side_edge_index\side\stroke_width\source_center_x2\source_center_y2\from_end_x2\from_end_y2\arc_mid_x2\arc_mid_y2\to_start_x2\to_start_y2:
+    GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord join_index from_side_edge_index to_side_edge_index side stroke_width source_center_x2 source_center_y2 from_end_x2 from_end_y2 arc_mid_x2 arc_mid_y2 to_start_x2 to_start_y2
+
 //: GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord: scan-ready join geometry
 //:
 //: neplg2:test[skip]
 enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:
     Bevel %GuiSfntSimpleGlyphRenderStrokeJoinBevelGeometryRecord
     Miter %GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord
+    Round %GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord
 
 impl Clone for GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:
     fn clone %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord \record:
@@ -24950,12 +24987,13 @@ struct GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner:
     join_index %i32
     bevel_join_count %i32
     miter_join_count %i32
+    round_join_count %i32
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner: join geometry drain owner を構築する
 //:
 //: neplg2:test[skip]
-fn gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner \edge_closure_owner\joins\join_index\bevel_join_count\miter_join_count:
-    GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner edge_closure_owner joins join_index bevel_join_count miter_join_count
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner \edge_closure_owner\joins\join_index\bevel_join_count\miter_join_count\round_join_count:
+    GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner edge_closure_owner joins join_index bevel_join_count miter_join_count round_join_count
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_join_index: drain 済み join index を読み出す
 //:
@@ -24981,7 +25019,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_joins_cap %fn &
 //:
 //: [目的/もくてき]:
 //: - completed F5kz closure owner と scan-ready join geometry Vec を[束/たば]ねます。
-//: - quadratic side edge と round join は、この boundary では未対応として fail-closed にします。
+//: - quadratic side edge は、この boundary では未対応として fail-closed にします。
 //:
 //: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner:
@@ -24990,12 +25028,13 @@ struct GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner:
     join_count %i32
     bevel_join_count %i32
     miter_join_count %i32
+    round_join_count %i32
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_owner: completed join geometry owner を構築する
 //:
 //: neplg2:test[skip]
-fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner \edge_closure_owner\joins\join_count\bevel_join_count\miter_join_count:
-    GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner edge_closure_owner joins join_count bevel_join_count miter_join_count
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner %fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner fn Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner \edge_closure_owner\joins\join_count\bevel_join_count\miter_join_count\round_join_count:
+    GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner edge_closure_owner joins join_count bevel_join_count miter_join_count round_join_count
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_join_count: completed owner の join 数を読み出す
 //:
@@ -25014,6 +25053,12 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_bevel_join_count %fn 
 //: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_miter_join_count %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner i32 \owner:
     *field::get_ref owner "miter_join_count"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_round_join_count: round geometry 数を読み出す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_round_join_count %fn &GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner i32 \owner:
+    *field::get_ref owner "round_join_count"
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_len: completed owner の geometry Vec 長を読み出す
 //:
@@ -25035,7 +25080,6 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_cap %fn &GuiSfn
 enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:
     SourceClosureInvariantFailed
     SourceQuadraticSideEdgesUnsupported
-    UnsupportedRoundJoinPolicy
     JoinIndexNegative
     JoinIndexExceedsJoinCount
     JoinStorageLenMismatch
@@ -25053,6 +25097,9 @@ enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:
     UnsupportedQuadraticSideEdge
     JoinSideMismatch
     LineCoordinateInvalid
+    RoundSourceCenterMismatch
+    RoundRadiusInvalid
+    RoundCoordinateInvalid
     MiterCoordinateInvalid
     MiterLimitInvalid
     JoinGeometryPushFailed
@@ -25076,7 +25123,6 @@ impl Copy for GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:
 enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind:
     SourceClosureInvariantFailed
     UnsupportedQuadraticSideEdges
-    UnsupportedRoundJoinPolicy
     JoinGeometryStorageAllocFailed
     JoinGeometryStorageInitialLenMismatch
     JoinGeometryStorageCapacityMismatch
@@ -25194,18 +25240,6 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add %fn i32 f
                 then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::ProgressInvariantInvalid
                 else Result::Ok add left right
 
-//: gui_sfnt_simple_glyph_render_stroke_join_geometry_join_is_round: stroke join policy が round か判定する
-//:
-//: neplg2:test[skip]
-fn gui_sfnt_simple_glyph_render_stroke_join_geometry_join_is_round %fn GuiStrokeJoin bool \join:
-    match join:
-        GuiStrokeJoin::Miter:
-            false
-        GuiStrokeJoin::Bevel:
-            false
-        GuiStrokeJoin::Round:
-            true
-
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite: join geometry 座標が finite か判定する
 //:
 //: neplg2:test[skip]
@@ -25213,6 +25247,13 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite %fn f32 bool 
     let bits %i32 bitcast_f32_to_i32 value
     let abs_bits %i32 and bits 0x7fffffff
     lt abs_bits 0x7f800000
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_i32_to_f32: source 座標整数を join geometry 計算用 f32 へ変換する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_i32_to_f32 %fn i32 f32 \value:
+    let value_i64 %i64 %i64 cast value
+    %f32 cast value_i64
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_guard: 非 finite 座標を typed error に変換する
 //:
@@ -25235,30 +25276,26 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start %impure fn GuiS
             if ne quadratic_side_edge_count 0:
                 then Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind::UnsupportedQuadraticSideEdges edge_closure_owner
                 else:
-                    let join_policy %GuiStrokeJoin *field::get_ref &edge_closure_owner "join_policy"
-                    if gui_sfnt_simple_glyph_render_stroke_join_geometry_join_is_round join_policy:
-                        then Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind::UnsupportedRoundJoinPolicy edge_closure_owner
-                        else:
-                            let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count &edge_closure_owner
-                            let joins_result %Result Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord StdErrorKind vec::with_capacity join_count
-                            match joins_result:
-                                Result::Err storage_error:
-                                    Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_storage_failed edge_closure_owner storage_error
-                                Result::Ok joins:
-                                    let joins_len %i32 vec::len &joins
-                                    if ne joins_len 0:
+                    let join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count &edge_closure_owner
+                    let joins_result %Result Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord StdErrorKind vec::with_capacity join_count
+                    match joins_result:
+                        Result::Err storage_error:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_storage_failed edge_closure_owner storage_error
+                        Result::Ok joins:
+                            let joins_len %i32 vec::len &joins
+                            if ne joins_len 0:
+                                then:
+                                    vec::free joins
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind::JoinGeometryStorageInitialLenMismatch edge_closure_owner
+                                else:
+                                    let joins_cap %i32 vec::cap &joins
+                                    if ne joins_cap join_count:
                                         then:
                                             vec::free joins
-                                            Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind::JoinGeometryStorageInitialLenMismatch edge_closure_owner
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind::JoinGeometryStorageCapacityMismatch edge_closure_owner
                                         else:
-                                            let joins_cap %i32 vec::cap &joins
-                                            if ne joins_cap join_count:
-                                                then:
-                                                    vec::free joins
-                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwnerStartErrorKind::JoinGeometryStorageCapacityMismatch edge_closure_owner
-                                                else:
-                                                    let owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner joins 0 0 0
-                                                    Result::Ok owner
+                                            let owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner joins 0 0 0 0
+                                            Result::Ok owner
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_invariants: drain owner の progress と storage 不変条件を検査する
 //:
@@ -25286,10 +25323,15 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_invariants %fn 
                                     match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add bevel_join_count miter_join_count:
                                         Result::Err error_kind:
                                             Result::Err error_kind
-                                        Result::Ok geometry_count:
-                                            if ne geometry_count join_index:
-                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::ProgressInvariantInvalid
-                                                else Result::Ok unit
+                                        Result::Ok non_round_geometry_count:
+                                            let round_join_count %i32 *field::get_ref owner "round_join_count"
+                                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add non_round_geometry_count round_join_count:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok geometry_count:
+                                                    if ne geometry_count join_index:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::ProgressInvariantInvalid
+                                                        else Result::Ok unit
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_read_source_join: source closure owner から join record を安全に読む
 //:
@@ -25377,6 +25419,127 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_side_edge %fn Gui
             Result::Ok line
         GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic _quadratic:
             Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::UnsupportedQuadraticSideEdge
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_x2: line side edge の進行方向 start source x2 を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_x2 %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord i32 \edge:
+    let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection *field::get_ref edge "boundary_direction"
+    match boundary_direction:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward:
+            *field::get_ref edge "source_start_x2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse:
+            *field::get_ref edge "source_end_x2"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_y2: line side edge の進行方向 start source y2 を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_y2 %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord i32 \edge:
+    let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection *field::get_ref edge "boundary_direction"
+    match boundary_direction:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward:
+            *field::get_ref edge "source_start_y2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse:
+            *field::get_ref edge "source_end_y2"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_x2: line side edge の進行方向 end source x2 を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_x2 %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord i32 \edge:
+    let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection *field::get_ref edge "boundary_direction"
+    match boundary_direction:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward:
+            *field::get_ref edge "source_end_x2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse:
+            *field::get_ref edge "source_start_x2"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_y2: line side edge の進行方向 end source y2 を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_y2 %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord i32 \edge:
+    let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection *field::get_ref edge "boundary_direction"
+    match boundary_direction:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward:
+            *field::get_ref edge "source_end_y2"
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse:
+            *field::get_ref edge "source_start_y2"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_line_stroke_width: line side edge の stroke width evidence を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_line_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord i32 \edge:
+    let normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal *field::get_ref edge "normal"
+    *field::get_ref &normal "stroke_width"
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines: 2 本の line edge から round two-chord geometry を計算する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines %fn i32 fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord Result GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind \join_index\join\from_line\to_line:
+    let from_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref from_line "side"
+    let to_side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref to_line "side"
+    if not gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq from_side to_side:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::JoinSideMismatch
+        else:
+            let from_center_x2 %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_x2 from_line
+            let from_center_y2 %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_y2 from_line
+            let to_center_x2 %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_x2 to_line
+            let to_center_y2 %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_y2 to_line
+            if or ne from_center_x2 to_center_x2 ne from_center_y2 to_center_y2:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundSourceCenterMismatch
+                else:
+                    let from_stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_stroke_width from_line
+                    let to_stroke_width %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_line_stroke_width to_line
+                    if or ne from_stroke_width to_stroke_width le from_stroke_width 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundRadiusInvalid
+                        else:
+                            let from_end_x2 %f32 *field::get_ref from_line "end_x2"
+                            let from_end_y2 %f32 *field::get_ref from_line "end_y2"
+                            let to_start_x2 %f32 *field::get_ref to_line "start_x2"
+                            let to_start_y2 %f32 *field::get_ref to_line "start_y2"
+                            let center_x2 %f32 gui_sfnt_simple_glyph_render_stroke_join_geometry_i32_to_f32 from_center_x2
+                            let center_y2 %f32 gui_sfnt_simple_glyph_render_stroke_join_geometry_i32_to_f32 from_center_y2
+                            if not and gui_sfnt_simple_glyph_render_stroke_join_geometry_line_coords_valid from_end_x2 from_end_y2 to_start_x2 to_start_y2 gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite center_x2:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundCoordinateInvalid
+                                else:
+                                    if not gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite center_y2:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundCoordinateInvalid
+                                        else:
+                                            let from_vec_x %f32 sub from_end_x2 center_x2
+                                            let from_vec_y %f32 sub from_end_y2 center_y2
+                                            let to_vec_x %f32 sub to_start_x2 center_x2
+                                            let to_vec_y %f32 sub to_start_y2 center_y2
+                                            let from_radius %f32 sqrt add mul from_vec_x from_vec_x mul from_vec_y from_vec_y
+                                            let to_radius %f32 sqrt add mul to_vec_x to_vec_x mul to_vec_y to_vec_y
+                                            if not and gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite from_radius gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite to_radius:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundRadiusInvalid
+                                                else:
+                                                    if or le from_radius 0.0 le to_radius 0.0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundRadiusInvalid
+                                                        else:
+                                                            let from_unit_x %f32 div from_vec_x from_radius
+                                                            let from_unit_y %f32 div from_vec_y from_radius
+                                                            let to_unit_x %f32 div to_vec_x to_radius
+                                                            let to_unit_y %f32 div to_vec_y to_radius
+                                                            let mid_vec_x %f32 add from_unit_x to_unit_x
+                                                            let mid_vec_y %f32 add from_unit_y to_unit_y
+                                                            let mid_vec_len %f32 sqrt add mul mid_vec_x mid_vec_x mul mid_vec_y mid_vec_y
+                                                            if or le mid_vec_len 0.0 not gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite mid_vec_len:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundCoordinateInvalid
+                                                                else:
+                                                                    let stroke_width_f %f32 gui_sfnt_simple_glyph_render_stroke_join_geometry_i32_to_f32 from_stroke_width
+                                                                    let arc_mid_x2 %f32 add center_x2 mul div mid_vec_x mid_vec_len stroke_width_f
+                                                                    let arc_mid_y2 %f32 add center_y2 mul div mid_vec_y mid_vec_len stroke_width_f
+                                                                    if not gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite arc_mid_x2:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundCoordinateInvalid
+                                                                        else:
+                                                                            if not gui_sfnt_simple_glyph_render_stroke_join_geometry_f32_is_finite arc_mid_y2:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::RoundCoordinateInvalid
+                                                                                else:
+                                                                                    let from_side_edge_index %i32 *field::get_ref join "from_side_edge_index"
+                                                                                    let to_side_edge_index %i32 *field::get_ref join "to_side_edge_index"
+                                                                                    let side %GuiSfntSimpleGlyphRenderStrokeEdgeSide *field::get_ref join "side"
+                                                                                    let round %GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord gui_sfnt_simple_glyph_render_stroke_join_round_geometry_record join_index from_side_edge_index to_side_edge_index side from_stroke_width center_x2 center_y2 from_end_x2 from_end_y2 arc_mid_x2 arc_mid_y2 to_start_x2 to_start_y2
+                                                                                    Result::Ok GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_threshold: miter limit の距離しきい値を計算する
 //:
@@ -25488,7 +25651,25 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_record_from_join %fn &GuiSf
                                         Result::Ok to_line:
                                             gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index edge_closure_owner join &from_line &to_line
         GuiStrokeJoin::Round:
-            Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::UnsupportedRoundJoinPolicy
+            let from_side_edge_index %i32 *field::get_ref join "from_side_edge_index"
+            let to_side_edge_index %i32 *field::get_ref join "to_side_edge_index"
+            match gui_sfnt_simple_glyph_render_stroke_join_geometry_read_side_edge edge_closure_owner from_side_edge_index:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok from_edge:
+                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_read_side_edge edge_closure_owner to_side_edge_index:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok to_edge:
+                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_side_edge from_edge:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok from_line:
+                                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_side_edge to_edge:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok to_line:
+                                            gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines join_index join &from_line &to_line
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_push: 生成済み geometry を drain owner に push する
 //:
@@ -25501,27 +25682,39 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_push %impure fn
             let join_index %i32 field::get owner "join_index"
             let bevel_join_count %i32 field::get owner "bevel_join_count"
             let miter_join_count %i32 field::get owner "miter_join_count"
+            let round_join_count %i32 field::get owner "round_join_count"
             let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
             let next_bevel_join_count %i32 match join:
                 GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _:
                     add bevel_join_count 1
                 GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _:
                     bevel_join_count
+                GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _:
+                    bevel_join_count
             let next_miter_join_count %i32 match join:
                 GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _:
                     miter_join_count
                 GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _:
                     add miter_join_count 1
+                GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _:
+                    miter_join_count
+            let next_round_join_count %i32 match join:
+                GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel _:
+                    round_join_count
+                GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter _:
+                    round_join_count
+                GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round _:
+                    add round_join_count 1
             let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord field::get owner "joins"
             match vec::push joins join:
                 Result::Ok next_joins:
                     let next_join_index %i32 add join_index 1
-                    let next_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner next_joins next_join_index next_bevel_join_count next_miter_join_count
+                    let next_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner next_joins next_join_index next_bevel_join_count next_miter_join_count next_round_join_count
                     Result::Ok next_owner
                 Result::Err push_error:
                     let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
                     let returned_joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord vec::vec_push_error_vec push_error
-                    let returned_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner returned_joins join_index bevel_join_count miter_join_count
+                    let returned_owner %GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner returned_joins join_index bevel_join_count miter_join_count round_join_count
                     Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_error_push_failed returned_owner join storage_error_value
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_step: join geometry drain を 1 join 進める
@@ -25571,14 +25764,19 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_complete %impur
                                     match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add bevel_join_count miter_join_count:
                                         Result::Err error_kind:
                                             Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_error_simple error_kind owner
-                                        Result::Ok geometry_join_count:
-                                            if ne geometry_join_count source_join_count:
-                                                then Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionJoinCountMismatch owner
-                                                else:
-                                                    let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
-                                                    let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord field::get owner "joins"
-                                                    let completed %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_owner edge_closure_owner joins source_join_count bevel_join_count miter_join_count
-                                                    Result::Ok completed
+                                        Result::Ok non_round_geometry_join_count:
+                                            let round_join_count %i32 field::get owner "round_join_count"
+                                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add non_round_geometry_join_count round_join_count:
+                                                Result::Err error_kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_error_simple error_kind owner
+                                                Result::Ok geometry_join_count:
+                                                    if ne geometry_join_count source_join_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_error_simple GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionJoinCountMismatch owner
+                                                        else:
+                                                            let edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner field::get owner "edge_closure_owner"
+                                                            let joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord field::get owner "joins"
+                                                            let completed %GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner gui_sfnt_simple_glyph_render_stroke_join_geometry_owner edge_closure_owner joins source_join_count bevel_join_count miter_join_count round_join_count
+                                                            Result::Ok completed
 
 //: gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_to_complete_budget: budget 内で join geometry drain を完了まで進める
 //:
@@ -25630,26 +25828,27 @@ fn gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_invariants_for_stroke
             if ne quadratic_side_edge_count 0:
                 then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::SourceQuadraticSideEdgesUnsupported
                 else:
-                    let join_policy %GuiStrokeJoin *field::get_ref edge_closure_owner "join_policy"
-                    if gui_sfnt_simple_glyph_render_stroke_join_geometry_join_is_round join_policy:
-                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::UnsupportedRoundJoinPolicy
+                    let join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_join_count owner
+                    let source_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count edge_closure_owner
+                    if ne join_count source_join_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionJoinCountMismatch
                         else:
-                            let join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_join_count owner
-                            let source_join_count %i32 gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count edge_closure_owner
-                            if ne join_count source_join_count:
-                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionJoinCountMismatch
+                            let joins_len %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_len owner
+                            if ne joins_len join_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionStorageLenMismatch
                                 else:
-                                    let joins_len %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_len owner
-                                    if ne joins_len join_count:
-                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionStorageLenMismatch
+                                    let joins_cap %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_cap owner
+                                    if ne joins_cap join_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionStorageCapacityMismatch
                                         else:
-                                            let joins_cap %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_cap owner
-                                            if ne joins_cap join_count:
-                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind::CompletionStorageCapacityMismatch
-                                                else:
-                                                    let bevel_join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_bevel_join_count owner
-                                                    let miter_join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_miter_join_count owner
-                                                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add bevel_join_count miter_join_count:
+                                            let bevel_join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_bevel_join_count owner
+                                            let miter_join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_miter_join_count owner
+                                            match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add bevel_join_count miter_join_count:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok non_round_counted_join_count:
+                                                    let round_join_count %i32 gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_round_join_count owner
+                                                    match gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add non_round_counted_join_count round_join_count:
                                                         Result::Err error_kind:
                                                             Result::Err error_kind
                                                         Result::Ok counted_join_count:
@@ -26544,7 +26743,7 @@ fn gui_sfnt_simple_glyph_render_stroke_coverage_mask_completion_terminal_free %i
 //:
 //: [目的/もくてき]:
 //: - F5la writer owner を[所有/しょゆう]し、1 cell ごとの stroke coverage を[計算/けいさん]して `push_cell` へ[渡/わた]します。
-//: - この boundary は F5lc join geometry の bevel / miter connector を scan し、round / quadratic は fail-closed にします。
+//: - この boundary は F5lc join geometry の bevel / miter / round connector を scan し、quadratic は fail-closed にします。
 //:
 //: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderStrokeCoverageScanOwner:
@@ -27016,6 +27215,24 @@ fn gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_crossing_coun
                     Result::Err error_kind
                 Result::Ok first_crosses:
                     match gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y miter_x2 miter_y2 to_start_x2 to_start_y2:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok second_crosses:
+                            let first_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_crossing_value first_crosses
+                            let second_count %i32 gui_sfnt_simple_glyph_render_stroke_coverage_scan_crossing_value second_crosses
+                            Result::Ok add first_count second_count
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round:
+            let from_end_x2 %f32 *field::get_ref &round "from_end_x2"
+            let from_end_y2 %f32 *field::get_ref &round "from_end_y2"
+            let arc_mid_x2 %f32 *field::get_ref &round "arc_mid_x2"
+            let arc_mid_y2 %f32 *field::get_ref &round "arc_mid_y2"
+            let to_start_x2 %f32 *field::get_ref &round "to_start_x2"
+            let to_start_y2 %f32 *field::get_ref &round "to_start_y2"
+            match gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y from_end_x2 from_end_y2 arc_mid_x2 arc_mid_y2:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok first_crosses:
+                    match gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y arc_mid_x2 arc_mid_y2 to_start_x2 to_start_y2:
                         Result::Err error_kind:
                             Result::Err error_kind
                         Result::Ok second_crosses:

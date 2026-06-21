@@ -18219,11 +18219,11 @@ assert(implementationPlan.includes("## Phase F5lc: sfnt simple glyph render stro
 assert(
     implementationPlan.includes("Lovelace plan review は `PLAN_REVIEWED`") &&
         detailedDesign.includes("F5lc consumes the completed F5kz stroke edge closure owner as the only direct authority") &&
-        detailedDesign.includes("F5lc materializes bevel and miter join geometry") &&
-        detailedDesign.includes("Round joins remain fail-closed until an explicit arc or chord policy is specified") &&
+        detailedDesign.includes("F5lc materializes bevel, miter, and round join geometry") &&
+        detailedDesign.includes("Round joins use an explicit source-center two-chord policy") &&
         spec.includes("F5lc の direct authority は completed F5kz owner だけ") &&
-        spec.includes("miter limit を超える場合は typed bevel record として保持"),
-    "GUI font docs must pin F5lc F5kz authority, bevel/miter geometry, round fail-closed policy, and miter-limit clipping evidence",
+        spec.includes("Round join は source vertex を中心にした 2 chord record"),
+    "GUI font docs must pin F5lc F5kz authority, bevel/miter/round geometry, source-center round policy, and miter-limit clipping evidence",
 );
 const renderStrokeJoinGeometryStartIndex = renderStrokeEdgeClosureEndIndex;
 const renderStrokeJoinGeometryEndIndex = allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderStrokeCoverageMaskClosureErrorKind:", renderStrokeJoinGeometryStartIndex);
@@ -18235,9 +18235,13 @@ for (const fragment of [
     "struct GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord:",
     "miter_x2 %f32",
     "miter_y2 %f32",
+    "struct GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord:",
+    "arc_mid_x2 %f32",
+    "arc_mid_y2 %f32",
     "enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord:",
     "Bevel %GuiSfntSimpleGlyphRenderStrokeJoinBevelGeometryRecord",
     "Miter %GuiSfntSimpleGlyphRenderStrokeJoinMiterGeometryRecord",
+    "Round %GuiSfntSimpleGlyphRenderStrokeJoinRoundGeometryRecord",
     "struct GuiSfntSimpleGlyphRenderStrokeJoinGeometryDrainOwner:",
     "edge_closure_owner %GuiSfntSimpleGlyphRenderStrokeEdgeClosureOwner",
     "joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord",
@@ -18245,9 +18249,12 @@ for (const fragment of [
     "join_count %i32",
     "bevel_join_count %i32",
     "miter_join_count %i32",
+    "round_join_count %i32",
     "enum GuiSfntSimpleGlyphRenderStrokeJoinGeometryErrorKind:",
     "SourceQuadraticSideEdgesUnsupported",
-    "UnsupportedRoundJoinPolicy",
+    "RoundSourceCenterMismatch",
+    "RoundRadiusInvalid",
+    "RoundCoordinateInvalid",
     "UnsupportedQuadraticSideEdge",
     "MiterLimitInvalid",
     "MiterCoordinateInvalid",
@@ -18278,6 +18285,7 @@ assertNoMatch(
 const renderStrokeJoinGeometryStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_start");
 const renderStrokeJoinGeometryReadSideEdge = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_read_side_edge");
 const renderStrokeJoinGeometryBevel = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_bevel_from_join");
+const renderStrokeJoinGeometryRound = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines");
 const renderStrokeJoinGeometryMiter = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines");
 const renderStrokeJoinGeometryFromJoin = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_record_from_join");
 const renderStrokeJoinGeometryPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner_push");
@@ -18289,13 +18297,11 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_invariants_for_stroke_coverage &edge_closure_owner",
         "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_quadratic_side_edge_count side_edge_owner",
         "UnsupportedQuadraticSideEdges",
-        "gui_sfnt_simple_glyph_render_stroke_join_geometry_join_is_round join_policy",
-        "UnsupportedRoundJoinPolicy",
         "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count &edge_closure_owner",
         "vec::with_capacity join_count",
-        "gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner joins 0 0 0",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_drain_owner edge_closure_owner joins 0 0 0 0",
     ],
-    "alloc/gui/font/sfnt/glyf F5lc start must revalidate F5kz authority, reject quadratic and round, and allocate exact join geometry capacity",
+    "alloc/gui/font/sfnt/glyf F5lc start must revalidate F5kz authority, reject quadratic, and allocate exact join geometry capacity",
 );
 assertOrderedFragments(
     renderStrokeJoinGeometryReadSideEdge,
@@ -18340,6 +18346,31 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5lc miter geometry must use line intersection, finite checks, and explicit miter-limit clipping",
 );
 assertOrderedFragments(
+    renderStrokeJoinGeometryRound,
+    [
+        "gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq from_side to_side",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_end_source_x2 from_line",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_line_directed_start_source_x2 to_line",
+        "RoundSourceCenterMismatch",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_line_stroke_width from_line",
+        "RoundRadiusInvalid",
+        "let from_end_x2 %f32 *field::get_ref from_line \"end_x2\"",
+        "let from_end_y2 %f32 *field::get_ref from_line \"end_y2\"",
+        "let to_start_x2 %f32 *field::get_ref to_line \"start_x2\"",
+        "let to_start_y2 %f32 *field::get_ref to_line \"start_y2\"",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_i32_to_f32 from_center_x2",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_line_coords_valid from_end_x2 from_end_y2 to_start_x2 to_start_y2",
+        "let from_radius %f32",
+        "let to_radius %f32",
+        "let mid_vec_len %f32",
+        "let arc_mid_x2 %f32",
+        "let arc_mid_y2 %f32",
+        "gui_sfnt_simple_glyph_render_stroke_join_round_geometry_record join_index from_side_edge_index to_side_edge_index side from_stroke_width",
+        "GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round",
+    ],
+    "alloc/gui/font/sfnt/glyf F5lc round geometry must validate directed source center and emit an explicit two-chord round record",
+);
+assertOrderedFragments(
     renderStrokeJoinGeometryFromJoin,
     [
         "GuiStrokeJoin::Bevel:",
@@ -18349,9 +18380,11 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_side_edge from_edge",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_miter_from_lines join_index edge_closure_owner join &from_line &to_line",
         "GuiStrokeJoin::Round:",
-        "UnsupportedRoundJoinPolicy",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_read_side_edge edge_closure_owner from_side_edge_index",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_line_from_side_edge from_edge",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_round_from_lines join_index join &from_line &to_line",
     ],
-    "alloc/gui/font/sfnt/glyf F5lc join dispatch must support bevel/miter and fail closed on round policy",
+    "alloc/gui/font/sfnt/glyf F5lc join dispatch must support bevel/miter/round and fail closed only on unsupported quadratic side edges",
 );
 assertOrderedFragments(
     renderStrokeJoinGeometryPush,
@@ -18361,9 +18394,10 @@ assertOrderedFragments(
         "add join_index 1",
         "next_bevel_join_count",
         "next_miter_join_count",
+        "next_round_join_count",
         "vec::vec_push_error_vec push_error",
     ],
-    "alloc/gui/font/sfnt/glyf F5lc push must recover returned Vec and maintain bevel/miter progress counts",
+    "alloc/gui/font/sfnt/glyf F5lc push must recover returned Vec and maintain bevel/miter/round progress counts",
 );
 assertOrderedFragments(
     renderStrokeJoinGeometryComplete,
@@ -18373,8 +18407,9 @@ assertOrderedFragments(
         "CompletionStorageLenMismatch",
         "CompletionStorageCapacityMismatch",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add bevel_join_count miter_join_count",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add non_round_geometry_join_count round_join_count",
         "CompletionJoinCountMismatch",
-        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner edge_closure_owner joins source_join_count bevel_join_count miter_join_count",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner edge_closure_owner joins source_join_count bevel_join_count miter_join_count round_join_count",
     ],
     "alloc/gui/font/sfnt/glyf F5lc completion must preserve source join count and exact join geometry storage",
 );
@@ -18397,6 +18432,7 @@ for (const [slice, name] of [
     [renderStrokeJoinGeometryStart, "start"],
     [renderStrokeJoinGeometryReadSideEdge, "side edge read"],
     [renderStrokeJoinGeometryBevel, "bevel geometry"],
+    [renderStrokeJoinGeometryRound, "round geometry"],
     [renderStrokeJoinGeometryMiter, "miter geometry"],
     [renderStrokeJoinGeometryFromJoin, "join dispatch"],
     [renderStrokeJoinGeometryPush, "push"],
@@ -18410,11 +18446,11 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_line_side_edge_revalidation_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_bevel_chord_preserved_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_miter_intersection_limit_ok") &&
-        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_round_policy_or_fail_closed_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_round_two_chord_policy_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_quadratic_still_fail_closed_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_push_budget_completion_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeJoinGeometryTests.includes("render_stroke_join_geometry_no_packed_render_platform"),
-    "F5lc render stroke join geometry focused doctest must cover F5kz authority, side-edge revalidation, bevel/miter geometry, round/quadratic fail-closed policy, push/budget/completion, and no packed/render/platform policy",
+    "F5lc render stroke join geometry focused doctest must cover F5kz authority, side-edge revalidation, bevel/miter/round geometry, quadratic fail-closed policy, push/budget/completion, and no packed/render/platform policy",
 );
 assert(spec.includes("### SFNT simple glyph render stroke coverage mask writer owner boundary"), "GUI font spec must document F5la render stroke coverage mask writer owner boundary");
 assert(detailedDesign.includes("## SFNT simple glyph render stroke coverage mask writer owner boundary"), "GUI font detailed design must document F5la render stroke coverage mask writer owner boundary");
@@ -18523,8 +18559,6 @@ assertOrderedFragments(
         "SourceClosureInvariantFailed",
         "gui_sfnt_simple_glyph_render_stroke_side_edge_owner_quadratic_side_edge_count side_edge_owner",
         "SourceQuadraticSideEdgesUnsupported",
-        "gui_sfnt_simple_glyph_render_stroke_join_geometry_join_is_round join_policy",
-        "UnsupportedRoundJoinPolicy",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_join_count owner",
         "gui_sfnt_simple_glyph_render_stroke_edge_closure_owner_join_count edge_closure_owner",
         "CompletionJoinCountMismatch",
@@ -18533,6 +18567,8 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_joins_cap owner",
         "CompletionStorageCapacityMismatch",
         "gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add bevel_join_count miter_join_count",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_owner_round_join_count owner",
+        "gui_sfnt_simple_glyph_render_stroke_join_geometry_count_checked_add non_round_counted_join_count round_join_count",
     ],
     "alloc/gui/font/sfnt/glyf F5la join geometry invariant must revalidate completed F5lc owner before allocating coverage cells",
 );
@@ -18619,11 +18655,11 @@ assert(implementationPlan.includes("## Phase F5lb: sfnt simple glyph render stro
 assert(
     implementationPlan.includes("Archimedes plan review は `PLAN_REVIEWED`") &&
         detailedDesign.includes("F5lb consumes the F5la stroke coverage mask writer owner as the only direct authority") &&
-        detailedDesign.includes("F5lb scans line side edges and F5lc bevel/miter join geometry") &&
+        detailedDesign.includes("F5lb scans line side edges and F5lc bevel/miter/round join geometry") &&
         detailedDesign.includes("Quadratic side edges also fail closed in F5lb") &&
         spec.includes("F5lc join geometry record の交差数を数え") &&
-        spec.includes("round join と quadratic side edge approximation は後続 boundary"),
-    "GUI font docs must pin F5lb F5la authority, F5lc bevel/miter connector policy, quadratic fail-closed, and later geometry work",
+        spec.includes("Round join は source vertex を中心にした 2 chord record"),
+    "GUI font docs must pin F5lb F5la authority, F5lc bevel/miter/round connector policy, quadratic fail-closed, and later geometry work",
 );
 const renderStrokeCoverageScanStartIndex = renderStrokeCoverageMaskEndIndex;
 const renderStrokeCoverageScanEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:", renderStrokeCoverageScanStartIndex);
@@ -18796,8 +18832,13 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y from_end_x2 from_end_y2 miter_x2 miter_y2",
         "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y miter_x2 miter_y2 to_start_x2 to_start_y2",
         "Result::Ok add first_count second_count",
+        "GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round round:",
+        "arc_mid_x2",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y from_end_x2 from_end_y2 arc_mid_x2 arc_mid_y2",
+        "gui_sfnt_simple_glyph_render_stroke_coverage_scan_join_geometry_line_crosses shape sample_x sample_y arc_mid_x2 arc_mid_y2 to_start_x2 to_start_y2",
+        "Result::Ok add first_count second_count",
     ],
-    "alloc/gui/font/sfnt/glyf F5lb join geometry crossing must count bevel as one segment and miter as two segments",
+    "alloc/gui/font/sfnt/glyf F5lb join geometry crossing must count bevel as one segment and miter/round as two segments",
 );
 assertOrderedFragments(
     renderStrokeCoverageScanSideEdgeCount,
@@ -18818,7 +18859,7 @@ assertOrderedFragments(
         "add crossing_count join_crossing_count",
         "add join_index 1",
     ],
-    "alloc/gui/font/sfnt/glyf F5lb join crossing must scan F5lc bevel/miter join geometry",
+    "alloc/gui/font/sfnt/glyf F5lb join crossing must scan F5lc bevel/miter/round join geometry",
 );
 assertOrderedFragments(
     renderStrokeCoverageScanSampleInside,
@@ -18893,11 +18934,11 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_closure_revalidation_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_cell_bounds_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_line_side_edge_ok") &&
-        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_join_geometry_bevel_miter_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_join_geometry_bevel_miter_round_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_quadratic_fail_closed_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_push_budget_completion_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderStrokeCoverageScanConverterTests.includes("render_stroke_coverage_scan_no_fill_scan_packed_render_platform"),
-    "F5lb render stroke coverage scan converter focused doctest must cover F5la authority, join geometry revalidation, cell bounds, line scan, bevel/miter join geometry, quadratic fail-closed policy, push/budget/completion, and no fill-scan/packed/render/platform policy",
+    "F5lb render stroke coverage scan converter focused doctest must cover F5la authority, join geometry revalidation, cell bounds, line scan, bevel/miter/round join geometry, quadratic fail-closed policy, push/budget/completion, and no fill-scan/packed/render/platform policy",
 );
 assert(spec.includes("### Core GUI stroke style contract boundary"), "GUI font spec must document F5kv core GUI stroke style contract boundary");
 assert(detailedDesign.includes("## Core GUI stroke style contract boundary"), "GUI font detailed design must document F5kv core GUI stroke style contract boundary");
