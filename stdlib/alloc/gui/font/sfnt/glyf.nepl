@@ -21584,6 +21584,880 @@ fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_terminal_free %impu
         GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderStrokeEdgeSide: stroke side edge の左右
+//:
+//: [目的/もくてき]:
+//: - F5kx の offset geometry から[作/つく]る side edge record が、left / right のどちらに[対応/たいおう]するかを[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeEdgeSide:
+    Left
+    Right
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeEdgeSide:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeEdgeSide \side:
+        *side
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeEdgeSide:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeEdgeSide \side:
+        side
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection: source segment と directed side edge の向きの関係
+//:
+//: [目的/もくてき]:
+//: - left side は source segment と同じ向き、right side は逆向きで[記録/きろく]し、後続の閉境界構築が右側 edge を source 順と[誤認/ごにん]しないようにします。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection:
+    SourceForward
+    SourceReverse
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection \direction:
+        *direction
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection \direction:
+        direction
+
+//: GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord: line stroke side edge record
+//:
+//: [目的/もくてき]:
+//: - F5kx line offset geometry から、source provenance と directed side endpoint を[保持/ほじ]する value record を[作/つく]ります。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord:
+    metric_index %i32
+    path_command_index %i32
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    contour_start_edge_index %i32
+    contour_end_edge_index %i32
+    contour_edge_count %i32
+    side %GuiSfntSimpleGlyphRenderStrokeEdgeSide
+    boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection
+    source_start_x2 %i32
+    source_start_y2 %i32
+    source_end_x2 %i32
+    source_end_y2 %i32
+    normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal
+    start_x2 %f32
+    start_y2 %f32
+    end_x2 %f32
+    end_y2 %f32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord \edge:
+        edge
+
+fn gui_sfnt_simple_glyph_render_stroke_line_side_edge_record %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeOffsetNormal fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord \metric_index\path_command_index\edge_index\contour_index\contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\side\boundary_direction\source_start_x2\source_start_y2\source_end_x2\source_end_y2\normal\start_x2\start_y2\end_x2\end_y2:
+    GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal start_x2 start_y2 end_x2 end_y2
+
+//: GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord: quadratic stroke side edge record
+//:
+//: [目的/もくてき]:
+//: - F5kx quadratic endpoint geometry から、source curve と endpoint normal を[保持/ほじ]する value record を[作/つく]ります。
+//: - offset control point をここでは[作/つく]らず、exact ではない二次 curve として[扱/あつか]いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord:
+    metric_index %i32
+    path_command_index %i32
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    contour_start_edge_index %i32
+    contour_end_edge_index %i32
+    contour_edge_count %i32
+    side %GuiSfntSimpleGlyphRenderStrokeEdgeSide
+    boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection
+    source_start_x2 %i32
+    source_start_y2 %i32
+    source_control_x2 %i32
+    source_control_y2 %i32
+    source_end_x2 %i32
+    source_end_y2 %i32
+    start_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal
+    end_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal
+    start_x2 %f32
+    start_y2 %f32
+    end_x2 %f32
+    end_y2 %f32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord \edge:
+        edge
+
+fn gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord \metric_index\path_command_index\edge_index\contour_index\contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\side\boundary_direction\source_start_x2\source_start_y2\source_control_x2\source_control_y2\source_end_x2\source_end_y2\start_normal\end_normal\start_x2\start_y2\end_x2\end_y2:
+    GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal start_x2 start_y2 end_x2 end_y2
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord: stroke side edge record
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord:
+    Line %GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord
+    Quadratic %GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord \edge:
+        edge
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner: stroke side edge drain state
+//:
+//: [目的/もくてき]:
+//: - F5kx completed offset geometry owner を[所有/しょゆう]し、1 step で 1 side edge record だけを Vec へ[積/つ]みます。
+//: - Vec owner を[持/も]つため Clone / Copy は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner:
+    geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner
+    edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord
+    geometry_index %i32
+    side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide
+    side_edge_count %i32
+    line_side_edge_count %i32
+    quadratic_side_edge_count %i32
+    left_side_edge_count %i32
+    right_side_edge_count %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner \geometry_owner\edges\geometry_index\side_phase\side_edge_count\line_side_edge_count\quadratic_side_edge_count\left_side_edge_count\right_side_edge_count:
+    GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner geometry_owner edges geometry_index side_phase side_edge_count line_side_edge_count quadratic_side_edge_count left_side_edge_count right_side_edge_count
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "geometry_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_phase %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner GuiSfntSimpleGlyphRenderStrokeEdgeSide \owner:
+    *field::get_ref owner "side_phase"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_line_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "line_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_quadratic_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "quadratic_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_left_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "left_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_right_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "right_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_edges_len %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get_ref owner "edges"
+    vec::len edges
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_edges_cap %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get_ref owner "edges"
+    vec::cap edges
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner: completed stroke side edge owner
+//:
+//: [目的/もくてき]:
+//: - F5kx completed offset geometry owner と exact-capacity side edge record Vec を[束/たば]ねます。
+//: - 閉じた stroke outline ではなく、左右 side edge record の authority だけを[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner:
+    geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner
+    edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord
+    geometry_count %i32
+    side_edge_count %i32
+    line_side_edge_count %i32
+    quadratic_side_edge_count %i32
+    left_side_edge_count %i32
+    right_side_edge_count %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner \geometry_owner\edges\geometry_count\side_edge_count\line_side_edge_count\quadratic_side_edge_count\left_side_edge_count\right_side_edge_count:
+    GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner geometry_owner edges geometry_count side_edge_count line_side_edge_count quadratic_side_edge_count left_side_edge_count right_side_edge_count
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_geometry_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    *field::get_ref owner "geometry_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    *field::get_ref owner "side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_line_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    *field::get_ref owner "line_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_quadratic_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    *field::get_ref owner "quadratic_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_left_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    *field::get_ref owner "left_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_right_side_edge_count %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    *field::get_ref owner "right_side_edge_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_len %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get_ref owner "edges"
+    vec::len edges
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_edges_cap %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get_ref owner "edges"
+    vec::cap edges
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind: stroke side edge failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind:
+    SourceOffsetGeometrySourceInvariantFailed
+    SourceOffsetGeometryStyleGuardFailed
+    SourceGeometryCountNegative
+    SourceLineGeometryCountNegative
+    SourceQuadraticGeometryCountNegative
+    SourceGeometryCountMismatch
+    SourceGeometryCountExceeded
+    SourceLineGeometryCountMismatch
+    SourceQuadraticGeometryCountMismatch
+    SourceGeometryStorageLenMismatch
+    SourceGeometryStorageCapacityMismatch
+    SideEdgeCapacityOverflow
+    EdgeStorageInitialLenMismatch
+    EdgeStorageCapacityMismatch
+    GeometryIndexNegative
+    GeometryIndexOutOfRange
+    GeometrySlotMissing
+    SideEdgeCountNegative
+    LineSideEdgeCountNegative
+    QuadraticSideEdgeCountNegative
+    LeftSideEdgeCountNegative
+    RightSideEdgeCountNegative
+    SideEdgeCountMismatch
+    LineQuadraticSideEdgeCountMismatch
+    LeftRightSideEdgeCountMismatch
+    LineSideEdgeCountExceeded
+    QuadraticSideEdgeCountExceeded
+    LeftSideEdgeCountMismatch
+    RightSideEdgeCountMismatch
+    EdgeStorageLenMismatch
+    EdgePushFailed
+    CompletionGeometryIndexMismatch
+    CompletionSidePhaseMismatch
+    CompletionSideEdgeCountMismatch
+    CompletionLineSideEdgeCountMismatch
+    CompletionQuadraticSideEdgeCountMismatch
+    CompletionLeftSideEdgeCountMismatch
+    CompletionRightSideEdgeCountMismatch
+    CompletionStorageLenMismatch
+    CompletionStorageCapacityMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind: side edge start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind:
+    SourceOwnerInvariantFailed
+    EdgeStorageAllocFailed
+    EdgeStorageInitialLenMismatch
+    EdgeStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind
+    geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner
+    side_edge_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner fn Option GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError \kind\geometry_owner\side_edge_error_kind\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError kind geometry_owner side_edge_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_source_failed %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner fn GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError \geometry_owner\error_kind:
+    let side_edge_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind some error_kind
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind::SourceOwnerInvariantFailed geometry_owner side_edge_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError \kind\geometry_owner:
+    let side_edge_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error kind geometry_owner side_edge_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError \geometry_owner\storage_error_value:
+    let side_edge_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind::EdgeStorageAllocFailed geometry_owner side_edge_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_geometry_owner %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner \error:
+    field::get error "geometry_owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError: drain failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind
+    owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner
+    storage_error %Option StdErrorKind
+    geometry_index %i32
+    rejected_edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner fn Option StdErrorKind fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \kind\owner\storage_error\geometry_index\rejected_edge:
+    GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError kind owner storage_error geometry_index rejected_edge
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_simple %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \kind\owner:
+    let storage_error %Option StdErrorKind none
+    let rejected_edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord none
+    let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index &owner
+    gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error kind owner storage_error geometry_index rejected_edge
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_with_geometry %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner fn i32 GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \kind\owner\geometry_index:
+    let storage_error %Option StdErrorKind none
+    let rejected_edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord none
+    gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error kind owner storage_error geometry_index rejected_edge
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \owner\edge\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    let rejected_edge %Option GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord some edge
+    let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index &owner
+    gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::EdgePushFailed owner storage_error geometry_index rejected_edge
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_owner %fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal: side edge drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal:
+    EdgePushed %GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner
+    Completed %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count %fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \geometry_count:
+    let max_i32 %i32 2147483647
+    if lt geometry_count 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryCountNegative
+        else:
+            let remaining %i32 sub max_i32 geometry_count
+            if gt geometry_count remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SideEdgeCapacityOverflow
+                else Result::Ok add geometry_count geometry_count
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_phase_advanced_count %fn GuiSfntSimpleGlyphRenderStrokeEdgeSide i32 \side:
+    match side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            0
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            1
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_phase_is_left %fn GuiSfntSimpleGlyphRenderStrokeEdgeSide bool \side:
+    match side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            true
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            false
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner Result unit GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \geometry_owner:
+    let source_owner %&GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get_ref geometry_owner "source_owner"
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants source_owner:
+        Result::Err _error_kind:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceOffsetGeometrySourceInvariantFailed
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard source_owner:
+                Result::Err _error_kind:
+                    Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceOffsetGeometryStyleGuardFailed
+                Result::Ok _:
+                    let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count geometry_owner
+                    if lt geometry_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryCountNegative
+                        else:
+                            let line_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_line_geometry_count geometry_owner
+                            if lt line_geometry_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceLineGeometryCountNegative
+                                else:
+                                    let quadratic_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_quadratic_geometry_count geometry_owner
+                                    if lt quadratic_geometry_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceQuadraticGeometryCountNegative
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add line_geometry_count quadratic_geometry_count:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok counted_geometry_count:
+                                                    if ne geometry_count counted_geometry_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryCountMismatch
+                                                        else:
+                                                            let source_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count source_owner
+                                                            if ne geometry_count source_metric_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryCountExceeded
+                                                                else:
+                                                                    let source_line_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_line_provenance_count source_owner
+                                                                    if ne line_geometry_count source_line_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceLineGeometryCountMismatch
+                                                                        else:
+                                                                            let source_quadratic_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_quadratic_provenance_count source_owner
+                                                                            if ne quadratic_geometry_count source_quadratic_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceQuadraticGeometryCountMismatch
+                                                                                else:
+                                                                                    let geometry_len %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_len geometry_owner
+                                                                                    if ne geometry_len geometry_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryStorageLenMismatch
+                                                                                        else:
+                                                                                            let geometry_cap %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_cap geometry_owner
+                                                                                            if ne geometry_cap geometry_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryStorageCapacityMismatch
+                                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_local_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \owner:
+    let geometry_owner %&GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get_ref owner "geometry_owner"
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge geometry_owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count geometry_owner
+            let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index owner
+            if lt geometry_index 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::GeometryIndexNegative
+                else:
+                    if gt geometry_index geometry_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::GeometryIndexOutOfRange
+                        else:
+                            let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_edge_count owner
+                            if lt side_edge_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SideEdgeCountNegative
+                                else:
+                                    let line_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_line_side_edge_count owner
+                                    if lt line_side_edge_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::LineSideEdgeCountNegative
+                                        else:
+                                            let quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_quadratic_side_edge_count owner
+                                            if lt quadratic_side_edge_count 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::QuadraticSideEdgeCountNegative
+                                                else:
+                                                    let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_left_side_edge_count owner
+                                                    if lt left_side_edge_count 0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::LeftSideEdgeCountNegative
+                                                        else:
+                                                            let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_right_side_edge_count owner
+                                                            if lt right_side_edge_count 0:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::RightSideEdgeCountNegative
+                                                                else:
+                                                                    let side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_phase owner
+                                                                    let phase_advanced_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_phase_advanced_count side_phase
+                                                                    match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_index:
+                                                                        Result::Err error_kind:
+                                                                            Result::Err error_kind
+                                                                        Result::Ok completed_side_edge_count:
+                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add completed_side_edge_count phase_advanced_count:
+                                                                                Result::Err error_kind:
+                                                                                    Result::Err error_kind
+                                                                                Result::Ok expected_side_edge_count:
+                                                                                    if ne side_edge_count expected_side_edge_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SideEdgeCountMismatch
+                                                                                        else:
+                                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add line_side_edge_count quadratic_side_edge_count:
+                                                                                                Result::Err error_kind:
+                                                                                                    Result::Err error_kind
+                                                                                                Result::Ok counted_kind_edges:
+                                                                                                    if ne counted_kind_edges side_edge_count:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::LineQuadraticSideEdgeCountMismatch
+                                                                                                        else:
+                                                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add left_side_edge_count right_side_edge_count:
+                                                                                                                Result::Err error_kind:
+                                                                                                                    Result::Err error_kind
+                                                                                                                Result::Ok counted_side_edges:
+                                                                                                                    if ne counted_side_edges side_edge_count:
+                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::LeftRightSideEdgeCountMismatch
+                                                                                                                        else:
+                                                                                                                            let line_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_line_geometry_count geometry_owner
+                                                                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count line_geometry_count:
+                                                                                                                                Result::Err error_kind:
+                                                                                                                                    Result::Err error_kind
+                                                                                                                                Result::Ok line_side_capacity:
+                                                                                                                                    if gt line_side_edge_count line_side_capacity:
+                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::LineSideEdgeCountExceeded
+                                                                                                                                        else:
+                                                                                                                                            let quadratic_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_quadratic_geometry_count geometry_owner
+                                                                                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count quadratic_geometry_count:
+                                                                                                                                                Result::Err error_kind:
+                                                                                                                                                    Result::Err error_kind
+                                                                                                                                                Result::Ok quadratic_side_capacity:
+                                                                                                                                                    if gt quadratic_side_edge_count quadratic_side_capacity:
+                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::QuadraticSideEdgeCountExceeded
+                                                                                                                                                        else:
+                                                                                                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_count_checked_add geometry_index phase_advanced_count:
+                                                                                                                                                                Result::Err error_kind:
+                                                                                                                                                                    Result::Err error_kind
+                                                                                                                                                                Result::Ok expected_left_count:
+                                                                                                                                                                    if ne left_side_edge_count expected_left_count:
+                                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::LeftSideEdgeCountMismatch
+                                                                                                                                                                        else:
+                                                                                                                                                                            if ne right_side_edge_count geometry_index:
+                                                                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::RightSideEdgeCountMismatch
+                                                                                                                                                                                else:
+                                                                                                                                                                                    let edges_len %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_edges_len owner
+                                                                                                                                                                                    if ne edges_len side_edge_count:
+                                                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::EdgeStorageLenMismatch
+                                                                                                                                                                                        else:
+                                                                                                                                                                                            let edges_cap %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_edges_cap owner
+                                                                                                                                                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_count:
+                                                                                                                                                                                                Result::Err error_kind:
+                                                                                                                                                                                                    Result::Err error_kind
+                                                                                                                                                                                                Result::Ok side_edge_capacity:
+                                                                                                                                                                                                    if ne edges_cap side_edge_capacity:
+                                                                                                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::EdgeStorageCapacityMismatch
+                                                                                                                                                                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_completion_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_local_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let geometry_owner %&GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get_ref owner "geometry_owner"
+            let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count geometry_owner
+            let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index owner
+            if ne geometry_index geometry_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionGeometryIndexMismatch
+                else:
+                    let side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_phase owner
+                    if not gui_sfnt_simple_glyph_render_stroke_side_edge_phase_is_left side_phase:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionSidePhaseMismatch
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_count:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok side_edge_capacity:
+                                    let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_edge_count owner
+                                    if ne side_edge_count side_edge_capacity:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionSideEdgeCountMismatch
+                                        else:
+                                            let line_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_line_geometry_count geometry_owner
+                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count line_geometry_count:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok line_side_capacity:
+                                                    let line_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_line_side_edge_count owner
+                                                    if ne line_side_edge_count line_side_capacity:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionLineSideEdgeCountMismatch
+                                                        else:
+                                                            let quadratic_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_quadratic_geometry_count geometry_owner
+                                                            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count quadratic_geometry_count:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok quadratic_side_capacity:
+                                                                    let quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_quadratic_side_edge_count owner
+                                                                    if ne quadratic_side_edge_count quadratic_side_capacity:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionQuadraticSideEdgeCountMismatch
+                                                                        else:
+                                                                            let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_left_side_edge_count owner
+                                                                            if ne left_side_edge_count geometry_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionLeftSideEdgeCountMismatch
+                                                                                else:
+                                                                                    let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_right_side_edge_count owner
+                                                                                    if ne right_side_edge_count geometry_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionRightSideEdgeCountMismatch
+                                                                                        else:
+                                                                                            let edges_len %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_edges_len owner
+                                                                                            if ne edges_len side_edge_capacity:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionStorageLenMismatch
+                                                                                                else:
+                                                                                                    let edges_cap %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_edges_cap owner
+                                                                                                    if ne edges_cap side_edge_capacity:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::CompletionStorageCapacityMismatch
+                                                                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError \geometry_owner:
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_invariants_for_side_edge &geometry_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_source_failed geometry_owner error_kind
+        Result::Ok _:
+            let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count &geometry_owner
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_capacity_from_geometry_count geometry_count:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_source_failed geometry_owner error_kind
+                Result::Ok side_edge_capacity:
+                    match vec::with_capacity side_edge_capacity:
+                        Result::Err storage_error_value:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_storage_failed geometry_owner storage_error_value
+                        Result::Ok edges:
+                            let edges_len %i32 vec::len &edges
+                            if ne edges_len 0:
+                                then:
+                                    vec::free edges
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind::EdgeStorageInitialLenMismatch geometry_owner
+                                else:
+                                    let edges_cap %i32 vec::cap &edges
+                                    if ne edges_cap side_edge_capacity:
+                                        then:
+                                            vec::free edges
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartErrorKind::EdgeStorageCapacityMismatch geometry_owner
+                                        else:
+                                            let owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner edges 0 GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left 0 0 0 0 0
+                                            Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_geometry %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind \geometry_owner\geometry_index:
+    if lt geometry_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::GeometryIndexNegative
+        else:
+            let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count geometry_owner
+            if ge geometry_index geometry_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::GeometryIndexOutOfRange
+                else:
+                    let geometry_len %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_len geometry_owner
+                    if ne geometry_len geometry_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryStorageLenMismatch
+                        else:
+                            let geometry_cap %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_cap geometry_owner
+                            if ne geometry_cap geometry_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::SourceGeometryStorageCapacityMismatch
+                                else:
+                                    let geometry %&Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get_ref geometry_owner "geometry"
+                                    match vec::get geometry geometry_index:
+                                        Option::Some geometry_value:
+                                            Result::Ok geometry_value
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeSideEdgeErrorKind::GeometrySlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry %fn &GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry fn GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord \geometry\side:
+    let metric_index %i32 *field::get_ref geometry "metric_index"
+    let path_command_index %i32 *field::get_ref geometry "path_command_index"
+    let edge_index %i32 *field::get_ref geometry "edge_index"
+    let contour_index %i32 *field::get_ref geometry "contour_index"
+    let contour_edge_index %i32 *field::get_ref geometry "contour_edge_index"
+    let contour_start_edge_index %i32 *field::get_ref geometry "contour_start_edge_index"
+    let contour_end_edge_index %i32 *field::get_ref geometry "contour_end_edge_index"
+    let contour_edge_count %i32 *field::get_ref geometry "contour_edge_count"
+    let source_start_x2 %i32 *field::get_ref geometry "start_x2"
+    let source_start_y2 %i32 *field::get_ref geometry "start_y2"
+    let source_end_x2 %i32 *field::get_ref geometry "end_x2"
+    let source_end_y2 %i32 *field::get_ref geometry "end_y2"
+    let normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal *field::get_ref geometry "normal"
+    match side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward
+            let start_x2 %f32 *field::get_ref geometry "left_start_x2"
+            let start_y2 %f32 *field::get_ref geometry "left_start_y2"
+            let end_x2 %f32 *field::get_ref geometry "left_end_x2"
+            let end_y2 %f32 *field::get_ref geometry "left_end_y2"
+            gui_sfnt_simple_glyph_render_stroke_line_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal start_x2 start_y2 end_x2 end_y2
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse
+            let start_x2 %f32 *field::get_ref geometry "right_end_x2"
+            let start_y2 %f32 *field::get_ref geometry "right_end_y2"
+            let end_x2 %f32 *field::get_ref geometry "right_start_x2"
+            let end_y2 %f32 *field::get_ref geometry "right_start_y2"
+            gui_sfnt_simple_glyph_render_stroke_line_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_end_x2 source_end_y2 normal start_x2 start_y2 end_x2 end_y2
+
+fn gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry %fn &GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry fn GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord \geometry\side:
+    let metric_index %i32 *field::get_ref geometry "metric_index"
+    let path_command_index %i32 *field::get_ref geometry "path_command_index"
+    let edge_index %i32 *field::get_ref geometry "edge_index"
+    let contour_index %i32 *field::get_ref geometry "contour_index"
+    let contour_edge_index %i32 *field::get_ref geometry "contour_edge_index"
+    let contour_start_edge_index %i32 *field::get_ref geometry "contour_start_edge_index"
+    let contour_end_edge_index %i32 *field::get_ref geometry "contour_end_edge_index"
+    let contour_edge_count %i32 *field::get_ref geometry "contour_edge_count"
+    let source_start_x2 %i32 *field::get_ref geometry "start_x2"
+    let source_start_y2 %i32 *field::get_ref geometry "start_y2"
+    let source_control_x2 %i32 *field::get_ref geometry "control_x2"
+    let source_control_y2 %i32 *field::get_ref geometry "control_y2"
+    let source_end_x2 %i32 *field::get_ref geometry "end_x2"
+    let source_end_y2 %i32 *field::get_ref geometry "end_y2"
+    let start_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal *field::get_ref geometry "start_normal"
+    let end_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal *field::get_ref geometry "end_normal"
+    match side:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceForward
+            let start_x2 %f32 *field::get_ref geometry "left_start_x2"
+            let start_y2 %f32 *field::get_ref geometry "left_start_y2"
+            let end_x2 %f32 *field::get_ref geometry "left_end_x2"
+            let end_y2 %f32 *field::get_ref geometry "left_end_y2"
+            gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal start_x2 start_y2 end_x2 end_y2
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            let boundary_direction %GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection GuiSfntSimpleGlyphRenderStrokeSideEdgeBoundaryDirection::SourceReverse
+            let start_x2 %f32 *field::get_ref geometry "right_end_x2"
+            let start_y2 %f32 *field::get_ref geometry "right_end_y2"
+            let end_x2 %f32 *field::get_ref geometry "right_start_x2"
+            let end_y2 %f32 *field::get_ref geometry "right_start_y2"
+            gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count side boundary_direction source_start_x2 source_start_y2 source_control_x2 source_control_y2 source_end_x2 source_end_y2 start_normal end_normal start_x2 start_y2 end_x2 end_y2
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn i32 fn i32 fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \owner\edge\next_geometry_index\next_side_phase\nnext_side_edge_count\nnext_line_side_edge_count\nnext_quadratic_side_edge_count\nnext_left_side_edge_count\nnext_right_side_edge_count:
+    let previous_geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index &owner
+    let previous_side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_phase &owner
+    let previous_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_edge_count &owner
+    let previous_line_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_line_side_edge_count &owner
+    let previous_quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_quadratic_side_edge_count &owner
+    let previous_left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_left_side_edge_count &owner
+    let previous_right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_right_side_edge_count &owner
+    let geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get owner "geometry_owner"
+    let edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get owner "edges"
+    match vec::push edges edge:
+        Result::Ok next_edges:
+            let next_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner next_edges next_geometry_index next_side_phase next_side_edge_count next_line_side_edge_count next_quadratic_side_edge_count next_left_side_edge_count next_right_side_edge_count
+            Result::Ok next_owner
+        Result::Err push_error:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+            let returned_edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord vec::vec_push_error_vec push_error
+            let returned_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner geometry_owner returned_edges previous_geometry_index previous_side_phase previous_side_edge_count previous_line_side_edge_count previous_quadratic_side_edge_count previous_left_side_edge_count previous_right_side_edge_count
+            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_push_failed returned_owner edge storage_error_value
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_line %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner fn GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \owner\line_geometry:
+    let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index &owner
+    let side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_phase &owner
+    let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_edge_count &owner
+    let line_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_line_side_edge_count &owner
+    let quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_quadratic_side_edge_count &owner
+    let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_left_side_edge_count &owner
+    let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_right_side_edge_count &owner
+    let line_edge %GuiSfntSimpleGlyphRenderStrokeLineSideEdgeRecord gui_sfnt_simple_glyph_render_stroke_line_side_edge_record_from_geometry &line_geometry side_phase
+    let edge %GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Line line_edge
+    let next_side_edge_count %i32 add side_edge_count 1
+    let next_line_side_edge_count %i32 add line_side_edge_count 1
+    match side_phase:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            let next_side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right
+            let next_left_side_edge_count %i32 add left_side_edge_count 1
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge owner edge geometry_index next_side_phase next_side_edge_count next_line_side_edge_count quadratic_side_edge_count next_left_side_edge_count right_side_edge_count:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_owner:
+                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::EdgePushed next_owner
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            let next_geometry_index %i32 add geometry_index 1
+            let next_side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left
+            let next_right_side_edge_count %i32 add right_side_edge_count 1
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge owner edge next_geometry_index next_side_phase next_side_edge_count next_line_side_edge_count quadratic_side_edge_count left_side_edge_count next_right_side_edge_count:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_owner:
+                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::EdgePushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_quadratic %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \owner\quadratic_geometry:
+    let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index &owner
+    let side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_phase &owner
+    let side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_side_edge_count &owner
+    let line_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_line_side_edge_count &owner
+    let quadratic_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_quadratic_side_edge_count &owner
+    let left_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_left_side_edge_count &owner
+    let right_side_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_right_side_edge_count &owner
+    let quadratic_edge %GuiSfntSimpleGlyphRenderStrokeQuadraticSideEdgeRecord gui_sfnt_simple_glyph_render_stroke_quadratic_side_edge_record_from_geometry &quadratic_geometry side_phase
+    let edge %GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord::Quadratic quadratic_edge
+    let next_side_edge_count %i32 add side_edge_count 1
+    let next_quadratic_side_edge_count %i32 add quadratic_side_edge_count 1
+    match side_phase:
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left:
+            let next_side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right
+            let next_left_side_edge_count %i32 add left_side_edge_count 1
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge owner edge geometry_index next_side_phase next_side_edge_count line_side_edge_count next_quadratic_side_edge_count next_left_side_edge_count right_side_edge_count:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_owner:
+                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::EdgePushed next_owner
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right:
+            let next_geometry_index %i32 add geometry_index 1
+            let next_side_phase %GuiSfntSimpleGlyphRenderStrokeEdgeSide GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left
+            let next_right_side_edge_count %i32 add right_side_edge_count 1
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_edge owner edge next_geometry_index next_side_phase next_side_edge_count line_side_edge_count next_quadratic_side_edge_count left_side_edge_count next_right_side_edge_count:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_owner:
+                    Result::Ok GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::EdgePushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_step %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner Result GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError \owner:
+    match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_local_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_simple error_kind owner
+        Result::Ok _:
+            let geometry_index %i32 gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_geometry_index &owner
+            let geometry_owner %&GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get_ref &owner "geometry_owner"
+            let geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count geometry_owner
+            if eq geometry_index geometry_count:
+                then:
+                    match gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_completion_invariants &owner:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_simple error_kind owner
+                        Result::Ok _:
+                            let geometry_owner_value %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get owner "geometry_owner"
+                            let edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get owner "edges"
+                            let side_edge_count %i32 field::get owner "side_edge_count"
+                            let line_side_edge_count %i32 field::get owner "line_side_edge_count"
+                            let quadratic_side_edge_count %i32 field::get owner "quadratic_side_edge_count"
+                            let left_side_edge_count %i32 field::get owner "left_side_edge_count"
+                            let right_side_edge_count %i32 field::get owner "right_side_edge_count"
+                            let completed_owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner gui_sfnt_simple_glyph_render_stroke_side_edge_owner geometry_owner_value edges geometry_count side_edge_count line_side_edge_count quadratic_side_edge_count left_side_edge_count right_side_edge_count
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::Completed completed_owner
+                else:
+                    match gui_sfnt_simple_glyph_render_stroke_side_edge_owner_read_geometry geometry_owner geometry_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_with_geometry error_kind owner geometry_index
+                        Result::Ok geometry:
+                            match geometry:
+                                GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry::Line line_geometry:
+                                    gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_line owner line_geometry
+                                GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry::Quadratic quadratic_geometry:
+                                    gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_push_quadratic owner quadratic_geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner unit \owner:
+    let geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get owner "geometry_owner"
+    let edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get owner "edges"
+    vec::free edges
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_free geometry_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner unit \owner:
+    let geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get owner "geometry_owner"
+    let edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord field::get owner "edges"
+    vec::free edges
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_free geometry_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_owner_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeOwnerStartError unit \error:
+    let geometry_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner field::get error "geometry_owner"
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_free geometry_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_stroke_side_edge_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::EdgePushed owner:
+            gui_sfnt_simple_glyph_render_stroke_side_edge_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_stroke_side_edge_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:

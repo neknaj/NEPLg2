@@ -6159,6 +6159,36 @@ start は F5kw completed source owner invariant と stroke style guard を通し
 
 F5kx は F5ba/F5az scalar stream、byte-backed lookup、stroke edge、coverage、packed mask、render command、pixel write、platform API、font fallback へ進まない。
 
+### SFNT simple glyph render stroke side edge owner boundary
+
+F5ky は completed F5kx stroke offset geometry owner を消費し、左右の stroke side edge record owner を作る境界である。authority は F5kx completed owner だけであり、F5ba/F5az scalar stream、byte-backed glyph lookup、F5ku metric owner 単独、F5kw cursor/drain 再実行、fill raster edge owner へ戻らない。
+
+F5ky の completed owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSideEdgeOwner:
+    geometry_owner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner
+    edges Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord
+    geometry_count i32
+    side_edge_count i32
+    line_side_edge_count i32
+    quadratic_side_edge_count i32
+    left_side_edge_count i32
+    right_side_edge_count i32
+```
+
+F5ky の completed owner は閉じた stroke outline ではない。これは F5kx geometry を coverage-ready な閉境界に見せかけないための side edge record authority であり、join / cap / miter closure は解決しない。coverage の前に stroke edge closure / join-cap owner を挟む。
+
+Line side edge record は source/provenance、source start/end、F5kx normal、left/right side、boundary direction、directed side endpoint を保持する。left side は source direction と同じ向き、right side は source direction と逆向きで記録し、後続が right side を source 順のまま閉境界に接続しないようにする。
+
+Quadratic side edge record は source start/control/end、start/end endpoint normal、left/right side、boundary direction、directed endpoint を保持する。F5ky は offset control point を捏造せず、exact offset curve を二次 curve として扱わない。
+
+start は completed F5kx owner invariant と style guard を再検査し、`geometry_count * 2` の overflow guard を通して side edge Vec を exact capacity で 1 回だけ確保する。step は `geometry_index + side_phase(Left/Right)` を authority にして 1 step で 1 side edge record だけ push する。push failure は returned Vec と pre-push side phase / count を recovery payload に保持する。
+
+completion は `line_side_edge_count == line_geometry_count * 2`、`quadratic_side_edge_count == quadratic_geometry_count * 2`、`left_side_edge_count == right_side_edge_count == geometry_count`、Vec len/cap が `geometry_count * 2` と一致することを要求する。
+
+F5ky は stroke coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow、compositor へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

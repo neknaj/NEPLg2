@@ -7153,6 +7153,46 @@ Push failure is owner-bearing. The returned Vec from `vec::push` is rewrapped wi
 
 F5kx does not read path sink scalar storage, step a path command stream, call byte-backed lookup helpers, build stroke edge owners, coverage masks, packed masks, render commands, pixel buffers, platform resources, host text measurement, fallback text, shadows, or compositor output.
 
+## SFNT simple glyph render stroke side edge owner boundary
+
+F5ky consumes the completed F5kx offset geometry owner as the only direct authority. It must not return to the F5ba/F5az scalar stream, byte-backed glyph lookup, the F5ku metric owner by itself, a fresh F5kw cursor/drain, fill mask output, or the existing fill raster edge owner. The F5kx completed owner already ties each source geometry slot to F5kw provenance and guarded offset endpoints, so F5ky drains that owner instead of rebuilding source topology.
+
+F5ky completed owner is a side edge record owner, not a closed stroke outline. This is intentional: line/quadratic side edges do not resolve joins, caps, miter clipping, or contour closure. A later stroke edge closure / join-cap owner must consume this owner before a stroke coverage mask owner is allowed to treat the data as a closed boundary.
+
+The drain owner stores:
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSideEdgeDrainOwner:
+    geometry_owner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner
+    edges Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeRecord
+    geometry_index i32
+    side_phase GuiSfntSimpleGlyphRenderStrokeEdgeSide
+    side_edge_count i32
+    line_side_edge_count i32
+    quadratic_side_edge_count i32
+    left_side_edge_count i32
+    right_side_edge_count i32
+```
+
+The completed owner stores the same F5kx geometry owner and side edge Vec with final counts. Both owner types own resources and must not implement `Clone` / `Copy`; the line/quadratic side edge records are value records and may be copied.
+
+Capacity is derived as `geometry_count * 2` with an explicit overflow guard. The local invariant treats progress as `geometry_index + side_phase`: `Left` means no side edge has been emitted for the current geometry, and `Right` means the left record has been emitted and the right record is next. This makes each drain step perform exactly one `vec::push`. If a push fails, the returned Vec is rewrapped with the pre-push geometry index, side phase, and counts.
+
+Line side edge records carry source/provenance, original source start/end, the F5kx normal, side, boundary direction, and directed side endpoints. Left side edges are source-forward (`left_start -> left_end`). Right side edges are source-reverse (`right_end -> right_start`), which prevents the later closure phase from accidentally treating the right side as source-forward.
+
+Quadratic side edge records carry source/provenance, source start/control/end, start/end endpoint normal records, side, boundary direction, and directed side endpoints. F5ky does not invent an offset control point and does not claim that the exact offset of a quadratic is another quadratic curve. The record remains a side-edge authority for a later closure / approximation phase.
+
+Completion requires:
+
+1. `geometry_index == geometry_count` and `side_phase == Left`.
+2. `side_edge_count == geometry_count * 2`.
+3. `line_side_edge_count == line_geometry_count * 2`.
+4. `quadratic_side_edge_count == quadratic_geometry_count * 2`.
+5. `left_side_edge_count == right_side_edge_count == geometry_count`.
+6. Vec len/cap both equal the derived side edge capacity.
+
+F5ky does not build closure edges, coverage masks, packed masks, render commands, pixel buffers, platform resources, host text measurement, fallback text, shadows, or compositor output.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
