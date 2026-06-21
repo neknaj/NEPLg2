@@ -76999,3 +76999,32 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lv.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
 - Maxwell の implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5lv 後続は bounded shadow SourceOver drain step、dirty region、2D compositor drain に分ける。
+
+## 2026-06-22 Agent2 GUI font rendering F5lw shadow source software drain-step boundary
+
+- F5lw では、F5lv の drain owner を bounded work slice として進め、shadow source alpha mask を RGBA8888 software surface へ SourceOver 合成する境界を追加中。
+- Faraday の plan review は `PLAN_APPROVED`。F5bq の one-cell step、write recovery、progress invariant、budget terminal を precedent とし、shadow 固有差分として DirtyRegion を次 phase へ分離する方針が承認された。
+- step validation / record rederive failure でも lower F5lp `order_error` を owner-bearing step error に保持し、F5lv で作った root-cause evidence を step 境界で落とさない。
+- `GuiSfntSimpleGlyphRenderShadowSourceSoftwareDrainCompletedOwner` は prepared owner と surface owner だけを保持し、DirtyRegion は保持しない。completed finish は prepared/resource side を free して surface owner を返す。
+- `owner_step_once` は validate、record rederive、shadow alpha borrow、record rect からの checked position、surface read、`gui_rgba8888_source_over_alpha_mask`、checked surface write を順に行い、write 成功後だけ `cell_index` を進める。
+- write failure は returned surface owner と元の `cell_index` で owner を復元する。read / composite / validation failure は owner を消費せず owner-bearing step error にする。
+- `to_complete_budget` は completed を budget validation より先に扱い、未完了かつ `remaining_steps <= 0` を `InvalidBudget`、正の進捗後で未完了のときだけ `StepBudgetExhausted` にする。
+- この checkpoint は dirty region、F5lq cursor、F5lr sample command bridge、old FillRect bridge、raw RenderCommand accessor、resource table lookup / register / push、platform / host / backend API、font fallback、zero-fill fallback、tile / bitmap transport、2D compositor drain を扱わない。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest labels、`todo.md` を F5lw contract へ更新した。
+- `plan.md` との差異はない。plan.md の前置記法と stdlib 方針に沿って、F5lv の owner/lifetime 境界後続として bounded SourceOver step だけを切り出した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: focused doctest `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_software_drain.n.md` (`1/1`)
+- pass: render2d SourceOver regression (`1/1`)
+- pass: F5lu prepared command regression (`1/1`)
+- pass: F5lt resource table regression (`1/1`)
+- pass: F5ls resource reservation regression (`1/1`)
+- pass: render2d software surface regression (`2/2`)
+- pass: `stdlib/alloc/gui/font/sfnt/glyf.nepl` full doctest (`1334/1334`)
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lw.json` (`caseCount=13`, `passedCount=13`, `failedCount=0`)
+- Faraday の initial implementation review は `REVIEW_CHANGES_REQUESTED`。指摘は code 本体ではなく source-policy boundary で、F5lw raw command 禁止検査が F5lv command validation helper を含む広すぎる region に掛かっていたことだった。
+- 指摘対応として、F5lw helper-only region を `checked_position` 以降に分離し、raw command field 検出 regex の `"command"` 末尾境界も強化した。
+- Faraday follow-up implementation review は `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5lw 後続は shadow dirty region、2D compositor drain に分ける。
