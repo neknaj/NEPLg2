@@ -1,3 +1,43 @@
+# 2026-06-22 selfhost memo_call backend shared reader source plan output boundary
+
+## 目的
+
+- production reader output と operation producer bridge が別々に wrapper body evidence を作る二重 authority を解消する。
+- recheck 済み `ActualTraversalBodyReaderRequestContext` から作る module-private reader source plan を唯一の wrapper representative 生成元にし、output path も operation classifier path も同じ source table を読む。
+- full Resource IR / HIR lowering body reader、fresh-region witness real traversal authority、PrivateCache / PrivateState effect masking、sealed backend representation、artifact projection は後続 boundary として残す。
+
+## subagent review
+
+- Harvey は、`actual_traversal_body_reader_output_from_request_context_result` が `PrivateCacheStorage` / `CloneOutOwnedValue` を直接 walker input に焼き込む一方、operation producer 側は別の policy source table を読むため、accepted bundle path と operation classifier path の authority が二重化していると指摘した。
+- 推奨方針は、module-private body-reader plan/source を作り、`output_from_request_context_result` と `adapter_sources_from_request_context_result` の両方を同じ helper へ寄せること、source validation / source-derived witness / request-evidence gate を短絡しないこと、public API 化や proof/backend/effect/artifact 合成をしないことだった。
+
+## 実装
+
+- `actual_traversal_body_reader_sources_from_request_context_result` を追加し、production reader source plan の共有入口にした。現時点では既存 policy source table の wrapper representative 2 件を返す。
+- `actual_traversal_body_reader_output_from_request_context_result` は direct walker input construction をやめ、shared reader source plan、context-bound source validation、source-to-operation projection、既存 operation classifier、unified event split を通して `ResourceWalkerInput + ObservationBanTable` owner を作る。
+- `actual_traversal_body_adapter_sources_from_request_context_result` も同じ reader source helper を読むようにし、operation producer bridge と output path の authority を揃えた。
+- source / operation / event / split failure を availability error と bridge error の双方で typed に保持し、source key / graph mismatch を seed mismatch と分けた。
+- contract test を更新し、production output helper が direct `PrivateCacheStorage` / `CloneOutOwnedValue` walker event construction、seed fixture、unsupported producer bridge、proof / backend / effect / artifact 合成を使わないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、完了した shared reader source plan 境界と残る full Resource IR / HIR lowering body reader 境界を分けた。
+
+## 検証
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-shared-reader-source-plan.json`。17/17。
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_shared_reader_source_plan.json`
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## 未接続
+
+- shared reader source plan の wrapper representative を actual Resource IR / HIR lowering body reader 由来 source / event へ置き換える boundary。
+- actual traversal 由来 fresh-region witness table を同じ body identity で Resource proof / request-evidence bridge へ渡す upper orchestration。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact / `.neplobj` / `.neplproof` stable key projection。
+
 # 2026-06-22 Agent2 GUI font rendering F5lx shadow source software drain dirty-region completion boundary
 
 ## 目的
