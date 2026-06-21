@@ -75873,3 +75873,17 @@ MERGE_APPROVED
 - pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_request.n.md --no-tree -o tmp_gui_font_render_stroke_request_f5kq.json -j 1`
 - implementation review は McClintock が `REVIEW_APPROVED`。commit-blocking finding は無い。
 - F5kq 後続として、stroke segment expansion plan、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。
+
+## 2026-06-21 Agent2 GUI font rendering F5kr stroke segment plan boundary
+
+- F5kr では、F5kq の stroke request owner を authority として count-only stroke segment plan owner を追加した。completed path command stream writer owner は request owner 内に保持し、fill alpha mask / raster edge owner を stroke geometry authority にしない。
+- James の plan review は `PLAN_APPROVED`。`GuiStroke` は color / width だけなので join / cap / dash / miter を暗黙に仮定せず、この slice は source segment count と stroke width を固定するだけに限定する。
+- `GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner` と owner-bearing `GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartError` を追加した。start validation は request writer invariant 再検査、stroke width、checked `line_to_count + quadratic_to_count`、plan `draw_count` / derived raster edge capacity 一致、`NoDrawableStrokeSegments` reject の順に fail closed する。
+- `NoDrawableStrokeSegments` は empty / skip-only glyph の parse/topology が不正という意味ではなく、F5kr の success owner が drawable stroke segment plan なので 0 drawable segment には success owner を発行しない、という契約として docs/source policy に固定した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、source policy、focused doctest を更新した。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md --no-tree -o tmp_gui_font_render_stroke_segment_plan_f5kr.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kr.json -j 1`
+- implementation review は James が `REVIEW_APPROVED`。commit-blocking finding は無い。
+- F5kr 後続として、stroke geometry expansion、stroke edge owner、stroke coverage mask owner、packed stroke mask owner、glyph paint composition order、shadow rasterization、2D compositor drain を分けて進める。

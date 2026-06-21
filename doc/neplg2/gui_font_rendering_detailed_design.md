@@ -6776,6 +6776,55 @@ F5kq must not call byte-backed lookup helpers, old traversal helpers, fill alpha
 
 Later stroke phases are deliberately separate: stroke segment expansion plan, stroke edge owner, stroke coverage mask owner, packed stroke mask owner, and then glyph paint composition order. F5kq only proves that a caller has a validated stroke request over the correct geometry authority.
 
+## SFNT simple glyph render stroke segment plan boundary
+
+F5kr consumes the F5kq stroke request owner and creates a count-only stroke segment plan owner. The authority remains the completed path command stream writer owner contained inside the request owner. F5kr does not reinterpret fill alpha mask output as stroke geometry and does not consume the fill alpha mask owner.
+
+The current `GuiStroke` data model stores color and width only. Therefore F5kr must not silently choose a join, cap, dash, or miter policy. It fixes only the input that is already explicit: the completed path command counts, the drawable source segment count, the origin / fill / stroke / blend metadata, and the validated stroke width.
+
+```text
+GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:
+    request_owner GuiSfntSimpleGlyphRenderStrokeRequestOwner
+    origin GuiPoint
+    fill Option GuiPaint
+    stroke GuiStroke
+    blend GuiBlendMode
+    path_command_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    draw_segment_count i32
+    path_sink_scalar_count i32
+    stroke_width i32
+```
+
+Validation order is part of the contract:
+
+```text
+request writer plan/capacity derivation
+stored capacity equality
+path sink scalar capacity equality
+raster mask scalar capacity equality
+path sink scalar len equality
+raster mask scalar len == 0
+writer written_count equals plan.total_count
+writer path_sink_scalar_count equals capacity.path_sink_scalar_capacity
+writer kind counts equal plan kind counts
+writer last index equals plan.last_path_command_index
+stroke.width > 0
+checked line_to_count + quadratic_to_count
+draw_segment_count equals plan.draw_count
+draw_segment_count equals derived raster edge capacity
+draw_segment_count > 0
+```
+
+`NoDrawableStrokeSegments` does not mean the glyph topology is invalid. A skip-only completed output remains valid for the lower owner boundary because that boundary represents completed path command preparation. F5kr represents a drawable stroke segment plan, so `line_to_count + quadratic_to_count == 0` is rejected before a success owner is created.
+
+Every failure is owner-bearing and returns the original request owner. The success owner and start error must not implement `Clone` / `Copy`.
+
+F5kr must not call path command value lookup, stroke geometry expansion, fill alpha mask helpers, raster edge helpers, coverage / packed mask helpers, render command constructors, DrawTarget / RenderTarget, render2d surfaces, platform APIs, host text measurement, font fallback, stroke rasterizers, shadow rasterizers, or compositor APIs.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

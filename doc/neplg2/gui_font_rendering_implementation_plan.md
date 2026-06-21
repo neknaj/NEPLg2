@@ -2591,6 +2591,57 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5kr: sfnt simple glyph render stroke segment plan boundary
+
+目的:
+
+- F5kq の stroke request owner を authority として、stroke segment expansion 前の count-only plan owner を追加する。
+- `GuiStroke` は color / width だけなので、join / cap / dash / miter policy を暗黙に仮定しない。
+- stroke offset geometry、stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API へ進まない。
+
+plan review:
+
+- James plan review は `PLAN_APPROVED`。
+- count-only stroke segment plan owner は、F5kq の completed path command stream writer authority を保ったまま後続 stroke geometry expansion の入力を固定する最小境界として承認された。
+- `NoDrawableStrokeSegments` は fail closed でよい。ただし empty / skip-only glyph の parse/topology が不正という意味ではなく、F5kr の success owner が drawable stroke segment plan であるため `line_to_count + quadratic_to_count == 0` には success owner を発行しない、と docs/source policy に明記する。
+- request owner 内 writer の F5kq invariant、`stroke.width > 0`、checked `line_to_count + quadratic_to_count`、plan `draw_count` / derived raster edge capacity との一致、owner-bearing error recovery を必須 invariant とする。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner` を追加する。request owner、origin、optional fill metadata、stroke、blend、path command counts、draw segment count、path sink scalar count、stroke width を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartErrorKind` と owner-bearing `GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartError` を追加する。
+- start validation order は次で固定する。
+  - request writer plan/capacity derivation
+  - stored capacity equality
+  - path sink / raster mask scalar capacity equality
+  - path sink scalar len equals capacity
+  - raster mask scalar len equals 0
+  - writer progress counts and last path command index match plan
+  - `stroke.width > 0`
+  - checked `line_to_count + quadratic_to_count`
+  - draw segment count equals plan `draw_count`
+  - draw segment count equals derived raster edge capacity
+  - draw segment count > 0
+- owner free / start error free helper を追加し、request owner authority を exactly once close する。
+- focused doctest label と source policy を追加し、stroke geometry / fill alpha mask / raster edge / coverage / RenderCommand / DrawTarget / RenderTarget / platform / fallback / compositor 禁止、owner 型の非 Clone / 非 Copy、括弧なし prefix style を検査する。
+
+完了条件:
+
+- source policy が docs、James plan approval、count-only stroke segment plan owner、`NoDrawableStrokeSegments` の意味、request writer invariant、stroke width validation、checked draw segment count、plan draw count / raster edge capacity equality、owner recovery/free、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md` に request owner authority、count-only plan、width validation、checked draw segment count、no drawable segment reject、owner recovery、no geometry / mask / command / platform policy の coverage label を追加する。
+- implementation review で F5kr が join / cap / dash / geometry / edge / coverage / command / platform へ進んでいないこと、F5kq request boundary が変更されていないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は stroke segment plan boundary 接続済み、後続の stroke geometry expansion / stroke edge / stroke coverage、shadow rasterization、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_segment_plan.n.md --no-tree -o tmp_gui_font_render_stroke_segment_plan_f5kr.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

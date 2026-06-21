@@ -6019,6 +6019,36 @@ shadow rasterizer
 2D compositor
 ```
 
+### SFNT simple glyph render stroke segment plan boundary
+
+F5kr は F5kq の stroke request owner を authority として、stroke segment expansion の入力になる count-only stroke segment plan owner を作る境界である。ここでは実際の stroke offset geometry、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API へ進まない。
+
+現時点の `GuiStroke` は color と width だけを持つ。F5kr は join / cap / dash policy を暗黙に仮定せず、completed path command stream writer owner の plan count と validated stroke width を同じ owner に固定する。
+
+success owner は次を保持する。
+
+```text
+request_owner
+origin
+fill
+stroke
+blend
+path_command_count
+move_to_count
+line_to_count
+quadratic_to_count
+skip_no_segment_count
+draw_segment_count
+path_sink_scalar_count
+stroke_width
+```
+
+start は request owner 内の completed path command stream writer invariant を再検査する。plan / capacity、path sink len、raster mask len 0、writer written count、path sink scalar count、kind counts、last path command index が plan と一致することを確認する。
+
+その後、`stroke.width > 0` を再検査し、`line_to_count + quadratic_to_count` を checked add で `draw_segment_count` に固定する。`draw_segment_count` は plan の `draw_count` と derived raster edge capacity に一致しなければならない。
+
+`line_to_count + quadratic_to_count == 0` は `NoDrawableStrokeSegments` として fail closed する。これは empty / skip-only glyph の parse/topology が不正という意味ではない。F5az の owner boundary では skip-only completed output は valid だが、F5kr の success owner は後続 stroke expansion の drawable segment plan なので、drawable segment が 0 件の request に success owner を発行しない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
