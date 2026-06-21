@@ -1,3 +1,39 @@
+# 2026-06-21 Agent2 GUI font F5ll shadow source coverage mask writer owner boundary
+
+## 目的
+
+- F5lk completed shadow source edge owner を direct authority として消費し、shadow source raw coverage cell writer owner を追加する。
+- coverage shape は F5lk context の `source_shape` を canonical authority として写し、新しい coverage config を受け取らない。
+- coverage scan、blur、spread、packed mask、render command、resource、pixel write、platform API、2D compositor へ進まない。
+- zero-edge glyph でも nonzero cell count は正当として扱い、後続 scan が 0 coverage cell を書く責務を残す。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner`、completed coverage mask owner、single error kind、start/push/completion error、completion terminal、free/recovery helper を追加した。
+- start は F5lk owner の context invariant、shared writer authority、nested writer plan / capacity、`line_edge_count == plan.line_to_count`、`quadratic_edge_count == plan.quadratic_to_count`、`edge_count == raster_edge_capacity`、checked `edge_count == line_edge_count + quadratic_edge_count`、`edges.len == edge_count`、`edges.cap == raster_edge_capacity` を再検査する。
+- writer owner は cached `source_shape` と F5lk context の `source_shape` を比較し、`written_cell_count` と `cells.len/cap` を `source_shape.cell_count` に対して検査する。
+- push は `0 <= coverage <= coverage_max` と full mask を検査し、`vec::push` failure では returned Vec と pre-push progress を owner-bearing error で回収できるようにした。
+- completion は `written_cell_count == cell_count` のときだけ completed owner を返し、未充足なら writer owner を `CoverageMaskIncomplete` として返す。
+- Turing plan review 1 は `CHANGES_REQUESTED`。F5ll start が F5lk owner の自己整合だけでなく nested writer plan / capacity にも照合する必要があり、`edges.cap == edge_count or raster_edge_capacity` は緩すぎると指摘された。
+- Turing revised plan review は `PLAN_APPROVED`。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5ll.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_edge_f5ll_regression.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ll.json -j 1` は 1290 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ll.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5ll.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Turing の implementation review は `REVIEW_APPROVED`。
+
+## 残件
+
+- F5ll 後続として、shadow source coverage scan / blur / packing / composition、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lk shadow source edge drain owner boundary
 
 ## 目的

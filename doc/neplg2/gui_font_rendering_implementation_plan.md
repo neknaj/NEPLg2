@@ -3438,6 +3438,52 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lk.json
 ```
 
+## Phase F5ll: sfnt simple glyph render shadow source coverage mask writer owner
+
+目的:
+
+- F5lk completed shadow source edge owner を direct authority とし、後続 shadow source coverage scan converter が書き込む raw coverage cell writer owner を作る。
+- generic fill coverage writer、stroke coverage writer、generic raster edge owner を偽造・再利用せず、F5lk owner をそのまま authority として保持する。
+- F5lj / F5lk の canonical `source_shape` を cached value として保持するが、新しい coverage config は受け取らない。
+- coverage scan、blur、packing、composition、resource、render command、pixel write、platform API、2D compositor へ進まない。
+
+plan review:
+
+- Turing plan review 1 は `CHANGES_REQUESTED`。
+- F5ll start が F5lk owner の自己整合だけでなく nested writer plan / capacity にも照合する必要があり、`edges.cap == edge_count or raster_edge_capacity` は緩すぎると指摘された。
+- Turing revised plan review は `PLAN_APPROVED`。
+- start は `line_edge_count == plan.line_to_count`、`quadratic_edge_count == plan.quadratic_to_count`、`edge_count == raster_edge_capacity`、checked `edge_count == line_edge_count + quadratic_edge_count`、`edges.len == edge_count`、`edges.cap == raster_edge_capacity` をすべて要求する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskWriterOwner` と completed `GuiSfntSimpleGlyphRenderShadowSourceCoverageMaskOwner` を追加する。
+- start error、push error、completion error、completion terminal、owner/error/terminal free helper を追加する。
+- start は F5lk context / nested writer authority / plan / capacity / edge storage exactness を再検査し、`source_shape.cell_count` exact capacity の raw coverage cell Vec を割り当てる。
+- writer invariant は cached `source_shape` と F5lk context の `source_shape` が一致すること、cell Vec len/cap、progress bounds を検査する。
+- push は coverage value range と Vec push recovery を検査し、completion は exact full で completed owner、未満で incomplete terminal を返す。
+- docs / source policy / focused doctest label / todo / note を F5ll に合わせて更新する。
+
+完了条件:
+
+- source policy が docs、Turing revised approval、F5lk direct authority、no second coverage config、edge owner plan/capacity revalidation、cached source_shape check、exact cell allocation、push recovery、exact completion / incomplete terminal、zero-edge nonzero-cell semantics、generic fill/stroke writer/scan/packed mask / generic raster edge / path sink scalar / blur / resource / render / platform / compositor 不使用、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md` に F5lk authority、no second config、edge plan revalidation、exact cell allocation、push recovery、exact completion、zero-edge nonzero-cell、no scan/blur/packed/render/platform/compositor policy の coverage label を追加する。
+- implementation review で F5ll が scan conversion を含んでいないこと、generic fill/stroke coverage writer を再利用していないこと、F5lk owner を nested writer plan/capacity まで再検査していることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5ll 後の shadow source coverage scan / blur / packing / composition、2D compositor drain を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_render_shadow_source_coverage_mask_writer_f5ll.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_source_edge_drain.n.md --no-tree -o tmp_gui_font_render_shadow_source_edge_f5ll_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ll.json -j 1
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5ll.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
