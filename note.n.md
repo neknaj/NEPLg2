@@ -1,3 +1,43 @@
+# 2026-06-21 Agent2 GUI font F5lg glyph paint composition order
+
+## 目的
+
+- F5bh/F5bg の completed fill alpha mask owner と F5lf の completed stroke packed mask owner を direct authority とし、fill+stroke glyph paint の fill-before-stroke order owner を作る。
+- F5kq/F5kr から stroke chain に保持されている origin / fill / stroke / blend metadata を読み、fill owner の origin / fill paint / blend と一致することを検査する。
+- stroke-only paint はこの boundary では扱わず、後続 sibling boundary に残す。
+- render command、alpha mask resource reservation / registration、pixel write、software surface、platform API、font fallback、shadow rasterization、2D compositor へ進まない。
+
+## 実装
+
+- `GuiSfntSimpleGlyphRenderGlyphPaintCompositionOrderOwner`、start error、combined recovery payload、owner/start-error/recovery free path を追加した。
+- fill owner と stroke packed owner は、それぞれ shape positive / coverage max / cell count / alpha max / alpha len / cap を個別に再検査してから shape tuple を比較する。
+- stroke packed owner の nested chain `join_geometry_owner.edge_closure_owner.side_edge_owner.geometry_owner.source_owner.metric_owner.plan_owner` から origin / fill / stroke / blend を読み、stroke join geometry invariant 失敗時は lower error kind を保持する。
+- fill paint comparison は `GuiPaint` / `Rgba8888` accessor で行い、blend は SourceOver だけを受理する。
+- start error recovery は split raw owner accessor を出さず、fill owner と stroke owner をまとめて返す。free path は fill owner を先に解放し、その後 stroke owner を解放する。
+- Euler の plan review は初回 `CHANGES_REQUESTED`。shape equality 前の個別 owner invariant、stroke-only の明示除外、nested metadata extraction、combined recovery/free order が不足していたため修正した。
+- Euler の revised plan review は `PLAN_APPROVED`。
+- Euler の implementation review は初回 `CHANGES_REQUESTED`。`MissingStrokeFillMetadata` が origin / blend mismatch より後に判定され、stroke-only が別 error になり得る指摘を受け、`stroke_plan_owner` 抽出直後に stroke fill metadata を検査する順序へ直した。
+- Euler の revised implementation review は `REVIEW_APPROVED`。
+
+## 検証
+
+- `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_composition_order.n.md --no-tree -o tmp_gui_font_render_glyph_paint_composition_order_f5lg.json -j 1` は 1 passed。
+- `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lg_probe.json -j 1` は 1262 passed。
+- final verification として `node --check nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- final verification として `node nodesrc/test_web_gui_font_rendering_contract.js` は pass。
+- final verification として `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_composition_order.n.md --no-tree -o tmp_gui_font_render_glyph_paint_composition_order_f5lg_final.json -j 1` は 1 passed。
+- final verification として `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5lg_final.json -j 1` は 1262 passed。
+- `git diff --check` は LF/CRLF warning のみで pass。
+- `trunk build` は success。
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5lg.json` は 13/13 passed。
+- checked JSON: `tmp/playground-editor-tests-f5lg.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5lg 後続として、stroke-only composition order、shadow rasterization、2D compositor drain を別 boundary として進める。
+
 # 2026-06-21 Agent2 GUI font F5lf packed stroke mask owner
 
 ## 目的
@@ -30,7 +70,7 @@
 
 ## 残件
 
-- commit / push / main merge を行う。
+- F5lf は commit / push / main merge 済み。後続は F5lg fill+stroke glyph paint composition order、stroke-only composition order、shadow rasterization、2D compositor drain である。
 
 # 2026-06-21 Agent2 GUI font F5le quadratic side edge scan policy
 
