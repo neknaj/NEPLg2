@@ -17725,7 +17725,7 @@ fn gui_sfnt_simple_glyph_render_stroke_request_start_error_writer %fn GuiSfntSim
     field::get error "writer"
 
 fn gui_sfnt_simple_glyph_render_stroke_request_stroke_width_is_valid %fn &GuiStroke bool \stroke:
-    let width %i32 *field::get_ref stroke "width"
+    let width %i32 gui_stroke_width stroke
     gt width 0
 
 fn gui_sfnt_simple_glyph_render_stroke_request_blend_is_supported %fn GuiBlendMode bool \blend:
@@ -17839,7 +17839,7 @@ fn gui_sfnt_simple_glyph_render_stroke_request_start_error_free %impure fn GuiSf
 //:
 //: [目的/もくてき]:
 //: - F5kq の stroke request owner を authority として、後続 stroke geometry expansion が読む source segment count を[固定/こてい]します。
-//: - `GuiStroke` は width と color だけを持つため、この境界では join / cap / dash を暗黙に[仮定/かてい]しません。
+//: - `GuiStroke` は cap / join / miter / dash policy も持ちますが、この境界では source segment count と width だけを[固定/こてい]し、geometry policy を[解釈/かいしゃく]しません。
 //:
 //: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner:
@@ -18017,7 +18017,7 @@ fn gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_start %fn GuiSfntSimpl
                                                                                                         then Result::Err gui_sfnt_simple_glyph_render_stroke_segment_plan_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartErrorKind::InnerLastPathCommandIndexMismatch request_owner derived_capacity
                                                                                                         else:
                                                                                                             let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_request_owner_stroke &request_owner
-                                                                                                            let stroke_width %i32 *field::get_ref &stroke "width"
+                                                                                                            let stroke_width %i32 gui_stroke_width &stroke
                                                                                                             if le stroke_width 0:
                                                                                                                 then Result::Err gui_sfnt_simple_glyph_render_stroke_segment_plan_start_error_with_capacity GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartErrorKind::StrokeWidthInvalid request_owner derived_capacity
                                                                                                                 else:
@@ -18405,7 +18405,7 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_plan_invariants %fn
                                                                                                         then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::InnerLastPathCommandIndexMismatch
                                                                                                         else:
                                                                                                             let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke plan_owner
-                                                                                                            let stroke_width %i32 *field::get_ref &stroke "width"
+                                                                                                            let stroke_width %i32 gui_stroke_width &stroke
                                                                                                             if le stroke_width 0:
                                                                                                                 then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind::StrokeWidthInvalid
                                                                                                                 else:

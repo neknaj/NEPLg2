@@ -21,7 +21,10 @@
 
 #import "core/field" as field
 #import "core/gui/color" as *
+#import "core/gui/error" as *
 #import "core/gui/geometry" as *
+#import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: TextRunId: alloc/std [層/そう]の text run を[参照/さんしょう]する id
@@ -72,18 +75,114 @@ impl Copy for GuiPaint:
     fn copy_mark %fn GuiPaint GuiPaint \paint:
         paint
 
-//: GuiStroke: stroke [用/よう] paint と width
+//: GuiStrokeCap: stroke の line cap policy
+//:
+//: neplg2:test[skip]
+pub enum GuiStrokeCap:
+    Butt
+    Square
+    Round
+
+impl Clone for GuiStrokeCap:
+    fn clone %fn &GuiStrokeCap GuiStrokeCap \cap:
+        *cap
+
+impl Copy for GuiStrokeCap:
+    fn copy_mark %fn GuiStrokeCap GuiStrokeCap \cap:
+        cap
+
+//: GuiStrokeJoin: stroke の line join policy
+//:
+//: neplg2:test[skip]
+pub enum GuiStrokeJoin:
+    Miter
+    Bevel
+    Round
+
+impl Clone for GuiStrokeJoin:
+    fn clone %fn &GuiStrokeJoin GuiStrokeJoin \join:
+        *join
+
+impl Copy for GuiStrokeJoin:
+    fn copy_mark %fn GuiStrokeJoin GuiStrokeJoin \join:
+        join
+
+//: GuiStrokeDash: stroke dash policy
+//:
+//: [目的/もくてき]:
+//: - `Solid` は dash なしを caller が[明示/めいじ]した policy です。
+//: - 未対応 dash pattern を `Solid` に[近似/きんじ]せず、後続 phase では typed unsupported として[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub enum GuiStrokeDash:
+    Solid
+
+impl Clone for GuiStrokeDash:
+    fn clone %fn &GuiStrokeDash GuiStrokeDash \dash:
+        *dash
+
+impl Copy for GuiStrokeDash:
+    fn copy_mark %fn GuiStrokeDash GuiStrokeDash \dash:
+        dash
+
+//: GuiStrokeProof: checked constructor を通った stroke style であることを[示/しめ]す module-private proof
+//:
+//: neplg2:test[skip]
+struct GuiStrokeProof:
+    width %i32
+
+//: gui_stroke_proof: checked stroke constructor が proof value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_stroke_proof %fn i32 GuiStrokeProof \width:
+    GuiStrokeProof width
+
+//: GuiStroke: stroke [用/よう] paint と geometry style
+//:
+//: neplg2:test[compile_fail]
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/render_command" as *
+//:
+//: fn main %impure fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new zero zero zero full
+//:     let _stroke %GuiStroke GuiStroke color 1 GuiStrokeCap::Butt GuiStrokeJoin::Miter 4.0 GuiStrokeDash::Solid
+//:     0
+//: ```
 pub struct GuiStroke:
     color %Rgba8888
     width %i32
+    cap %GuiStrokeCap
+    join %GuiStrokeJoin
+    miter_limit %f32
+    dash %GuiStrokeDash
+    proof %GuiStrokeProof
 
 impl Clone for GuiStroke:
     fn clone %fn &GuiStroke GuiStroke \stroke:
-        *stroke
+        let color %Rgba8888 *field::get_ref stroke "color"
+        let width %i32 *field::get_ref stroke "width"
+        let cap %GuiStrokeCap *field::get_ref stroke "cap"
+        let join %GuiStrokeJoin *field::get_ref stroke "join"
+        let miter_limit %f32 *field::get_ref stroke "miter_limit"
+        let dash %GuiStrokeDash *field::get_ref stroke "dash"
+        GuiStroke color width cap join miter_limit dash gui_stroke_proof width
 
 impl Copy for GuiStroke:
     fn copy_mark %fn GuiStroke GuiStroke \stroke:
-        stroke
+        let color %Rgba8888 *field::get_ref &stroke "color"
+        let width %i32 *field::get_ref &stroke "width"
+        let cap %GuiStrokeCap *field::get_ref &stroke "cap"
+        let join %GuiStrokeJoin *field::get_ref &stroke "join"
+        let miter_limit %f32 *field::get_ref &stroke "miter_limit"
+        let dash %GuiStrokeDash *field::get_ref &stroke "dash"
+        GuiStroke color width cap join miter_limit dash gui_stroke_proof width
 
 //: TextPaint: text [用/よう] paint
 pub struct TextPaint:
@@ -224,8 +323,8 @@ impl Copy for FillRectCommand:
 //: - `GuiRect` と `GuiStroke` を[束/たば]ね、矩形の border/stroke を command stream に[渡/わた]します。
 //:
 //: ### [契約/けいやく]
-//: - stroke width の 0 以下や rect の[負/ふ]の size はこの型では[拒否/きょひ]しません。validation は renderer/layout [境界/きょうかい]の責務です。
-//: - `GuiStroke` は color と width だけを[持/も]つため、dash pattern や backend brush は alloc/std/platform [層/そう]の extension として[扱/あつか]います。
+//: - rect の[負/ふ]の size はこの型では[拒否/きょひ]しません。validation は renderer/layout [境界/きょうかい]の責務です。
+//: - `GuiStroke` は color、width、cap、join、miter limit、dash policy を[持/も]ちます。stroke geometry はこの style を[暗黙/あんもく] default なしで[読/よ]みます。
 //:
 //: ### [現在/げんざい]の[実装/じっそう]
 //: - `GuiRect` と `GuiStroke` を保持する no_alloc / Copy value です。
@@ -244,13 +343,14 @@ impl Copy for FillRectCommand:
 //:| #import "core/gui/color" as *
 //:| #import "core/gui/geometry" as *
 //:| #import "core/gui/render_command" as *
+//:| #import "core/result" as *
 //: #import "std/test" as test
 //:
 //: fn run_case %fn void i32 \void:
 //:     let zero %u8 cast 0
 //:     let full %u8 cast 255
 //:     let color %Rgba8888 rgba8888_new zero full zero full
-//:     let stroke %GuiStroke gui_stroke_new color 2
+//:     let stroke %GuiStroke unwrap_ok gui_stroke_new color 2 GuiStrokeCap::Butt GuiStrokeJoin::Miter 4.0 GuiStrokeDash::Solid
 //:     let rect %GuiRect gui_rect_new 1 2 30 40
 //:     let _command %StrokeRectCommand StrokeRectCommand rect stroke
 //:     0
@@ -281,7 +381,7 @@ impl Copy for StrokeRectCommand:
 //: - start/end point と stroke を[保持/ほじ]し、backend が line segment として[解釈/かいしゃく]できる command にします。
 //:
 //: ### [契約/けいやく]
-//: - rasterization algorithm、anti-aliasing、subpixel policy は core の責務ではありません。backend は `GuiStroke` と geometry を[受/う]けて target に[合/あ]わせて[描画/びょうが]します。
+//: - rasterization algorithm、anti-aliasing、subpixel policy は core の責務ではありません。backend は `GuiStroke` の cap / join / miter / dash policy と geometry を[受/う]けて target に[合/あ]わせて[描画/びょうが]します。
 //: - start と end が[同一/どういつ]の[場合/ばあい]でも、この型は command を表せます。点として描くか無視するかは renderer contract で[決/き]めます。
 //:
 //: ### [現在/げんざい]の[実装/じっそう]
@@ -301,13 +401,14 @@ impl Copy for StrokeRectCommand:
 //:| #import "core/gui/color" as *
 //:| #import "core/gui/geometry" as *
 //:| #import "core/gui/render_command" as *
+//:| #import "core/result" as *
 //: #import "std/test" as test
 //:
 //: fn run_case %fn void i32 \void:
 //:     let zero %u8 cast 0
 //:     let full %u8 cast 255
 //:     let color %Rgba8888 rgba8888_new zero zero full full
-//:     let stroke %GuiStroke gui_stroke_new color 1
+//:     let stroke %GuiStroke unwrap_ok gui_stroke_new color 1 GuiStrokeCap::Butt GuiStrokeJoin::Miter 4.0 GuiStrokeDash::Solid
 //:     let start %GuiPoint gui_point_new 1 2
 //:     let end %GuiPoint gui_point_new 10 12
 //:     let _command %LineCommand LineCommand start end stroke
@@ -693,9 +794,123 @@ pub fn gui_paint_solid %fn Rgba8888 GuiPaint \color:
 pub fn gui_paint_color %fn &GuiPaint Rgba8888 \paint:
     *field::get_ref paint "color"
 
-//: gui_stroke_new: stroke を[作/つく]る
-pub fn gui_stroke_new %fn Rgba8888 fn i32 GuiStroke \color\width:
-    GuiStroke color width
+//: gui_stroke_new: stroke を[明示/めいじ] style から[検査/けんさ]して[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stroke color、width、cap、join、miter limit、dash policy を 1 つの copyable value に[束/たば]ねます。
+//: - cap / join / dash を hidden default にせず、caller が enum として[渡/わた]した policy だけを[保持/ほじ]します。
+//:
+//: [注意/ちゅうい]:
+//: - `width <= 0` または `miter_limit <= 0.0` は `GuiError::InvalidCommand` です。
+//: - `GuiStrokeDash::Solid` は dash なしの[明示/めいじ] policy であり、未対応 dash pattern の fallback ではありません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"core_gui_render_command_gui_stroke_style_doc\" count=8 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"stroke width\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"stroke cap\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"stroke join\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"stroke dash\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"miter limit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"invalid width\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"invalid miter\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"nan miter\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/error" as *
+//:| #import "core/gui/render_command" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: #import "std/test" as test
+//:
+//: fn cap_is_square %fn GuiStrokeCap bool \cap:
+//:     match cap:
+//:         GuiStrokeCap::Square:
+//:             true
+//:         _:
+//:             false
+//:
+//: fn join_is_bevel %fn GuiStrokeJoin bool \join:
+//:     match join:
+//:         GuiStrokeJoin::Bevel:
+//:             true
+//:         _:
+//:             false
+//:
+//: fn dash_is_solid %fn GuiStrokeDash bool \dash:
+//:     match dash:
+//:         GuiStrokeDash::Solid:
+//:             true
+//:
+//: fn invalid_command_result %fn Result GuiStroke GuiError bool \result:
+//:     match result:
+//:         Result::Err error:
+//:             match error:
+//:                 GuiError::InvalidCommand:
+//:                     true
+//:                 _:
+//:                     false
+//:         Result::Ok _stroke:
+//:             false
+//:
+//: fn main %impure fn void i32 \void:
+//:     let zero %u8 cast 0
+//:     let full %u8 cast 255
+//:     let color %Rgba8888 rgba8888_new full zero zero full
+//:     let stroke %GuiStroke unwrap_ok gui_stroke_new color 3 GuiStrokeCap::Square GuiStrokeJoin::Bevel 2.5 GuiStrokeDash::Solid
+//:     let invalid_width %Result GuiStroke GuiError gui_stroke_new color 0 GuiStrokeCap::Butt GuiStrokeJoin::Miter 4.0 GuiStrokeDash::Solid
+//:     let invalid_miter %Result GuiStroke GuiError gui_stroke_new color 3 GuiStrokeCap::Butt GuiStrokeJoin::Miter 0.0 GuiStrokeDash::Solid
+//:     let zero_f %f32 0.0
+//:     let nan_f %f32 div zero_f zero_f
+//:     let nan_miter %Result GuiStroke GuiError gui_stroke_new color 3 GuiStrokeCap::Butt GuiStrokeJoin::Miter nan_f GuiStrokeDash::Solid
+//:     let stroke_width %i32 gui_stroke_width &stroke
+//:     let cap_ok %bool cap_is_square gui_stroke_cap &stroke
+//:     let join_ok %bool join_is_bevel gui_stroke_join &stroke
+//:     let dash_ok %bool dash_is_solid gui_stroke_dash &stroke
+//:     let miter %f32 gui_stroke_miter_limit &stroke
+//:     let miter_ok %bool and gt miter 2.0 lt miter 3.0
+//:     let invalid_width_ok %bool invalid_command_result invalid_width
+//:     let invalid_miter_ok %bool invalid_command_result invalid_miter
+//:     let nan_miter_ok %bool invalid_command_result nan_miter
+//:     let report:
+//:         test::test_report_new "core_gui_render_command_gui_stroke_style_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "stroke width" 3 stroke_width
+//:         |> test::test_report_push test::assert "stroke cap" cap_ok
+//:         |> test::test_report_push test::assert "stroke join" join_ok
+//:         |> test::test_report_push test::assert "stroke dash" dash_ok
+//:         |> test::test_report_push test::assert "miter limit" miter_ok
+//:         |> test::test_report_push test::assert "invalid width" invalid_width_ok
+//:         |> test::test_report_push test::assert "invalid miter" invalid_miter_ok
+//:         |> test::test_report_push test::assert "nan miter" nan_miter_ok
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
+pub fn gui_stroke_new %fn Rgba8888 fn i32 fn GuiStrokeCap fn GuiStrokeJoin fn f32 fn GuiStrokeDash Result GuiStroke GuiError \color\width\cap\join\miter_limit\dash:
+    let width_positive %bool gt width 0
+    let miter_limit_positive %bool gt miter_limit 0.0
+    if and width_positive miter_limit_positive:
+        then Result::Ok GuiStroke color width cap join miter_limit dash gui_stroke_proof width
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_stroke_color: stroke color を[読/よ]む
+pub fn gui_stroke_color %fn &GuiStroke Rgba8888 \stroke:
+    *field::get_ref stroke "color"
+
+//: gui_stroke_width: stroke width を[読/よ]む
+pub fn gui_stroke_width %fn &GuiStroke i32 \stroke:
+    *field::get_ref stroke "width"
+
+//: gui_stroke_cap: stroke line cap policy を[読/よ]む
+pub fn gui_stroke_cap %fn &GuiStroke GuiStrokeCap \stroke:
+    *field::get_ref stroke "cap"
+
+//: gui_stroke_join: stroke line join policy を[読/よ]む
+pub fn gui_stroke_join %fn &GuiStroke GuiStrokeJoin \stroke:
+    *field::get_ref stroke "join"
+
+//: gui_stroke_miter_limit: stroke miter limit を[読/よ]む
+pub fn gui_stroke_miter_limit %fn &GuiStroke f32 \stroke:
+    *field::get_ref stroke "miter_limit"
+
+//: gui_stroke_dash: stroke dash policy を[読/よ]む
+pub fn gui_stroke_dash %fn &GuiStroke GuiStrokeDash \stroke:
+    *field::get_ref stroke "dash"
 
 //: text_paint_solid: text paint を[作/つく]る
 pub fn text_paint_solid %fn Rgba8888 TextPaint \color:

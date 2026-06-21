@@ -116,6 +116,8 @@ RenderStyle:
 
 初期実装は `Solid`、`SourceOver`、矩形、bitmap text mask だけから始めてよい。ただし型と error contract は後から path / SVG / outline glyph / shadow を追加しても変更不要な形にする。
 
+core no_alloc 実装では、この shared stroke model を `GuiStroke`、`GuiStrokeCap`、`GuiStrokeJoin`、`GuiStrokeDash` として表す。`GuiStrokeDash::Solid` は dash なしの明示 policy であり、未対応 dash pattern を solid に近似する fallback ではない。`miter_limit` は shared design と同じ `f32` として保持し、raw integer scale へ暗黙変換しない。
+
 `fill` が `Option::None` で `stroke` がある場合は stroke-only、`stroke` が `Option::None` で `fill` がある場合は fill-only、両方ある場合は定義された paint order で両方を描く。どちらもない場合は invalid command として拒否する。
 
 ## Render commands
