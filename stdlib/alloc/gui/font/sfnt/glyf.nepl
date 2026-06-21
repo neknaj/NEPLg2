@@ -17634,33 +17634,57 @@ struct GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError:
     capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
     derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error: writer authority error payload を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError \kind\capacity_error\derived_capacity:
     GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError kind capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error_simple: capacity payload なしの writer authority error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error_simple %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError \kind:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
     gui_sfnt_simple_glyph_render_path_command_writer_authority_error kind capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_failed: capacity derivation failure を writer authority error へ[包/つつ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError \capacity_error_value:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
     gui_sfnt_simple_glyph_render_path_command_writer_authority_error GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error_with_capacity: derived capacity を持つ writer authority error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error_with_capacity %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError \kind\derived_capacity_value:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
     gui_sfnt_simple_glyph_render_path_command_writer_authority_error kind capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind: writer authority error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind %fn &GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_error: writer authority error の capacity error payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error_capacity_error %fn &GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \error:
     *field::get_ref error "capacity_error"
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority_error_derived_capacity: writer authority error の derived capacity payload を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority_error_derived_capacity %fn &GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \error:
     *field::get_ref error "derived_capacity"
 
+//: gui_sfnt_simple_glyph_render_path_command_writer_authority: completed path command writer owner の capacity と counters を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_path_command_writer_authority %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner Result unit GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError \writer:
     let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
     let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
@@ -17864,6 +17888,9 @@ fn gui_sfnt_simple_glyph_render_stroke_request_blend_is_supported %fn GuiBlendMo
         GuiBlendMode::Screen:
             false
 
+//: gui_sfnt_simple_glyph_render_stroke_request_error_kind_from_writer_authority: writer authority error を stroke request start error kind へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_stroke_request_error_kind_from_writer_authority %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected:
@@ -17893,6 +17920,9 @@ fn gui_sfnt_simple_glyph_render_stroke_request_error_kind_from_writer_authority 
         GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLastPathCommandIndexMismatch:
             GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind::InnerLastPathCommandIndexMismatch
 
+//: gui_sfnt_simple_glyph_render_stroke_request_start_error_from_writer_authority: writer authority error を owner recovery 付き stroke request error へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_stroke_request_start_error_from_writer_authority %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderStrokeRequestConfig fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError GuiSfntSimpleGlyphRenderStrokeRequestStartError \writer\config\writer_error:
     let writer_error_kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error
     let kind %GuiSfntSimpleGlyphRenderStrokeRequestStartErrorKind gui_sfnt_simple_glyph_render_stroke_request_error_kind_from_writer_authority writer_error_kind
@@ -17957,12 +17987,21 @@ impl Copy for GuiSfntSimpleGlyphRenderShadowRequestConfig:
     fn copy_mark %fn GuiSfntSimpleGlyphRenderShadowRequestConfig GuiSfntSimpleGlyphRenderShadowRequestConfig \config:
         config
 
+//: gui_sfnt_simple_glyph_render_shadow_request_config: shadow request config を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_config %fn GuiPoint fn GuiGlyphPaint GuiSfntSimpleGlyphRenderShadowRequestConfig \origin\paint:
     GuiSfntSimpleGlyphRenderShadowRequestConfig origin paint
 
+//: gui_sfnt_simple_glyph_render_shadow_request_config_origin: shadow request config の origin を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_config_origin %fn &GuiSfntSimpleGlyphRenderShadowRequestConfig GuiPoint \config:
     *field::get_ref config "origin"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_config_paint: shadow request config の glyph paint を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_config_paint %fn &GuiSfntSimpleGlyphRenderShadowRequestConfig GuiGlyphPaint \config:
     *field::get_ref config "paint"
 
@@ -17981,21 +18020,39 @@ struct GuiSfntSimpleGlyphRenderShadowRequestOwner:
     shadow %GuiShadow
     blend %GuiBlendMode
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner: shadow request owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiPoint fn Option GuiPaint fn Option GuiStroke fn GuiShadow fn GuiBlendMode GuiSfntSimpleGlyphRenderShadowRequestOwner \writer\origin\fill\stroke\shadow\blend:
     GuiSfntSimpleGlyphRenderShadowRequestOwner writer origin fill stroke shadow blend
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_origin: shadow request owner の origin を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_origin %fn &GuiSfntSimpleGlyphRenderShadowRequestOwner GuiPoint \owner:
     *field::get_ref owner "origin"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_fill: shadow request owner の fill paint metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_fill %fn &GuiSfntSimpleGlyphRenderShadowRequestOwner Option GuiPaint \owner:
     *field::get_ref owner "fill"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_stroke: shadow request owner の stroke metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_stroke %fn &GuiSfntSimpleGlyphRenderShadowRequestOwner Option GuiStroke \owner:
     *field::get_ref owner "stroke"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_shadow: shadow request owner の shadow metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_shadow %fn &GuiSfntSimpleGlyphRenderShadowRequestOwner GuiShadow \owner:
     *field::get_ref owner "shadow"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_blend: shadow request owner の blend mode を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_blend %fn &GuiSfntSimpleGlyphRenderShadowRequestOwner GuiBlendMode \owner:
     *field::get_ref owner "blend"
 
@@ -18042,29 +18099,50 @@ struct GuiSfntSimpleGlyphRenderShadowRequestStartError:
     capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
     derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
 
+//: GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery: shadow request start error から[回収/かいしゅう]した owner payload
+//:
+//: neplg2:test[skip]
 struct GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery:
     writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
     config %GuiSfntSimpleGlyphRenderShadowRequestConfig
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error: shadow request start error と回復用 owner を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error %fn GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowRequestConfig fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphRenderShadowRequestStartError \kind\writer\config\capacity_error\derived_capacity:
     GuiSfntSimpleGlyphRenderShadowRequestStartError kind writer config capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_simple: capacity payload なしの shadow request start error を[作/つく]る
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_simple %fn GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowRequestConfig GuiSfntSimpleGlyphRenderShadowRequestStartError \kind\writer\config:
     let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
     gui_sfnt_simple_glyph_render_shadow_request_start_error kind writer config capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_kind: shadow request start error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_kind %fn &GuiSfntSimpleGlyphRenderShadowRequestStartError GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_config: shadow request start error の config を[読/よ]む
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_config %fn &GuiSfntSimpleGlyphRenderShadowRequestStartError GuiSfntSimpleGlyphRenderShadowRequestConfig \error:
     *field::get_ref error "config"
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery: start error から writer と config を[回収/かいしゅう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery %fn GuiSfntSimpleGlyphRenderShadowRequestStartError GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery \error:
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get error "writer"
     let config %GuiSfntSimpleGlyphRenderShadowRequestConfig field::get error "config"
     GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery writer config
 
+//: gui_sfnt_simple_glyph_render_shadow_request_error_kind_from_writer_authority: writer authority error を shadow request start error kind へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_error_kind_from_writer_authority %fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind \kind:
     match kind:
         GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::OwnerPlanRejected:
@@ -18094,6 +18172,9 @@ fn gui_sfnt_simple_glyph_render_shadow_request_error_kind_from_writer_authority 
         GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind::InnerLastPathCommandIndexMismatch:
             GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind::InnerLastPathCommandIndexMismatch
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_from_writer_authority: writer authority error を owner recovery 付き shadow request error へ[写/うつ]す
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_from_writer_authority %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowRequestConfig fn GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityError GuiSfntSimpleGlyphRenderShadowRequestStartError \writer\config\writer_error:
     let writer_error_kind %GuiSfntSimpleGlyphRenderPathCommandWriterAuthorityErrorKind gui_sfnt_simple_glyph_render_path_command_writer_authority_error_kind &writer_error
     let kind %GuiSfntSimpleGlyphRenderShadowRequestStartErrorKind gui_sfnt_simple_glyph_render_shadow_request_error_kind_from_writer_authority writer_error_kind
@@ -18101,10 +18182,16 @@ fn gui_sfnt_simple_glyph_render_shadow_request_start_error_from_writer_authority
     let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_render_path_command_writer_authority_error_derived_capacity &writer_error
     gui_sfnt_simple_glyph_render_shadow_request_start_error kind writer config capacity_error derived_capacity
 
+//: gui_sfnt_simple_glyph_render_shadow_request_stroke_is_valid: shadow source stroke width が正か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_stroke_is_valid %fn &GuiStroke bool \stroke:
     let width %i32 gui_stroke_width stroke
     gt width 0
 
+//: gui_sfnt_simple_glyph_render_shadow_request_blend_is_supported: shadow request が扱う blend mode か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_blend_is_supported %fn GuiBlendMode bool \blend:
     match blend:
         GuiBlendMode::SourceOver:
@@ -18116,9 +18203,15 @@ fn gui_sfnt_simple_glyph_render_shadow_request_blend_is_supported %fn GuiBlendMo
         GuiBlendMode::Screen:
             false
 
+//: gui_sfnt_simple_glyph_render_shadow_request_source_has_paint: shadow source に fill または stroke metadata があるか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_source_has_paint %fn Option GuiPaint fn Option GuiStroke bool \fill\stroke:
     not and is_none fill is_none stroke
 
+//: gui_sfnt_simple_glyph_render_shadow_request_source_stroke_is_valid: optional stroke metadata の width を必要時だけ[検査/けんさ]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_source_stroke_is_valid %fn Option GuiStroke bool \stroke_option:
     match stroke_option:
         Option::None:
@@ -18126,6 +18219,9 @@ fn gui_sfnt_simple_glyph_render_shadow_request_source_stroke_is_valid %fn Option
         Option::Some stroke:
             gui_sfnt_simple_glyph_render_shadow_request_stroke_is_valid &stroke
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_start: writer authority と single shadow metadata を検査して request owner を[開始/かいし]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_start %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphRenderShadowRequestConfig Result GuiSfntSimpleGlyphRenderShadowRequestOwner GuiSfntSimpleGlyphRenderShadowRequestStartError \writer\config:
     let paint %GuiGlyphPaint gui_sfnt_simple_glyph_render_shadow_request_config_paint &config
     let shadows %GuiShadowRef gui_glyph_paint_shadows &paint
@@ -18163,14 +18259,23 @@ fn gui_sfnt_simple_glyph_render_shadow_request_owner_start %fn GuiSfntSimpleGlyp
                                                             let owner %GuiSfntSimpleGlyphRenderShadowRequestOwner gui_sfnt_simple_glyph_render_shadow_request_owner writer origin fill stroke shadow blend
                                                             Result::Ok owner
 
+//: gui_sfnt_simple_glyph_render_shadow_request_owner_free: shadow request owner が保持する writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_owner_free %impure fn GuiSfntSimpleGlyphRenderShadowRequestOwner unit \owner:
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get owner "writer"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_free: shadow request start error 内の回復用 writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_free %impure fn GuiSfntSimpleGlyphRenderShadowRequestStartError unit \error:
     let recovery %GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery error
     gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery_free recovery
 
+//: gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery_free: shadow request recovery payload の writer owner を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_shadow_request_start_error_recovery_free %impure fn GuiSfntSimpleGlyphRenderShadowRequestStartErrorRecovery unit \recovery:
     let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get recovery "writer"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free writer

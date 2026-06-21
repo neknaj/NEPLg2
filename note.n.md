@@ -78536,6 +78536,7 @@ MERGE_APPROVED
 - Gibbs の plan review は `PLAN_APPROVED`。この slice は production reader output の typed traversal source 化と operation producer bridge への policy source 接続だけに限定し、GraphInput、proof table、effect mask、backend bytes、artifact key へ進まない方針を確認した。
 - Locke の implementation review は `REVIEW_APPROVED`。reader policy は module-private で、default accepted は `WrapperPrivateCacheStorage` / `WrapperCloneOutOwnedValue` だけ、lookup / insert / effect / observation は typed vocabulary 経由で fail-closed に分類されることを確認した。
 - latest `origin/main` F5lg/F5lh merge 後、`run_source_policy_regressions.js` が `stdlib declaration doc gaps increased: 2804 > 2756` で止まった。原因は merge で入った `glyf.nepl` の glyph paint / stroke-only composition order block の新規 helper 宣言に `//:` doc が無かったことだったため、baseline 更新ではなく各宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+- latest `origin/main` F5li merge 後も、F5li shadow request block の writer authority / shadow request helper 宣言で `stdlib declaration doc gaps increased: 2791 > 2756` が再発した。こちらも baseline 更新ではなく、各 helper 宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
 
 ### 検証
 
@@ -78553,6 +78554,19 @@ MERGE_APPROVED
 - pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-reader-policy-final.json`
 - checked JSON after latest `origin/main` F5lg/F5lh merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 - pass after latest `origin/main` F5lg/F5lh merge: `git diff --check`。CRLF warning のみ。
+- pass after latest `origin/main` F5li merge: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after latest `origin/main` F5li merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5li merge: `git diff --check`
+- pass after latest `origin/main` F5li merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-f5li-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5li merge: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-f5li-merge-doctest.json`。17 passed / 0 failed。
+- pass after latest `origin/main` F5li merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_shadow_request.n.md --no-tree -o tmp_gui_font_render_shadow_request_after_f5li_merge_doc_fix.json -j 1`。1/1。
+- pass after latest `origin/main` F5li merge: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5li merge: `trunk build`
+- pass after latest `origin/main` F5li merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-reader-policy-after-f5li-merge-doc-fix.json`
+- checked JSON after latest `origin/main` F5li merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
 
 ### 残件
 
