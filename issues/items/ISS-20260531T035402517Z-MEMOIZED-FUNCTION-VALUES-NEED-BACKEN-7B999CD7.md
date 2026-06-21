@@ -998,6 +998,16 @@ review 対応:
 - full traversal 由来 source と source-derived witness を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、production operation producer bridge が使う request-context source helper を、split-output availability authority ではなく module-private reader operation policy source table に寄せた。
+
+`SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind` は、wrapper default の `WrapperPrivateCacheStorage` / `WrapperCloneOutOwnedValue` と、cache lookup / insert、PrivateCache / PrivateState effect、cache / function / raw observation を typed vocabulary として持つ。production default は wrapper 2 source だけで、lookup / insert / effect / observation policy は source-to-operation projection と classifier / normalizer へ届くが accepted proof へ混ざらない。
+
+source vocabulary と operation vocabulary には `CacheLookupOperation`、`CacheInsertOperation`、`PrivateCacheEffectOperation`、`PrivateStateEffectOperation`、cache hit/miss/size/stats/clear/debug/region identity observation、function hash/debug/closure allocation observation、raw representation observation を追加した。source-to-operation projection、operation classifier、region proof input projection は wildcard fallback なしで更新した。cache lookup / insert は `PrivateCacheOperationUnsupported`、private effect は `PrivateStateBoundaryUnsupported`、observation は既存 observation ban payload として fail-closed に流す。
+
+この checkpoint は executable cache operation、GraphInput、request proof table、Resource proof table、fresh witness table、backend bytes、effect mask、sealed backend representation、`.neplobj` / `.neplproof` artifact key を作らない。actual Resource IR / HIR lowering body reader 本体、実 traversal 由来 fresh witness table、PrivateCache / PrivateState effect masking、sealed memoized backend representation は後続で接続する。
+
 ## 2026-06-21 selfhost private effect no-escape gate dependency checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、memo_call backend proof chain が将来発行する `PrivateState` / `PrivateCache` no-escape proof を、operation method body fact table へ渡す直前で消費できる checker-layer boundary を固定した。

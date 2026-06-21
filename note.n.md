@@ -78484,3 +78484,43 @@ MERGE_APPROVED
 - context-derived wrapper body reader を full Resource IR / HIR lowering body reader へ拡張し、cache lookup / insert / observation / effect operation を typed traversal source または operation event として発行する。
 - full traversal 由来 source と source-derived witness を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
+
+### 実装
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind` を追加し、wrapper default、cache lookup / insert、PrivateCache / PrivateState effect、cache / function / raw observation を module-private typed vocabulary として固定した。
+- production operation producer bridge が使う `actual_traversal_body_adapter_sources_from_request_context_result` は、split-output availability ではなく recheck 済み `ActualTraversalBodyReaderRequestContext` から reader policy source table を作り、context-bound source validation を通してから返す。
+- production default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけを発行する。cache lookup / insert / private effect / observation policy は stage0 policy runner で source-to-operation projection と classifier / normalizer に届くが、accepted proof には進まない。
+- source / operation vocabulary に `CacheLookupOperation`、`CacheInsertOperation`、`PrivateCacheEffectOperation`、`PrivateStateEffectOperation`、cache miss / size / stats / clear / debug / region identity observation、function hash / debug / closure allocation observation、raw representation observation を追加した。
+- source-to-operation projection、operation classifier、region proof input projection、contract test を wildcard fallback なしで更新した。cache lookup / insert は `PrivateCacheOperationUnsupported`、private effect は `PrivateStateBoundaryUnsupported`、observation は observation ban payload へ fail-closed に写す。
+- この checkpoint は executable cache operation、GraphInput、request proof table、Resource proof table、fresh witness table、backend bytes、effect mask、sealed backend representation、artifact key を作らない。
+
+### review 対応
+
+- Gibbs の plan review は `PLAN_APPROVED`。この slice は production reader output の typed traversal source 化と operation producer bridge への policy source 接続だけに限定し、GraphInput、proof table、effect mask、backend bytes、artifact key へ進まない方針を確認した。
+- Locke の implementation review は `REVIEW_APPROVED`。reader policy は module-private で、default accepted は `WrapperPrivateCacheStorage` / `WrapperCloneOutOwnedValue` だけ、lookup / insert / effect / observation は typed vocabulary 経由で fail-closed に分類されることを確認した。
+- latest `origin/main` F5lg/F5lh merge 後、`run_source_policy_regressions.js` が `stdlib declaration doc gaps increased: 2804 > 2756` で止まった。原因は merge で入った `glyf.nepl` の glyph paint / stroke-only composition order block の新規 helper 宣言に `//:` doc が無かったことだったため、baseline 更新ではなく各宣言に日本語 doc と `neplg2:test[skip]` を追加して documentation contract を戻した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-policy-doctest.json`。17/17。
+- pass after latest `origin/main` F5lg/F5lh merge: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-merge-doctest.json`。17/17。
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-cache-reader-policy-after-merge-doctest.json`。17 passed / 0 failed。
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/issues.js check --dir issues`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/run_source_policy_regressions.js`
+- pass after latest `origin/main` F5lg/F5lh merge: `trunk build`
+- pass after latest `origin/main` F5lg/F5lh merge: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-reader-policy-final.json`
+- checked JSON after latest `origin/main` F5lg/F5lh merge: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+- pass after latest `origin/main` F5lg/F5lh merge: `git diff --check`。CRLF warning のみ。
+
+### 残件
+
+- actual Resource IR / HIR lowering body reader が実 traversal から reader policy source table と fresh-region witness table を発行する。
+- full traversal 由来 source / witness を request-evidence bridge と `memo_trait_operation_private_effect_no_escape_gate` の両方へ同じ body identity で渡す upper orchestration を追加する。
+- PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。

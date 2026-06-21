@@ -2905,9 +2905,19 @@ public stage0 summary は `reader_context_reader_source_count` と operation pro
 
 source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。production reader が seed fixture、既存 unsupported producer bridge、proof / backend / effect / artifact 合成を使わないこと、context availability helper が `ProducerNotConnected` fallback を残さないこと、accepted bundle runner が production availability を通ること、explicit unavailable smoke が production bridge helper を呼ばないことを固定している。
 
+## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
+
+operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
+
+reader operation policy は module-private vocabulary である。cache lookup / insert、PrivateCache / PrivateState effect、cache hit/miss/size/stats/clear/debug/region identity、function identity/hash/debug/closure allocation identity、raw identity/representation は typed source / operation として classifier へ届くが、この checkpoint では executable cache operation でも accepted proof でもない。cache lookup / insert は `PrivateCacheOperationUnsupported`、private effect は `PrivateStateBoundaryUnsupported`、observation は observation ban payload へ fail-closed に写す。
+
+source-to-operation projection、operation classifier、region proof input projection は wildcard fallback なしで更新した。policy helper、reader context、source table、operation table は public API に出さず、public stage0 summary は accepted default と lookup / insert / private effect / observation の representative rejection だけを typed `Result` として公開する。
+
+この checkpoint は GraphInput、request proof table、Resource proof table、fresh witness table、backend bytes、effect mask、sealed backend representation、artifact key を作らない。actual Resource IR / HIR lowering body reader が実 traversal から source と fresh witness を発行する境界、PrivateCache / PrivateState effect masking、sealed memoized backend representation は後続で接続する。
+
 残件:
 
-- context-derived wrapper body reader を full Resource IR / HIR lowering body reader へ拡張し、cache lookup / insert / observation / effect operation を typed traversal source または operation event として発行する。
+- policy source table へ接続した wrapper body reader を full Resource IR / HIR lowering body reader へ置き換え、実 traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。
 - full traversal 由来 source と source-derived witness を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 

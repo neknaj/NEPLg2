@@ -1245,6 +1245,7 @@ enum SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason:
     UnknownPlaceRoot
     UnknownProjection
     UnknownCallBoundary
+    PrivateCacheOperationUnsupported
     CacheObservationUnsupported
     FunctionIdentityObservationUnsupported
     RawIdentityObservationUnsupported
@@ -1429,6 +1430,37 @@ struct SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed:
     edge_kind %SelfhostMemoCallBackendPrivateCacheResourceEdgeKind
     observation_status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus
 
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind: actual traversal body reader が[発行/はっこう]できる operation policy
+//:
+//: [目的/もくてき]:
+//: - production reader が fixed wrapper body を直接 walker input に焼き込むのではなく、cache lookup / insert / observation / private effect を typed source vocabulary へ落とす前段を固定します。
+//:
+//: [契約/けいやく]:
+//: - policy は実行可能 cache 操作でも accepted proof でもありません。source record を作り、source-to-operation projection と classifier / normalizer へ渡すためだけの分類です。
+//: - `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` だけが現時点の production accepted wrapper body representative です。
+//: - cache lookup / insert / private effect は typed vocabulary として保持しますが、この slice では unsupported traversal として fail-closed にします。effect mask、backend bytes、artifact key、proof table record は作りません。
+//: - observation policy は observation source へ写し、graph path に混ぜません。
+enum SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind:
+    WrapperPrivateCacheStorage
+    WrapperCloneOutOwnedValue
+    CacheLookupOperation
+    CacheInsertOperation
+    PrivateCacheEffectOperation
+    PrivateStateEffectOperation
+    CacheHitObservation
+    CacheMissObservation
+    CacheSizeObservation
+    CacheStatsObservation
+    CacheClearObservation
+    CacheDebugObservation
+    CacheRegionIdentityObservation
+    FunctionIdentityObservation
+    FunctionHashObservation
+    FunctionDebugObservation
+    ClosureAllocationIdentityObservation
+    RawIdentityObservation
+    RawRepresentationObservation
+
 //: SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind: actual traversal body input が available でない理由
 //:
 //: [目的/もくてき]:
@@ -1478,9 +1510,23 @@ enum SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind:
     ReturnCacheReferenceEdge
     PublicStoreEdge
     CallBoundaryUnsupportedEdge
+    CacheLookupOperation
+    CacheInsertOperation
+    PrivateCacheEffectOperation
+    PrivateStateEffectOperation
     CacheHitObservation
+    CacheMissObservation
+    CacheSizeObservation
+    CacheStatsObservation
+    CacheClearObservation
+    CacheDebugObservation
+    CacheRegionIdentityObservation
     FunctionIdentityObservation
+    FunctionHashObservation
+    FunctionDebugObservation
+    ClosureAllocationIdentityObservation
     RawIdentityObservation
+    RawRepresentationObservation
     UnsupportedTraversalSource
     UnsupportedObservationSource
     ResourceIrTraversalUnavailable
@@ -1678,12 +1724,26 @@ enum SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind:
     ReturnCacheReferenceEdge
     PublicStoreEdge
     CallBoundaryUnsupportedEdge
+    CacheLookupOperation
+    CacheInsertOperation
+    PrivateCacheEffectOperation
+    PrivateStateEffectOperation
     UnsupportedTraversalSource
     UnsupportedObservationSource
     UnknownResourceOperation
     CacheHitObservation
+    CacheMissObservation
+    CacheSizeObservation
+    CacheStatsObservation
+    CacheClearObservation
+    CacheDebugObservation
+    CacheRegionIdentityObservation
     FunctionIdentityObservation
+    FunctionHashObservation
+    FunctionDebugObservation
+    ClosureAllocationIdentityObservation
     RawIdentityObservation
+    RawRepresentationObservation
 
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord: operation classifier が読む 1 record
 //:
@@ -1961,6 +2021,10 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierSta
 //: - summary は private operation table を公開しません。actual Resource IR traversal、fresh private region proof、PrivateCache effect masking、sealed backend representation の完了も表しません。
 pub struct SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary:
     accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    cache_lookup_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    cache_insert_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    private_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
     placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceProjectionStage0Summary: traversal source projection smoke の代表結果
@@ -2840,6 +2904,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord:
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord: operation record の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord SelfhostMemoCallBackendPrivateCacheActualWalkerOperationRecord \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind: reader operation policy kind を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - policy kind は owner を持たない tag です。copy は cache 操作の実行や accepted proof への昇格ではありません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind: reader operation policy kind の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed: reader seed evidence を値として[複製/ふくせい]する
@@ -7760,11 +7837,39 @@ fn selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_
             SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::PublicStoreEscape
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CallBoundaryUnsupportedEdge:
             SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheLookupOperation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheInsertOperation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheMissObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheSizeObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheStatsObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheClearObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheDebugObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheRegionIdentityObservation:
             SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::CacheStateObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation:
             SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionHashObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionDebugObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ClosureAllocationIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::FunctionIdentityObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::RawIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawRepresentationObservation:
             SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::RawIdentityObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource:
             SelfhostMemoCallBackendPrivateCacheRegionProofInputKind::UnsupportedTraversal
@@ -7922,36 +8027,36 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_edge_
 //: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_observation_kind: observation kind を traversal source kind へ[写/うつ]す
 //:
 //: [契約/けいやく]:
-//: - cache state の観測は既存 `CacheHitObservation` source family へ、function wrapper identity は `FunctionIdentityObservation` へ、raw identity は `RawIdentityObservation` へ畳みます。
+//: - cache state の観測は hit / miss / size / stats / clear / debug / region identity を typed source として分け、function wrapper identity と raw identity も代表操作別に保持します。
 //: - unsupported observation は `UnsupportedObservationSource` として保持します。actual traversal 未接続を表す `ResourceIrTraversalUnavailable` へ混ぜると、既に観測した unsupported event と未接続状態を区別できなくなります。
 fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_observation_kind %fn SelfhostMemoCallBackendPrivateCacheObservationKind SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind \kind:
     match kind:
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved:
             SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheMissObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheMissObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheSizeObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheSizeObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheStatsObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheStatsObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheClearObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheClearObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheDebugObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheDebugObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::CacheRegionIdentityObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheRegionIdentityObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved:
             SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionHashObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionHashObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionDebugObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionDebugObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::ClosureAllocationIdentityObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ClosureAllocationIdentityObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved:
             SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::RawRepresentationObserved:
-            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawRepresentationObservation
         SelfhostMemoCallBackendPrivateCacheObservationKind::UnsupportedObservation:
             SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedObservationSource
 
@@ -8216,12 +8321,40 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_to_op
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PublicStoreEdge
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CallBoundaryUnsupportedEdge:
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CallBoundaryUnsupportedEdge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheLookupOperation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheLookupOperation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheInsertOperation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheInsertOperation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheEffectOperation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateStateEffectOperation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation:
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheMissObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheMissObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheSizeObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheSizeObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheStatsObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheStatsObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheClearObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheClearObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheDebugObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheDebugObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheRegionIdentityObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheRegionIdentityObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation:
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionHashObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionHashObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionDebugObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionDebugObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ClosureAllocationIdentityObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ClosureAllocationIdentityObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation:
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawRepresentationObservation:
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawRepresentationObservation
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource:
             selfhost_memo_call_backend_private_cache_actual_walker_operation_record_new source.key source.graph_id source.operation_ordinal source.from_place source.to_place SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnsupportedTraversalSource
         SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedObservationSource:
@@ -8289,6 +8422,18 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_a
         SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CallBoundaryUnsupportedEdge:
             let edge %SelfhostMemoCallBackendPrivateCacheResourceWalkerEdgeEventRecord selfhost_memo_call_backend_private_cache_resource_walker_edge_event_record_new record.key record.graph_id record.operation_ordinal record.from_place record.to_place SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CallBoundaryUnsupported
             selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Edge edge
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheLookupOperation:
+            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::PrivateCacheOperationUnsupported
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheInsertOperation:
+            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::PrivateCacheOperationUnsupported
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateCacheEffectOperation:
+            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::PrivateStateBoundaryUnsupported
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::PrivateStateEffectOperation:
+            let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::PrivateStateBoundaryUnsupported
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
         SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnsupportedTraversalSource:
             let unsupported %SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedEventRecord selfhost_memo_call_backend_private_cache_resource_walker_unsupported_event_record_new record.key record.graph_id record.operation_ordinal SelfhostMemoCallBackendPrivateCacheResourceWalkerUnsupportedReason::UnknownResourceOperation
             selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Unsupported unsupported
@@ -8302,12 +8447,52 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_a
             let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheHitObserved
             let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
             selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheMissObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheMissObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheSizeObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheSizeObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheStatsObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheStatsObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheClearObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheClearObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheDebugObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheDebugObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheRegionIdentityObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::CacheRegionIdentityObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
         SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionIdentityObservation:
             let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionEqualityObserved
             let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
             selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionHashObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionHashObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::FunctionDebugObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::FunctionDebugObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::ClosureAllocationIdentityObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::ClosureAllocationIdentityObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
         SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawIdentityObservation:
             let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::RawIdentityObserved
+            let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
+            selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
+        SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::RawRepresentationObservation:
+            let status %SelfhostMemoCallBackendPrivateCacheObservationBanStatus SelfhostMemoCallBackendPrivateCacheObservationBanStatus::ObservationDetected SelfhostMemoCallBackendPrivateCacheObservationKind::RawRepresentationObserved
             let observation %SelfhostMemoCallBackendPrivateCacheObservationBanRecord selfhost_memo_call_backend_private_cache_observation_ban_record_new record.key record.graph_id record.operation_ordinal status
             selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_push_event_result events SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Observation observation
 
@@ -8639,6 +8824,102 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availab
             let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
             Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalBodyInputAvailabilityErrorKind::ActualTraversalBodySeedMissing key
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_kind: reader policy を traversal source kind へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard fallback は使いません。新しい reader policy を追加する場合は、accepted wrapper source、unsupported operation、observation のどれへ流すかをここで明示します。
+//: - cache lookup / insert / private effect は typed source としてだけ保持し、この関数では proof や backend plan を作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_kind %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind \policy:
+    match policy:
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperPrivateCacheStorage:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperCloneOutOwnedValue:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheLookupOperation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheLookupOperation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheInsertOperation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheInsertOperation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::PrivateCacheEffectOperation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::PrivateStateEffectOperation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheHitObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheMissObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheMissObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheSizeObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheSizeObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheStatsObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheStatsObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheClearObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheClearObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheDebugObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheDebugObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheRegionIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheRegionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::FunctionIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::FunctionHashObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionHashObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::FunctionDebugObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionDebugObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::ClosureAllocationIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ClosureAllocationIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::RawIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation
+        SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::RawRepresentationObservation:
+            SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawRepresentationObservation
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_record: reader policy から context-bound source record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - key と graph id は recheck 済み context からだけ取得します。source text、span、diagnostic name は authority にしません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_record %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn i32 fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord \context\operation_ordinal\from_index\to_index\policy:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId field::get context "graph_id"
+    let from_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new from_index
+    let to_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new to_index
+    let source_kind %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_kind policy
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_record_new key graph_id operation_ordinal from_place to_place source_kind
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_append_source_result: reader policy source を table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - table push 失敗時は既存 source table push が owner を閉じます。caller は二重 cleanup しません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_append_source_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources\context\operation_ordinal\from_index\to_index\policy:
+    let record %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceRecord selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_source_record context operation_ordinal from_index to_index policy
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_push sources record
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result: production reader policy から source table owner を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - recheck 済み request context から、memo_call wrapper body の default policy source table を作ります。
+//:
+//: [契約/けいやく]:
+//: - 現時点の production default は private cache storage root と owned clone-out edge だけです。cache lookup / insert / effect / observation policy は別 smoke で fail-closed として確認します。
+//: - source table だけを返し、walker input、operation table、GraphInput、proof table、fresh witness、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok sources0:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_append_source_result sources0 context 0 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperPrivateCacheStorage:
+                Result::Ok sources1:
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_append_source_result sources1 context 1 0 0 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::WrapperCloneOutOwnedValue
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_single_source_from_request_context_result: reader policy の 1 source smoke table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - single source は representative policy の fail-closed smoke 用です。production default source table とは別にし、lookup / insert / effect / observation を accepted wrapper body へ混ぜません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_single_source_from_request_context_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context\policy:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok sources0:
+            selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_operation_policy_append_source_result sources0 context 0 0 0 policy
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_request_context_result: recheck 済み context から reader output を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -8888,19 +9169,24 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result: reader context に対応する source table owner を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - HIR-root production path から real body reader へ進む時の authority を、`ActualTraversalBodyReaderRequestContext` に一本化します。
+//: - HIR-root production path から actual body reader policy へ進む時の authority を、`ActualTraversalBodyReaderRequestContext` に一本化します。
 //:
 //: [契約/けいやく]:
-//: - `Ok` availability は context-bound output helper へ渡し、source table 化後に key / graph を再照合します。
-//: - availability error は source table fallback に写さず、typed bridge error のまま返します。明示的な unavailable smoke は専用 helper だけが作ります。
-//: - `Ok` availability の場合だけ split output owner を既存 input-owner adapter に渡します。owner cleanup は既存 helper と同じです。
+//: - production operation producer bridge はこの helper から reader policy source table を受け取り、source-to-operation projection と classifier / normalizer を必ず通します。
+//: - reader policy source table 生成後に key / graph / empty validation を通し、拒否時は source table owner を必ず閉じます。
+//: - split-output availability helper は互換 smoke と context-bound bundle 用に残しますが、この producer source helper の authority にはしません。
 //: - source table 以外の proof table、fresh witness、GraphInput、backend bytes、effect mask、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context:
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_input_availability_from_request_context_result module context:
-        Result::Ok output:
-            selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output
-        Result::Err availability_error:
-            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error availability_error
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_sources_from_request_context_result context:
+        Result::Ok sources:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+                Result::Ok _valid:
+                    Result::Ok sources
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_result: request に対応する source table owner を[作/つく]る
 //:
@@ -9650,17 +9936,73 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bri
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_sources_result: HIR-root context 由来の policy source table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - request table は HIR root から再収集し、entry recheck と proof key construction を `ActualTraversalBodyReaderRequestContext` helper に委譲します。
+//: - policy source table は context-bound validation を通してから返します。失敗時は作成済み owner を閉じます。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_sources_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\policy:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
+                Result::Ok table:
+                    let result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root body_module_fingerprint 0:
+                                Result::Ok context:
+                                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_policy_single_source_from_request_context_result context policy:
+                                        Result::Ok sources:
+                                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+                                                Result::Ok _valid:
+                                                    Result::Ok sources
+                                                Result::Err e:
+                                                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing 0
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_run_i32_result: policy source を projection / classifier へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - policy source table は projection runner が閉じます。lookup / insert / private effect / observation の representative policy が accepted proof に混ざらないことを確認します。
+fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_run_i32_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \body_module_fingerprint\policy:
+    match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_sources_result body_module_fingerprint policy:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_run_i32_result body_module_fingerprint sources
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0: HIR-root operation producer bridge の代表 smoke を[返/かえ]す
 //:
 //: [目的/もくてき]:
 //: - HIR root から request authority を再収集し、producer-owned operation table を作って classifier / normalizer へ渡す境界を確認します。
 //:
 //: [現状/げんじょう]:
-//: - production reader output は request ごとの accepted operation pair を作ります。placeholder fingerprint は引き続き fail-closed に拒否されます。
+//: - production default reader policy は request ごとの accepted operation pair を作ります。cache lookup / insert / private effect / observation policy は typed vocabulary として classifier へ到達しますが accepted proof には進みません。
 pub fn selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary \void:
     let accepted_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 77
+    let cache_lookup_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheLookupOperation
+    let cache_insert_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheInsertOperation
+    let private_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::PrivateCacheEffectOperation
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_policy_run_i32_result 77 SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderOperationPolicyKind::CacheMissObservation
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_stage0_run_i32_result 0
-    SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary accepted_result placeholder_rejected
+    SelfhostMemoCallBackendPrivateCacheActualWalkerOperationProducerBridgeStage0Summary accepted_result cache_lookup_rejected cache_insert_rejected private_effect_rejected observation_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_record: source projection smoke 用 record を[作/つく]る
 //:
