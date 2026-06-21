@@ -7259,6 +7259,71 @@ The bounded drain checks cell bounds before completion or stepping. When `cell_i
 
 F5lb does not build packed masks, render commands, pixel buffers, platform resources, fallback text, shadows, or compositor output. Packed stroke mask conversion and glyph paint composition remain later boundaries.
 
+## SFNT simple glyph render stroke packed mask owner boundary
+
+F5lf consumes the completed F5lb stroke coverage mask owner as the only direct authority. The existing F5bf fill raster packed mask owner is not reused directly because its authority is a `GuiSfntSimpleGlyphRasterCoverageMaskOwner` and completed raster edge owner, not the stroke `GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner` chain. F5lf may use the same integer alpha-normalization algorithm, but it has dedicated stroke owner types and dedicated recovery payloads.
+
+The config is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderStrokePackedMaskConfig:
+    alpha_max i32
+```
+
+`GuiSfntSimpleGlyphRenderStrokePackedMaskConfig` may implement `Clone` / `Copy`. Transition, completed, error, and terminal owners must not implement `Clone` / `Copy`.
+
+```text
+GuiSfntSimpleGlyphRenderStrokePackedMaskPackOwner:
+    coverage_owner GuiSfntSimpleGlyphRenderStrokeCoverageMaskOwner
+    alpha_cells Vec i32
+    config GuiSfntSimpleGlyphRenderStrokePackedMaskConfig
+    cell_index i32
+
+GuiSfntSimpleGlyphRenderStrokePackedMaskOwner:
+    join_geometry_owner GuiSfntSimpleGlyphRenderStrokeJoinGeometryOwner
+    shape GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells Vec i32
+    cell_count i32
+    alpha_max i32
+```
+
+Start validation is fail-closed:
+
+```text
+alpha_max > 0
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == shape.sample_scale * shape.sample_scale
+shape.cell_count == shape.width_px * shape.height_px
+F5lc join geometry invariant is valid
+shape.coverage_max * alpha_max does not overflow i32
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+allocate alpha_cells with capacity shape.cell_count
+```
+
+The pack owner invariant is checked before budget handling, raw cell read, alpha normalization, Vec push, and completion:
+
+```text
+cell_index >= 0
+shape invariant is valid
+F5lc join geometry invariant is valid
+cell_index <= shape.cell_count
+alpha_cells.len == cell_index
+alpha_cells.cap == shape.cell_count
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+```
+
+Raw cell read uses the completed stroke coverage owner as authority and rejects missing slots, negative coverage, and coverage above `shape.coverage_max`. Alpha normalization is integer-only and guards `coverage > max_i32 / alpha_max` before multiplying. Push failure reads the lower `StdErrorKind`, recovers the returned alpha Vec, and rebuilds the pack owner with the unchanged `cell_index`.
+
+Completion succeeds only at exact full progress. It moves the nested `join_geometry_owner`, shape, alpha cell Vec, cell count, and alpha max into the completed packed stroke mask owner, and releases the raw stroke coverage cell Vec before returning the completed owner. The completed packed stroke mask owner never stores raw coverage cells or any F5bf raster edge owner.
+
+F5lf does not bind glyph paint, emit render commands, write pixels, call DrawTarget / RenderTarget, call platform or host APIs, request font fallback, build shadows, or enter a 2D compositor.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
