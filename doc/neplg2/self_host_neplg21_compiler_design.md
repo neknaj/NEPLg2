@@ -3026,9 +3026,19 @@ stage0 runner は operation producer bridge と同じ `actual_traversal_body_sta
 
 source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、event producer が operation producer / classifier 経由で unified event を作る順序、operation owner cleanup、stage0 resolution owner cleanup、direct event table constructor / `UnknownResourceOperation` / proof key / graph id direct construction 禁止、private helper 非公開、backend / effect / artifact 合成禁止を固定する。
 
+## 2026-06-22 selfhost memo_call backend context-owned body source bundle rejection checkpoint
+
+context-owned traversal bundle stage0 は、accepted `Unit` body と problem body の両方を同じ body-expr runner へ集約した。shared runner は request root expr id 0 から request table を再構築し、resolver table が返す body root expr id 1 を `context_bound_reader_traversal_bundle_from_context_result` に渡す。bundle が作られた場合だけ `actual_traversal_bundle_request_evidence_gate_result` へ進み、source validation / source-derived witness generation / request-evidence gate の順序を短絡しない。
+
+`PrivateCache` call body は HIR body reader の `PrivateCacheEffectOperation` source から source-derived witness / candidate helper へ届き、accepted wrapper source に混ざらず `RegionProofUnsupported` として閉じる。`FnValue` と `MemoizedFunctionValue` body payload は `FunctionIdentityObservation` source として同じ経路へ届き、`RegionProofObservationRejected` として閉じる。stage0 summary はこれらを `hir_body_private_cache_effect_rejected`、`hir_body_fn_value_observation_rejected`、`hir_body_memoized_function_value_observation_rejected` として公開し、doctest は expected proof key 付きの typed variant で確認する。
+
+この checkpoint は full Resource IR traversal、fresh witness table producer、GraphInput、Resource proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、artifact key を作らない。固定したのは、resolver-provided HIR body problem source が context-owned source table と source-derived witness/candidate path へ到達し、外部 witness metadata や fixture proof table ではなく同じ source authority で fail-closed になることである。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で、shared body-expr runner、neutral accepted runner、problem-body i32 projection、stage0 の private effect / function identity rejection、seed / availability rejection との分離を固定する。`actual_traversal_bundle_stage0_with_sources_result`、availability/output roundtrip、input-owner adapter、external witness metadata、proof / backend / effect / artifact 合成へ戻らないことも検査する。
+
 残件:
 
-- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。
+- full Resource IR / HIR lowering body traversal から accepted / escaping / observation / unsupported source と fresh-region witness table を発行する。HIR body problem source は context-owned source-derived witness/candidate bundle rejection path まで接続済みなので、次は実 traversal の accepted source と witness producer を同じ body identity で置き換える。
 - event producer convergence で揃えた source / operation authority を、private-effect graph scanner / collector / materializer / proof producer と request-evidence bridge の両方へ同じ body identity で渡す。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
