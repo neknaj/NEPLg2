@@ -6132,6 +6132,33 @@ start は metric owner invariant、path command stream cursor 作成、plan の 
 
 F5kw は offset point、join / cap / dash / miter、stroke edge owner、coverage mask、packed mask、`RenderCommand` emission、pixel write、platform API、font fallback へ進まず、coordinate equality から contour boundary を推測しない。
 
+### SFNT simple glyph render stroke offset geometry boundary
+
+F5kx は completed F5kw source contour owner を消費し、stroke offset geometry owner を作る境界である。authority は F5kw completed owner だけであり、F5ku metric owner 単独、F5ba/F5az scalar stream、byte-backed glyph lookup、fill alpha mask owner、raster edge owner へ戻らない。
+
+F5kx の completed owner は次を保持する。
+
+```text
+GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner:
+    source_owner GuiSfntSimpleGlyphRenderStrokeSourceContourOwner
+    geometry Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry
+    geometry_count i32
+    line_geometry_count i32
+    quadratic_geometry_count i32
+```
+
+`GuiSfntSimpleGlyphRenderStrokeOffsetNormal` は F5kt の i64 tangent metric から作る。`length_squared` を f32 に cast して `sqrt` し、finite / positive guard を通した上で `unit_normal = (-dy / length, dx / length)`、`offset = unit_normal * stroke_width` を作る。glyph path coordinate は doubled-coordinate なので、1 px 幅 stroke の半幅は doubled-coordinate で 1 になり、`stroke_width` を offset 距離として使う。
+
+Line geometry は source start/end、F5kw provenance、normal、left/right の offset endpoint を保持する。これは後続 stroke edge owner が line edge を生成するための actual offset endpoint であり、coverage や pixel をここで作らない。
+
+Quadratic geometry は exact な offset curve を二次 curve として捏造しない。start-control tangent と control-end tangent から start/end endpoint normal を作り、片側 tangent が 0 の quadratic は、どちらの tangent normal を endpoint に採用したかを typed value に残す。両 tangent が 0 の fully degenerate quadratic は F5kt で拒否済みだが、F5kx でも fail closed の error kind を持つ。
+
+F5kx は `GuiStroke` を plan owner から accessor で読み、`width > 0`、finite positive `miter_limit`、cap / join / dash policy を再検査する。現時点の `GuiStrokeDash::Solid` は explicit no-dash であり、未対応 dash pattern を solid に近似する fallback ではない。cap / join はこの boundary では解決せず、typed policy として source owner 側に残す。
+
+start は F5kw completed source owner invariant と stroke style guard を通し、`draw_segment_count` と同じ capacity の geometry Vec を 1 回だけ確保する。step は metric/provenance index を同時に進め、provenance metric index、command tag、contour span shape、metric segment index、stroke width を照合してから line/quadratic geometry を Vec へ push する。push failure は returned Vec と pre-push count を recovery payload に保持する。
+
+F5kx は F5ba/F5az scalar stream、byte-backed lookup、stroke edge、coverage、packed mask、render command、pixel write、platform API、font fallback へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

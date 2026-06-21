@@ -1,3 +1,48 @@
+# 2026-06-21 Agent2 GUI font F5kx stroke offset geometry boundary
+
+## 目的
+
+- completed F5kw source contour owner を authority として消費し、actual stroke offset geometry owner を追加する。
+- F5ku metric owner 単独、F5ba/F5az scalar stream、byte-backed lookup、fill mask / raster edge owner へ戻らない。
+- line は doubled-coordinate 空間の left/right offset endpoint を作り、quadratic は exact offset curve を二次 curve として捏造せず start/end tangent normal と partial-degenerate tangent source policy を残す。
+- stroke edge owner、coverage mask、packed mask、render command、pixel write、platform API、font fallback、shadow/compositor へは進まない。
+
+## subagent review
+
+- Singer の F5kx plan review は `PLAN_REVIEWED`。
+- 指摘は、authority を F5kw completed owner に寄せること、F5ku metric owner 単独に戻らないこと、F5kx を actual offset geometry expansion までで止めること、stroke style は `GuiStroke` accessor から読むこと、partial-degenerate quadratic を silent flatten / silent normalize しないことだった。
+- 指摘に従い、F5kx は F5kw source owner invariant と metric/provenance slot 照合を最初の guard にし、line/quadratic offset geometry owner だけを作る形にした。
+
+## implementation_current
+
+- `GuiSfntSimpleGlyphRenderStrokeOffsetNormal` を追加し、F5kt の i64 tangent metric から finite/positive checked `sqrt`、unit normal、stroke width offset vector を作るようにした。
+- `GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry` を追加し、source/provenance metadata、normal、left/right offset endpoint を保持するようにした。
+- `GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry` を追加し、start/end endpoint normal と `GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource` を保持するようにした。片側 tangent が 0 の場合は非 0 tangent を採用し、その採用元を value に残す。
+- `GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner` と completed `GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner` を追加した。
+- start は F5kw completed owner invariant、`GuiStroke` style guard、geometry Vec exact capacity を検査する。
+- step は metric/provenance index を同時に進め、provenance metric index、command tag、contour span shape、metric kind/segment index、metric stroke width を照合してから line/quadratic geometry を push する。
+- push failure は returned Vec と pre-push metric/line/quadratic count を保持する owner-bearing error にした。
+- docs、source policy、focused doctest label、todo を F5kx に合わせて更新した。
+
+## verification_current
+
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kx_initial.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kx_after_push_recovery.json -j 1`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_stroke_offset_geometry.n.md --no-tree -o tmp_gui_font_render_stroke_offset_geometry_f5kx.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5kx.json -j 1`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5kx.json`
+- checked JSON: `tmp/playground-editor-tests-f5kx.json` has `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
+## implementation_review
+
+- Ptolemy の implementation review は `REVIEW_APPROVED`。
+- 確認内容は、F5kw completed owner が唯一の geometry authority であること、offset normal の sqrt / finite / positive guard と doubled-coordinate 上の stroke width offset が仕様と一致すること、partial-degenerate quadratic の tangent 採用元が typed value として残ること、`GuiStroke` accessor と dash `Solid` policy を守ること、push failure recovery が returned Vec と pre-push count を保持すること、source policy が scalar stream / byte lookup / edge / coverage / mask / render / platform / fallback / shadow / compositor を止めていることだった。
+- 残リスクは、focused doctest が policy label smoke であり、実データでの partial-degenerate / push failure 動的検査は後続の stroke edge owner phase か専用 regression で追加する余地がある点。
+
 # 2026-06-21 Agent2 GUI font F5kw stroke source contour authority boundary
 
 ## 目的

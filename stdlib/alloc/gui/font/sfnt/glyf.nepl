@@ -20472,6 +20472,1118 @@ fn gui_sfnt_simple_glyph_render_stroke_source_contour_drain_terminal_free %impur
         GuiSfntSimpleGlyphRenderStrokeSourceContourDrainTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderStrokeOffsetNormal: stroke offset normal evidence
+//:
+//: [目的/もくてき]:
+//: - F5kt の i64 tangent metric から、doubled-coordinate 空間で stroke 半幅ぶん[離/はな]す normal と offset vector を[作/つく]ります。
+//: - tangent delta と length_squared も[残/のこ]し、後続の stroke edge boundary が丸めだけを authority にしないようにします。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetNormal:
+    tangent_dx %i64
+    tangent_dy %i64
+    length_squared %i64
+    length %f32
+    unit_normal_x %f32
+    unit_normal_y %f32
+    offset_x2 %f32
+    offset_y2 %f32
+    stroke_width %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetNormal:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetNormal GuiSfntSimpleGlyphRenderStrokeOffsetNormal \normal:
+        *normal
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetNormal:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetNormal GuiSfntSimpleGlyphRenderStrokeOffsetNormal \normal:
+        normal
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_normal %fn i64 fn i64 fn i64 fn f32 fn f32 fn f32 fn f32 fn f32 fn i32 GuiSfntSimpleGlyphRenderStrokeOffsetNormal \tangent_dx\tangent_dy\length_squared\length\unit_normal_x\unit_normal_y\offset_x2\offset_y2\stroke_width:
+    GuiSfntSimpleGlyphRenderStrokeOffsetNormal tangent_dx tangent_dy length_squared length unit_normal_x unit_normal_y offset_x2 offset_y2 stroke_width
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource: quadratic endpoint normal の source tangent
+//:
+//: [目的/もくてき]:
+//: - [片側/かたがわ] tangent が 0 の quadratic で、start/end endpoint normal がどちらの tangent から[来/き]たかを value として[残/のこ]します。
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource:
+    StartControl
+    ControlEnd
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource \source:
+        *source
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource \source:
+        source
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal: quadratic endpoint normal と採用元
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal:
+    source %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource
+    normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal \normal:
+        *normal
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal \normal:
+        normal
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_quadratic_endpoint_normal %fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource fn GuiSfntSimpleGlyphRenderStrokeOffsetNormal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal \source\normal:
+    GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal source normal
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry: line segment の offset geometry
+//:
+//: [目的/もくてき]:
+//: - F5kw provenance と F5kt line metric を照合した後、左右の offset endpoint を doubled-coordinate 空間の f32 value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry:
+    metric_index %i32
+    path_command_index %i32
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    contour_start_edge_index %i32
+    contour_end_edge_index %i32
+    contour_edge_count %i32
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal
+    left_start_x2 %f32
+    left_start_y2 %f32
+    left_end_x2 %f32
+    left_end_y2 %f32
+    right_start_x2 %f32
+    right_start_y2 %f32
+    right_end_x2 %f32
+    right_end_y2 %f32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry \geometry:
+        *geometry
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry \geometry:
+        geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_line_geometry %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeOffsetNormal fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry \metric_index\path_command_index\edge_index\contour_index\contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\start_x2\start_y2\end_x2\end_y2\normal\left_start_x2\left_start_y2\left_end_x2\left_end_y2\right_start_x2\right_start_y2\right_end_x2\right_end_y2:
+    GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count start_x2 start_y2 end_x2 end_y2 normal left_start_x2 left_start_y2 left_end_x2 left_end_y2 right_start_x2 right_start_y2 right_end_x2 right_end_y2
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry: quadratic segment の offset endpoint geometry
+//:
+//: [目的/もくてき]:
+//: - quadratic の exact offset curve は一般に二次 curve ではないため、この境界では start/end tangent normal と endpoint offset を[保持/ほじ]します。
+//: - control point の offset curve 近似、join / cap / dash / miter 解決、stroke edge 生成は後続 boundary に[残/のこ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry:
+    metric_index %i32
+    path_command_index %i32
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    contour_start_edge_index %i32
+    contour_end_edge_index %i32
+    contour_edge_count %i32
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    start_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal
+    end_normal %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal
+    left_start_x2 %f32
+    left_start_y2 %f32
+    left_end_x2 %f32
+    left_end_y2 %f32
+    right_start_x2 %f32
+    right_start_y2 %f32
+    right_end_x2 %f32
+    right_end_y2 %f32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry \geometry:
+        *geometry
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry \geometry:
+        geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal fn GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry \metric_index\path_command_index\edge_index\contour_index\contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\start_x2\start_y2\control_x2\control_y2\end_x2\end_y2\start_normal\end_normal\left_start_x2\left_start_y2\left_end_x2\left_end_y2\right_start_x2\right_start_y2\right_end_x2\right_end_y2:
+    GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 start_normal end_normal left_start_x2 left_start_y2 left_end_x2 left_end_y2 right_start_x2 right_start_y2 right_end_x2 right_end_y2
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry: offset geometry segment
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry:
+    Line %GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry
+    Quadratic %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry \geometry:
+        *geometry
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry \geometry:
+        geometry
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner: stroke offset geometry drain state
+//:
+//: [目的/もくてき]:
+//: - F5kw completed source contour owner を[所有/しょゆう]し、metric/provenance slot を順に offset geometry Vec へ[展開/てんかい]します。
+//: - Vec owner を[持/も]つため Clone / Copy は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner:
+    source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner
+    geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry
+    metric_index %i32
+    line_geometry_count %i32
+    quadratic_geometry_count %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner fn Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner \source_owner\geometry\metric_index\line_geometry_count\quadratic_geometry_count:
+    GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner source_owner geometry metric_index line_geometry_count quadratic_geometry_count
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner i32 \owner:
+    *field::get_ref owner "metric_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_line_geometry_count %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner i32 \owner:
+    *field::get_ref owner "line_geometry_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_quadratic_geometry_count %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner i32 \owner:
+    *field::get_ref owner "quadratic_geometry_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_geometry_len %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner i32 \owner:
+    let geometry %&Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get_ref owner "geometry"
+    vec::len geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_geometry_cap %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner i32 \owner:
+    let geometry %&Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get_ref owner "geometry"
+    vec::cap geometry
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner: completed stroke offset geometry owner
+//:
+//: [目的/もくてき]:
+//: - F5kw source contour owner と exact-capacity offset geometry Vec を[束/たば]ねます。
+//: - stroke edge owner、coverage、render command、pixel write はここでは[作/つく]りません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner:
+    source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner
+    geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry
+    geometry_count %i32
+    line_geometry_count %i32
+    quadratic_geometry_count %i32
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner fn Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner \source_owner\geometry\geometry_count\line_geometry_count\quadratic_geometry_count:
+    GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner source_owner geometry geometry_count line_geometry_count quadratic_geometry_count
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_count %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner i32 \owner:
+    *field::get_ref owner "geometry_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_line_geometry_count %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner i32 \owner:
+    *field::get_ref owner "line_geometry_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_quadratic_geometry_count %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner i32 \owner:
+    *field::get_ref owner "quadratic_geometry_count"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_len %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner i32 \owner:
+    let geometry %&Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get_ref owner "geometry"
+    vec::len geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_geometry_cap %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner i32 \owner:
+    let geometry %&Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get_ref owner "geometry"
+    vec::cap geometry
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind: offset geometry failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind:
+    SourceMetricCountNegative
+    SourceLineMetricCountNegative
+    SourceQuadraticMetricCountNegative
+    SourceMetricCountMismatch
+    SourceMetricCountExceeded
+    SourceLineMetricCountMismatch
+    SourceQuadraticMetricCountMismatch
+    SourceMetricStorageLenMismatch
+    SourceMetricStorageCapacityMismatch
+    SourcePathCommandCountMismatch
+    SourceProvenanceCountNegative
+    SourceLineProvenanceCountNegative
+    SourceQuadraticProvenanceCountNegative
+    SourceMoveToCountNegative
+    SourceSkipNoSegmentCountNegative
+    SourceProvenanceCountMismatch
+    SourceProvenanceStorageLenMismatch
+    SourceProvenanceStorageCapacityMismatch
+    SourceCompletionMetricCountMismatch
+    SourceCompletionLineCountMismatch
+    SourceCompletionQuadraticCountMismatch
+    SourceCompletionMoveToCountMismatch
+    SourceCompletionSkipNoSegmentCountMismatch
+    StrokeWidthInvalid
+    StrokeMiterLimitInvalid
+    UnsupportedStrokeCap
+    UnsupportedStrokeJoin
+    UnsupportedStrokeDash
+    MetricIndexNegative
+    MetricIndexOutOfRange
+    MetricSlotMissing
+    ProvenanceIndexNegative
+    ProvenanceIndexOutOfRange
+    ProvenanceSlotMissing
+    ProvenanceMetricIndexMismatch
+    ProvenanceContourSpanInvalid
+    MetricKindMismatch
+    MetricSegmentIndexMismatch
+    MetricStrokeWidthMismatch
+    CommandTagMismatch
+    LengthSquaredInvalid
+    LengthSqrtInvalid
+    UnitNormalInvalid
+    OffsetVectorInvalid
+    OffsetPointInvalid
+    QuadraticFullyDegenerate
+    GeometryCountNegative
+    LineGeometryCountNegative
+    QuadraticGeometryCountNegative
+    GeometryCountMismatch
+    GeometryCountExceeded
+    LineGeometryCountExceeded
+    QuadraticGeometryCountExceeded
+    GeometryStorageLenMismatch
+    GeometryStorageCapacityMismatch
+    GeometryPushFailed
+    CompletionGeometryCountMismatch
+    CompletionLineGeometryCountMismatch
+    CompletionQuadraticGeometryCountMismatch
+    CompletionStorageLenMismatch
+    CompletionStorageCapacityMismatch
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind: offset geometry start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind:
+    SourceOwnerInvariantFailed
+    StrokeStyleGuardFailed
+    GeometryStorageAllocFailed
+    GeometryStorageInitialLenMismatch
+    GeometryStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError: start failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError:
+    kind %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind
+    source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner
+    geometry_error_kind %Option GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner fn Option GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError \kind\source_owner\geometry_error_kind\storage_error:
+    GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError kind source_owner geometry_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_source_failed %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError \kind\source_owner\error_kind:
+    let geometry_error_kind %Option GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind some error_kind
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error kind source_owner geometry_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_simple %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError \kind\source_owner:
+    let geometry_error_kind %Option GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error kind source_owner geometry_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_storage_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError \source_owner\storage_error_value:
+    let geometry_error_kind %Option GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind::GeometryStorageAllocFailed source_owner geometry_error_kind storage_error
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_source_owner %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError GuiSfntSimpleGlyphRenderStrokeSourceContourOwner \error:
+    field::get error "source_owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError: drain failure recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError:
+    kind %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind
+    owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner
+    storage_error %Option StdErrorKind
+    metric_index %i32
+    rejected_geometry %Option GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner fn Option StdErrorKind fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \kind\owner\storage_error\metric_index\rejected_geometry:
+    GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError kind owner storage_error metric_index rejected_geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_simple %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \kind\owner:
+    let storage_error %Option StdErrorKind none
+    let rejected_geometry %Option GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry none
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index &owner
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error kind owner storage_error metric_index rejected_geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner fn i32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \kind\owner\metric_index:
+    let storage_error %Option StdErrorKind none
+    let rejected_geometry %Option GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry none
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error kind owner storage_error metric_index rejected_geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner fn GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \owner\geometry\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    let rejected_geometry %Option GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry some geometry
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index &owner
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::GeometryPushFailed owner storage_error metric_index rejected_geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_owner %fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal: offset geometry drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal:
+    GeometryPushed %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner
+    Completed %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_count_checked_add %fn i32 fn i32 Result i32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \left\right:
+    let max_i32 %i32 2147483647
+    if or lt left 0 lt right 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProgressInvariantInvalid
+        else:
+            let remaining %i32 sub max_i32 left
+            if gt right remaining:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProgressInvariantInvalid
+                else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_offset_geometry %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner Result unit GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \metric_owner:
+    let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count metric_owner
+    if lt metric_count 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricCountNegative
+        else:
+            let line_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_line_metric_count metric_owner
+            if lt line_metric_count 0:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceLineMetricCountNegative
+                else:
+                    let quadratic_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_quadratic_metric_count metric_owner
+                    if lt quadratic_metric_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceQuadraticMetricCountNegative
+                        else:
+                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_count_checked_add line_metric_count quadratic_metric_count:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok counted_metric_count:
+                                    if ne metric_count counted_metric_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricCountMismatch
+                                        else:
+                                            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                            if ne metric_count draw_segment_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricCountExceeded
+                                                else:
+                                                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                    if ne line_metric_count plan_line_to_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceLineMetricCountMismatch
+                                                        else:
+                                                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                            if ne quadratic_metric_count plan_quadratic_to_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceQuadraticMetricCountMismatch
+                                                                else:
+                                                                    let metrics_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_len metric_owner
+                                                                    if ne metrics_len draw_segment_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricStorageLenMismatch
+                                                                        else:
+                                                                            let metrics_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap metric_owner
+                                                                            if ne metrics_cap draw_segment_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricStorageCapacityMismatch
+                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_is_finite %fn f32 bool \value:
+    let bits %i32 bitcast_f32_to_i32 value
+    let abs_bits %i32 and bits 0x7fffffff
+    lt abs_bits 0x7f800000
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard %fn f32 fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind Result f32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \value\error_kind:
+    if gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_is_finite value:
+        then Result::Ok value
+        else Result::Err error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner Result unit GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \source_owner:
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref source_owner "metric_owner"
+    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke plan_owner
+    let stroke_width %i32 gui_stroke_width &stroke
+    if le stroke_width 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::StrokeWidthInvalid
+        else:
+            let miter_limit %f32 gui_stroke_miter_limit &stroke
+            let miter_limit_positive %bool gt miter_limit 0.0
+            let miter_limit_finite %bool gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_is_finite miter_limit
+            if not and miter_limit_positive miter_limit_finite:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::StrokeMiterLimitInvalid
+                else:
+                    let cap %GuiStrokeCap gui_stroke_cap &stroke
+                    let cap_supported %bool:
+                        match cap:
+                            GuiStrokeCap::Butt:
+                                true
+                            GuiStrokeCap::Square:
+                                true
+                            GuiStrokeCap::Round:
+                                true
+                    if not cap_supported:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::UnsupportedStrokeCap
+                        else:
+                            let join %GuiStrokeJoin gui_stroke_join &stroke
+                            let join_supported %bool:
+                                match join:
+                                    GuiStrokeJoin::Miter:
+                                        true
+                                    GuiStrokeJoin::Bevel:
+                                        true
+                                    GuiStrokeJoin::Round:
+                                        true
+                            if not join_supported:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::UnsupportedStrokeJoin
+                                else:
+                                    let dash %GuiStrokeDash gui_stroke_dash &stroke
+                                    match dash:
+                                        GuiStrokeDash::Solid:
+                                            Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner Result unit GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \source_owner:
+    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref source_owner "metric_owner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_offset_geometry metric_owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+            let path_command_count %i32 *field::get_ref source_owner "path_command_count"
+            let plan_path_command_count %i32 *field::get_ref plan_owner "path_command_count"
+            if ne path_command_count plan_path_command_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourcePathCommandCountMismatch
+                else:
+                    let metric_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count source_owner
+                    if lt metric_provenance_count 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceProvenanceCountNegative
+                        else:
+                            let line_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_line_provenance_count source_owner
+                            if lt line_provenance_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceLineProvenanceCountNegative
+                                else:
+                                    let quadratic_provenance_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_quadratic_provenance_count source_owner
+                                    if lt quadratic_provenance_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceQuadraticProvenanceCountNegative
+                                        else:
+                                            let move_to_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_move_to_count source_owner
+                                            if lt move_to_count 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMoveToCountNegative
+                                                else:
+                                                    let skip_no_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_skip_no_segment_count source_owner
+                                                    if lt skip_no_segment_count 0:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceSkipNoSegmentCountNegative
+                                                        else:
+                                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_count_checked_add line_provenance_count quadratic_provenance_count:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok counted_provenance_count:
+                                                                    if ne metric_provenance_count counted_provenance_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceProvenanceCountMismatch
+                                                                        else:
+                                                                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                                                                            if ne metric_provenance_count draw_segment_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceCompletionMetricCountMismatch
+                                                                                else:
+                                                                                    let plan_line_to_count %i32 *field::get_ref plan_owner "line_to_count"
+                                                                                    if ne line_provenance_count plan_line_to_count:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceCompletionLineCountMismatch
+                                                                                        else:
+                                                                                            let plan_quadratic_to_count %i32 *field::get_ref plan_owner "quadratic_to_count"
+                                                                                            if ne quadratic_provenance_count plan_quadratic_to_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceCompletionQuadraticCountMismatch
+                                                                                                else:
+                                                                                                    let plan_move_to_count %i32 *field::get_ref plan_owner "move_to_count"
+                                                                                                    if ne move_to_count plan_move_to_count:
+                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceCompletionMoveToCountMismatch
+                                                                                                        else:
+                                                                                                            let plan_skip_no_segment_count %i32 *field::get_ref plan_owner "skip_no_segment_count"
+                                                                                                            if ne skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceCompletionSkipNoSegmentCountMismatch
+                                                                                                                else:
+                                                                                                                    let provenance_len %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_len source_owner
+                                                                                                                    if ne provenance_len draw_segment_count:
+                                                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceProvenanceStorageLenMismatch
+                                                                                                                        else:
+                                                                                                                            let provenance_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_cap source_owner
+                                                                                                                            if ne provenance_cap draw_segment_count:
+                                                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceProvenanceStorageCapacityMismatch
+                                                                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_offset_geometry %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \metric_owner\metric_index:
+    if lt metric_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricIndexNegative
+        else:
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count metric_owner
+            if ge metric_index metric_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricIndexOutOfRange
+                else:
+                    let metrics_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_len metric_owner
+                    if ne metrics_len metric_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricStorageLenMismatch
+                        else:
+                            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                            let draw_segment_count %i32 gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_draw_segment_count plan_owner
+                            let metrics_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap metric_owner
+                            if ne metrics_cap draw_segment_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceMetricStorageCapacityMismatch
+                                else:
+                                    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref metric_owner "metrics"
+                                    match vec::get metrics metric_index:
+                                        Option::Some metric:
+                                            Result::Ok metric
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricSlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_source_contour_owner_read_provenance_for_offset_geometry %fn &GuiSfntSimpleGlyphRenderStrokeSourceContourOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \source_owner\metric_index:
+    if lt metric_index 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceIndexNegative
+        else:
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count source_owner
+            if ge metric_index metric_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceIndexOutOfRange
+                else:
+                    let provenance_len %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_provenance_len source_owner
+                    if ne provenance_len metric_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::SourceProvenanceStorageLenMismatch
+                        else:
+                            let provenance %&Vec GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance field::get_ref source_owner "provenance"
+                            match vec::get provenance metric_index:
+                                Option::Some provenance_value:
+                                    Result::Ok provenance_value
+                                Option::None:
+                                    Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceSlotMissing
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_provenance_guard %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn i32 fn GuiSfntSimpleGlyphPathCommandTag Result unit GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \provenance\metric_index\expected_tag:
+    let provenance_metric_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_metric_index provenance
+    if ne provenance_metric_index metric_index:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceMetricIndexMismatch
+        else:
+            let command_tag %GuiSfntSimpleGlyphPathCommandTag *field::get_ref provenance "command_tag"
+            if not gui_sfnt_simple_glyph_path_command_tag_eq &command_tag &expected_tag:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::CommandTagMismatch
+                else:
+                    let edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_edge_index provenance
+                    let contour_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_index provenance
+                    let contour_start_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_start_edge_index provenance
+                    let contour_end_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_end_edge_index provenance
+                    let contour_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_count provenance
+                    let expected_edge_index %i32 add contour_start_edge_index contour_edge_index
+                    let expected_edge_count %i32 add sub contour_end_edge_index contour_start_edge_index 1
+                    let contour_nonnegative %bool and not lt edge_index 0 and not lt contour_edge_index 0 not lt contour_start_edge_index 0
+                    let contour_span_order %bool and le contour_start_edge_index contour_end_edge_index gt contour_edge_count 0
+                    let contour_edge_in_range %bool and ge edge_index contour_start_edge_index le edge_index contour_end_edge_index
+                    let contour_shape_ok %bool and contour_nonnegative and contour_span_order and contour_edge_in_range and eq edge_index expected_edge_index eq contour_edge_count expected_edge_count
+                    if contour_shape_ok:
+                        then Result::Ok unit
+                        else Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::ProvenanceContourSpanInvalid
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_i32_to_f32 %fn i32 f32 \value:
+    let value_i64 %i64 %i64 cast value
+    %f32 cast value_i64
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point %fn i32 fn f32 fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind Result f32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \coordinate\offset\error_kind:
+    let coordinate_f %f32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_i32_to_f32 coordinate
+    let point %f32 add coordinate_f offset
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard point error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point %fn i32 fn f32 fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind Result f32 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \coordinate\offset\error_kind:
+    let coordinate_f %f32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_i32_to_f32 coordinate
+    let point %f32 sub coordinate_f offset
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard point error_kind
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent %fn i64 fn i64 fn i64 fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetNormal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \dx\dy\length_squared\stroke_width:
+    if le length_squared %i64 cast 0:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::LengthSquaredInvalid
+        else:
+            let length_squared_f %f32 %f32 cast length_squared
+            let length %f32 sqrt length_squared_f
+            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard length GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::LengthSqrtInvalid:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok checked_length:
+                    if not gt checked_length 0.0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::LengthSqrtInvalid
+                        else:
+                            let dx_f %f32 %f32 cast dx
+                            let dy_f %f32 %f32 cast dy
+                            let unit_normal_x %f32 div sub 0.0 dy_f checked_length
+                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard unit_normal_x GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::UnitNormalInvalid:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok checked_unit_normal_x:
+                                    let unit_normal_y %f32 div dx_f checked_length
+                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard unit_normal_y GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::UnitNormalInvalid:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok checked_unit_normal_y:
+                                            let stroke_width_f %f32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_i32_to_f32 stroke_width
+                                            let offset_x2 %f32 mul checked_unit_normal_x stroke_width_f
+                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetVectorInvalid:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok checked_offset_x2:
+                                                    let offset_y2 %f32 mul checked_unit_normal_y stroke_width_f
+                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_f32_guard offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetVectorInvalid:
+                                                        Result::Err error_kind:
+                                                            Result::Err error_kind
+                                                        Result::Ok checked_offset_y2:
+                                                            Result::Ok gui_sfnt_simple_glyph_render_stroke_offset_normal dx dy length_squared checked_length checked_unit_normal_x checked_unit_normal_y checked_offset_x2 checked_offset_y2 stroke_width
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_line_geometry_from_metric %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \provenance\metric\expected_stroke_width:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_metric_index provenance
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_segment_index metric
+    if ne segment_index metric_index:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricSegmentIndexMismatch
+        else:
+            let stroke_width %i32 *field::get_ref metric "stroke_width"
+            if ne stroke_width expected_stroke_width:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricStrokeWidthMismatch
+                else:
+                    let dx %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dx metric
+                    let dy %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dy metric
+                    let length_squared %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_length_squared metric
+                    match gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent dx dy length_squared stroke_width:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok normal:
+                            let start_x2 %i32 *field::get_ref metric "start_x2"
+                            let start_y2 %i32 *field::get_ref metric "start_y2"
+                            let end_x2 %i32 *field::get_ref metric "end_x2"
+                            let end_y2 %i32 *field::get_ref metric "end_y2"
+                            let offset_x2 %f32 *field::get_ref &normal "offset_x2"
+                            let offset_y2 %f32 *field::get_ref &normal "offset_y2"
+                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point start_x2 offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok left_start_x2:
+                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point start_y2 offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok left_start_y2:
+                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point end_x2 offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok left_end_x2:
+                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point end_y2 offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                        Result::Err error_kind:
+                                                            Result::Err error_kind
+                                                        Result::Ok left_end_y2:
+                                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point start_x2 offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok right_start_x2:
+                                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point start_y2 offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                        Result::Err error_kind:
+                                                                            Result::Err error_kind
+                                                                        Result::Ok right_start_y2:
+                                                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point end_x2 offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                                Result::Err error_kind:
+                                                                                    Result::Err error_kind
+                                                                                Result::Ok right_end_x2:
+                                                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point end_y2 offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                                        Result::Err error_kind:
+                                                                                            Result::Err error_kind
+                                                                                        Result::Ok right_end_y2:
+                                                                                            let path_command_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_path_command_index provenance
+                                                                                            let edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_edge_index provenance
+                                                                                            let contour_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_index provenance
+                                                                                            let contour_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_index provenance
+                                                                                            let contour_start_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_start_edge_index provenance
+                                                                                            let contour_end_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_end_edge_index provenance
+                                                                                            let contour_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_count provenance
+                                                                                            let geometry %GuiSfntSimpleGlyphRenderStrokeOffsetLineGeometry gui_sfnt_simple_glyph_render_stroke_offset_line_geometry metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count start_x2 start_y2 end_x2 end_y2 normal left_start_x2 left_start_y2 left_end_x2 left_end_y2 right_start_x2 right_start_y2 right_end_x2 right_end_y2
+                                                                                            Result::Ok geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_quadratic_start_endpoint_normal %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \metric\stroke_width:
+    let start_control_length_squared %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_length_squared metric
+    let control_end_length_squared %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_length_squared metric
+    if gt start_control_length_squared %i64 cast 0:
+        then:
+            let dx %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dx metric
+            let dy %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dy metric
+            match gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent dx dy start_control_length_squared stroke_width:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok normal:
+                    Result::Ok gui_sfnt_simple_glyph_render_stroke_offset_quadratic_endpoint_normal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::StartControl normal
+        else:
+            if gt control_end_length_squared %i64 cast 0:
+                then:
+                    let dx %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dx metric
+                    let dy %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dy metric
+                    match gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent dx dy control_end_length_squared stroke_width:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok normal:
+                            Result::Ok gui_sfnt_simple_glyph_render_stroke_offset_quadratic_endpoint_normal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::ControlEnd normal
+                else Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::QuadraticFullyDegenerate
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_quadratic_end_endpoint_normal %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticEndpointNormal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \metric\stroke_width:
+    let start_control_length_squared %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_length_squared metric
+    let control_end_length_squared %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_length_squared metric
+    if gt control_end_length_squared %i64 cast 0:
+        then:
+            let dx %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dx metric
+            let dy %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dy metric
+            match gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent dx dy control_end_length_squared stroke_width:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok normal:
+                    Result::Ok gui_sfnt_simple_glyph_render_stroke_offset_quadratic_endpoint_normal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::ControlEnd normal
+        else:
+            if gt start_control_length_squared %i64 cast 0:
+                then:
+                    let dx %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dx metric
+                    let dy %i64 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dy metric
+                    match gui_sfnt_simple_glyph_render_stroke_offset_normal_from_tangent dx dy start_control_length_squared stroke_width:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok normal:
+                            Result::Ok gui_sfnt_simple_glyph_render_stroke_offset_quadratic_endpoint_normal GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticTangentSource::StartControl normal
+                else Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::QuadraticFullyDegenerate
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry_from_metric %fn &GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \provenance\metric\expected_stroke_width:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_metric_index provenance
+    let segment_index %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_segment_index metric
+    if ne segment_index metric_index:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricSegmentIndexMismatch
+        else:
+            let stroke_width %i32 *field::get_ref metric "stroke_width"
+            if ne stroke_width expected_stroke_width:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::MetricStrokeWidthMismatch
+                else:
+                    match gui_sfnt_simple_glyph_render_stroke_offset_quadratic_start_endpoint_normal metric stroke_width:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok start_normal:
+                            match gui_sfnt_simple_glyph_render_stroke_offset_quadratic_end_endpoint_normal metric stroke_width:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok end_normal:
+                                    let start_x2 %i32 *field::get_ref metric "start_x2"
+                                    let start_y2 %i32 *field::get_ref metric "start_y2"
+                                    let control_x2 %i32 *field::get_ref metric "control_x2"
+                                    let control_y2 %i32 *field::get_ref metric "control_y2"
+                                    let end_x2 %i32 *field::get_ref metric "end_x2"
+                                    let end_y2 %i32 *field::get_ref metric "end_y2"
+                                    let start_offset_normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal *field::get_ref &start_normal "normal"
+                                    let end_offset_normal %GuiSfntSimpleGlyphRenderStrokeOffsetNormal *field::get_ref &end_normal "normal"
+                                    let start_offset_x2 %f32 *field::get_ref &start_offset_normal "offset_x2"
+                                    let start_offset_y2 %f32 *field::get_ref &start_offset_normal "offset_y2"
+                                    let end_offset_x2 %f32 *field::get_ref &end_offset_normal "offset_x2"
+                                    let end_offset_y2 %f32 *field::get_ref &end_offset_normal "offset_y2"
+                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point start_x2 start_offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok left_start_x2:
+                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point start_y2 start_offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok left_start_y2:
+                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point end_x2 end_offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                        Result::Err error_kind:
+                                                            Result::Err error_kind
+                                                        Result::Ok left_end_x2:
+                                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_offset_point end_y2 end_offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                Result::Err error_kind:
+                                                                    Result::Err error_kind
+                                                                Result::Ok left_end_y2:
+                                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point start_x2 start_offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                        Result::Err error_kind:
+                                                                            Result::Err error_kind
+                                                                        Result::Ok right_start_x2:
+                                                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point start_y2 start_offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                                Result::Err error_kind:
+                                                                                    Result::Err error_kind
+                                                                                Result::Ok right_start_y2:
+                                                                                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point end_x2 end_offset_x2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                                        Result::Err error_kind:
+                                                                                            Result::Err error_kind
+                                                                                        Result::Ok right_end_x2:
+                                                                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_checked_reverse_offset_point end_y2 end_offset_y2 GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::OffsetPointInvalid:
+                                                                                                Result::Err error_kind:
+                                                                                                    Result::Err error_kind
+                                                                                                Result::Ok right_end_y2:
+                                                                                                    let path_command_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_path_command_index provenance
+                                                                                                    let edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_edge_index provenance
+                                                                                                    let contour_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_index provenance
+                                                                                                    let contour_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_index provenance
+                                                                                                    let contour_start_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_start_edge_index provenance
+                                                                                                    let contour_end_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_end_edge_index provenance
+                                                                                                    let contour_edge_count %i32 gui_sfnt_simple_glyph_render_stroke_source_metric_provenance_contour_edge_count provenance
+                                                                                                    let geometry %GuiSfntSimpleGlyphRenderStrokeOffsetQuadraticGeometry gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry metric_index path_command_index edge_index contour_index contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 start_normal end_normal left_start_x2 left_start_y2 left_end_x2 left_end_y2 right_start_x2 right_start_y2 right_end_x2 right_end_y2
+                                                                                                    Result::Ok geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_local_invariants %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \owner:
+    let source_owner %&GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get_ref owner "source_owner"
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants source_owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard source_owner:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok _:
+                    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index owner
+                    if lt metric_index 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::GeometryCountNegative
+                        else:
+                            let line_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_line_geometry_count owner
+                            if lt line_geometry_count 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::LineGeometryCountNegative
+                                else:
+                                    let quadratic_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_quadratic_geometry_count owner
+                                    if lt quadratic_geometry_count 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::QuadraticGeometryCountNegative
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_count_checked_add line_geometry_count quadratic_geometry_count:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok counted_geometry_count:
+                                                    if ne metric_index counted_geometry_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::GeometryCountMismatch
+                                                        else:
+                                                            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count source_owner
+                                                            if gt metric_index metric_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::GeometryCountExceeded
+                                                                else:
+                                                                    let line_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_line_provenance_count source_owner
+                                                                    if gt line_geometry_count line_metric_count:
+                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::LineGeometryCountExceeded
+                                                                        else:
+                                                                            let quadratic_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_quadratic_provenance_count source_owner
+                                                                            if gt quadratic_geometry_count quadratic_metric_count:
+                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::QuadraticGeometryCountExceeded
+                                                                                else:
+                                                                                    let geometry_len %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_geometry_len owner
+                                                                                    if ne geometry_len metric_index:
+                                                                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::GeometryStorageLenMismatch
+                                                                                        else:
+                                                                                            let geometry_cap %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_geometry_cap owner
+                                                                                            if ne geometry_cap metric_count:
+                                                                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::GeometryStorageCapacityMismatch
+                                                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_completion_invariants %fn &GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner Result unit GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind \owner:
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_local_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let source_owner %&GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get_ref owner "source_owner"
+            let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index owner
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count source_owner
+            if ne metric_index metric_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::CompletionGeometryCountMismatch
+                else:
+                    let line_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_line_geometry_count owner
+                    let line_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_line_provenance_count source_owner
+                    if ne line_geometry_count line_metric_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::CompletionLineGeometryCountMismatch
+                        else:
+                            let quadratic_geometry_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_quadratic_geometry_count owner
+                            let quadratic_metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_quadratic_provenance_count source_owner
+                            if ne quadratic_geometry_count quadratic_metric_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::CompletionQuadraticGeometryCountMismatch
+                                else:
+                                    let geometry_len %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_geometry_len owner
+                                    if ne geometry_len metric_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::CompletionStorageLenMismatch
+                                        else:
+                                            let geometry_cap %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_geometry_cap owner
+                                            if ne geometry_cap metric_count:
+                                                then Result::Err GuiSfntSimpleGlyphRenderStrokeOffsetGeometryErrorKind::CompletionStorageCapacityMismatch
+                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_start %impure fn GuiSfntSimpleGlyphRenderStrokeSourceContourOwner Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError \source_owner:
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_source_invariants &source_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_source_failed GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind::SourceOwnerInvariantFailed source_owner error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_offset_geometry_style_guard &source_owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_source_failed GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind::StrokeStyleGuardFailed source_owner error_kind
+                Result::Ok _:
+                    let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count &source_owner
+                    match vec::with_capacity metric_count:
+                        Result::Err storage_error_value:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_storage_failed source_owner storage_error_value
+                        Result::Ok geometry:
+                            let geometry_len %i32 vec::len &geometry
+                            if ne geometry_len 0:
+                                then:
+                                    vec::free geometry
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind::GeometryStorageInitialLenMismatch source_owner
+                                else:
+                                    let geometry_cap %i32 vec::cap &geometry
+                                    if ne geometry_cap metric_count:
+                                        then:
+                                            vec::free geometry
+                                            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_simple GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartErrorKind::GeometryStorageCapacityMismatch source_owner
+                                        else:
+                                            let owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner geometry 0 0 0
+                                            Result::Ok owner
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner fn GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \owner\geometry_value\next_metric_index\nnext_line_count\nnext_quadratic_count:
+    let previous_metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index &owner
+    let previous_line_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_line_geometry_count &owner
+    let previous_quadratic_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_quadratic_geometry_count &owner
+    let source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get owner "source_owner"
+    let geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get owner "geometry"
+    match vec::push geometry geometry_value:
+        Result::Ok next_geometry:
+            let next_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner next_geometry next_metric_index next_line_count next_quadratic_count
+            Result::Ok next_owner
+        Result::Err push_error:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+            let returned_geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry vec::vec_push_error_vec push_error
+            let returned_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner source_owner returned_geometry previous_metric_index previous_line_count previous_quadratic_count
+            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_push_failed returned_owner geometry_value storage_error_value
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_line %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \owner\provenance\line_metric\stroke_width:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index &owner
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_provenance_guard &provenance metric_index GuiSfntSimpleGlyphPathCommandTag::LineTo:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric error_kind owner metric_index
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_offset_line_geometry_from_metric &provenance &line_metric stroke_width:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric error_kind owner metric_index
+                Result::Ok line_geometry:
+                    let geometry_value %GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry::Line line_geometry
+                    let line_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_line_geometry_count &owner
+                    let quadratic_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_quadratic_geometry_count &owner
+                    let next_metric_index %i32 add metric_index 1
+                    let next_line_count %i32 add line_count 1
+                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry owner geometry_value next_metric_index next_line_count quadratic_count:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_owner:
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::GeometryPushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_quadratic %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric fn i32 Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \owner\provenance\quadratic_metric\stroke_width:
+    let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index &owner
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_provenance_guard &provenance metric_index GuiSfntSimpleGlyphPathCommandTag::QuadraticTo:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric error_kind owner metric_index
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_stroke_offset_quadratic_geometry_from_metric &provenance &quadratic_metric stroke_width:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric error_kind owner metric_index
+                Result::Ok quadratic_geometry:
+                    let geometry_value %GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry::Quadratic quadratic_geometry
+                    let line_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_line_geometry_count &owner
+                    let quadratic_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_quadratic_geometry_count &owner
+                    let next_metric_index %i32 add metric_index 1
+                    let next_quadratic_count %i32 add quadratic_count 1
+                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_geometry owner geometry_value next_metric_index line_count next_quadratic_count:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_owner:
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::GeometryPushed next_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_step %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner Result GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError \owner:
+    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_local_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_simple error_kind owner
+        Result::Ok _:
+            let metric_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_metric_index &owner
+            let source_owner %&GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get_ref &owner "source_owner"
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_contour_owner_metric_provenance_count source_owner
+            if eq metric_index metric_count:
+                then:
+                    match gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_completion_invariants &owner:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_simple error_kind owner
+                        Result::Ok _:
+                            let source_owner_value %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get owner "source_owner"
+                            let geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get owner "geometry"
+                            let line_geometry_count %i32 field::get owner "line_geometry_count"
+                            let quadratic_geometry_count %i32 field::get owner "quadratic_geometry_count"
+                            let completed_owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner source_owner_value geometry metric_count line_geometry_count quadratic_geometry_count
+                            Result::Ok GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::Completed completed_owner
+                else:
+                    let metric_owner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref source_owner "metric_owner"
+                    let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref metric_owner "plan_owner"
+                    let stroke %GuiStroke gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_stroke plan_owner
+                    let stroke_width %i32 gui_stroke_width &stroke
+                    match gui_sfnt_simple_glyph_render_stroke_source_contour_owner_read_provenance_for_offset_geometry source_owner metric_index:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric error_kind owner metric_index
+                        Result::Ok provenance:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_read_metric_for_offset_geometry metric_owner metric_index:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_with_metric error_kind owner metric_index
+                                Result::Ok metric:
+                                    match metric:
+                                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line line_metric:
+                                            gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_line owner provenance line_metric stroke_width
+                                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic quadratic_metric:
+                                            gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_push_quadratic owner provenance quadratic_metric stroke_width
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner unit \owner:
+    let source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get owner "source_owner"
+    let geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get owner "geometry"
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free source_owner
+    vec::free geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwner unit \owner:
+    let source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get owner "source_owner"
+    let geometry %Vec GuiSfntSimpleGlyphRenderStrokeOffsetSegmentGeometry field::get owner "geometry"
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free source_owner
+    vec::free geometry
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryOwnerStartError unit \error:
+    let source_owner %GuiSfntSimpleGlyphRenderStrokeSourceContourOwner field::get error "source_owner"
+    gui_sfnt_simple_glyph_render_stroke_source_contour_owner_free source_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::GeometryPushed owner:
+            gui_sfnt_simple_glyph_render_stroke_offset_geometry_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeOffsetGeometryDrainTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_stroke_offset_geometry_owner_free owner
+
 //: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
 //:
 //: [目的/もくてき]:
