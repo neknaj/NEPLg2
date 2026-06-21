@@ -104,6 +104,41 @@
 - actual Resource IR traversal 本体が real Resource IR / HIR lowering result から traversal source table を作る境界。
 - candidate consistency を fresh private cache region proof と no-escape Resource proof へ進める checker-layer boundary。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、prechecked artifact key projection。
+# 2026-06-21 Agent2 GUI native F5kn Linux X11 setup-owned keyboard mapping reader scheduling boundary
+
+## 目的
+
+- F5km の setup-owned `GetKeyboardMapping` request owner を X11 observation reader の explicit lifecycle state に接続する。
+- request scheduling / fd write / reply correlation / dedicated reply body owner までを扱い、key selection や event decode の意味付けには進まない。
+- keycode -> keysym layout selection、portable key projection、keyboard event decode、IME / text input、shortcut、Wayland concrete keyboard、runner、queue、fallback、silent no-op は扱わない。
+
+## 実装内容
+
+- `NativeWindowLinuxX11KeyboardMappingRequestWriteState` を追加し、`NotConfigured` / `SetupBackedBuildPending` / `RequestPending` / `ReplyPending` / `Ready` / `Failed` で lifecycle を保持するようにした。
+- reader は setup ready 後に `setup_resource_info` から request を build し、8 byte request 全体が accepted write された時だけ normal X11 request sequence を割り当てる。
+- partial write / would-block では request owner、written length、sequence 未確定状態を保持する。hard failure / zero write / overflow は typed error で failed state にする。
+- matched keymap reply は generic reply drain に混ぜず、header と body bytes を dedicated pending owner に保持し、would-block 後も同じ owner から drain を再開する。
+- body completion 後だけ F5kl parser へ渡し、raw keysyms を `NativeWindowLinuxX11KeyboardMappingRawKeysyms` として保持する。
+- server error packet が keymap request sequence と一致した場合は `KeyboardMapping` correlation として返し、`Unmatched` に落とさない。
+- F5kn の仕様、実装計画、native behavior notes、source-policy、todo を更新した。
+
+## subagent review
+
+- James は実装前 plan review で `CHANGES_REQUESTED`。主な指摘は、F5kn の spec/current-state/todo 反映、reader-owned state、dedicated reply body owner、would-block recovery、sequence は full 8 byte accepted write 後だけ、server error correlation、raw keysyms で止めること、partial write / reply parse / missing setup resource info の tests だった。
+- 指摘に従い、docs と todo を先に反映し、implementation では dedicated body owner と typed failure lifecycle を追加した。
+- James implementation review は `REVIEW_APPROVED`。lifecycle、8 byte accepted write 後の sequence boundary、partial write / would-block recovery、dedicated reply body owner、server error correlation、raw keysyms 境界を確認した。
+
+## 検証
+
+- pass: `cargo fmt -p nepl-gui-native -- --check`
+- pass: `cargo check -p nepl-gui-native --lib --tests`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_backed_keyboard_mapping -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_keyboard_mapping -- --nocapture`
+- pass: `cargo test -p nepl-gui-native --lib native_window_linux_x11_setup_keyboard_mapping -- --nocapture`
+- pass: `node --check nodesrc/test_native_gui_platform_behavior.js`
+- pass: `node nodesrc/test_native_gui_platform_behavior.js`
+- pass: `git diff --check`
+
 # 2026-06-21 Agent2 GUI native F5km Linux X11 setup-owned keyboard mapping request boundary
 
 ## 目的

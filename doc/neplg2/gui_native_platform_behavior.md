@@ -555,6 +555,8 @@ F5kl では、X11 `GetKeyboardMapping` の request / reply shape を typed owner
 
 F5km では、X11 setup success response body の `min-keycode` / `max-keycode` を `NativeWindowLinuxX11SetupResourceInfo` に保持し、その範囲から F5kl の `GetKeyboardMapping` request owner を導出する。setup parser は `min-keycode < 8` と `max-keycode < min-keycode` を typed error として拒否する。`keycode_count = max - min + 1` は checked arithmetic で求め、unchecked cast や saturating / wrapping 計算を使わない。F5km は setup-owned request derivation boundary であり、reader state、fd IO、reply correlation、pending keymap state、raw keysym selection、portable key projection、event decode、IME / text input、shortcut policy、runner、queue、fallback、support gate `Ok` 化には接続しない。
 
+F5kn では、F5km の setup-owned `GetKeyboardMapping` request を X11 observation reader の明示 lifecycle state に接続する。reader は setup ready 後に request を partial-write し、8 byte request 全体が accepted された場合だけ normal request sequence を割り当てる。matched reply は generic body drain で捨てず、dedicated pending body owner に保持して would-block から再開し、body が揃った後だけ raw keysym table parser へ渡す。server error も accepted keymap sequence に照合する。F5kn は reader scheduling / fd write / reply correlation / raw keysym owner 生成だけを扱い、keycode -> keysym selection、portable key projection、event decode 接続、IME / text input、shortcut policy、Wayland concrete decoding、Linux runner / CLI dispatch、queue、fallback、support gate `Ok` 化には接続しない。
+
 ## Current implementation
 
 `nepl-gui-native` は正式な `std/gui::GuiHost` ではなく、native smoke backend である。
