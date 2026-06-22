@@ -173,6 +173,8 @@ const allocRender2dRowTileRlePacketRecord = read("stdlib/alloc/gui/render2d/row_
 const allocRender2dRowTileRlePacketRecordImpl = withoutComments(allocRender2dRowTileRlePacketRecord);
 const stdGuiTilePresent = read("stdlib/std/gui/tile_present.nepl");
 const stdGuiTilePresentImpl = withoutComments(stdGuiTilePresent);
+const stdGuiCompositorTilePresent = read("stdlib/std/gui/compositor_tile_present.nepl");
+const stdGuiCompositorTilePresentImpl = withoutComments(stdGuiCompositorTilePresent);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -414,6 +416,7 @@ const guiRender2dRowTileRleEncodedTests = read("tests/stdlib/gui_render2d_row_ti
 const guiRender2dRowTileRlePacketTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet.n.md");
 const guiRender2dRowTileRlePacketRecordTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet_record.n.md");
 const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
+const guiStdCompositorTilePresentTests = read("tests/stdlib/gui_std_compositor_tile_present.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -28863,6 +28866,156 @@ assert(
         guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_free_delegates_lower_packet_ok") &&
         guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_no_record_present_raw_fallback"),
     "F5mp compositor tile RLE packet focused doctest/source policy must cover facade runtime type, prepare, descriptor wrapper/scalars, metadata, encoded recovery, source-policy error recovery, lower free delegation, and no record/present/raw/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mq") &&
+            doc.includes("compositor tile RLE present-frame bridge") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentFrameOwner") &&
+            doc.includes("GuiRgba8888CompositorTileRlePacketOwner") &&
+            doc.includes("gui_rgba8888_row_tile_rle_present_frame_prepare") &&
+            doc.includes("SurfaceId") &&
+            doc.includes("packet record") &&
+            doc.includes("fallback"),
+        `F5mq ${name} must document compositor present-frame bridge, packet owner input, surface/frame validation, deferred record/host path, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mq") &&
+        implementationPlan.includes("Avicenna plan review") &&
+        implementationPlan.includes("caller supplied `SurfaceId`") &&
+        implementationPlan.includes("metadata frame id") &&
+        implementationPlan.includes("lower F5cn"),
+    "F5mq implementation plan must record subagent review, caller supplied surface, metadata frame validation, and lower F5cn delegation",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present" as *'), "std/gui facade must export F5mq compositor tile present bridge");
+assert(
+    stdGuiCompositorTilePresent.includes("pub enum GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:") &&
+        stdGuiCompositorTilePresent.includes("FrameIdInvalid") &&
+        stdGuiCompositorTilePresent.includes("FrameIdMismatch") &&
+        stdGuiCompositorTilePresent.includes("PresentFramePrepareFailed %GuiRgba8888RowTileRlePresentFramePrepareErrorKind") &&
+        stdGuiCompositorTilePresent.includes("pub struct GuiRgba8888CompositorTileRlePresentFrameDescriptor:") &&
+        stdGuiCompositorTilePresent.includes("present %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiCompositorTilePresent.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        stdGuiCompositorTilePresent.includes("pub struct GuiRgba8888CompositorTileRlePresentFrameOwner:") &&
+        stdGuiCompositorTilePresent.includes("present %GuiRgba8888RowTileRlePresentFrameOwner") &&
+        stdGuiCompositorTilePresent.includes("pub struct GuiRgba8888CompositorTileRlePresentFramePrepareError:") &&
+        stdGuiCompositorTilePresent.includes("packet %GuiRgba8888CompositorTileRlePacketOwner"),
+    "std/gui/compositor_tile_present F5mq must define typed error kind, metadata-wrapped descriptor, owner, and owner-bearing prepare error",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRlePresentFrameOwner|GuiRgba8888CompositorTileRlePresentFramePrepareError)\b/,
+    "std/gui/compositor_tile_present F5mq owner-bearing success and error structs must not implement Clone or Copy",
+);
+assertMatch(
+    stdGuiCompositorTilePresentImpl,
+    /impl\s+Clone\s+for\s+GuiRgba8888CompositorTileRlePresentFrameDescriptor:[\s\S]*impl\s+Copy\s+for\s+GuiRgba8888CompositorTileRlePresentFrameDescriptor:/,
+    "std/gui/compositor_tile_present F5mq descriptor wrapper must be Clone and Copy",
+);
+const compositorTilePresentPrepare = functionSlice(stdGuiCompositorTilePresentImpl, "gui_rgba8888_compositor_tile_rle_present_frame_prepare");
+assertOrderedFragments(
+    compositorTilePresentPrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata &packet",
+        "let packet_descriptor %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_descriptor &packet",
+        "let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata",
+        "let packet_frame_id %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id &packet_descriptor",
+        "if ne metadata_frame_id packet_frame_id:",
+        "GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind::FrameIdMismatch",
+        "match frame_id_result metadata_frame_id:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_local GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind::FrameIdInvalid packet",
+        'let lower_packet %GuiRgba8888RowTileRlePacketOwner field::get packet "packet"',
+        "match gui_rgba8888_row_tile_rle_present_frame_prepare surface frame lower_packet:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_present_frame_owner_new present metadata",
+    ],
+    "std/gui/compositor_tile_present F5mq prepare must copy metadata/descriptor, validate metadata frame id, preserve owner on local failure, and call lower F5cn once",
+);
+assert(
+    (compositorTilePresentPrepare.match(/\bgui_rgba8888_row_tile_rle_present_frame_prepare\b/g) || []).length === 1,
+    "std/gui/compositor_tile_present F5mq prepare helper must call lower F5cn present prepare exactly once",
+);
+assertNoMatch(
+    compositorTilePresentPrepare,
+    /\b(?:tile_present_run_cursor|tile_present_command_cursor|tile_present_host_command|tile_present_run_span|gui_rgba8888_row_tile_rle_packet_record|row_tile_rle_packet_record|gui_rgba8888_row_tile_rle_packet_record_at|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|byte_at|RegionToken|MemPtr|load_u8|store_u8|region_ptr_at|mem_ptr_addr|surface_id_raw|surface_id_result|frame_id_unchecked|GuiOpaqueIdProof|finish_encoded|finish_payload|finish_entry|GuiSurfacePresentCommand|PresentPixelFrame|GuiPixelBufferDescriptor|host|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/,
+    "std/gui/compositor_tile_present F5mq prepare must not start cursors, read packet records/raw bytes, create old surface commands, call host/platform APIs, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentImpl, "gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888RowTileRlePresentFramePrepareErrorKind gui_rgba8888_row_tile_rle_present_frame_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_present_frame_prepare_error_category_value &lower",
+        "let lower_packet %GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_frame_prepare_error_finish_packet lower",
+        "let packet %GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePacketOwner lower_packet metadata",
+        "GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind::PresentFramePrepareFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_new kind category packet",
+    ],
+    "std/gui/compositor_tile_present F5mq lower error wrapper must read lower kind/category before packet owner recovery",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentImpl, "gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_packet"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_owner_metadata &owner",
+        'let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner "present"',
+        "let lower_packet %GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_frame_finish_packet present",
+        "GuiRgba8888CompositorTileRlePacketOwner lower_packet metadata",
+    ],
+    "std/gui/compositor_tile_present F5mq finish packet must preserve metadata and normalize lower present owner to compositor packet owner",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentImpl, "gui_rgba8888_compositor_tile_rle_present_frame_owner_free"),
+    [
+        'let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner "present"',
+        "match gui_rgba8888_row_tile_rle_present_frame_owner_free present:",
+        "Result::Err GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind",
+        "Result::Ok unit",
+    ],
+    "std/gui/compositor_tile_present F5mq owner free must delegate to lower present owner free and wrap lower finish kind",
+);
+const f5mqLowerPresentFunctions = Array.from(stdGuiCompositorTilePresentImpl.matchAll(/\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+\b/g), (match) => match[0]);
+const f5mqAllowedLowerPresentFunctions = new Set([
+    "gui_rgba8888_row_tile_rle_present_frame_prepare_error_kind",
+    "gui_rgba8888_row_tile_rle_present_frame_prepare_error_category_value",
+    "gui_rgba8888_row_tile_rle_present_frame_prepare_error_finish_packet",
+    "gui_rgba8888_row_tile_rle_present_frame_prepare",
+    "gui_rgba8888_row_tile_rle_present_frame_descriptor",
+    "gui_rgba8888_row_tile_rle_present_descriptor_surface",
+    "gui_rgba8888_row_tile_rle_present_descriptor_frame",
+    "gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count",
+    "gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count",
+    "gui_rgba8888_row_tile_rle_present_frame_finish_packet",
+    "gui_rgba8888_row_tile_rle_present_frame_owner_free",
+]);
+assert(
+    f5mqLowerPresentFunctions.every((name) => f5mqAllowedLowerPresentFunctions.has(name)),
+    "std/gui/compositor_tile_present F5mq may only call lower F5cn present prepare/error/descriptor/finish helpers",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentImpl,
+    /\b(?:tile_present_run_cursor|tile_present_command_cursor|tile_present_host|tile_present_schedule|tile_present_dispatch|tile_present_run_span|gui_rgba8888_row_tile_rle_packet_record|row_tile_rle_packet_record|gui_rgba8888_row_tile_rle_packet_record_at|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|byte_at|RegionToken|MemPtr|load_u8|store_u8|region_ptr_at|mem_ptr_addr|surface_id_raw|surface_id_result|frame_id_unchecked|GuiOpaqueIdProof|finish_encoded|finish_payload|finish_entry|GuiSurfacePresentCommand|PresentPixelFrame|GuiPixelBufferDescriptor|Vec|queue|host|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/,
+    "std/gui/compositor_tile_present F5mq must not expose cursor/record/raw/old command/host/platform/fallback APIs",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present F5mq implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_facade_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_prepare_error_kind_runtime_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_prepare_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_metadata_validation_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_owner_recovery_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_lower_present_recovery_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_free_delegates_packet_ok") &&
+        guiStdCompositorTilePresentTests.includes("std_compositor_tile_rle_present_frame_no_cursor_record_host_platform_fallback"),
+    "F5mq compositor tile present focused doctest/source policy must cover facade runtime type, prepare, metadata validation, owner/lower recovery, free delegation, and no cursor/record/host/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

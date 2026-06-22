@@ -1,3 +1,54 @@
+# 2026-06-22 Agent2 GUI std F5mq compositor tile RLE present-frame bridge boundary
+
+## 目的
+
+- F5mp の `GuiRgba8888CompositorTileRlePacketOwner` と caller supplied `SurfaceId` から lower F5cn `gui_rgba8888_row_tile_rle_present_frame_prepare` へ進む std compositor tile RLE present-frame bridge を追加する。
+- compositor metadata の frame id と packet descriptor frame id を lower owner 分解前に照合し、valid `FrameId` を作った後だけ lower present prepare を 1 回呼ぶ。
+- この boundary は std present-frame owner への橋渡しに留め、run cursor / packet record / host import / platform API / fallback へ進まない。
+
+## 実装内容
+
+- `stdlib/std/gui/compositor_tile_present.nepl` を追加した。
+- `GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind`、`GuiRgba8888CompositorTileRlePresentFrameDescriptor`、`GuiRgba8888CompositorTileRlePresentFrameOwner`、`GuiRgba8888CompositorTileRlePresentFramePrepareError` を追加した。
+- `gui_rgba8888_compositor_tile_rle_present_frame_prepare` は metadata と packet descriptor を Copy してから metadata frame id と packet descriptor frame id を照合し、一致した frame id だけを `frame_id_result` で `FrameId` に変換する。
+- local validation failure は original compositor packet owner を owner-bearing error に保持する。
+- lower F5cn prepare failure は lower kind / category を読んでから lower packet owner を回収し、metadata 付き compositor packet owner に戻す。
+- success owner は lower present-frame owner と metadata を束ね、descriptor wrapper は lower present descriptor と metadata を Copy value として返す。
+- `owner_finish_packet`、`prepare_error_finish_packet`、`prepare_error_free`、`owner_free` を追加した。`owner_free` は lower present-frame owner free に委譲し、lower encoded finish kind を compositor encoded finish kind に包む。
+- `finish_encoded` / `finish_payload` / `finish_entry`、run cursor、packet record reader、raw memory、host / platform API、fallback / silent no-op は追加していない。
+- `stdlib/std/gui.nepl` facade、`tests/stdlib/gui_std_compositor_tile_present.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mq contract に合わせて更新する。
+
+## plan.md との差異
+
+- F5mq は 2D compositor の formal tile RLE transport を std present-frame owner へ接続する中間境界であり、plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う。
+- 現時点では run cursor、packet record reader、host present、platform present continuation には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Avicenna plan review は `PLAN_APPROVED`。
+- F5mp は lower packet owner と compositor metadata の保持、F5cn は `SurfaceId` / `FrameId` と packet descriptor の std present 検証、F5co は後段 run cursor / record reader なので、F5mq は責務衝突しないと確認された。
+- `FrameId` は `frame_id_result` で作り、metadata frame id と packet frame id を owner 分解前に読み、不一致を `FrameIdMismatch`、invalid frame id を `FrameIdInvalid` とする方針が承認された。
+- lower F5cn error は kind / category を先に読み、lower packet owner を metadata 付き compositor packet owner に戻す方針が承認された。
+- F5mq success wrapper には `finish_packet` を置き、F5mp に lower packet owner を裸で取り出す public helper は追加しない方針が承認された。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present.n.md --no-tree -o tmp_gui_std_compositor_tile_present_f5mq.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present.nepl --no-tree -o tmp_gui_std_compositor_tile_present_module_f5mq.json -j 1`（27/27）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_packet_f5mq_regression.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5mq_regression.json -j 1`（1/1）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5mq.json`
+- checked JSON: `tmp_playground_editor_f5mq.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 残り
+
+- F5mq 後続として、std present-frame owner から run cursor / command cursor / host continuation へ進む既存 F5co 以降との compositor wrapper 接続、または formal host presentation continuation を実装する。
+
 # 2026-06-22 Agent2 GUI render2d F5mp compositor tile RLE packet bridge boundary
 
 ## 目的

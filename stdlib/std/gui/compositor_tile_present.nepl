@@ -1,0 +1,381 @@
+//: # std/gui/compositor_tile_present
+//: compositor tile RLE packet を std present-frame owner へ[渡/わた]す bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - `alloc/gui/render2d` の compositor packet owner を、既存 F5cn の std row tile RLE present-frame owner に[接続/せつぞく]します。
+//: - compositor metadata の frame id と lower packet descriptor の frame id を[照合/しょうごう]し、surface id は caller supplied typed id として F5cn に[渡/わた]します。
+//:
+//: ### [契約/けいやく]
+//: - success path は lower present-frame owner と compositor metadata を `GuiRgba8888CompositorTileRlePresentFrameOwner` に[束/たば]ねます。
+//: - failure path は owner-bearing error として original compositor packet owner を[保持/ほじ]します。
+//: - host import、run cursor、packet record reader、raw byte access、platform API、fallback / silent no-op はこの module に[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/window" as *
+
+//: GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind: present-frame bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: compositor metadata 側の frame id 問題と、lower F5cn present prepare failure を[分/わ]けて[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:
+    FrameIdInvalid
+    FrameIdMismatch
+    PresentFramePrepareFailed %GuiRgba8888RowTileRlePresentFramePrepareErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentFrameDescriptor: lower present descriptor と compositor metadata の Copy descriptor
+//:
+//: present-frame owner を[消費/しょうひ]せずに、std present descriptor と compositor metadata を同時に[読/よ]めるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentFrameDescriptor:
+    present %GuiRgba8888RowTileRlePresentDescriptor
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+impl Clone for GuiRgba8888CompositorTileRlePresentFrameDescriptor:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePresentFrameDescriptor \descriptor:
+        *descriptor
+
+impl Copy for GuiRgba8888CompositorTileRlePresentFrameDescriptor:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePresentFrameDescriptor \descriptor:
+        descriptor
+
+//: GuiRgba8888CompositorTileRlePresentFrameOwner: std present-frame owner と compositor metadata の owner
+//:
+//: lower F5cn present owner を[保持/ほじ]しつつ、abort / recovery 時に compositor metadata を[失/うしな]わないための wrapper です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentFrameOwner:
+    present %GuiRgba8888RowTileRlePresentFrameOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTileRlePresentFramePrepareError: compositor packet owner を[回収/かいしゅう]できる prepare error
+//:
+//: local validation failure と lower F5cn failure のどちらでも、metadata [付/つ]き compositor packet owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentFramePrepareError:
+    kind %GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind
+    category %Option GuiError
+    packet %GuiRgba8888CompositorTileRlePacketOwner
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_owner_new: lower present owner と metadata を[束/たば]ねる
+//:
+//: lower F5cn prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_frame_owner_new %fn GuiRgba8888RowTileRlePresentFrameOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePresentFrameOwner \present\metadata:
+    GuiRgba8888CompositorTileRlePresentFrameOwner present metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_new: lower present descriptor と metadata を[束/たば]ねる
+//:
+//: success owner の descriptor accessor が[返/かえ]す Copy wrapper を[作/つく]ります。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_new %fn GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePresentFrameDescriptor \present\metadata:
+    GuiRgba8888CompositorTileRlePresentFrameDescriptor present metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_new: prepare error payload を[作/つく]る
+//:
+//: kind、category、recovery packet owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_new %fn GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePresentFramePrepareError \kind\category\packet:
+    GuiRgba8888CompositorTileRlePresentFramePrepareError kind category packet
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_local: bridge local validation error を[作/つく]る
+//:
+//: metadata frame id の local failure では original compositor packet owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_local %fn GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind fn GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePresentFramePrepareError \kind\packet:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_new kind category packet
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_from_lower: lower F5cn error を compositor packet error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから lower packet owner を[回収/かいしゅう]し、metadata [付/つ]き compositor packet owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_from_lower %fn GuiRgba8888RowTileRlePresentFramePrepareError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePresentFramePrepareError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRlePresentFramePrepareErrorKind gui_rgba8888_row_tile_rle_present_frame_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_frame_prepare_error_category_value &lower
+    let lower_packet %GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_frame_prepare_error_finish_packet lower
+    let packet %GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePacketOwner lower_packet metadata
+    let kind %GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind::PresentFramePrepareFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_new kind category packet
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare: compositor packet owner を std present-frame owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - metadata と descriptor を packet owner から Copy してから lower packet owner を[移/うつ]します。
+//: - compositor metadata の frame id で `FrameId` を[作/つく]り、packet descriptor frame id と[一致/いっち]しない場合は owner-bearing error にします。
+//: - lower F5cn prepare を 1 [回/かい]だけ[呼/よ]び、lower failure では packet owner を metadata [付/つ]き compositor owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare %fn SurfaceId fn GuiRgba8888CompositorTileRlePacketOwner Result GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePresentFramePrepareError \surface\packet:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata &packet
+    let packet_descriptor %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_descriptor &packet
+    let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata
+    let packet_frame_id %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id &packet_descriptor
+    if ne metadata_frame_id packet_frame_id:
+        then Result::Err gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_local GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind::FrameIdMismatch packet
+        else:
+            match frame_id_result metadata_frame_id:
+                Result::Err _:
+                    Result::Err gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_local GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind::FrameIdInvalid packet
+                Result::Ok frame:
+                    let lower_packet %GuiRgba8888RowTileRlePacketOwner field::get packet "packet"
+                    match gui_rgba8888_row_tile_rle_present_frame_prepare surface frame lower_packet:
+                        Result::Err lower:
+                            Result::Err gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_from_lower lower metadata
+                        Result::Ok present:
+                            Result::Ok gui_rgba8888_compositor_tile_rle_present_frame_owner_new present metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_owner_metadata: success owner の metadata を[返/かえ]す
+//:
+//: lower present owner を[消費/しょうひ]せず、copied compositor metadata を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_metadata %fn &GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_owner_descriptor: metadata [付/つ]き present descriptor を[返/かえ]す
+//:
+//: lower present descriptor と compositor metadata を Copy wrapper に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_descriptor %fn &GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePresentFrameDescriptor \owner:
+    let present %&GuiRgba8888RowTileRlePresentFrameOwner field::get_ref owner "present"
+    let present_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_frame_descriptor present
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_owner_metadata owner
+    gui_rgba8888_compositor_tile_rle_present_frame_descriptor_new present_descriptor metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present: lower present descriptor を[返/かえ]す
+//:
+//: scalar accessor が lower F5cn descriptor accessor に[委譲/いじょう]するための Copy projection です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888RowTileRlePresentDescriptor \descriptor:
+    *field::get_ref descriptor "present"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata: descriptor の metadata を[返/かえ]す
+//:
+//: descriptor wrapper に[保持/ほじ]した compositor metadata を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorFrameEntryMetadata \descriptor:
+    *field::get_ref descriptor "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface: descriptor の surface id を[返/かえ]す
+//:
+//: lower present descriptor の surface accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor SurfaceId \descriptor:
+    let present %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present descriptor
+    gui_rgba8888_row_tile_rle_present_descriptor_surface &present
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame: descriptor の frame id を[返/かえ]す
+//:
+//: lower present descriptor の frame accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor FrameId \descriptor:
+    let present %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present descriptor
+    gui_rgba8888_row_tile_rle_present_descriptor_frame &present
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count: expected run count を[返/かえ]す
+//:
+//: lower present descriptor の expected run count accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor i32 \descriptor:
+    let present %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present descriptor
+    gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count &present
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count: expected pixel count を[返/かえ]す
+//:
+//: lower present descriptor の expected pixel count accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor i32 \descriptor:
+    let present %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present descriptor
+    gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count &present
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_kind: prepare error kind を[返/かえ]す
+//:
+//: owner-bearing error を[消費/しょうひ]せず、失敗分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_kind %fn &GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_category_value: prepare error category を[返/かえ]す
+//:
+//: local validation または lower F5cn error 由来の coarse `GuiError` を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_category_value %fn &GuiRgba8888CompositorTileRlePresentFramePrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_metadata: recovery packet owner の metadata を[返/かえ]す
+//:
+//: error が[保持/ほじ]する compositor packet owner から metadata を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_metadata %fn &GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorFrameEntryMetadata \error:
+    let packet %&GuiRgba8888CompositorTileRlePacketOwner field::get_ref error "packet"
+    gui_rgba8888_compositor_tile_rle_packet_owner_metadata packet
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_finish_packet: error から compositor packet owner を[取/と]り[出/だ]す
+//:
+//: caller が retry / recovery / free を[選/えら]べるように recovery owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_finish_packet %fn GuiRgba8888CompositorTileRlePresentFramePrepareError GuiRgba8888CompositorTileRlePacketOwner \error:
+    field::get error "packet"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_present_frame: lower present-frame owner を[取/と]り[出/だ]す
+//:
+//: 後続 present cursor / host continuation が lower std present owner を[消費/しょうひ]するための明示的な escape hatch です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_present_frame %fn GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888RowTileRlePresentFrameOwner \owner:
+    field::get owner "present"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_packet: success owner を compositor packet owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower present-frame owner を[閉/と]じ、lower packet owner を metadata [付/つ]き packet owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_packet %fn GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePacketOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_owner_metadata &owner
+    let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner "present"
+    let lower_packet %GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_frame_finish_packet present
+    GuiRgba8888CompositorTileRlePacketOwner lower_packet metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_free: prepare error の recovery packet owner を[閉/と]じる
+//:
+//: error が[保持/ほじ]する compositor packet owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_free %fn GuiRgba8888CompositorTileRlePresentFramePrepareError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    let packet %GuiRgba8888CompositorTileRlePacketOwner gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_finish_packet error
+    gui_rgba8888_compositor_tile_rle_packet_owner_free packet
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_owner_free: success present owner を[閉/と]じる
+//:
+//: lower present-frame owner free に[委譲/いじょう]し、lower encoded finish kind を compositor encoded finish kind に[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_free %fn GuiRgba8888CompositorTileRlePresentFrameOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner "present"
+    match gui_rgba8888_row_tile_rle_present_frame_owner_free present:
+        Result::Err lower_kind:
+            Result::Err GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind
+        Result::Ok _:
+            Result::Ok unit

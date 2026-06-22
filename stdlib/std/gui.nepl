@@ -21,6 +21,7 @@ pub #import "alloc/gui" as *
 pub #import "./gui/window" as *
 pub #import "./gui/surface" as *
 pub #import "./gui/tile_present" as *
+pub #import "./gui/compositor_tile_present" as *
 pub #import "./gui/tile_present_run_cursor" as *
 pub #import "./gui/tile_present_command_cursor" as *
 pub #import "./gui/tile_present_host_command" as *

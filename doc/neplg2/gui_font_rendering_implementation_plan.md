@@ -5039,6 +5039,58 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mp.json
 ```
 
+## Phase F5mq: std compositor tile RLE present-frame bridge boundary
+
+目的:
+
+- F5mp の `GuiRgba8888CompositorTileRlePacketOwner` と caller supplied `SurfaceId` を authority とし、既存 lower F5cn `gui_rgba8888_row_tile_rle_present_frame_prepare` を compositor metadata 付きで接続する。
+- metadata frame id と packet descriptor frame id を lower owner 分解前に照合し、一致した frame id だけを `frame_id_result` で `FrameId` に変換する。
+- lower F5cn present prepare を 1 回だけ呼び、success では lower present-frame owner と copied metadata を `GuiRgba8888CompositorTileRlePresentFrameOwner` として束ねる。
+- この phase では std present-frame owner bridge に留め、packet record reader、run cursor、command cursor、host / platform API、host present、dispatch、scheduler、video memory、Canvas / DOM / minifb、transport execution、fallback / silent no-op へ進まない。no cursor / record / host / platform の compositor tile RLE present-frame bridge で止める。
+
+plan review:
+
+- Avicenna plan review は `PLAN_APPROVED`。
+- F5mp は lower packet owner と compositor metadata の保持で止まり、F5cn は `SurfaceId` / `FrameId` と packet descriptor の std present 検証を担当するため、F5mq はその間の bridge として責務衝突しない。
+- `FrameId` は必ず `frame_id_result` で作る。metadata frame id と packet frame id を owner 分解前に読み、まず不一致を `FrameIdMismatch`、一致した値が invalid な場合を `FrameIdInvalid` にする。
+- lower packet owner を取り出す前に metadata を Copy し、bridge-local error は original compositor packet owner を保持する。lower F5cn error は kind / category を読んでから lower packet owner を回収し、metadata 付き compositor packet owner に戻す。
+- success wrapper には `finish_packet` を置き、lower present-frame owner から compositor packet owner を再構成できるようにする。free は lower present-frame owner free に委譲し、lower encoded finish kind を compositor encoded finish kind に包む。
+- source policy で facade export、typed owner/error/descriptor、owner-bearing no Clone / Copy、descriptor wrapper Clone / Copy、single lower F5cn prepare call、metadata / descriptor read before owner consume、frame mismatch / invalid frame id handling、lower error kind/category before packet owner recovery、packet record / cursor / host / platform / raw memory / fallback 禁止、F5mp lower packet extraction helper 不要を検査する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind`、`GuiRgba8888CompositorTileRlePresentFrameDescriptor`、`GuiRgba8888CompositorTileRlePresentFrameOwner`、`GuiRgba8888CompositorTileRlePresentFramePrepareError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。descriptor wrapper は Clone / Copy を実装する。
+- `gui_rgba8888_compositor_tile_rle_present_frame_prepare` は metadata と packet descriptor を Copy してから metadata frame id と packet descriptor frame id を照合し、valid `FrameId` を作った後だけ lower packet owner を取り出して lower F5cn present prepare を 1 回だけ呼ぶ。
+- lower F5cn error は lower kind / category を読んでから lower packet owner を取り出し、metadata 付き F5mp packet owner を持つ prepare error に正規化する。lower present prepare error を公開 recovery payload にしない。
+- `owner_finish_packet`、`prepare_error_finish_packet`、`prepare_error_free`、`owner_free` を追加する。`prepare_error_free` は F5mp packet owner free に委譲し、`owner_free` は lower present-frame owner free に委譲する。
+- `finish_encoded` / `finish_payload` / `finish_entry` は作らない。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present-frame bridge を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present.n.md` を追加し、default runtime smoke で facade / wrapped lower present error kind を固定し、source policy fixture で lower present prepare success、metadata validation、owner recovery、lower present recovery、free delegation、no cursor / record / host / platform / fallback label を固定する。malformed present wrapper 直 constructor 禁止 compile_fail も追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mq source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Avicenna approval、facade export、typed prepare error variants、metadata 付き present-frame owner success、metadata付き descriptor wrapper、packet owner recovery error、owner-bearing success / error no Clone / Copy、descriptor wrapper Clone / Copy、lower F5cn prepare exact once、metadata / descriptor read before lower owner consume、frame mismatch / invalid frame id owner recovery、lower error kind/category before packet owner recovery、success finish packet の lower present finish packet 経由 recovery、prepare error free の F5mp packet owner free 委譲、present owner free の lower present owner free 委譲、`finish_encoded` / `finish_payload` / `finish_entry` 禁止、packet record / cursor / raw byte access / host / platform / fallback 禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5mp packet regression、F5cn tile present regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で frame id validation order、owner loss、lower present prepare error exposure、packet owner recovery loss、cursor / record / host / platform leakage、`finish_encoded` / `finish_payload` / `finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present.n.md --no-tree -o tmp_gui_std_compositor_tile_present_f5mq.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present.nepl --no-tree -o tmp_gui_std_compositor_tile_present_module_f5mq.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_packet_f5mq_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5mq_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mq.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
