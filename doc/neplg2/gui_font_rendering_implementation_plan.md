@@ -4600,6 +4600,60 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mh.json
 ```
 
+## Phase F5mi: render2d compositor tile RLE encode seed bridge boundary
+
+目的:
+
+- F5mh の `GuiRgba8888CompositorTileRleCountCompletedOwner` を authority とし、既存 lower `gui_rgba8888_row_tile_rle_encode_seed_prepare` を compositor metadata 付きで接続する。
+- lower seed prepare を 1 回だけ呼び、success では lower seed owner と copied metadata を `GuiRgba8888CompositorTileRleEncodeSeedOwner` として束ねる。
+- lower seed error は completed owner を返す契約なので、kind / category / total run count を読んだ後で lower completed owner を metadata 付き `GuiRgba8888CompositorTileRleCountCompletedOwner` へ戻す。
+- この phase では seed-only に留め、cursor restart を呼ばない。count step、drain、encode cursor、writer、storage、packet、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no cursor restart / encode / present の compositor tile RLE encode seed bridge で止める。
+
+plan review:
+
+- Carver plan review は `PLAN_APPROVED`。
+- F5mi は lower F5cg を mirror し、completed-owner recovery を持つ seed preparation と payload/start-error recovery を持つ cursor restart を分ける boundary として承認された。
+- success owner は lower seed owner + metadata を保持し、success finish / free は metadata 付き payload owner へ戻して F5me payload finish / free に委譲する。
+- error は lower kind / category / total run count を lower error consume 前に読み、completed owner を metadata 付きで recovery する。
+- error finish / free は lower completed free へ直接委譲せず、F5mh completed owner finish / free に委譲する。
+- source policy で lower seed prepare exact once、metadata-before-lower-completed-consume、owner-bearing success / error no Clone / Copy、lower error read-before-finish、payload fallback 禁止、success F5me delegation、error F5mh delegation、cursor start / encode cursor / writer / storage / packet / direct byte read / std present / host / platform / fallback 禁止を検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_encode_seed.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleEncodeSeedErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleEncodeSeedOwner` と `GuiRgba8888CompositorTileRleEncodeSeedError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_encode_seed_prepare` は metadata を completed owner から Copy してから lower completed owner を取り出し、lower seed prepare を 1 回だけ呼ぶ。
+- success は lower seed owner を metadata 付き seed owner へ戻し、metadata / total run count accessor を提供する。
+- lower error は lower kind / category / total run count を読んでから lower completed owner を取り出し、metadata 付き completed owner を持つ seed error に正規化する。
+- seed owner の finish payload、finish entry、free helper を追加し、entry/free は F5me payload finish / free に委譲する。
+- seed error の finish completed owner、finish entry、free helper を追加し、entry/free は F5mh completed owner finish / free に委譲する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE encode seed を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md` を追加し、facade、completed-to-seed total、metadata、finish payload delegation、error completed owner recovery、no cursor start / encode / storage / packet / present / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mi source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Carver approval、facade export、typed lower seed error variant、seed-owner success、total + completed-owner error、owner-bearing success / error no Clone / Copy、lower seed prepare exact once、metadata-before-lower-completed-consume、lower error kind/category/total before completed-owner recovery、payload recovery fallback 禁止、success finish/free の F5me 委譲、error finish/free の F5mh 委譲、cursor start / count step / direct drain / encode cursor / writer / storage / packet / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5mh compositor completed count regression、F5cg row tile RLE encode seed regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、payload fallback in error、lower error total loss、cursor restart leakage、encode/present leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_seed_f5mi.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_encode_seed.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_seed_module_f5mi.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_completed_f5mi_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_f5mi_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mi.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

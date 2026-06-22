@@ -7049,6 +7049,16 @@ F5mh は compositor count owner を lower count owner へ分解する前に meta
 
 success completed owner と completed error の finish / free は、どちらも metadata 付き count owner へ戻してから F5mf の count owner finish / free へ委譲する。F5mh は count step、direct drain、encode cursor / writer / storage / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
 
+### Render2d compositor tile RLE encode seed boundary
+
+F5mi は F5mh の `GuiRgba8888CompositorTileRleCountCompletedOwner` を、lower `gui_rgba8888_row_tile_rle_encode_seed_prepare` へ 1 回だけ渡す compositor tile RLE encode seed bridge である。これは payload seed ownership を compositor metadata 付きで保持する phase であり、cursor restart、encode cursor、writer、storage、packet、std present、host present、platform backend、fallback / silent no-op を作る phase ではない。F5mi は no cursor restart / encode / present の boundary で止まる。
+
+F5mi の success owner は `GuiRgba8888CompositorTileRleEncodeSeedOwner` であり、lower `GuiRgba8888RowTileRleEncodeSeedOwner` と copied compositor metadata を保持する。seed owner / seed error は Clone / Copy を実装しない。error kind は `GuiRgba8888CompositorTileRleEncodeSeedErrorKind::SeedPrepareFailed lower_kind` として Copy value で保持する。
+
+F5mi は compositor completed owner を lower completed owner へ分解する前に metadata を Copy value として読む。lower seed prepare success では lower seed owner を metadata 付き seed owner へ束ねる。lower seed prepare error では lower kind / category / total run count を読んでから lower error の completed owner を取り出し、metadata 付き `GuiRgba8888CompositorTileRleCountCompletedOwner` へ戻す。F5mi error は payload owner へ fallback せず、completed evidence recovery を保持する。
+
+success seed owner の finish / free は metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻してから F5me の payload finish / free へ委譲する。seed error の finish / free は metadata 付き completed owner へ戻してから F5mh の completed owner finish / free へ委譲する。F5mi は cursor restart、count step、direct drain、encode cursor / writer / storage / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
