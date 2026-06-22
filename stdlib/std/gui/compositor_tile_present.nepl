@@ -43,12 +43,31 @@ pub enum GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:
     FrameIdMismatch
     PresentFramePrepareFailed %GuiRgba8888RowTileRlePresentFramePrepareErrorKind
 
+//: GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind: lower present owner rewrap の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower present descriptor frame と compositor metadata frame id の不一致を typed error として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind:
+    FrameIdMismatch
+
 impl Clone for GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:
     fn clone %fn &GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind \kind:
         *kind
 
 impl Copy for GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind:
     fn copy_mark %fn GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind \kind:
+        kind
+
+impl Clone for GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind \kind:
         kind
 
 //: GuiRgba8888CompositorTileRlePresentFrameDescriptor: lower present descriptor と compositor metadata の Copy descriptor
@@ -96,6 +115,19 @@ pub struct GuiRgba8888CompositorTileRlePresentFramePrepareError:
     category %Option GuiError
     packet %GuiRgba8888CompositorTileRlePacketOwner
 
+//: GuiRgba8888CompositorTileRlePresentFrameRewrapError: present-frame owner を[回収/かいしゅう]できる rewrap error
+//:
+//: lower present owner と metadata の再結合で frame id が[合/あ]わない場合でも、metadata [付/つ]き present-frame owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentFrameRewrapError:
+    kind %GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind
+    category %Option GuiError
+    present %GuiRgba8888CompositorTileRlePresentFrameOwner
+
 //: gui_rgba8888_compositor_tile_rle_present_frame_owner_new: lower present owner と metadata を[束/たば]ねる
 //:
 //: lower F5cn prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
@@ -128,6 +160,18 @@ fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_new %fn GuiRgba8888
 //: ```
 fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_new %fn GuiRgba8888CompositorTileRlePresentFramePrepareErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePresentFramePrepareError \kind\category\packet:
     GuiRgba8888CompositorTileRlePresentFramePrepareError kind category packet
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_new: rewrap error payload を[作/つく]る
+//:
+//: kind、category、recovery present-frame owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_new %fn GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind fn GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePresentFrameRewrapError \kind\present:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888CompositorTileRlePresentFrameRewrapError kind category present
 
 //: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_local: bridge local validation error を[作/つく]る
 //:
@@ -338,6 +382,26 @@ pub fn gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_finish_packe
 pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_present_frame %fn GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888RowTileRlePresentFrameOwner \owner:
     field::get owner "present"
 
+//: gui_rgba8888_compositor_tile_rle_present_frame_rewrap: lower present owner と metadata を rewrap する
+//:
+//: [契約/けいやく]:
+//: - F5mr など、F5mq owner から一度[取/と]り[出/だ]した lower present owner を metadata [付/つ]き owner へ[戻/もど]すための狭い public helper です。
+//: - lower present descriptor の frame id と metadata frame id を[照合/しょうごう]し、不一致でも owner-bearing error として present owner を[失/うしな]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_rewrap %fn GuiRgba8888RowTileRlePresentFrameOwner fn GuiRgba8888CompositorFrameEntryMetadata Result GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePresentFrameRewrapError \present\metadata:
+    let present_descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_frame_descriptor &present
+    let present_frame %FrameId gui_rgba8888_row_tile_rle_present_descriptor_frame &present_descriptor
+    let present_frame_id %i32 frame_id_raw &present_frame
+    let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata
+    let owner %GuiRgba8888CompositorTileRlePresentFrameOwner gui_rgba8888_compositor_tile_rle_present_frame_owner_new present metadata
+    if ne present_frame_id metadata_frame_id:
+        then Result::Err gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_new GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind::FrameIdMismatch owner
+        else Result::Ok owner
+
 //: gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_packet: success owner を compositor packet owner へ[戻/もど]す
 //:
 //: metadata を Copy してから lower present-frame owner を[閉/と]じ、lower packet owner を metadata [付/つ]き packet owner へ[戻/もど]します。
@@ -351,6 +415,51 @@ pub fn gui_rgba8888_compositor_tile_rle_present_frame_owner_finish_packet %fn Gu
     let present %GuiRgba8888RowTileRlePresentFrameOwner field::get owner "present"
     let lower_packet %GuiRgba8888RowTileRlePacketOwner gui_rgba8888_row_tile_rle_present_frame_finish_packet present
     GuiRgba8888CompositorTileRlePacketOwner lower_packet metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_kind: rewrap error kind を[返/かえ]す
+//:
+//: owner-bearing error を[消費/しょうひ]せず、失敗分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_kind %fn &GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentFrameRewrapErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_category_value: rewrap error category を[返/かえ]す
+//:
+//: frame id mismatch 由来の coarse `GuiError` を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_category_value %fn &GuiRgba8888CompositorTileRlePresentFrameRewrapError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_finish_present_frame: rewrap error から present-frame owner を[取/と]り[出/だ]す
+//:
+//: caller が finish packet / free を[選/えら]べる recovery owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_finish_present_frame %fn GuiRgba8888CompositorTileRlePresentFrameRewrapError GuiRgba8888CompositorTileRlePresentFrameOwner \error:
+    field::get error "present"
+
+//: gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_free: rewrap error の recovery present owner を[閉/と]じる
+//:
+//: error が[保持/ほじ]する compositor present-frame owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_free %fn GuiRgba8888CompositorTileRlePresentFrameRewrapError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    let present %GuiRgba8888CompositorTileRlePresentFrameOwner gui_rgba8888_compositor_tile_rle_present_frame_rewrap_error_finish_present_frame error
+    gui_rgba8888_compositor_tile_rle_present_frame_owner_free present
 
 //: gui_rgba8888_compositor_tile_rle_present_frame_prepare_error_free: prepare error の recovery packet owner を[閉/と]じる
 //:

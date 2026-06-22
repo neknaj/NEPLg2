@@ -8534,6 +8534,20 @@ F5mq provides `owner_finish_packet` as the explicit abort helper from success pr
 
 F5mq must not expose `tile_present_run_cursor`, `tile_present_command_cursor`, `tile_present_host_command`, `tile_present_run_span`, packet record reader, `gui_rgba8888_row_tile_rle_packet_record_at`, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, `surface_id_raw`, `surface_id_result`, `frame_id_unchecked`, `GuiOpaqueIdProof`, `finish_encoded`, `finish_payload`, `finish_entry`, host import, host present, dispatch, scheduler, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no cursor / record / host / platform compositor tile RLE present-frame bridge; present run cursor and host continuation remain later boundaries.
 
+F5mq additionally exposes `gui_rgba8888_compositor_tile_rle_present_frame_rewrap` as the only public helper for converting a lower `GuiRgba8888RowTileRlePresentFrameOwner` plus compositor metadata back into `GuiRgba8888CompositorTileRlePresentFrameOwner`. The helper validates the lower present descriptor frame id against metadata frame id and returns `GuiRgba8888CompositorTileRlePresentFrameRewrapError` with owner recovery on mismatch. This keeps F5mr from using the F5mq owner direct constructor while still preserving owner recovery.
+
+## Std compositor tile RLE present run cursor bridge boundary
+
+F5mr is the std-side compositor tile RLE present run cursor bridge after F5mq. It consumes `GuiRgba8888CompositorTileRlePresentFrameOwner`, copies compositor metadata before moving the lower present owner, and calls lower F5co `gui_rgba8888_row_tile_rle_present_run_cursor_start` exactly once.
+
+The success owner is `GuiRgba8888CompositorTileRlePresentRunCursorOwner`, which stores lower `GuiRgba8888RowTileRlePresentRunCursorOwner` plus compositor metadata. It exposes metadata, next record index, and total run count as non-consuming accessors. It does not expose a run step because F5mr is a start bridge only.
+
+Lower F5co start failure keeps a lower present owner. F5mr reads lower kind / category first, recovers the lower present owner, then uses F5mq rewrap helper to rebuild a metadata付き compositor present-frame owner. If rewrap itself rejects the metadata / frame pair, F5mr reports `PresentFrameRewrapFailed` and still keeps a compositor present-frame owner through the F5mq rewrap error recovery path.
+
+`owner_finish_present_frame` returns the F5mq rewrap helper `Result` after finishing the lower run cursor back to lower present owner. `start_error_finish_present_frame` returns the recovered compositor present-frame owner. `start_error_free` delegates to F5mq present owner free. `owner_free` delegates to lower F5co run cursor owner free and wraps lower encoded finish kind as `GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed`.
+
+F5mr must not expose `tile_present_command_cursor`, `tile_present_host_command`, `tile_present_run_span`, run cursor step, packet record reader, `gui_rgba8888_row_tile_rle_packet_record_at`, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, host import, host present, dispatch, scheduler, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no command / step / record / host / platform compositor tile RLE present run cursor bridge; command cursor and host continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
