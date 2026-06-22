@@ -82372,3 +82372,27 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_coverage_owner.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_traversal_coverage_owner.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - Godel の read-only review は、初回 blocker として note の pending 記録を指摘したため修正した。owner shape、coverage authority の traversal output owner 化、source-only / authority body-root helper の委譲、cleanup、docs/note の未完了範囲、`todo.md` 無変更については blocker なし。
+
+## 2026-06-23 selfhost resource-lowering source vocabulary authority checkpoint
+
+- 2026-06-23 に Zenn の開発方針を再確認した。今回の slice では、producer traversal source table を単なる owner として後続へ流すだけでなく、accepted / escaping / observation / unsupported の source vocabulary summary を same-body producer output 境界へ束ねた。
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に `SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary` を追加した。この summary は owner や proof ではない copyable value であり、accepted count だけから fresh witness、no-escape coverage、backend artifact を作らない契約にした。
+- `actual_traversal_producer_source_vocabulary_from_sources_result` は producer source table を borrowed input として読み、source owner を split output へ move する前に vocabulary を作る。読み取り失敗時は caller 側の既存 free 経路で source owner を閉じる。
+- source kind の分類は wildcard fallback を使わず、`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` を no-escape proof ではなく unsupported source として扱う。escaping source と observation source も accepted source から分離した。
+- `ActualTraversalResourceLoweringProducerOutput`、`ActualTraversalResourceLoweringProducerTraversalOutput`、`ActualTraversalResourceLoweringProducerAuthorityOutput` は `source_vocabulary` を保持し、source-only output / authority output への変換で同じ producer traversal owner path から vocabulary を渡す。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、新 summary の shape / module-private / Copy marker、wildcard-free classification、source owner move 前の vocabulary derivation、producer output / traversal output / authority output への propagation を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` を更新した。`todo.md` は未変更。この checkpoint は full Resource IR graph walker 完了ではなく、underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。残件は actual Resource IR graph walker 本体の source / fresh-witness / coverage 実発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projection である。plan.md との差異はない。
+- Dalton の read-only review は初回 blocker として note 未更新を指摘したため、この節を追加して対応した。source vocabulary classification、owner cleanup、production authority path、contract の focused checks については blocker なし。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost_resource_lowering_source_vocabulary_authority_doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost_resource_lowering_source_vocabulary_authority_doctest.json`。18 passed / 0 failed。
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_source_vocabulary_authority.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_source_vocabulary_authority.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
