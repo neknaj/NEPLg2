@@ -5145,6 +5145,60 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mr.json
 ```
 
+## Phase F5ms: std compositor tile RLE present run step bridge boundary
+
+目的:
+
+- F5mr の `GuiRgba8888CompositorTileRlePresentRunCursorOwner` を authority とし、既存 lower F5co step `gui_rgba8888_row_tile_rle_present_run_cursor_step` を compositor metadata 付きで 1 回だけ進める。
+- lower step result と copied metadata 付き next run cursor owner を `GuiRgba8888CompositorTileRlePresentRunStep` として束ねる。
+- lower F5co step error は original run cursor owner を返す契約なので、kind / category を読んだ後で lower run cursor owner を metadata 付き F5mr run cursor owner へ戻す。
+- この phase では run cursor step bridge に留め、`tile_present_command_cursor`、packet record reader、host / platform API、host present、dispatch、scheduler、video memory、Canvas / DOM / minifb、transport execution、fallback / silent no-op へ進まない。no command / record / host / platform の compositor tile RLE present run step bridge で止める。
+
+plan review:
+
+- Chandrasekhar plan review は `PLAN_APPROVED`。
+- F5mr は run cursor start bridge、F5co は run cursor step と packet record read、F5cp は command cursor 化を所有するため、F5ms は F5mr owner から lower F5co step を 1 回だけ進める metadata wrapper bridge とする。
+- metadata-before-owner-move を守り、metadata は F5mr owner から Copy してから lower run cursor owner を取り出す。
+- success では lower step result を Copy してから lower next owner を回収し、metadata 付き `GuiRgba8888CompositorTileRlePresentRunCursorOwner` へ戻す。
+- error では lower kind / category を先に読み、lower step error から run cursor owner を回収して metadata 付き F5mr owner へ戻す。lower step error を公開 recovery payload にしない。
+- F5mr run cursor wrapper 復元は direct struct constructor でよい。F5mq present-frame owner rewrap と違い、run cursor wrapper には frame id 再検査 invariant がない。
+- success / error の finish present-frame は F5mr `owner_finish_present_frame` に委譲して F5mq rewrap `Result` を潰さない。success / error free は F5mr `owner_free` に委譲する。
+- source policy で facade export、typed lower step error variant、lower result + run cursor owner success、run cursor owner recovery error、owner-bearing success / error no Clone / Copy、lower F5co step exact once、metadata-before-owner-move、lower result before lower next owner consume、lower error kind/category before run cursor owner recovery、success / error finish present-frame の F5mr delegation、success / error free の F5mr delegation、`finish_encoded` / `finish_payload` / `finish_entry` 禁止、command cursor / packet record / raw byte access / host / platform / fallback 禁止を検査する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_run_step.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentRunStepErrorKind`、`GuiRgba8888CompositorTileRlePresentRunStep`、`GuiRgba8888CompositorTileRlePresentRunStepError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_present_run_step_one` は metadata を Copy してから lower run cursor owner を取り出し、lower F5co step を 1 回だけ呼ぶ。success では lower result と next owner を metadata 付き owner へ戻す。
+- lower F5co step error は lower kind / category を読んでから lower run cursor owner を取り出し、metadata 付き run cursor owner を持つ step error に正規化する。
+- `step_finish_owner`、`step_error_finish_owner`、metadata / progress accessors、success / error finish present-frame、success / error free を追加する。
+- `finish_encoded` / `finish_payload` / `finish_entry` は作らない。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present run step bridge を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_run_step.n.md` を追加し、default runtime smoke で facade / lower result / wrapped lower step error kind を固定し、source policy fixture で lower F5co step、metadata-before-owner-move、result and owner recovery、free delegation、no command / record / host / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ms source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Chandrasekhar plan review、facade export、typed lower step error variant、lower result + run cursor owner success、run cursor owner recovery error、owner-bearing success / error no Clone / Copy、lower F5co step exact once、metadata-before-owner-move、lower result before lower next owner consume、lower error kind/category before run cursor owner recovery、success / error finish present-frame の F5mr delegation、success / error free の F5mr delegation、`finish_encoded` / `finish_payload` / `finish_entry` 禁止、command cursor / packet record / raw byte access / host / platform / fallback 禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5mr compositor present run cursor regression、F5co tile present run cursor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower step error exposure、run cursor owner recovery loss、command cursor / record / host / platform leakage、`finish_encoded` / `finish_payload` / `finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_step.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_step_f5ms.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_run_step.nepl --no-tree -o tmp_gui_std_compositor_tile_present_run_step_module_f5ms.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_cursor_f5ms_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5ms_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ms.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

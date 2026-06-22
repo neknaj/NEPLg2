@@ -1,0 +1,312 @@
+//: # std/gui/compositor_tile_present_run_step
+//: compositor tile RLE present run cursor owner を 1 step [進/すす]める bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mr の compositor present run cursor owner を、既存 F5co の std row tile RLE present run cursor step に[接続/せつぞく]します。
+//: - lower step result と compositor metadata [付/つ]き next run cursor owner を同じ owner boundary に[束/たば]ねます。
+//:
+//: ### [契約/けいやく]
+//: - step は metadata を Copy value として[読/よ]んでから lower run cursor owner を[移/うつ]します。
+//: - lower step success では lower result を Copy value として[読/よ]んでから next lower owner を[回収/かいしゅう]します。
+//: - lower step failure では lower kind / category を[読/よ]んでから lower run cursor owner を metadata [付/つ]き compositor run cursor owner へ[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は run cursor step bridge で止まり、command cursor、host / platform API、packet record direct access、fallback / silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_run_cursor" as *
+#import "std/gui/tile_present_run_cursor" as *
+
+//: GuiRgba8888CompositorTileRlePresentRunStepErrorKind: present run step bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower F5co run cursor step failure を compositor layer の typed kind として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentRunStepErrorKind:
+    RunCursorStepFailed %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRlePresentRunStepErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentRunStepErrorKind GuiRgba8888CompositorTileRlePresentRunStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentRunStepErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentRunStepErrorKind GuiRgba8888CompositorTileRlePresentRunStepErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentRunStep: lower step result と next compositor run cursor owner
+//:
+//: lower step が[返/かえ]した RunReady / Completed result と、metadata [付/つ]き next run cursor owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentRunStep:
+    result %GuiRgba8888RowTileRlePresentRunCursorStepResult
+    owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner
+
+//: GuiRgba8888CompositorTileRlePresentRunStepError: run cursor owner を[回収/かいしゅう]できる step error
+//:
+//: lower kind / category と、metadata [付/つ]き compositor run cursor owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentRunStepError:
+    kind %GuiRgba8888CompositorTileRlePresentRunStepErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_new: step terminal を[作/つく]る
+//:
+//: lower run step が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_run_step_new %fn GuiRgba8888RowTileRlePresentRunCursorStepResult fn GuiRgba8888CompositorTileRlePresentRunCursorOwner GuiRgba8888CompositorTileRlePresentRunStep \result\owner:
+    GuiRgba8888CompositorTileRlePresentRunStep result owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_new: step error payload を[作/つく]る
+//:
+//: lower kind、category、回収用 run cursor owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_run_step_error_new %fn GuiRgba8888CompositorTileRlePresentRunStepErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentRunCursorOwner GuiRgba8888CompositorTileRlePresentRunStepError \kind\category\owner:
+    GuiRgba8888CompositorTileRlePresentRunStepError kind category owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_from_lower: lower step error を compositor step error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから lower run cursor owner を[回収/かいしゅう]し、metadata [付/つ]き run cursor owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_run_step_error_from_lower %fn GuiRgba8888RowTileRlePresentRunCursorStepError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePresentRunStepError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind gui_rgba8888_row_tile_rle_present_run_cursor_step_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_present_run_cursor_step_error_category_value &lower
+    let lower_owner %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_step_error_finish_owner lower
+    let owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner GuiRgba8888CompositorTileRlePresentRunCursorOwner lower_owner metadata
+    let kind %GuiRgba8888CompositorTileRlePresentRunStepErrorKind GuiRgba8888CompositorTileRlePresentRunStepErrorKind::RunCursorStepFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_present_run_step_error_new kind category owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_one: compositor run cursor owner を 1 record [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower run cursor owner を[取/と]り[出/だ]します。
+//: - lower F5co step を 1 [回/かい]だけ[呼/よ]び、success では result と next owner を[包/つつ]みます。
+//: - lower error では run cursor owner を metadata [付/つ]き recovery owner として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_one %fn GuiRgba8888CompositorTileRlePresentRunCursorOwner Result GuiRgba8888CompositorTileRlePresentRunStep GuiRgba8888CompositorTileRlePresentRunStepError \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_metadata &owner
+    let lower_owner %GuiRgba8888RowTileRlePresentRunCursorOwner field::get owner "run_cursor"
+    match gui_rgba8888_row_tile_rle_present_run_cursor_step lower_owner:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_run_step_error_from_lower lower metadata
+        Result::Ok lower_step:
+            let result %GuiRgba8888RowTileRlePresentRunCursorStepResult gui_rgba8888_row_tile_rle_present_run_cursor_step_result &lower_step
+            let lower_next %GuiRgba8888RowTileRlePresentRunCursorOwner gui_rgba8888_row_tile_rle_present_run_cursor_step_finish_owner lower_step
+            let next %GuiRgba8888CompositorTileRlePresentRunCursorOwner GuiRgba8888CompositorTileRlePresentRunCursorOwner lower_next metadata
+            Result::Ok gui_rgba8888_compositor_tile_rle_present_run_step_new result next
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_result: step result を[返/かえ]す
+//:
+//: lower F5co step result を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_result %fn &GuiRgba8888CompositorTileRlePresentRunStep GuiRgba8888RowTileRlePresentRunCursorStepResult \step:
+    *field::get_ref step "result"
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner: step から next run cursor owner を[取/と]り[出/だ]す
+//:
+//: caller が次の step、finish present-frame、free を[選/えら]べる owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner %fn GuiRgba8888CompositorTileRlePresentRunStep GuiRgba8888CompositorTileRlePresentRunCursorOwner \step:
+    field::get step "owner"
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_metadata: step owner の metadata を[返/かえ]す
+//:
+//: step が[保持/ほじ]する next run cursor owner から metadata を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_metadata %fn &GuiRgba8888CompositorTileRlePresentRunStep GuiRgba8888CompositorFrameEntryMetadata \step:
+    let owner %&GuiRgba8888CompositorTileRlePresentRunCursorOwner field::get_ref step "owner"
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_metadata owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_next_record_index: step owner の next record index を[返/かえ]す
+//:
+//: step が[保持/ほじ]する next run cursor owner から progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_next_record_index %fn &GuiRgba8888CompositorTileRlePresentRunStep i32 \step:
+    let owner %&GuiRgba8888CompositorTileRlePresentRunCursorOwner field::get_ref step "owner"
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_next_record_index owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_total_run_count: step owner の total run count を[返/かえ]す
+//:
+//: step が[保持/ほじ]する next run cursor owner から exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_total_run_count %fn &GuiRgba8888CompositorTileRlePresentRunStep i32 \step:
+    let owner %&GuiRgba8888CompositorTileRlePresentRunCursorOwner field::get_ref step "owner"
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_total_run_count owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_kind: step error kind を[返/かえ]す
+//:
+//: lower F5co step failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_kind %fn &GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_category_value: step error の coarse category を[返/かえ]す
+//:
+//: lower F5co step error の category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_category_value %fn &GuiRgba8888CompositorTileRlePresentRunStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_owner: error から run cursor owner を[取/と]り[出/だ]す
+//:
+//: caller が retry / recovery / free を[選/えら]べるように metadata [付/つ]き run cursor owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_owner %fn GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorTileRlePresentRunCursorOwner \error:
+    field::get error "owner"
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_metadata: error owner の metadata を[返/かえ]す
+//:
+//: error が[保持/ほじ]する recovery run cursor owner から metadata を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_metadata %fn &GuiRgba8888CompositorTileRlePresentRunStepError GuiRgba8888CompositorFrameEntryMetadata \error:
+    let owner %&GuiRgba8888CompositorTileRlePresentRunCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_metadata owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_next_record_index: error owner の next record index を[返/かえ]す
+//:
+//: lower step failure [前/まえ]の cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_next_record_index %fn &GuiRgba8888CompositorTileRlePresentRunStepError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRlePresentRunCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_next_record_index owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_total_run_count: error owner の total run count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する recovery run cursor owner から exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_total_run_count %fn &GuiRgba8888CompositorTileRlePresentRunStepError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRlePresentRunCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_total_run_count owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_finish_present_frame: step の run cursor owner を present-frame owner へ[戻/もど]す
+//:
+//: F5mr run cursor owner finish present-frame に[委譲/いじょう]します。command cursor completion ではなく recovery helper です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_finish_present_frame %fn GuiRgba8888CompositorTileRlePresentRunStep Result GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePresentFrameRewrapError \step:
+    let owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner step
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_finish_present_frame owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_present_frame: error の run cursor owner を present-frame owner へ[戻/もど]す
+//:
+//: 回収した run cursor owner を F5mr run cursor owner finish present-frame に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_present_frame %fn GuiRgba8888CompositorTileRlePresentRunStepError Result GuiRgba8888CompositorTileRlePresentFrameOwner GuiRgba8888CompositorTileRlePresentFrameRewrapError \error:
+    let owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_owner error
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_finish_present_frame owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_free: step の run cursor owner を[閉/と]じる
+//:
+//: F5mr run cursor owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_free %fn GuiRgba8888CompositorTileRlePresentRunStep Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \step:
+    let owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner step
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_free owner
+
+//: gui_rgba8888_compositor_tile_rle_present_run_step_error_free: error の run cursor owner を[閉/と]じる
+//:
+//: 回収した run cursor owner を F5mr run cursor owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_run_step" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_run_step_error_free %fn GuiRgba8888CompositorTileRlePresentRunStepError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    let owner %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_owner error
+    gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_free owner
