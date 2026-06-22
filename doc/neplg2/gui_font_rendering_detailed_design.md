@@ -8560,6 +8560,18 @@ Lower F5co step failure keeps a lower run cursor owner. F5ms reads lower kind / 
 
 F5ms must not expose `tile_present_command_cursor`, `tile_present_host_command`, `tile_present_run_span`, packet record reader, `gui_rgba8888_row_tile_rle_packet_record_at`, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, host import, host present, dispatch, scheduler, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no command / record / host / platform compositor tile RLE present run step bridge; command cursor and host continuation remain later boundaries.
 
+## Std compositor tile RLE present command cursor boundary
+
+F5mt is the std-side compositor tile RLE present command cursor boundary after F5ms. It does not call lower F5cp. It consumes `GuiRgba8888CompositorTileRlePresentFrameOwner`, copies `GuiRgba8888CompositorTileRlePresentFrameDescriptor` before calling F5mr `gui_rgba8888_compositor_tile_rle_present_run_cursor_start`, and stores F5mr run cursor owner, descriptor, and phase in `GuiRgba8888CompositorTileRlePresentCommandCursorOwner`.
+
+The command stream mirrors the lower F5cp shape but preserves compositor metadata: `GuiRgba8888CompositorTileRlePresentCommand::BeginFrame`, `Run`, and `GuiRgba8888CompositorTileRlePresentCommand::EndFrame`. BeginFrame and EndFrame carry the compositor present descriptor. Run carries the typed row tile RLE run. The step result is either one command or terminal Completed.
+
+The phase machine is one typed output per public step. BeginPending returns BeginFrame and moves to RunPending without calling F5ms. RunPending calls F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_one` exactly once. RunReady becomes a Run command and keeps RunPending. Completed becomes an EndFrame command and advances the owner to Completed phase. Completed phase returns terminal Completed and does not call F5ms.
+
+Start errors wrap F5mr start errors and recover the compositor present-frame owner after reading lower kind / category. Step errors wrap F5ms step errors and recover a RunPending compositor command cursor owner after reading lower kind / category. Finish present-frame and free helpers delegate to F5mr owner helpers and preserve the F5mq rewrap `Result`.
+
+F5mt must not expose lower `tile_present_command_cursor`, `tile_present_host_command`, host import, dispatch, scheduler, packet record reader, raw storage, `RegionToken`, `MemPtr`, raw byte load/store, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no lower-command / host-command / record / host / platform compositor tile RLE present command cursor; host-command record mapping remains a later compositor boundary.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

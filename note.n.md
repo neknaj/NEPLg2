@@ -81318,3 +81318,30 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ms.json`
 - checked JSON: `tmp-playground-editor-tests-f5ms.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present command cursor checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_command_cursor.nepl` を追加し、F5mq/F5mr/F5ms の metadata 付き present stream から BeginFrame / Run / EndFrame / terminal Completed を返す F5mt compositor command cursor を接続した。
+- start は `GuiRgba8888CompositorTileRlePresentFrameDescriptor` を Copy してから F5mr `gui_rgba8888_compositor_tile_rle_present_run_cursor_start` を 1 回だけ呼び、F5mr run cursor owner、descriptor、phase を `GuiRgba8888CompositorTileRlePresentCommandCursorOwner` に保持する。
+- step は BeginPending では F5ms を呼ばず BeginFrame を返し、RunPending だけが F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_one` を 1 回だけ呼ぶ。F5ms `RunReady` は Run command、F5ms `Completed` は同じ public step の EndFrame に写し、次 owner を Completed phase にする。Completed phase は terminal Completed を返す。
+- start / step error は kind / category を読んでから owner を回収する owner-bearing error である。owner / start error / step / step error は Clone / Copy を実装しない。
+- finish present-frame / free は F5mr owner helper に委譲し、F5mq rewrap `Result` を潰さない。
+- F5mt は lower F5cp `tile_present_command_cursor`、F5cq `tile_present_host_command`、host import、packet record reader、raw byte access、host / platform、finish_encoded / finish_payload / finish_entry、fallback / silent no-op へ進まない。host-command record / host continuation は次の boundary として残る。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Pascal の design review は `PLAN_APPROVED`。F5cp の compositor 版ではなく、F5mr/F5ms を authority にして F5mq present-frame owner から compositor command cursor へ昇格する境界として妥当で、lower F5cp/F5cq を使わない方針も正しいと確認された。
+- Bacon の implementation review は初回 `PLAN_BLOCKED`。blocker は `note.n.md` 未更新と新規 F5mt module / focused doctest が未追跡だった点で、実装本体については descriptor-before-start、F5mr/F5ms exact once、kind/category-before-owner-recovery、phase behavior、F5mr delegation、lower F5cp/F5cq / record / raw / host / platform / fallback 非進出に blocker はないと確認された。指摘に従い、この checkpoint 記録を追記し、新規ファイルは commit 対象に含める。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_command_cursor_f5mt.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_command_cursor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_command_cursor_module_f5mt.json -j 1`。37/37。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_step.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_step_f5mt_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_cursor_f5mt_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5mt_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mt.json`
+- checked JSON: `tmp-playground-editor-tests-f5mt.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

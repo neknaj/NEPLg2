@@ -5199,6 +5199,63 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ms.json
 ```
 
+## Phase F5mt: std compositor tile RLE present command cursor boundary
+
+目的:
+
+- F5mq/F5mr/F5ms の metadata 付き present stream を authority とし、compositor tile RLE present command cursor を追加する。
+- start は `GuiRgba8888CompositorTileRlePresentFrameDescriptor` を Copy してから F5mr `gui_rgba8888_compositor_tile_rle_present_run_cursor_start` を 1 回だけ呼ぶ descriptor-before-start 境界とする。
+- step は BeginPending / RunPending / Completed の phase machine とし、one typed output per public step で BeginFrame / Run / EndFrame / terminal Completed を返す。
+- RunPending だけが F5ms `gui_rgba8888_compositor_tile_rle_present_run_step_one` を 1 回だけ呼ぶ。F5ms `RunReady` は Run command、F5ms `Completed` は同じ public step の EndFrame に写す。
+- この phase では compositor command cursor に留め、lower `tile_present_command_cursor`、`tile_present_host_command`、host import、packet record reader、host / platform API、dispatch、scheduler、video memory、Canvas / DOM / minifb、transport execution、fallback / silent no-op へ進まない。no lower-command / host-command / record / host / platform の compositor tile RLE present command cursor で止める。
+
+plan review:
+
+- Pascal plan review は `PLAN_APPROVED`。
+- F5cp の compositor 版を作るのではなく、F5mr/F5ms を authority にして `GuiRgba8888CompositorTileRlePresentFrameOwner` から compositor command cursor へ昇格する slice とする。
+- lower F5cp/F5cq を使わない方針は正しい。F5mt は compositor metadata を持つ descriptor と F5mr run cursor owner を保持する。
+- start error は F5mr start error の kind / category を読んでから present-frame owner を回収する。
+- step error は F5ms step error の kind / category を読んでから run cursor owner を回収し、descriptor と RunPending phase を持つ command cursor owner に戻す。
+- BeginPending と Completed phase は F5ms step を呼ばない。RunPending branch だけが F5ms step を exactly once 呼ぶ。
+- finish present-frame / free は F5mr owner helper へ委譲し、F5mq rewrap `Result` を潰さない。
+- source policy で facade export、typed command / phase / step result、F5mr/F5ms error wrappers、owner-bearing owner / start error / step / step error no Clone / Copy、start descriptor-before-start、F5mr start exact once、start error kind/category before present recovery、RunPending-only F5ms step exact once、F5ms result before step owner recovery、F5ms error kind/category before run cursor recovery、BeginPending / RunPending / Completed phase behavior、finish/free の F5mr delegation、`finish_encoded` / `finish_payload` / `finish_entry` 禁止、lower command cursor / host-command / packet record / raw byte access / host / platform / fallback 禁止を検査する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_command_cursor.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentCommand`、`GuiRgba8888CompositorTileRlePresentCommandCursorPhase`、`GuiRgba8888CompositorTileRlePresentCommandCursorStepResult` を追加する。command は `GuiRgba8888CompositorTileRlePresentCommand::BeginFrame`、Run、EndFrame を持つ。value-only command / phase / result は Clone / Copy を実装する。
+- `GuiRgba8888CompositorTileRlePresentCommandCursorStartErrorKind` と `GuiRgba8888CompositorTileRlePresentCommandCursorStepErrorKind` を追加し、F5mr / F5ms error kind を包む。
+- `GuiRgba8888CompositorTileRlePresentCommandCursorOwner`、start error、step、step error を追加する。owner-bearing values は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_present_command_cursor_start` は descriptor を Copy してから F5mr start を 1 回だけ呼び、success では BeginPending owner を返す。
+- `gui_rgba8888_compositor_tile_rle_present_command_cursor_step` は BeginPending、RunPending、Completed を 1 output per public step で進める。RunPending だけ F5ms step を呼ぶ。
+- `step_descriptor` / `step_result` / `step_finish_owner`、start / step error accessors、finish present-frame、free helpers を追加する。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present command cursor を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md` を追加し、default runtime smoke で facade / phase / wrapped F5ms error kind を固定し、source policy fixture で command stream、owner boundary、owner recovery、one output step、F5mr/F5ms dependency、no lower command / host record / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mt source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Pascal plan review、facade export、typed command / phase / step result、F5mr/F5ms error wrappers、owner-bearing owner / start error / step / step error no Clone / Copy、start descriptor-before-start、F5mr start exact once、start error kind/category before present recovery、RunPending-only F5ms step exact once、F5ms result before step owner recovery、F5ms error kind/category before run cursor recovery、BeginPending / RunPending / Completed phase behavior、finish/free の F5mr delegation、`finish_encoded` / `finish_payload` / `finish_entry` 禁止、lower command cursor / host-command / packet record / raw byte access / host / platform / fallback 禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5ms compositor present run step regression、F5mr compositor present run cursor regression、F5cp lower command cursor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で descriptor-after-move、owner loss、F5mr/F5ms error exposure、command cursor owner recovery loss、lower F5cp/F5cq / record / host / platform leakage、`finish_encoded` / `finish_payload` / `finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_command_cursor_f5mt.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_command_cursor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_command_cursor_module_f5mt.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_step.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_step_f5mt_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_cursor_f5mt_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5mt_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mt.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
