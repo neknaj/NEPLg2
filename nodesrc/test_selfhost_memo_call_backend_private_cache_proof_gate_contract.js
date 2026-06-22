@@ -745,35 +745,37 @@ assertOrdered(
     "operation-classified no-escape stage0 must cover accepted, witness failures, source failures, and authority mismatch paths",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_split_output_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_sources_from_request_context_result module context resolutions",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_from_sources_result sources",
         "Result::Err e:",
         "Stage0SourceRejected e",
     ],
-    "body-reader no-escape split-output helper must reuse the context-bound output adapter before deriving the fresh witness authority bundle from the same source owner",
+    "body-reader fresh witness authority helper must derive witness authority directly from the resolver-bound reader source owner",
 );
 assert.doesNotMatch(
-    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_split_output_result")),
-    /witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RegionFreshWitnessStatus|field::get\s+output\s+"walker_input"|field::get\s+output\s+"observations"|actual_walker_traversal_source_collect_from_walker_input_result|actual_traversal_body_context_sources_validate_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result|region_fresh_witness_stage0_table_result/,
-    "body-reader no-escape split-output helper must not accept external witness metadata or duplicate split-output owner conversion/context validation",
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result")),
+    /witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RegionFreshWitnessStatus|ActualWalkerEventSplitOutput|actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|actual_traversal_body_adapter_sources_from_request_context_output_result|actual_walker_traversal_source_collect_from_walker_input_result|actual_traversal_body_context_sources_validate_result|actual_traversal_body_adapter_sources_from_input_owners_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result|region_fresh_witness_stage0_table_result/,
+    "body-reader fresh witness authority helper must not accept external witness metadata or route through split-output/source-adapter fixture paths",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_request_context_result module context resolutions",
-        "Result::Ok events:",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events",
-        "Result::Ok output:",
-        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_split_output_result context output",
-        "Result::Err e:",
-        "Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e",
-        "Result::Err e:",
-        "Stage0SourceRejected e",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result module context resolutions",
     ],
-    "body-reader no-escape request-context helper must build resolver-bound reader events, split them, and pass the output to the context-bound authority bundle helper",
+    "body-reader no-escape request-context helper must use the direct reader source output fresh-witness authority boundary",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result")),
+    /actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|body_reader_no_escape_coverage_authority_bundle_from_split_output_result|actual_traversal_body_adapter_sources_from_request_context_output_result/,
+    "body-reader no-escape request-context helper must not round-trip through event split output before deriving witness authority",
+);
+assert.doesNotMatch(
+    source,
+    /^fn\s+selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_split_output_result\b/m,
+    "old body-reader no-escape split-output authority helper must not remain as a competing authority path",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result"),
@@ -822,7 +824,7 @@ assertOrdered(
 );
 for (const helperName of [
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
-    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_split_output_result",
+    "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_result",
@@ -830,7 +832,7 @@ for (const helperName of [
 ]) {
     assert.doesNotMatch(
         stripDocComments(topLevelBlock(source, "fn", helperName)),
-        /witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RegionFreshWitnessStatus|actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result|SelfhostMemoCallBackendPrivateCacheActualTraversalBundle|actual_traversal_bundle_|actual_traversal_body_reader_bundle_|context_bound_reader_(?:traversal_bundle|coverage_witness)|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_request_evidence_gate_result|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof|artifact|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_private_effect_coverage_stage0_(?:authority|mismatched_authority)|actual_walker_operation_classifier_events_from_hir_root_result|resource_walker_input_new|resource_walker_input_push_|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue|region_fresh_witness_stage0_table_result/i,
+        /witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RegionFreshWitnessStatus|actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result|SelfhostMemoCallBackendPrivateCacheActualTraversalBundle|actual_traversal_bundle_|actual_traversal_body_reader_bundle_|context_bound_reader_(?:traversal_bundle|coverage_witness)|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_request_evidence_gate_result|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof|artifact|actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|body_reader_no_escape_coverage_authority_bundle_from_split_output_result|actual_traversal_body_adapter_sources_from_request_context_output_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_private_effect_coverage_stage0_(?:authority|mismatched_authority)|actual_walker_operation_classifier_events_from_hir_root_result|resource_walker_input_new|resource_walker_input_push_|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue|region_fresh_witness_stage0_table_result/i,
         `${helperName} must not route through external witness fixtures, traversal bundles, source-derived request evidence, root-wide classifier fixtures, direct source adapters, lower proof synthesis, GraphInput, backend bytes, effect masking, or artifact keys`,
     );
 }
