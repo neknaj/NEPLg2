@@ -179,6 +179,8 @@ const stdGuiCompositorTilePresentRunCursor = read("stdlib/std/gui/compositor_til
 const stdGuiCompositorTilePresentRunCursorImpl = withoutComments(stdGuiCompositorTilePresentRunCursor);
 const stdGuiCompositorTilePresentRunStep = read("stdlib/std/gui/compositor_tile_present_run_step.nepl");
 const stdGuiCompositorTilePresentRunStepImpl = withoutComments(stdGuiCompositorTilePresentRunStep);
+const stdGuiCompositorTilePresentCommandCursor = read("stdlib/std/gui/compositor_tile_present_command_cursor.nepl");
+const stdGuiCompositorTilePresentCommandCursorImpl = withoutComments(stdGuiCompositorTilePresentCommandCursor);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -423,6 +425,7 @@ const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
 const guiStdCompositorTilePresentTests = read("tests/stdlib/gui_std_compositor_tile_present.n.md");
 const guiStdCompositorTilePresentRunCursorTests = read("tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md");
 const guiStdCompositorTilePresentRunStepTests = read("tests/stdlib/gui_std_compositor_tile_present_run_step.n.md");
+const guiStdCompositorTilePresentCommandCursorTests = read("tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -29350,6 +29353,206 @@ assert(
         guiStdCompositorTilePresentRunStepTests.includes("std_compositor_tile_rle_present_run_step_free_delegates_run_cursor_ok") &&
         guiStdCompositorTilePresentRunStepTests.includes("std_compositor_tile_rle_present_run_step_no_command_record_host_platform_fallback"),
     "F5ms compositor tile present run step focused doctest/source policy must cover facade runtime types, lower F5co step, metadata order, result/owner recovery, free delegation, and no command/record/host/platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mt") &&
+            doc.includes("compositor tile RLE present command cursor") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentCommandCursorOwner") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentCommand::BeginFrame") &&
+            doc.includes("gui_rgba8888_compositor_tile_rle_present_run_cursor_start") &&
+            doc.includes("gui_rgba8888_compositor_tile_rle_present_run_step_one") &&
+            doc.includes("tile_present_command_cursor") &&
+            doc.includes("fallback"),
+        `F5mt ${name} must document compositor present command cursor, F5mr/F5ms dependency, deferred lower command/host path, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mt") &&
+        implementationPlan.includes("Pascal plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mr/F5ms") &&
+        implementationPlan.includes("descriptor-before-start"),
+    "F5mt implementation plan must record subagent review, F5mr/F5ms dependency, and descriptor-before-start policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_command_cursor" as *'), "std/gui facade must export F5mt compositor tile present command cursor");
+assert(
+    stdGuiCompositorTilePresentCommandCursor.includes("pub enum GuiRgba8888CompositorTileRlePresentCommand:") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("BeginFrame %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("Run %GuiRgba8888RowTileRleRun") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("EndFrame %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("pub enum GuiRgba8888CompositorTileRlePresentCommandCursorPhase:") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("BeginPending") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("RunPending") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("Completed") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("pub enum GuiRgba8888CompositorTileRlePresentCommandCursorStepResult:") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("Command %GuiRgba8888CompositorTileRlePresentCommand") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("pub struct GuiRgba8888CompositorTileRlePresentCommandCursorOwner:") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("run_cursor %GuiRgba8888CompositorTileRlePresentRunCursorOwner") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("phase %GuiRgba8888CompositorTileRlePresentCommandCursorPhase") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("RunCursorStartFailed %GuiRgba8888CompositorTileRlePresentRunCursorStartErrorKind") &&
+        stdGuiCompositorTilePresentCommandCursor.includes("RunStepFailed %GuiRgba8888CompositorTileRlePresentRunStepErrorKind"),
+    "std/gui/compositor_tile_present_command_cursor F5mt must define compositor command stream, phase state, descriptor copy, and F5mr/F5ms error wrappers",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentCommandCursorImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRlePresentCommandCursorOwner|GuiRgba8888CompositorTileRlePresentCommandCursorStartError|GuiRgba8888CompositorTileRlePresentCommandCursorStep|GuiRgba8888CompositorTileRlePresentCommandCursorStepError)\b/,
+    "std/gui/compositor_tile_present_command_cursor F5mt owner-bearing values must not implement Clone or Copy",
+);
+const compositorTilePresentCommandCursorStart = functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_start");
+assertOrderedFragments(
+    compositorTilePresentCommandCursorStart,
+    [
+        "let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_frame_owner_descriptor &present",
+        "match gui_rgba8888_compositor_tile_rle_present_run_cursor_start present:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_from_lower lower",
+        "gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_new run_cursor descriptor GuiRgba8888CompositorTileRlePresentCommandCursorPhase::BeginPending",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt start must copy descriptor before consuming present owner and call F5mr start once",
+);
+assert(
+    (compositorTilePresentCommandCursorStart.match(/\bgui_rgba8888_compositor_tile_rle_present_run_cursor_start\b/g) || []).length === 1,
+    "std/gui/compositor_tile_present_command_cursor F5mt start helper must call F5mr start exactly once",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888CompositorTileRlePresentRunCursorStartErrorKind gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_category_value &lower",
+        "let present %GuiRgba8888CompositorTileRlePresentFrameOwner gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_finish_present_frame lower",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorStartErrorKind::RunCursorStartFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_new kind category present",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt start error wrapper must read F5mr kind/category before present owner recovery",
+);
+const compositorTilePresentCommandCursorStep = functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_step");
+assertOrderedFragments(
+    compositorTilePresentCommandCursorStep,
+    [
+        "let phase %GuiRgba8888CompositorTileRlePresentCommandCursorPhase gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_phase &owner",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::BeginPending:",
+        "GuiRgba8888CompositorTileRlePresentCommand::BeginFrame descriptor",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::RunPending",
+        "match gui_rgba8888_compositor_tile_rle_present_run_step_one run_cursor:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_from_lower lower descriptor",
+        "let run_result %GuiRgba8888RowTileRlePresentRunCursorStepResult gui_rgba8888_compositor_tile_rle_present_run_step_result &run_step",
+        "GuiRgba8888RowTileRlePresentRunCursorStepResult::RunReady run:",
+        "let next_run_cursor %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner run_step",
+        "GuiRgba8888CompositorTileRlePresentCommand::Run run",
+        "GuiRgba8888RowTileRlePresentRunCursorStepResult::Completed:",
+        "let completed_run_cursor %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner run_step",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::Completed",
+        "GuiRgba8888CompositorTileRlePresentCommand::EndFrame descriptor",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::Completed:",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt step must emit BeginFrame, Run, EndFrame, recover F5ms errors, and return explicit terminal Completed",
+);
+assert(
+    (compositorTilePresentCommandCursorStep.match(/\bgui_rgba8888_compositor_tile_rle_present_run_step_one\b/g) || []).length === 1,
+    "std/gui/compositor_tile_present_command_cursor F5mt step helper must call F5ms step exactly once",
+);
+assertNoMatch(
+    textSliceBetween(compositorTilePresentCommandCursorStep, "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::BeginPending:", "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::RunPending:"),
+    /\bgui_rgba8888_compositor_tile_rle_present_run_step_one\b/,
+    "std/gui/compositor_tile_present_command_cursor F5mt BeginPending branch must not call F5ms step",
+);
+assertNoMatch(
+    textSliceBetween(compositorTilePresentCommandCursorStep, "GuiRgba8888CompositorTileRlePresentCommandCursorPhase::Completed:", "pub fn "),
+    /\bgui_rgba8888_compositor_tile_rle_present_run_step_one\b/,
+    "std/gui/compositor_tile_present_command_cursor F5mt Completed branch must not call F5ms step",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888CompositorTileRlePresentRunStepErrorKind gui_rgba8888_compositor_tile_rle_present_run_step_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_run_step_error_category_value &lower",
+        "let recovered_run_cursor %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_owner lower",
+        "gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_new recovered_run_cursor descriptor GuiRgba8888CompositorTileRlePresentCommandCursorPhase::RunPending",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorStepErrorKind::RunStepFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_present_command_cursor_step_error_new kind category recovered_owner",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt step error wrapper must read F5ms kind/category before run cursor recovery",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_finish_present_frame"),
+    [
+        "let run_cursor %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_finish_run_cursor owner",
+        "gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_finish_present_frame run_cursor",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt owner finish present-frame must delegate to F5mr and preserve Result",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_owner_free"),
+    [
+        "let run_cursor %GuiRgba8888CompositorTileRlePresentRunCursorOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_finish_run_cursor owner",
+        "gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_free run_cursor",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt owner free must delegate to F5mr run cursor owner free",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentCommandCursorImpl, "gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_free"),
+    [
+        "let present %GuiRgba8888CompositorTileRlePresentFrameOwner gui_rgba8888_compositor_tile_rle_present_command_cursor_start_error_finish_present_frame error",
+        "gui_rgba8888_compositor_tile_rle_present_frame_owner_free present",
+    ],
+    "std/gui/compositor_tile_present_command_cursor F5mt start error free must delegate to compositor present-frame owner free",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentCommandCursorImpl,
+    /\bpub\s+fn\s+gui_rgba8888_compositor_tile_rle_present_command_cursor_(?:finish_encoded|finish_payload|finish_entry|step_finish_encoded|step_finish_payload|step_finish_entry|step_error_finish_encoded|step_error_finish_payload|step_error_finish_entry)\b/,
+    "std/gui/compositor_tile_present_command_cursor F5mt must not add encoded/payload/entry finish helpers",
+);
+const f5mtRunCursorFunctions = Array.from(stdGuiCompositorTilePresentCommandCursorImpl.matchAll(/\bgui_rgba8888_compositor_tile_rle_present_run_cursor_[a-z0-9_]+\b/g), (match) => match[0]);
+const f5mtAllowedRunCursorFunctions = new Set([
+    "gui_rgba8888_compositor_tile_rle_present_run_cursor_start",
+    "gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_kind",
+    "gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_category_value",
+    "gui_rgba8888_compositor_tile_rle_present_run_cursor_start_error_finish_present_frame",
+    "gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_finish_present_frame",
+    "gui_rgba8888_compositor_tile_rle_present_run_cursor_owner_free",
+]);
+assert(
+    f5mtRunCursorFunctions.every((name) => f5mtAllowedRunCursorFunctions.has(name)),
+    "std/gui/compositor_tile_present_command_cursor F5mt may only call F5mr start/error/finish/free helpers",
+);
+const f5mtRunStepFunctions = Array.from(stdGuiCompositorTilePresentCommandCursorImpl.matchAll(/\bgui_rgba8888_compositor_tile_rle_present_run_step_[a-z0-9_]+\b/g), (match) => match[0]);
+const f5mtAllowedRunStepFunctions = new Set([
+    "gui_rgba8888_compositor_tile_rle_present_run_step_one",
+    "gui_rgba8888_compositor_tile_rle_present_run_step_result",
+    "gui_rgba8888_compositor_tile_rle_present_run_step_finish_owner",
+    "gui_rgba8888_compositor_tile_rle_present_run_step_error_kind",
+    "gui_rgba8888_compositor_tile_rle_present_run_step_error_category_value",
+    "gui_rgba8888_compositor_tile_rle_present_run_step_error_finish_owner",
+]);
+assert(
+    f5mtRunStepFunctions.every((name) => f5mtAllowedRunStepFunctions.has(name)),
+    "std/gui/compositor_tile_present_command_cursor F5mt may only call F5ms step/result/finish-owner/error helpers",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentCommandCursorImpl,
+    /\b(?:std\/gui\/tile_present_command_cursor|std\/gui\/tile_present_host_command|tile_present_command_cursor|tile_present_host|tile_present_schedule|tile_present_dispatch|tile_present_run_span|gui_rgba8888_row_tile_rle_present_command_cursor|gui_rgba8888_row_tile_rle_present_host_command|gui_rgba8888_row_tile_rle_present_run_cursor_[a-z0-9_]+|gui_rgba8888_row_tile_rle_packet_record|row_tile_rle_packet_record|gui_rgba8888_row_tile_rle_packet_record_at|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|byte_at|RegionToken|MemPtr|load_u8|store_u8|region_ptr_at|mem_ptr_addr|surface_id_raw|surface_id_result|frame_id_unchecked|GuiOpaqueIdProof|finish_encoded|finish_payload|finish_entry|GuiSurfacePresentCommand|PresentPixelFrame|GuiPixelBufferDescriptor|Vec|queue|host|platform|Canvas|DOM|minifb|video_memory|RenderTarget|DrawTarget|#extern|#intrinsic|fallback|silent no-op)\b/,
+    "std/gui/compositor_tile_present_command_cursor F5mt must not expose lower command cursor, host-command, direct lower run cursor, record/raw/old command/host/platform/fallback APIs",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentCommandCursorImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_command_cursor F5mt implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_facade_ok") &&
+        guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_command_stream_ok") &&
+        guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_owner_boundary_ok") &&
+        guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_owner_recovery_ok") &&
+        guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_one_output_step_ok") &&
+        guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_uses_f5mr_f5ms_ok") &&
+        guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_no_lower_command_host_record_platform_fallback"),
+    "F5mt compositor tile present command cursor focused doctest/source policy must cover facade runtime types, command stream, owner recovery, one-output step, F5mr/F5ms dependency, and no lower command/host/record/platform/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
