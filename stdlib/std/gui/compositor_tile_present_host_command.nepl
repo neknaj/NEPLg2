@@ -1,0 +1,218 @@
+//: # std/gui/compositor_tile_present_host_command
+//: compositor tile RLE present command の host-record boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mt の compositor command cursor output を、後続の Web / native / bare / headless presenter が[共通/きょうつう]で[受/う]け[取/と]れる typed host-command record に[写/うつ]します。
+//: - actual host import はまだ[呼/よ]ばず、metadata [付/つ]き record の[形/かたち]だけを std layer で[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - record は enum であり、Run に descriptor と run の両方を[持/も]たせます。
+//: - kind と optional run の[組/く]み[合/あ]わせにはせず、不正な Run-without-run を[表現/ひょうげん]できない[形/かたち]にします。
+//: - F5mt step の descriptor accessor と step result accessor だけを[使/つか]い、step 内部 field を[直接/ちょくせつ][読/よ]みません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は F5mt を bypass しません。F5mr / F5ms run cursor、lower F5cp / F5cq、packet storage、raw memory、host import、platform API には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_command_cursor" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostCommandRunRecord: compositor Run host-command record
+//:
+//: metadata [付/つ]き descriptor と RLE run を同じ Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentHostCommandRunRecord:
+    descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    run %GuiRgba8888RowTileRleRun
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostCommandRunRecord:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord GuiRgba8888CompositorTileRlePresentHostCommandRunRecord \record:
+        *record
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostCommandRunRecord:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostCommandRunRecord GuiRgba8888CompositorTileRlePresentHostCommandRunRecord \record:
+        record
+
+//: GuiRgba8888CompositorTileRlePresentHostCommandRecord: compositor host-command record
+//:
+//: BeginFrame / RunRecord / EndFrame を enum として[分/わ]け、不正な run payload の[組/く]み[合/あ]わせを[表現/ひょうげん]できないようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostCommandRecord:
+    BeginFrame %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    RunRecord %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord
+    EndFrame %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostCommandRecord:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentHostCommandRecord \record:
+        *record
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostCommandRecord:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentHostCommandRecord \record:
+        record
+
+//: GuiRgba8888CompositorTileRlePresentHostCommandStepResult: host-command mapping result
+//:
+//: record 1 個、または terminal Completed を[返/かえ]します。Completed は record に[変換/へんかん]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostCommandStepResult:
+    Record %GuiRgba8888CompositorTileRlePresentHostCommandRecord
+    Completed
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostCommandStepResult:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostCommandStepResult GuiRgba8888CompositorTileRlePresentHostCommandStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostCommandStepResult:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostCommandStepResult GuiRgba8888CompositorTileRlePresentHostCommandStepResult \result:
+        result
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_record_begin: BeginFrame record を[作/つく]る
+//:
+//: metadata [付/つ]き descriptor をそのまま host-command record に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_record_begin %fn GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePresentHostCommandRecord \descriptor:
+    GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_run_record: RunRecord payload を[作/つく]る
+//:
+//: descriptor と run を同時に[保持/ほじ]し、run だけの record を[作/つく]らないための constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_run_record %fn GuiRgba8888CompositorTileRlePresentFrameDescriptor fn GuiRgba8888RowTileRleRun GuiRgba8888CompositorTileRlePresentHostCommandRunRecord \descriptor\run:
+    GuiRgba8888CompositorTileRlePresentHostCommandRunRecord descriptor run
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_record_run: Run host-command record を[作/つく]る
+//:
+//: descriptor と run を同じ RunRecord payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_record_run %fn GuiRgba8888CompositorTileRlePresentFrameDescriptor fn GuiRgba8888RowTileRleRun GuiRgba8888CompositorTileRlePresentHostCommandRecord \descriptor\run:
+    let run_record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord gui_rgba8888_compositor_tile_rle_present_host_command_run_record descriptor run
+    GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_record_end: EndFrame record を[作/つく]る
+//:
+//: metadata [付/つ]き descriptor をそのまま host-command record に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_record_end %fn GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePresentHostCommandRecord \descriptor:
+    GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor: run record の descriptor を[返/かえ]す
+//:
+//: run record が[保持/ほじ]する metadata [付/つ]き descriptor を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor %fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord GuiRgba8888CompositorTileRlePresentFrameDescriptor \record:
+    *field::get_ref record "descriptor"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run: run record の run を[返/かえ]す
+//:
+//: run record が[保持/ほじ]する RLE run を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run %fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRleRun \record:
+    *field::get_ref record "run"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_record_descriptor: record の descriptor を[返/かえ]す
+//:
+//: BeginFrame / RunRecord / EndFrame のどの record でも metadata [付/つ]き descriptor を Copy value として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_record_descriptor %fn &GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentFrameDescriptor \record:
+    match *record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            descriptor
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor &run_record
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:
+            descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_record_run_value: RunRecord の run を Result で[読/よ]む
+//:
+//: BeginFrame / EndFrame に run を[要求/ようきゅう]した場合は typed `InvalidCommand` を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_record_run_value %fn &GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888RowTileRleRun GuiError \record:
+    match *record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            Result::Ok gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run &run_record
+        _:
+            Result::Err GuiError::InvalidCommand
+
+//: gui_rgba8888_compositor_tile_rle_present_host_command_step_result: F5mt step を host-command record に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - descriptor は F5mt の public step descriptor accessor から[読/よ]みます。
+//: - F5mt step 内部の owner field はこの module から[読/よ]みません。
+//: - Completed は record ではなく terminal result として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_command" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_command_step_result %fn &GuiRgba8888CompositorTileRlePresentCommandCursorStep GuiRgba8888CompositorTileRlePresentHostCommandStepResult \step:
+    let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor step
+    let result %GuiRgba8888CompositorTileRlePresentCommandCursorStepResult gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result step
+    match result:
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888CompositorTileRlePresentCommand::BeginFrame _frame_descriptor:
+                    let record %GuiRgba8888CompositorTileRlePresentHostCommandRecord gui_rgba8888_compositor_tile_rle_present_host_command_record_begin descriptor
+                    GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record
+                GuiRgba8888CompositorTileRlePresentCommand::Run run:
+                    let record %GuiRgba8888CompositorTileRlePresentHostCommandRecord gui_rgba8888_compositor_tile_rle_present_host_command_record_run descriptor run
+                    GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record
+                GuiRgba8888CompositorTileRlePresentCommand::EndFrame _frame_descriptor:
+                    let record %GuiRgba8888CompositorTileRlePresentHostCommandRecord gui_rgba8888_compositor_tile_rle_present_host_command_record_end descriptor
+                    GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Record record
+        GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed:
+            GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed

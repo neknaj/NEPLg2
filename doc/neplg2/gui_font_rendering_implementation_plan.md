@@ -5256,6 +5256,58 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mt.json
 ```
 
+## Phase F5mu: std compositor tile RLE present host-command record boundary
+
+目的:
+
+- F5mt の compositor command cursor step を authority とし、metadata 付き host-command record へ写す boundary を追加する。
+- `GuiRgba8888CompositorTileRlePresentFrameDescriptor` を canonical descriptor とし、RunRecord には lower descriptor ではなく compositor descriptor と run の両方を保持する。
+- host-command record は BeginFrame / RunRecord / EndFrame の enum とし、does not flatten to kind plus optional run。Run-without-run や run payload 付き EndFrame を表現できない形にする。
+- この phase は pure projection に留め、step continuation owner を消費せず、advance / finish / free しない。actual host import、dispatch、scheduler、virtual drain、run-span、span operation、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Popper plan review は `PLAN_APPROVED`。
+- F5mu は F5cq の compositor 版として妥当であり、authority は F5mt の public accessor だけに絞る。
+- F5mt accessor dependency により、compositor host-command record は F5mt step の public surface だけから作る。
+- `gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor` と `gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result` を使い、F5mt step の owner / result field を直接読まない。
+- F5mu does not bypass F5mt。F5mt step を消費せず、borrowed step から pure projection だけを行う。
+- F5mu は lower F5cq を再利用しない。lower record に落とすと compositor metadata の責務が曖昧になる。
+- BeginFrame / EndFrame command payload descriptor は F5mt 由来なので一致検証用の追加 `Result` は作らず、F5cq と揃えて step descriptor accessor から読んだ descriptor を record に使う。
+- source policy は裸の `host` 禁止では誤爆するため、lower `std/gui/tile_present_host_command` import、`gui_rgba8888_row_tile_rle_present_host_command_*`、F5mr/F5ms direct call、F5cp/F5co、packet/raw/platform/fallback、step owner/result field 直読みを具体的に禁止する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_command.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord`、`GuiRgba8888CompositorTileRlePresentHostCommandRecord`、`GuiRgba8888CompositorTileRlePresentHostCommandStepResult` を追加し、value-only record/result は Clone / Copy を実装する。
+- `run_record_descriptor`、`run_record_run`、`record_descriptor`、`record_run_value` accessor を追加し、後続境界が field を直接読まなくてよい形にする。
+- `gui_rgba8888_compositor_tile_rle_present_host_command_step_result` は F5mt step descriptor/result accessor だけを使って BeginFrame / Run / EndFrame / Completed を host-command step result へ写す。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present host-command record boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_command.n.md` を追加し、runtime smoke で facade / enum shape を固定し、source policy fixture で step mapping、F5mt accessor dependency、no lower host import / platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mu source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Popper plan review、facade export、record / run record / step result shape、F5mt accessor-only mapping、lower F5cq / F5cp / F5co / F5mr / F5ms direct call 禁止、packet/raw/platform/fallback 禁止、step owner/result field 直読み禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5mt compositor command cursor regression、F5cq lower host-command regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で compositor descriptor preservation、F5mt accessor-only mapping、step continuation non-consuming、lower F5cq / host import / platform leakage、field direct read がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_command.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_command_f5mu.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_command.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_command_module_f5mu.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_command_cursor_f5mu_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5mu_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mu.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -81370,3 +81370,28 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resolver_bound_body_source_vocabulary.json`
 - checked JSON: `tmp/playground_editor_selfhost_resolver_bound_body_source_vocabulary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present host-command checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_host_command.nepl` を追加し、F5mt command cursor step から metadata 付き compositor host-command record への F5mu pure projection boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord` は `GuiRgba8888CompositorTileRlePresentFrameDescriptor` と `GuiRgba8888RowTileRleRun` を同じ payload に保持する。`GuiRgba8888CompositorTileRlePresentHostCommandRecord` は BeginFrame / RunRecord / EndFrame の enum であり、kind + optional run にはしない。
+- `gui_rgba8888_compositor_tile_rle_present_host_command_step_result` は F5mt の `step_descriptor` と `step_result` accessor だけを使い、F5mt step の owner / result field を直接読まない。step continuation owner を消費せず、advance / finish / free もしない。
+- F5mu は lower F5cq `tile_present_host_command`、lower F5cp command cursor、F5mr/F5ms/F5co direct run cursor、packet record / raw storage、host import、dispatch、scheduler、virtual drain、run-span、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Popper の design review は `PLAN_APPROVED`。F5mu は F5cq の compositor 版として妥当で、F5mt accessor-only、compositor descriptor preservation、lower F5cq 非再利用、host import / dispatch / scheduler / virtual drain / run-span 非進出を守る方針で問題ないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_command.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_command_f5mu.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_command.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_command_module_f5mu.json -j 1`。13/13。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_command_cursor_f5mu_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5mu_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mu.json`
+- checked JSON: `tmp-playground-editor-tests-f5mu.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- Dirac の implementation review は `PLAN_APPROVED`。F5mt accessor-only mapping、step continuation non-consuming、compositor descriptor preservation、lower F5cq / F5cp / F5co / F5mr / F5ms direct path 非進出、packet/raw/host/platform/fallback 非進出に blocker はないと確認された。
+- note: `node nodesrc/run_source_policy_regressions.js` は 180 秒、600 秒の両方で timeout。F5mu 固有の `node nodesrc/test_web_gui_font_rendering_contract.js` は通過済み。
