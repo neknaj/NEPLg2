@@ -2276,6 +2276,21 @@ struct SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput:
     body_root %SelfhostHirExprId
     sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable
 
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput: production fresh witness authority 前段の source owner
+//:
+//: [目的/もくてき]:
+//: - `ResourceLoweringTraversalProduced` origin の source owner だけを、fresh witness authority へ渡す前段 input owner として `SourceOutput` から分離します。
+//:
+//: [契約/けいやく]:
+//: - この input は module-private owner です。public caller が source table を渡して fresh witness / no-escape authority を偽造できる入口は作りません。
+//: - `HirReaderSourceDerived` output からは作りません。source-derived HIR reader output は production traversal authority ではないためです。
+//: - この input は fresh witness table、no-escape coverage pair、GraphInput、proof table、effect mask、backend bytes、sealed representation、artifact key を保持しません。
+//: - この input 自体に `Clone` / `Copy` を実装してはいけません。source owner は後続 helper が消費するか、input free helper で閉じます。
+struct SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput:
+    context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext
+    body_root %SelfhostHirExprId
+    sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable
+
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind: actual walker が列挙する Resource operation 相当の最小分類
 //:
 //: [目的/もくてき]:
@@ -2878,7 +2893,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageStage0Su
 //:
 //: [契約/けいやく]:
 //: - `SourceDerivedHirBodyReaderRejected` は full Resource IR traversal が未接続であることを示す fail-closed error です。
-//: - `ResourceLoweringNoEscapeAuthorityNotConnected` は production origin source output までは到達したが、fresh witness / no-escape authority を production gate で消費する境界がまだ未接続であることを表します。
+//: - `ResourceLoweringNoEscapeAuthorityNotConnected` は production origin source output を fresh witness input owner へ分離できても、no-escape authority を production gate で消費する境界がまだ未接続であることを表します。
 //: - output value、source table、fresh witness owner、coverage pair は public payload にしません。
 pub enum SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind:
     OutputRejected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
@@ -2892,15 +2907,17 @@ pub enum SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputError
 //:
 //: [契約/けいやく]:
 //: - summary は source count、pair code、typed rejection だけを公開します。output value、source owner、fresh witness owner、coverage pair、Resource proof table は公開しません。
-//: - accepted source-derived result は executable backend plan ではありません。`ResourceLoweringTraversalProduced` origin は operation projection / unified event split / collector-owned source owner を通った場合だけ source output として観測します。
+//: - accepted source-derived result は executable backend plan ではありません。`ResourceLoweringTraversalProduced` origin は operation projection / unified event split / collector-owned source owner を通った場合だけ source output として観測し、fresh witness input owner への分離までを確認します。
 //: - production gate は ResourceLowering origin でも no-escape authority 未接続として拒否します。source output 接続と no-escape proof 接続を同じ stage で混同しないためです。
 //: - PrivateCache / PrivateState effect mask、sealed backend representation、artifact key はこの summary の範囲外です。
 pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary:
     source_derived_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     source_derived_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     source_derived_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
+    source_derived_fresh_witness_input_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     hir_body_private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     resource_lowering_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
+    resource_lowering_fresh_witness_input_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     resource_lowering_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     resource_lowering_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
 
@@ -15826,6 +15843,28 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_sourc
     selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
     count
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new: production fresh witness input owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - constructor は module-private です。source owner を保持するため、この型を public API に出しません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn SelfhostHirExprId fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput \context\body_root\sources:
+    SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput context body_root sources
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_free: production fresh witness input owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_free %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput unit \input:
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get input "sources"
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_source_count: production fresh witness input の source 数を[返/かえ]して owner を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - count は stage0 / contract 用の代表値です。fresh witness authority や no-escape proof の代用にしません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_source_count %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput i32 \input:
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get input "sources"
+    let count %i32 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len &sources
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+    count
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_from_body_root_result: resolver 済み body root から origin 付き source output を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -15912,6 +15951,24 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_
 fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_fresh_witness_authority_bundle_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \output:
     let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get output "sources"
     selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_from_sources_result sources
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result: production origin output を fresh witness input owner へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - `HirReaderSourceDerived` は production traversal authority ではないため、source owner を閉じて拒否します。
+//: - `ResourceLoweringTraversalProduced` だけが source owner を production fresh witness input owner へ move できます。
+//: - この helper は fresh witness table、no-escape coverage pair、GraphInput、proof table、request-evidence、effect mask、backend bytes、artifact key を作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \output:
+    let origin %SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin field::get output "origin"
+    match origin:
+        SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::HirReaderSourceDerived:
+            selfhost_memo_call_backend_private_cache_actual_traversal_source_output_free output
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceDerivedHirBodyReaderRejected
+        SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced:
+            let context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext field::get output "context"
+            let body_root %SelfhostHirExprId field::get output "body_root"
+            let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get output "sources"
+            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new context body_root sources
 
 //: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new: body reader no-escape authority bundle を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority fn SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle \coverage_authority\witness_bundle:
@@ -16204,6 +16261,36 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_s
         Result::Err e:
             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_fresh_witness_input_source_count_result: source-derived output を production fresh witness input で[拒否/きょひ]する
+fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_fresh_witness_input_source_count_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \context_body_module_fingerprint:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span
+    match selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_with_body_expr_result context_body_module_fingerprint body_expr:
+        Result::Ok output:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result output:
+                Result::Ok input:
+                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_source_count input
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_input_source_count_result: production origin output を fresh witness input owner へ[渡/わた]して source 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_input_source_count_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \context_body_module_fingerprint:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span
+    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_with_body_expr_result context_body_module_fingerprint body_expr:
+        Result::Ok output:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result output:
+                Result::Ok input:
+                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_source_count input
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_with_body_expr_result: source output を no-escape pair code へ[写/うつ]す
 fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_with_body_expr_result %impure fn i32 impure fn SelfhostHirExpr Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \context_body_module_fingerprint\body_expr:
     match selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_with_body_expr_result context_body_module_fingerprint body_expr:
@@ -16255,9 +16342,11 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
     let pair_code_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.source_derived_pair_code 13
     let source_rejected_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceDerivedHirBodyReaderRejected
     let source_rejected_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_result_eq summary.source_derived_production_rejected source_rejected_expected
+    let source_input_rejected_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_result_eq summary.source_derived_fresh_witness_input_rejected source_rejected_expected
     let unsupported_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource
     let private_cache_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_result_eq summary.hir_body_private_cache_effect_rejected unsupported_expected
     let resource_count_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.resource_lowering_source_count 2
+    let resource_input_count_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.resource_lowering_fresh_witness_input_source_count 2
     let resource_not_connected_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::ResourceLoweringNoEscapeAuthorityNotConnected
     let resource_rejected_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_result_eq summary.resource_lowering_production_rejected resource_not_connected_expected
     let resource_private_cache_count_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.resource_lowering_private_cache_effect_source_count 1
@@ -16268,12 +16357,16 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
             and:
                 source_rejected_ok
                 and:
-                    private_cache_ok
+                    source_input_rejected_ok
                     and:
-                        resource_count_ok
+                        private_cache_ok
                         and:
-                            resource_rejected_ok
-                            resource_private_cache_count_ok
+                            resource_count_ok
+                            and:
+                                resource_input_count_ok
+                                and:
+                                    resource_rejected_ok
+                                    resource_private_cache_count_ok
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_production_output_stage0: origin-tagged traversal output boundary の代表 smoke
 //:
@@ -16287,15 +16380,17 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
     let source_derived_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_source_count_result 77
     let source_derived_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_result 77
     let source_derived_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_production_gate_result 77
+    let source_derived_fresh_witness_input_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_fresh_witness_input_source_count_result 77
     let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
     let function_ty %SelfhostTypeId selfhost_type_id_new 11
     let private_cache_callee_def_id %SelfhostDefId selfhost_def_id_new 501
     let private_cache_body_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "body_call" private_cache_callee_def_id function_ty SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
     let hir_body_private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_with_body_expr_result 77 private_cache_body_expr
     let resource_lowering_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_source_count_result 77
+    let resource_lowering_fresh_witness_input_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_input_source_count_result 77
     let resource_lowering_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_production_gate_result 77
     let resource_lowering_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_source_count_with_body_expr_result 77 private_cache_body_expr
-    SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary source_derived_source_count source_derived_pair_code source_derived_production_rejected hir_body_private_cache_effect_rejected resource_lowering_source_count resource_lowering_production_rejected resource_lowering_private_cache_effect_source_count
+    SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary source_derived_source_count source_derived_pair_code source_derived_production_rejected source_derived_fresh_witness_input_rejected hir_body_private_cache_effect_rejected resource_lowering_source_count resource_lowering_fresh_witness_input_source_count resource_lowering_production_rejected resource_lowering_private_cache_effect_source_count
 
 //: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result: body expr fixture を no-escape pair code へ[写/うつ]す
 //:

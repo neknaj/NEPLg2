@@ -81613,3 +81613,27 @@ MERGE_APPROVED
 - main merge 後再検証 pass: `trunk build`
 - main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_output_boundary_merge.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_lowering_output_boundary_merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering fresh witness input boundary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、`ResourceLoweringTraversalProduced` origin の source output だけを production fresh witness authority 前段の module-private input owner へ分離する境界を追加した。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput` は recheck 済み request context、resolver body root、source table owner だけを保持する。fresh witness table、coverage pair、GraphInput、proof table、request-evidence、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、artifact key は保持しない。
+- `actual_traversal_source_output_into_production_fresh_witness_authority_input_result` は origin を検査し、`HirReaderSourceDerived` は source owner cleanup 後に `SourceDerivedHirBodyReaderRejected` として拒否する。`ResourceLoweringTraversalProduced` の場合だけ source owner を input owner へ move する。
+- stage0 summary は source-derived fresh witness input rejection と resource-lowering fresh witness input source count を追加で公開する。count は owner lifecycle の smoke であり、fresh witness authority / no-escape proof / backend plan ではない。
+- production gate は引き続き `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止める。今回の checkpoint は no-escape pair code、region proof、request-evidence、effect mask、sealed backend、artifact projectionへ進まない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、input owner shape / module-private / no Clone-Copy、`ResourceLoweringTraversalProduced` 出現箇所、move helper の origin 検査、stage0 helper の witness / no-escape / proof / backend / artifact 非進出、summary schema を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。次は actual Resource IR graph walker 本体の source / fresh-witness 発行、production no-escape authority、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
+- Copernicus の read-only review は slice 方針と owner lifecycle は妥当と確認しつつ、contract 出現数、new owner helper の禁止語、summary/doc/todo/note 更新不足を指摘した。指摘に従い contract schema と禁止語を追加し、doc / todo / note を更新した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-lowering-fresh-witness-input-boundary-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resource-lowering-fresh-witness-input-boundary-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_fresh_witness_input_boundary.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_lowering_fresh_witness_input_boundary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
