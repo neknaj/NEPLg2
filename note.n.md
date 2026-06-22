@@ -101,7 +101,7 @@
 
 ## 残り
 
-- F5nf 後続として、actual executor が返した attempted action と F5ne driver pending の expected action を照合する compositor host action attempt driver boundary を実装する。
+- F5nf 後続の compositor host action attempt driver boundary は F5ng で接続済みである。現在の次作業は冒頭の F5ng entry を参照する。
 
 # 2026-06-22 Agent2 post-merge GUI owner doctest diag_code metadata fix
 
