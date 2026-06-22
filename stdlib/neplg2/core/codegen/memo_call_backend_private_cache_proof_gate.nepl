@@ -16068,6 +16068,34 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_body_root_result: resolver 済み body root から producer authority output を直接[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - production no-escape path が source-only producer output owner を経由せず、producer-owned source から fresh witness authority までを同じ body-root 境界で発行できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `body_root` は caller が resolver lookup で得た値だけを受け取ります。この helper は request context から body root を再 lookup しません。
+//: - coverage authority、producer-owned source owner、fresh witness authority bundle は同じ `body_root` 由来で検査してから producer authority output に束ねます。
+//: - source output envelope、source-only producer output owner、production fresh witness input owner は作りません。
+//: - GraphInput、request-evidence gate、effect mask、backend bytes、sealed representation、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_body_root_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \module\context\body_root:
+    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
+    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_body_root_result module context body_root:
+        Result::Ok sources:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
+                Result::Ok _identity:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result context sources:
+                        Result::Ok witness_bundle:
+                            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root witness_bundle
+                        Result::Err e:
+                            let no_escape_error %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected no_escape_error
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected e
+        Result::Err _e:
+            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_from_request_context_result: request context から production origin の source output を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -16088,17 +16116,13 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_s
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_request_context_result: request context から producer authority output を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - resolver lookup はこの helper が 1 回だけ行い、その body root を producer output owner helper へ渡します。
-//: - fresh witness authority bundle は producer output owner からだけ作ります。source output envelope を経由しません。
+//: - resolver lookup はこの helper が 1 回だけ行い、その body root を producer authority output helper へ渡します。
+//: - fresh witness authority bundle は body-root producer authority helper で直接作ります。source-only producer output owner や source output envelope を経由しません。
 //: - no-escape handoff pair、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、sealed representation、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \module\context\resolutions:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions:
         Result::Ok body_root:
-            match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_from_body_root_result module context body_root:
-                Result::Ok producer_output:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_into_authority_output_result producer_output
-                Result::Err e:
-                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error e
+            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_body_root_result module context body_root
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 

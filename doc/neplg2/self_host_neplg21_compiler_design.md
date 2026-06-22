@@ -3455,6 +3455,14 @@ body-reader source output 用の `actual_traversal_source_output_into_no_escape_
 
 この checkpoint は origin の混線を型境界で閉じるものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source / fresh witness / coverage を実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-06-23 selfhost resource-lowering producer authority direct checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、request-context から producer authority output を作る production no-escape path を、source-only `ActualTraversalResourceLoweringProducerOutput` 経由ではなく、resolver 済み body root から `ActualTraversalResourceLoweringProducerAuthorityOutput` を直接発行する body-root helper へ切り替えた。
+
+`actual_traversal_resource_lowering_producer_authority_output_from_body_root_result` は、同じ body root から coverage authority と producer-owned source owner を作り、coverage identity を再検査してから producer 専用 source-to-witness helperで same-source fresh witness authority bundle へ move する。source-only producer output owner と `ResourceLoweringTraversalProduced` source output envelope は、source-count / origin smoke 用の境界として残すが、production no-escape request-context path の authority にはしない。
+
+この checkpoint は full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source / fresh witness / coverage を実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
