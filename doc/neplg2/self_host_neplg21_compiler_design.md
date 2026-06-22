@@ -3393,6 +3393,14 @@ stage0 summary は source-derived output の count / pair smoke と production r
 
 production gate の `actual_traversal_production_output_pair_code_result` は引き続き no-escape authority へ進まない。`ResourceLoweringTraversalProduced` origin でも `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止め、region proof table、fresh witness table、request-evidence、PrivateCache / PrivateState effect mask、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、actual Resource IR graph walker が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を同じ resolver-bound body identity で実発行し、その後に production no-escape authority と effect mask / sealed backend / artifact projection へ接続することである。
 
+## 2026-06-23 selfhost resource-lowering fresh witness bundle boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、production fresh witness input owner の source owner を same-source candidate 由来の `SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle` へ move する module-private 境界を追加した。`actual_traversal_production_fresh_witness_authority_input_into_bundle_result` は input の `sources` だけを既存 `actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ渡し、source table を request context から再生成しない。
+
+bundle 生成は fresh witness owner 作成で止める。`region_fresh_witness_resource_table_result`、request-evidence gate、no-escape coverage、GraphInput、proof table push、PrivateCache / PrivateState effect mask、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。`PrivateCache` effect body は `RegionProofUnsupported` と expected key で拒否されることを contract で固定した。
+
+この smoke は module-private に留める。現時点では production no-escape authority と request-evidence 境界が未接続であり、public accepted path として公開すると actual full Resource IR traversal 完了と誤解されるためである。production gate は引き続き `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止める。残件は actual Resource IR graph walker 本体の source / fresh-witness 発行、production no-escape authority、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

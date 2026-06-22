@@ -81686,3 +81686,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_fresh_witness_input_boundary.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_lowering_fresh_witness_input_boundary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering fresh witness bundle boundary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、production fresh witness input owner の source owner を same-source candidate 由来の `ActualTraversalFreshWitnessAuthorityBundle` へ move する module-private 境界を追加した。
+- `actual_traversal_production_fresh_witness_authority_input_into_bundle_result` は input の `sources` だけを `actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ渡す。source table を request context から再生成せず、source-derived output helper、no-escape coverage、request-evidence gate、GraphInput、effect mask、backend bytes、artifact key は使わない。
+- `actual_traversal_fresh_witness_authority_bundle_witness_count` は bundle の witness 数を stage0 代表値として読み、source owner と witness owner を閉じる。count は no-escape proof / request-evidence proof / backend plan ではない。
+- `PrivateCache` effect body の bundle rejection は単なる Err ではなく、`RegionProofUnsupported` と expected key で固定した。
+- production fresh witness bundle smoke は module-private に留めた。direct doctest で public surface として materialize すると現在の selfhost compiler が stack overflow するため、no-escape authority / request-evidence 接続前の public accepted path として公開しない。境界自体は contract と private helper で固定する。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、input bundle helper が lower primitive、fixture witness、external `RegionFreshWitnessStatus`、request-evidence / no-escape / backend / artifact へ退行しないこと、bundle witness count helper が owner を閉じること、module-private summary が exact rejection を確認することを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。次は actual Resource IR graph walker 本体の source / fresh-witness 発行、production no-escape authority、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
+- Aristotle の read-only review は、slice 方針と `RegionProofProducerErrorKind` field は妥当と確認した。指摘に従い、PrivateCache effect rejection を exact `RegionProofUnsupported expected_key` に変更し、doc / todo / note を更新し、input bundle helper の禁止語を追加した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-lowering-fresh-witness-bundle-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resource-lowering-fresh-witness-bundle-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_fresh_witness_bundle.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_lowering_fresh_witness_bundle.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
