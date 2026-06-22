@@ -80815,3 +80815,30 @@ MERGE_APPROVED
 - first `node nodesrc/run_source_policy_regressions.js` timed out at 10 min; rerun with longer timeout passed.
 - pass: `node nodesrc/run_source_policy_regressions.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+
+## 2026-06-22 selfhost actual traversal private-effect coverage upper orchestration checkpoint
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator.nepl` を追加した。
+- orchestrator は actual traversal private-effect coverage の public handoff evidence 2 件を個別引数で受け、既存 coverage bridge の `backend_readiness_count_from_handoff_pair_result` へ渡す facade-private upper orchestration である。
+- backend module-private の complete authority、handoff pair、traversal source table、reader context、resolution table、fresh witness table は signature に出さない。public pair 型も追加しない。
+- production helper は handoff payload の status / effect / body identity を読まず、identity / effect / placeholder / status の fail-closed 検査を coverage bridge に委譲する。
+- GraphInput、Resource proof table、checker proof table、direct proof construction、backend bytes、effect mask 実体、sealed representation、`.neplobj` / `.neplproof` artifact key は作らない。
+- `nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_contract.js` を追加し、facade 非公開、ty source 非登録、lower proof / mask / backend readiness module import 禁止、backend private pair / authority / source / context / resolution payload 参照禁止、production helper の bridge 委譲、stage0 の accepted absence / unsupported / request-evidence rejection / request identity mismatch / effect mismatch を固定した。
+- `nodesrc/run_source_policy_regressions.js` に新規 contract を登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、coverage upper orchestration 接続後の残件を full Resource IR traversal output 由来の coverage handoff / fresh witness production boundary、Resource summary hash invalidation、artifact policy hash、effect mask 実体、sealed representation、`.neplobj` / `.neplproof` stable key projectionへ更新した。plan.md との差異はない。
+- Maxwell の design review は、slice は妥当だが full traversal の代替ではなく public `HandoffEvidence` 2 件だけを受ける facade-private orchestration に留めること、private pair / source table / authority / reader context / resolution table を公開しないこと、薄い wrapper だけになるなら次は full traversal に進むことを確認した。実装はこの方針に従い、lower bridge への上位委譲境界と source policy を固定した。
+- Descartes の implementation review は blocker なし。non-blocking として backend 側の private pair / complete authority / source table / reader context / resolution table が将来 `pub` 化されないことも source policy で直接固定できると指摘したため、orchestrator contract に `pub struct` 化禁止 assert を追加した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator.nepl --dist web/dist -o tmp/selfhost-coverage-orchestrator-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-coverage-orchestrator-doctest.json`。1 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_coverage_orchestrator.json`
+- checked JSON: `output/playground_editor_selfhost_actual_coverage_orchestrator.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

@@ -3196,7 +3196,25 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 - full Resource IR traversal の accepted / escaping / observation / unsupported source vocabulary を、現在の HIR body reader source plan と同じ resolver-bound authority で発行する。
 - actual traversal 由来 fresh witness table と coverage producer を同じ traversal authority に束ね、`EffectObservedNoEscape` を fresh witness / no-escape authority 接続後だけ発行する。
-- produced public coverage handoff pair を checker-layer coverage bridge へ渡す upper orchestration を production path に接続する。
+- full traversal output 由来の public coverage handoff 2 件を、接続済み checker-layer upper orchestration へ渡す production boundary を接続する。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-22 selfhost actual traversal private-effect coverage upper orchestration checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator.nepl` を追加し、actual traversal private-effect coverage の public handoff 2 件を checker-layer coverage bridge へ渡す facade-private upper orchestration を固定した。
+
+orchestrator は `SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence` の cache / state evidence を個別引数として受け、public pair 型を追加しない。backend module-private の complete authority、handoff pair、traversal source table、reader context、resolution table、fresh witness table は signature に出さない。slot coverage table、proof table、mask evidence、backend readiness への実接続は既存 `memo_trait_operation_private_effect_actual_traversal_coverage_bridge` に委譲する。
+
+accepted authority は caller が渡した request-evidence gate `Result`、request body root / body module fingerprint、type id / operation、cache / state の public handoff evidence だけである。orchestrator 自体は handoff payload を読まず、status / effect / identity / placeholder fingerprint の fail-closed 検査は bridge の単一実装に集約する。これにより production coverage handoff を受ける上位位置を作りながら、backend private pair や source table を checker-layer の公開面に持ち込まない。
+
+この checkpoint は full Resource IR traversal や artifact emission ではない。GraphInput、Resource proof record/table、checker proof table、backend bytes、effect mask 実体、sealed backend representation、prechecked artifact、`.neplobj` / `.neplproof` artifact key は作らない。`EffectObservedNoEscape` は引き続き actual traversal 由来 fresh witness / no-escape authority が同じ body identity に束ねられた後だけ発行する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_contract.js` で固定した。facade 非公開、ty source 非登録、lower producer / mask / backend readiness module の import 禁止、backend private pair / authority / source / context / resolution payload の参照禁止、production helper が handoff payload を読まず existing bridge に委譲すること、stage0 の accepted absence / unsupported / request-evidence rejection / request identity mismatch / effect mismatch を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、accepted / escaping / observation / unsupported source vocabulary と fresh-region witness table を actual traversal 由来で発行する。
+- production coverage handoff producer からこの upper orchestration へ、fixture ではなく full traversal output 由来の public evidence 2 件を渡す boundary を接続する。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
