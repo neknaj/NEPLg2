@@ -90,6 +90,7 @@ assert.ok(
         source.includes("Backend readiness stage0") &&
         source.includes("Private-effect readiness handoff API") &&
         source.includes("Actual traversal private-effect readiness projection stage0") &&
+        source.includes("Actual traversal private-effect coverage handoff API") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
     "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, request-evidence bridge, backend readiness stage, and actual traversal private-effect readiness projection are present, no public accepted path is added, and index optimization is later contract-preserving work",
@@ -204,6 +205,32 @@ assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence")),
     /Proof|MaskEvidence|SlotCoverage|GraphInput|Wasm|LLVM|neplobj|neplproof|artifact|sealed/i,
     "private-effect readiness handoff evidence must not expose checker evidence, proof, graph, backend, or artifact payloads",
+);
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus"),
+    [
+        "EffectObservedNoEscape",
+        "EffectObservedMayEscape",
+        "EffectAbsentAfterCompleteTraversal",
+        "ResourceGraphMissing",
+        "TraversalUnsupported",
+    ],
+    "actual traversal private-effect coverage handoff status must keep observed, explicit absent, missing, and unsupported states distinct",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence"),
+    [
+        "body_root %SelfhostHirExprId",
+        "body_module_fingerprint %i32",
+        "effect %SelfhostEffectKind",
+        "status %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus",
+    ],
+    "actual traversal private-effect coverage handoff evidence must carry only body identity, effect, and coverage status",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence")),
+    /ActualWalkerTraversalSource|Proof|MaskEvidence|SlotCoverage|GraphInput|Wasm|LLVM|neplobj|neplproof|artifact|sealed/i,
+    "actual traversal private-effect coverage handoff evidence must not expose traversal source tables, checker proof, graph, backend, or artifact payloads",
 );
 assert.doesNotMatch(
     code,
