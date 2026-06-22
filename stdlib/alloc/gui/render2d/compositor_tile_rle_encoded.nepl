@@ -1,0 +1,462 @@
+//: # alloc/gui/render2d/compositor_tile_rle_encoded
+//: RGBA8888 compositor tile RLE encoded seal bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mn の compositor tile RLE write cursor owner を lower encoded seal へ[渡/わた]します。
+//: - lower sealed encoded owner と compositor metadata を[束/たば]ね、後続 packet boundary が frame metadata を[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - write cursor owner を lower write cursor owner へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_rle_encoded_seal` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower seal error では lower kind / category を[読/よ]んでから lower write cursor owner を metadata [付/つ]き compositor write cursor owner へ[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は encoded seal bridge で止まります。packet、packet record、std present、host / platform API、video memory、Canvas / DOM / minifb、raw byte access、fallback / silent no-op は[含/ふく]めません。
+//: - encoded finish payload は abort / recovery helper であり、packet completion や entry finish は[作/つく]りません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
+#import "alloc/gui/render2d/compositor_tile_rle_write_cursor" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_encoded" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTileRleEncodedSealErrorKind: encoded seal bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower encoded seal error kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRleEncodedSealErrorKind:
+    EncodedSealFailed %GuiRgba8888RowTileRleEncodedSealErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRleEncodedSealErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRleEncodedSealErrorKind GuiRgba8888CompositorTileRleEncodedSealErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRleEncodedSealErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRleEncodedSealErrorKind GuiRgba8888CompositorTileRleEncodedSealErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRleEncodedFinishErrorKind: encoded owner close の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower encoded finish / free の kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRleEncodedFinishErrorKind:
+    EncodedFinishFailed %GuiRgba8888RowTileRleEncodedFinishErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRleEncodedFinishErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRleEncodedFinishErrorKind GuiRgba8888CompositorTileRleEncodedFinishErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRleEncodedFinishErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRleEncodedFinishErrorKind GuiRgba8888CompositorTileRleEncodedFinishErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRleEncodedOwner: lower sealed encoded owner と compositor metadata の owner
+//:
+//: sealed encoded storage authority と copied frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodedOwner:
+    encoded %GuiRgba8888RowTileRleEncodedOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTileRleEncodedSealError: write cursor owner を[回収/かいしゅう]できる seal error
+//:
+//: lower encoded seal error の kind / category と、metadata [付/つ]き write cursor owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodedSealError:
+    kind %GuiRgba8888CompositorTileRleEncodedSealErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888CompositorTileRleWriteCursorOwner
+
+//: GuiRgba8888CompositorTileRleEncodedFinishError: payload owner を[回収/かいしゅう]できる encoded finish error
+//:
+//: encoded storage deallocation failure でも lower cursor を metadata [付/つ]き tile payload owner へ[戻/もど]して[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodedFinishError:
+    kind %GuiRgba8888CompositorTileRleEncodedFinishErrorKind
+    payload %GuiRgba8888CompositorTilePayloadOwner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_new: lower sealed encoded owner と metadata を[束/たば]ねる
+//:
+//: lower encoded seal が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encoded_owner_new %fn GuiRgba8888RowTileRleEncodedOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodedOwner \encoded\metadata:
+    GuiRgba8888CompositorTileRleEncodedOwner encoded metadata
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_new: seal error payload を[作/つく]る
+//:
+//: lower kind、category、回収用 write cursor owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_new %fn GuiRgba8888CompositorTileRleEncodedSealErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRleWriteCursorOwner GuiRgba8888CompositorTileRleEncodedSealError \kind\category\owner:
+    GuiRgba8888CompositorTileRleEncodedSealError kind category owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_finish_error_new: finish error payload を[作/つく]る
+//:
+//: lower finish kind と、回収用 payload owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encoded_finish_error_new %fn GuiRgba8888CompositorTileRleEncodedFinishErrorKind fn GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTileRleEncodedFinishError \kind\payload:
+    GuiRgba8888CompositorTileRleEncodedFinishError kind payload
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_from_lower: lower seal error を compositor write cursor error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから lower write cursor owner を[回収/かいしゅう]し、metadata [付/つ]き write cursor owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_from_lower %fn GuiRgba8888RowTileRleEncodedSealError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodedSealError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRleEncodedSealErrorKind gui_rgba8888_row_tile_rle_encoded_seal_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_encoded_seal_error_category_value &lower
+    let lower_owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_encoded_seal_error_finish_owner lower
+    let owner %GuiRgba8888CompositorTileRleWriteCursorOwner GuiRgba8888CompositorTileRleWriteCursorOwner lower_owner metadata
+    let kind %GuiRgba8888CompositorTileRleEncodedSealErrorKind GuiRgba8888CompositorTileRleEncodedSealErrorKind::EncodedSealFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_encoded_seal_error_new kind category owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_finish_error_from_lower: lower encoded finish error を payload recovery error へ[写/うつ]す
+//:
+//: lower finish kind を[読/よ]んでから lower cursor を[回収/かいしゅう]し、metadata [付/つ]き payload owner に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encoded_finish_error_from_lower %fn GuiRgba8888RowTileRleEncodedFinishError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodedFinishError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRleEncodedFinishErrorKind gui_rgba8888_row_tile_rle_encoded_finish_error_kind &lower
+    let lower_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_encoded_finish_error_cursor lower
+    let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor
+    let payload %GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+    let kind %GuiRgba8888CompositorTileRleEncodedFinishErrorKind GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_encoded_finish_error_new kind payload
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal: compositor write cursor owner を sealed encoded owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower write cursor owner を[取/と]り[出/だ]します。
+//: - lower encoded seal を 1 [回/かい]だけ[呼/よ]び、success では sealed encoded owner と metadata を[束/たば]ねます。
+//: - error では lower write cursor owner を metadata [付/つ]き write cursor owner に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal %fn GuiRgba8888CompositorTileRleWriteCursorOwner Result GuiRgba8888CompositorTileRleEncodedOwner GuiRgba8888CompositorTileRleEncodedSealError \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_write_cursor_owner_metadata &owner
+    let lower_owner %GuiRgba8888RowTileRleWriteCursorOwner field::get owner "writer"
+    match gui_rgba8888_row_tile_rle_encoded_seal lower_owner:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_encoded_seal_error_from_lower lower metadata
+        Result::Ok encoded:
+            Result::Ok gui_rgba8888_compositor_tile_rle_encoded_owner_new encoded metadata
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_metadata: encoded owner に[保持/ほじ]した metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので encoded owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_metadata %fn &GuiRgba8888CompositorTileRleEncodedOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_total_run_count: sealed encoded total run count を[返/かえ]す
+//:
+//: lower sealed encoded owner が[保持/ほじ]する exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_total_run_count %fn &GuiRgba8888CompositorTileRleEncodedOwner i32 \owner:
+    let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref owner "encoded"
+    gui_rgba8888_row_tile_rle_encoded_total_run_count encoded
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_encoded_byte_count: sealed encoded byte count を[返/かえ]す
+//:
+//: lower sealed encoded owner が[保持/ほじ]する exact encoded byte count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_encoded_byte_count %fn &GuiRgba8888CompositorTileRleEncodedOwner i32 \owner:
+    let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref owner "encoded"
+    gui_rgba8888_row_tile_rle_encoded_byte_count encoded
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_cursor_next_pixel_index: encoded cursor の next pixel index を[返/かえ]す
+//:
+//: lower sealed encoded owner が[保持/ほじ]する cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRleEncodedOwner i32 \owner:
+    let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref owner "encoded"
+    gui_rgba8888_row_tile_rle_encoded_cursor_next_pixel_index encoded
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_cursor_pixel_count: encoded cursor の pixel count を[返/かえ]す
+//:
+//: lower sealed encoded owner が[保持/ほじ]する cursor pixel count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_cursor_pixel_count %fn &GuiRgba8888CompositorTileRleEncodedOwner i32 \owner:
+    let encoded %&GuiRgba8888RowTileRleEncodedOwner field::get_ref owner "encoded"
+    gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count encoded
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_finish_payload: encoded owner を payload owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower encoded owner を[消費/しょうひ]し、encoded storage deallocation 後の cursor payload を metadata [付/つ]き payload owner へ[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_finish_payload %fn GuiRgba8888CompositorTileRleEncodedOwner Result GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTileRleEncodedFinishError \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encoded_owner_metadata &owner
+    let encoded %GuiRgba8888RowTileRleEncodedOwner field::get owner "encoded"
+    match gui_rgba8888_row_tile_rle_encoded_finish_cursor encoded:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_encoded_finish_error_from_lower lower metadata
+        Result::Ok lower_cursor:
+            let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor
+            Result::Ok GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_kind: seal error kind を[返/かえ]す
+//:
+//: lower encoded seal failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_kind %fn &GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleEncodedSealErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_category_value: seal error の category を[返/かえ]す
+//:
+//: lower encoded seal error の coarse category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_category_value %fn &GuiRgba8888CompositorTileRleEncodedSealError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_metadata: recovery write cursor owner の metadata を[返/かえ]す
+//:
+//: error が[保持/ほじ]する metadata [付/つ]き write cursor owner から metadata を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_metadata %fn &GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorFrameEntryMetadata \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_metadata owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_total_run_count: recovery writer の total run count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する write cursor owner から exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_total_run_count %fn &GuiRgba8888CompositorTileRleEncodedSealError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_total_run_count owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_encoded_byte_count: recovery writer の encoded byte count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する write cursor owner から exact encoded byte count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_encoded_byte_count %fn &GuiRgba8888CompositorTileRleEncodedSealError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_encoded_byte_count owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_written_run_count: recovery writer の written run count を[返/かえ]す
+//:
+//: lower seal failure [前/まえ]の committed run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_written_run_count %fn &GuiRgba8888CompositorTileRleEncodedSealError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_written_run_count owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_written_byte_count: recovery writer の written byte count を[返/かえ]す
+//:
+//: lower seal failure [前/まえ]の committed byte count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_written_byte_count %fn &GuiRgba8888CompositorTileRleEncodedSealError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_written_byte_count owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_cursor_next_pixel_index: recovery writer の cursor next pixel index を[返/かえ]す
+//:
+//: error が[保持/ほじ]する write cursor owner から cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRleEncodedSealError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_cursor_next_pixel_index owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_cursor_pixel_count: recovery writer の cursor pixel count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する write cursor owner から cursor pixel count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_cursor_pixel_count %fn &GuiRgba8888CompositorTileRleEncodedSealError i32 \error:
+    let owner %&GuiRgba8888CompositorTileRleWriteCursorOwner field::get_ref error "owner"
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_cursor_pixel_count owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_owner: error から write cursor owner を[取/と]り[出/だ]す
+//:
+//: caller が retry / recovery / free を[選/えら]べるように metadata [付/つ]き write cursor owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_owner %fn GuiRgba8888CompositorTileRleEncodedSealError GuiRgba8888CompositorTileRleWriteCursorOwner \error:
+    field::get error "owner"
+
+//: gui_rgba8888_compositor_tile_rle_encoded_finish_error_kind: finish error kind を[返/かえ]す
+//:
+//: lower encoded finish failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_finish_error_kind %fn &GuiRgba8888CompositorTileRleEncodedFinishError GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_encoded_finish_error_finish_payload: finish error から tile payload owner を[取/と]り[出/だ]す
+//:
+//: encoded storage deallocation failure で[回収/かいしゅう]した payload owner を caller に[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_finish_error_finish_payload %fn GuiRgba8888CompositorTileRleEncodedFinishError GuiRgba8888CompositorTilePayloadOwner \error:
+    field::get error "payload"
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_payload: seal error の write cursor owner を payload owner へ[戻/もど]す
+//:
+//: 回収した write cursor owner を F5mm write cursor owner finish payload に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_payload %fn GuiRgba8888CompositorTileRleEncodedSealError Result GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTileRleWriteCursorFinishError \error:
+    let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_owner error
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_finish_payload owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_seal_error_free: seal error の write cursor owner を[閉/と]じて payload まで[破棄/はき]する
+//:
+//: 回収した write cursor owner を F5mm write cursor owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_seal_error_free %fn GuiRgba8888CompositorTileRleEncodedSealError Result unit GuiRgba8888CompositorTileRleWriteCursorFinishErrorKind \error:
+    let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_owner error
+    gui_rgba8888_compositor_tile_rle_write_cursor_owner_free owner
+
+//: gui_rgba8888_compositor_tile_rle_encoded_owner_free: encoded owner を[閉/と]じて cursor payload まで[破棄/はき]する
+//:
+//: lower encoded owner free に[委譲/いじょう]し、encoded storage deallocation / cursor free の typed kind を compositor encoded finish kind に[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_owner_free %fn GuiRgba8888CompositorTileRleEncodedOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    let encoded %GuiRgba8888RowTileRleEncodedOwner field::get owner "encoded"
+    match gui_rgba8888_row_tile_rle_encoded_owner_free encoded:
+        Result::Err lower_kind:
+            Result::Err GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind
+        Result::Ok _:
+            Result::Ok unit
+
+//: gui_rgba8888_compositor_tile_rle_encoded_finish_error_free: finish error の recovery payload を[破棄/はき]する
+//:
+//: error に[保持/ほじ]した payload owner を F5me payload owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encoded_finish_error_free %fn GuiRgba8888CompositorTileRleEncodedFinishError Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encoded_finish_error_finish_payload error
+    gui_rgba8888_compositor_tile_payload_owner_free payload

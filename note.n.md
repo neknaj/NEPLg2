@@ -1,3 +1,52 @@
+# 2026-06-22 Agent2 GUI render2d F5mo compositor tile RLE encoded seal bridge boundary
+
+## 目的
+
+- F5mn/F5mm の `GuiRgba8888CompositorTileRleWriteCursorOwner` から lower `gui_rgba8888_row_tile_rle_encoded_seal` へ進む compositor tile RLE encoded seal bridge を追加する。
+- encoded seal は lower sealed encoded owner と metadata を `GuiRgba8888CompositorTileRleEncodedOwner` として束ね、packet / std present / host present へ進まない boundary として分離する。
+- lower encoded seal error は kind / category を読んだ後で lower write cursor owner を metadata 付き write cursor owner へ戻す。payload recovery や lower error recovery の公開にはしない。
+
+## 実装内容
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_encoded.nepl` を追加した。
+- `GuiRgba8888CompositorTileRleEncodedSealErrorKind`、`GuiRgba8888CompositorTileRleEncodedFinishErrorKind`、`GuiRgba8888CompositorTileRleEncodedOwner`、`GuiRgba8888CompositorTileRleEncodedSealError`、`GuiRgba8888CompositorTileRleEncodedFinishError` を追加した。
+- `gui_rgba8888_compositor_tile_rle_encoded_seal` は metadata を write cursor owner から Copy してから lower write cursor owner を取り出し、lower encoded seal を 1 回だけ呼ぶ。
+- success は lower encoded owner を metadata 付き encoded owner へ戻し、metadata / total run count / encoded byte count / cursor next pixel index / cursor pixel count accessor を追加した。
+- lower error は kind / category を読んでから lower write cursor owner を取り出し、metadata 付き write cursor owner recovery error に正規化した。
+- encoded owner finish payload / free、finish error payload / free、seal error finish owner / finish payload / free を追加した。seal error finish payload / free は F5mm write cursor owner finish payload / free に委譲し、finish error free は F5me payload free に委譲する。
+- packet-side の `tile_descriptor_checked` / `tile_plan_metadata_checked`、packet、std present、raw byte、host / platform API、fallback / silent no-op はこの境界に入れていない。`finish_entry` も作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mo contract に合わせて更新した。
+
+## plan.md との差異
+
+- F5mo は 2D compositor の formal tile RLE transport を進めるための中間境界であり、plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う。
+- 現時点では packet transport、std present、platform present continuation には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Kepler plan review は `PLAN_APPROVED`。
+- F5mo は F5mn write cursor owner を lower encoded seal へ渡す boundary として妥当で、success owner は lower encoded owner を直接返さず metadata 付き owner に包むべきと確認された。
+- lower encoded seal error は write cursor owner recovery であり、kind/category を owner recovery より前に読み、lower error を公開 recovery payload にしない方針が承認された。
+- `owner_finish_payload` は packet completion ではなく recovery / abort helper であり、lower cursor を payload owner へ戻すこと、`tile_descriptor_checked` / `tile_plan_metadata_checked` は後続 packet boundary へ残すことが確認された。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encoded_f5mo.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_encoded.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_encoded_module_f5mo.json -j 1`（34/34）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_f5mo_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_f5mo_regression.json -j 1`（3/3）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5mo.json`
+- checked JSON: `tmp_playground_editor_f5mo.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 残り
+
+- F5mo 後続として、compositor encoded owner から lower packet / std present payload transport / present continuation へ進む boundary を実装する。
+
 # 2026-06-22 Agent2 GUI render2d F5mn compositor tile RLE write step bridge boundary
 
 ## 目的
@@ -58,7 +107,7 @@
 
 ## 残り
 
-- F5mn 後続として、compositor write cursor owner から lower encoded seal / packet / std present payload transport / present continuation へ進む boundary を実装する。
+- F5mo で encoded seal boundary は接続済み。後続として、compositor encoded owner から lower packet / std present payload transport / present continuation へ進む boundary を実装する。
 
 # 2026-06-22 Agent2 GUI render2d F5mm compositor tile RLE write cursor start bridge boundary
 

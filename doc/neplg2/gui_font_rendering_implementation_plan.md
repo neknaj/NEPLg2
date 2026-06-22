@@ -4930,6 +4930,60 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mn.json
 ```
 
+## Phase F5mo: render2d compositor tile RLE encoded seal bridge boundary
+
+目的:
+
+- F5mn/F5mm write cursor owner を authority とし、既存 lower `gui_rgba8888_row_tile_rle_encoded_seal` を compositor metadata 付きで接続する。
+- lower encoded seal を 1 回だけ呼び、success では lower sealed encoded owner と copied metadata を `GuiRgba8888CompositorTileRleEncodedOwner` として束ねる。
+- lower encoded seal error は original write cursor owner を返す契約なので、kind / category を読んだ後で lower write cursor owner を metadata 付き F5mm write cursor owner へ戻す。
+- この phase では encoded seal に留め、packet、packet record、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no packet / present / raw byte の compositor tile RLE encoded seal bridge で止める。
+
+plan review:
+
+- Kepler plan review は `PLAN_APPROVED`。
+- F5mn write cursor owner を lower encoded seal へ渡す boundary として正しく、success owner は lower `GuiRgba8888RowTileRleEncodedOwner` を metadata 付き owner として包み、lower owner を直接返さない。
+- lower encoded seal error は write cursor owner recovery であり、lower encoded seal error を公開 recovery payload にしない。error wrapper は lower kind / category を `gui_rgba8888_row_tile_rle_encoded_seal_error_finish_owner` より前に読む。
+- `owner_finish_payload` は packet completion ではなく recovery / abort helper であり、lower encoded finish cursor を payload owner へ戻す。seal error finish / free は F5mm write cursor owner finish payload / free に委譲する。
+- `tile_descriptor_checked` と `tile_plan_metadata_checked` は packet boundary の責務なので、F5mo では呼ばない。
+- source policy で facade export、typed owner/error、owner-bearing no Clone / Copy、single lower seal call、metadata-before-lower-owner-consume、lower error kind/category before write cursor owner recovery、packet / std present / raw byte / host / platform / fallback 禁止、lower encoded accessor whitelist だけを検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_encoded.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleEncodedSealErrorKind` と `GuiRgba8888CompositorTileRleEncodedFinishErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleEncodedOwner`、`GuiRgba8888CompositorTileRleEncodedSealError`、`GuiRgba8888CompositorTileRleEncodedFinishError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_encoded_seal` は metadata を write cursor owner から Copy してから lower write cursor owner を取り出し、lower encoded seal を 1 回だけ呼ぶ。
+- success は lower encoded owner を metadata 付き encoded owner へ戻し、metadata / total run count / encoded byte count / cursor next pixel index / cursor pixel count accessor を提供する。
+- lower encoded seal error は lower kind / category を読んでから lower write cursor owner を取り出し、metadata 付き F5mm write cursor owner を持つ seal error に正規化する。lower encoded seal error を公開 recovery payload にしない。
+- encoded owner finish payload / free、finish error payload / free、seal error finish owner / finish payload / free helper を追加する。finish payload / free は F5mm write cursor owner finish payload / free または F5me payload free に委譲する。
+- `finish_entry` は作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE encoded seal を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md` を追加し、default runtime smoke で facade / wrapped lower seal error kind / wrapped lower finish kind を固定し、source policy fixture で lower encoded seal success、counts/progress、metadata、finish payload recovery、seal error write cursor recovery、encoded free delegation、no packet / present / raw byte / fallback label を固定する。malformed encoded owner 直 constructor 禁止 compile_fail も追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mo source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Kepler approval、facade export、typed lower encoded seal / finish error variant、metadata 付き encoded owner success、write cursor owner recovery error、payload owner recovery finish error、owner-bearing success / error no Clone / Copy、lower encoded seal exact once、metadata-before-lower-owner-consume、lower error kind/category before write cursor owner recovery、lower encoded seal error を公開 recovery payload にしないこと、success finish payload の lower encoded finish cursor 経由 payload recovery、seal error finish payload/free の F5mm write cursor owner 委譲、encoded owner free の lower encoded owner free 委譲、`finish_entry` 禁止、packet / raw byte access / std present / host / platform / fallback 禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5mn write step regression、lower encoded regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower encoded seal error exposure、write cursor owner recovery loss、packet/present/raw leakage、`tile_descriptor_checked` / `tile_plan_metadata_checked` leakage、`encoded_finish_entry` / `encoded_error_finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encoded_f5mo.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_encoded.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_encoded_module_f5mo.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_f5mo_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_f5mo_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mo.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
