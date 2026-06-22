@@ -80948,3 +80948,29 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_body_reader_noescape_coverage.json`
 - checked JSON: `output/playground_editor_selfhost_body_reader_noescape_coverage.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost reader fresh witness authority producer checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、resolver-bound body-reader source owner から same-source candidate 由来の fresh witness authority bundle を作る backend-private producer を追加した。
+- `actual_traversal_fresh_witness_authority_bundle_from_sources_result` は source owner から region proof table を作り、candidate checker を通した後、その candidate の key / graph / root-support ordinal だけで fresh witness table owner を作る。candidate extraction 後は proof table を閉じ、candidate / witness 作成失敗では source owner も閉じる。
+- body-reader no-escape path は `actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result`、caller supplied witness fingerprint / graph / root ordinal / support ordinal / `RegionFreshWitnessStatus` を受け取らず、split output -> context-bound source adapter -> same-source witness authority producer の順にした。
+- Kant の implementation review で、region candidate だけでは `PrivateCacheEntryPlace` / `ReturnedOwnedClonePlace` / `OwnsEdge` / `BorrowViewEdge` などの generic support candidate も fresh witness authority になり得ると指摘された。対応として witness table 作成前に source table を直接読み、2 record ちょうど、ordinal 0 の `PrivateCacheStoragePlace`、ordinal 1 の `CloneOutOwnedValueEdge`、from/to place 0、candidate と同一 key / graph の closed wrapper accepted pair だけを許可する guard を追加した。
+- body-reader stage0 summary は accepted same-source no-escape pair code と、HIR `PrivateCache` effect / FnValue / MemoizedFunctionValue observation / pure call unsupported source の compact Result だけを返す。missing / rejected witness、witness authority mismatch の taxonomy は existing actual no-escape coverage stage0 と operation-classified smoke に残す。
+- `ActualTraversalBundle`、source-derived request-evidence bundle、request-evidence gate、root-wide operation fixture、direct source adapter、stage0 coverage authority、GraphInput、Resource proof table push、checker proof table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、new producer の module-private same-source candidate derivation、external witness metadata / stage0 witness wrapper 禁止、body-reader no-escape helper の no external witness args、public summary field の縮小、lower proof / backend / artifact 合成禁止を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、今回の producer は external witness fixture を外す境界であり、full Resource IR / HIR lowering traversal が actual traversal-owned fresh witness authority bundle を実発行する残件は継続と明記した。plan.md との差異はない。
+- Kant の follow-up implementation review は `PLAN_APPROVED`。closed wrapper source shape guard が前回 blocker を解消し、merge-blocking issue はないことを確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-reader-fresh-witness-authority-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-reader-fresh-witness-authority-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_reader_fresh_witness_authority.json`
+- checked JSON: `output/playground_editor_selfhost_reader_fresh_witness_authority.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
