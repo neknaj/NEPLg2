@@ -80543,3 +80543,11 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_slot_coverage.json`
 - checked JSON: `output/playground_editor_selfhost_private_effect_slot_coverage.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- post-merge pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js`
+- post-merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_slot_coverage_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-slot-coverage-postmerge.json`。JSON は `total=1`, `passed=1`, `failed=0`, `errored=0`。
+- post-merge pass: `node nodesrc/issues.js check --dir issues`
+- post-merge note: 1 回目の `node nodesrc/run_source_policy_regressions.js` は `test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js` group で child exit `-1` になったが、同 contract の個別実行は pass し、source policy runner 再実行も pass した。
+- post-merge pass: `node nodesrc/run_source_policy_regressions.js`
+- post-merge pass: `trunk build`
+- post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_slot_coverage_postmerge.json`
+- post-merge checked JSON: `output/playground_editor_selfhost_private_effect_slot_coverage_postmerge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
