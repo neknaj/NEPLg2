@@ -5567,6 +5567,56 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mz.json
 ```
 
+## Phase F5na: std compositor tile RLE present host execution report boundary
+
+目的:
+
+- F5mz action と executor-supplied `Result unit GuiError` を、std layer compositor tile RLE present host execution report boundary に束ねる。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionReport` は action context and executor outcome を保持する metadata-preserving report とする。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionReportKind` は `Succeeded` / `Failed GuiError` だけを持つ。
+- report construction は outcome を包むだけなので `Result` を返さない。
+- F5mx request bridge は F5mz action decoding を 1 回だけ呼び、F5mx request と outcome から report を作る。
+- F5na is not actual execution and not pending completion。F5na does not depend on F5my / F5mw / F5mv and does not execute host imports。
+- lower row-tile host execution / import / command / report、F5my dispatch、F5mw schedule、F5mv virtual drain、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Russell design/source-policy review は `PLAN_APPROVED`。
+- F5na の invariant は lower F5cx の compositor counterpart として、main input を F5mz action + executor outcome、optional bridge input を F5mx request、output を `GuiRgba8888CompositorTileRlePresentHostExecutionReport` に固定する。
+- source policy では F5mz action と F5mx request bridge は許可し、F5my/F5mw/F5mv、lower row-tile host execution / import / command / report、host request construction、pending completion、platform/raw/fallback leakage を禁止する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_execution_report.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionReportKind`、`GuiRgba8888CompositorTileRlePresentHostExecutionReport`、constructor helper、accessor、`report_for_request`、`report_outcome` を追加する。
+- `report_for_request` は F5mz `gui_rgba8888_compositor_tile_rle_present_host_execution_action` を 1 回だけ呼んでから report construction に進む。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present host execution report boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5na source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Russell design/source-policy review、facade export、report kind / report shape、F5mz action import、F5mx request bridge import、request bridge action decoding order、report_outcome roundtrip、no F5my/F5mw/F5mv、lower row-tile / pending completion / raw / platform / Vec / fallback 禁止、runtime smoke label を検査する。
+- focused doctest、module doctest、F5mz compositor host execution regression、F5mx compositor host-import regression、F5cx lower host execution report regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で F5mz action preservation、F5mx request bridge exactly once、metadata-preserving action context、no actual execution / pending completion / platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_f5na.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_report.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_module_f5na.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5na_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5na_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5na_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5na.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -81613,3 +81613,30 @@ MERGE_APPROVED
 - main merge 後再検証 pass: `trunk build`
 - main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_output_boundary_merge.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_lowering_output_boundary_merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present host execution report checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_host_execution_report.nepl` を追加し、F5mz action と executor-supplied `Result unit GuiError` を束ねる F5na std layer compositor tile RLE present host execution report boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionReportKind` は `Succeeded` / `Failed GuiError` だけを持つ。`GuiRgba8888CompositorTileRlePresentHostExecutionReport` は F5mz action と kind を保持する。
+- report construction は action context and executor outcome を包むだけなので `Result` を返さない。F5mz action payload の compositor descriptor / run record metadata は action をそのまま保持することで失わない。
+- `gui_rgba8888_compositor_tile_rle_present_host_execution_report_for_request` は F5mx request bridge として F5mz action decoding を 1 回だけ呼び、request construction や capability validation は行わない。
+- `report_outcome` は `Succeeded` / `Failed` を original `Result unit GuiError` に戻し、後続 completion boundary へ渡せる形にする。
+- F5na は actual host execution、pending completion、F5my/F5mw/F5mv、lower row-tile host execution / import / command / report、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Russell の design/source-policy review は `PLAN_APPROVED`。F5mz action + executor outcome、F5mx request bridge、metadata-preserving report、no execution / no completion / no lower row-tile leakage を固定する方針で問題ないと確認された。
+- Copernicus の implementation review は `PLAN_APPROVED`。F5mz action preservation、report constructor が `Result` を返さないこと、F5mx request bridge exactly once、report_outcome roundtrip、no actual execution / pending completion / F5my-F5mv / lower row-tile / platform / raw / fallback leakage に blocker はないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_f5na.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_report.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_module_f5na.json -j 1`。11/11。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5na_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5na_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5na_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5na.json`
+- checked JSON: `tmp-playground-editor-tests-f5na.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

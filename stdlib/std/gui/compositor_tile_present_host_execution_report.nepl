@@ -1,0 +1,171 @@
+//: # std/gui/compositor_tile_present_host_execution_report
+//: compositor tile RLE present host execution report の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mz の executor action と platform executor が[返/かえ]した outcome を、action context を[失/うしな]わない typed report に[束/たば]ねます。
+//: - actual host import は[実行/じっこう]せず、Web / native / bare executor が[返/かえ]す[結果/けっか]の[形/かたち]だけを std layer で[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - report construction は executor outcome を[包/つつ]むだけなので、新しい failure mode を[作/つく]りません。
+//: - failure は string や bool ではなく `GuiError` payload として[保持/ほじ]します。
+//: - pending completion には[進/すす]まず、caller が `report_outcome` で[元/もと]の `Result unit GuiError` を[渡/わた]します。
+//: - F5my/F5mw/F5mv、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、dispatch loop、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionReportKind: executor outcome の report kind
+//:
+//: 成功は `Succeeded`、失敗は `Failed GuiError` として[保持/ほじ]し、文字列や bool に[落/お]としません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostExecutionReportKind:
+    Succeeded
+    Failed %GuiError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionReportKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionReportKind GuiRgba8888CompositorTileRlePresentHostExecutionReportKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionReportKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionReportKind GuiRgba8888CompositorTileRlePresentHostExecutionReportKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionReport: action context と outcome kind の report
+//:
+//: F5mz action をそのまま[保持/ほじ]し、executor outcome と後続 validation の[対応/たいおう]を[追跡/ついせき]できるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutionReport:
+    action %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    kind %GuiRgba8888CompositorTileRlePresentHostExecutionReportKind
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionReport:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionReport GuiRgba8888CompositorTileRlePresentHostExecutionReport \report:
+        *report
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionReport:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionReport GuiRgba8888CompositorTileRlePresentHostExecutionReport \report:
+        report
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind_from_outcome: executor outcome を kind に[写/うつ]す
+//:
+//: `Result unit GuiError` の Ok / Err を `Succeeded` / `Failed` に[変換/へんかん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind_from_outcome %fn Result unit GuiError GuiRgba8888CompositorTileRlePresentHostExecutionReportKind \outcome:
+    match outcome:
+        Result::Ok _unit:
+            GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Succeeded
+        Result::Err error:
+            GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Failed error
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_new: report payload を[作/つく]る
+//:
+//: action と outcome kind を 1 つの Copy report に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_new %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionReportKind GuiRgba8888CompositorTileRlePresentHostExecutionReport \action\kind:
+    GuiRgba8888CompositorTileRlePresentHostExecutionReport action kind
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report: action と outcome を report に[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - outcome の Ok / Err を `Succeeded` / `Failed GuiError` に[写/うつ]します。
+//: - actual executor の[成功/せいこう][失敗/しっぱい]を[解釈/かいしゃく]せず、action context と[一緒/いっしょ]に[保持/ほじ]します。
+//: - report construction は `Result` を[返/かえ]しません。ここでは新しい validation を[行/おこな]わないためです。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_report %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888CompositorTileRlePresentHostExecutionReport \action\outcome:
+    let kind %GuiRgba8888CompositorTileRlePresentHostExecutionReportKind gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind_from_outcome outcome
+    gui_rgba8888_compositor_tile_rle_present_host_execution_report_new action kind
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_for_request: request を action に[写/うつ]して outcome と[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - F5mz の action decoding を 1 [回/かい]だけ[呼/よ]びます。
+//: - capability validation、request construction、dispatch loop completion は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_for_request %fn &GuiRgba8888CompositorTileRlePresentHostImportRequest fn Result unit GuiError GuiRgba8888CompositorTileRlePresentHostExecutionReport \request\outcome:
+    let action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_action request
+    gui_rgba8888_compositor_tile_rle_present_host_execution_report action outcome
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_action: report の action context を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_action %fn &GuiRgba8888CompositorTileRlePresentHostExecutionReport GuiRgba8888CompositorTileRlePresentHostExecutionAction \report:
+    *field::get_ref report "action"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind: report kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind %fn &GuiRgba8888CompositorTileRlePresentHostExecutionReport GuiRgba8888CompositorTileRlePresentHostExecutionReportKind \report:
+    *field::get_ref report "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_error: failed report の GuiError を[返/かえ]す
+//:
+//: `Succeeded` に error を[要求/ようきゅう]した場合は `InvalidCommand` を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_error %fn &GuiRgba8888CompositorTileRlePresentHostExecutionReport Result GuiError GuiError \report:
+    let kind %GuiRgba8888CompositorTileRlePresentHostExecutionReportKind gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind report
+    match kind:
+        GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Succeeded:
+            Result::Err GuiError::InvalidCommand
+        GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Failed error:
+            Result::Ok error
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_report_outcome: report kind を executor outcome に[戻/もど]す
+//:
+//: 後続 completion boundary へ渡すため、`Succeeded` / `Failed` を `Result unit GuiError` に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_report" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_report_outcome %fn &GuiRgba8888CompositorTileRlePresentHostExecutionReport Result unit GuiError \report:
+    let kind %GuiRgba8888CompositorTileRlePresentHostExecutionReportKind gui_rgba8888_compositor_tile_rle_present_host_execution_report_kind report
+    match kind:
+        GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Succeeded:
+            Result::Ok unit
+        GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Failed error:
+            Result::Err error
