@@ -45,6 +45,7 @@
 //: - Producer-owned unavailable traversal bundle stage0 は、HIR-root request authority から明示的な `ResourceIrTraversalUnavailable` source table を作り bundle lifecycle に載せます。well-formed な witness 形式を与えても source が unavailable であるため accepted proof にはなりません。
 //: - Operation-classified traversal bundle stage0 は、module-private operation descriptor を HIR-root request authority と classifier で unified event stream へ写し、split / collector を通して traversal source bundle へ接続します。これは actual Resource IR body traversal ではなく、将来 actual traversal が operation table または unified event stream を返す場合の owner lifecycle と fail-closed taxonomy を固定する smoke です。
 //: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
+//: - Context-bound coverage witness bundle stage0 は、同じ context-bound source owner から coverage handoff pair を借用生成し、その owner を source-derived fresh witness bundle へ渡します。coverage と request-evidence が別々の source table を読むと body / graph authority がずれるため、同一 owner 境界を先に固定します。
 //: - Backend readiness stage0 は、request-evidence gate の `Result` と、同じ body identity を持つ private-effect mask evidence を module-private に照合します。これは effect mask 実体や backend artifact ではなく、`RequestEvidenceProven` だけを backend 完了として扱わないための non-executable boundary です。
 //: - Upstream private-effect mask stage0 は、checker-layer proof producer を直接呼ばず、上位 orchestration が渡すべき neutral private-effect status / evidence を private-effect mask evidence へ写します。evidence の root / body fingerprint を保持して readiness gate へ渡すため、request gate result と別 body の mask evidence は accepted になりません。
 //: - Private-effect readiness handoff API は、checker-layer orchestration が作った neutral mask evidence を root / body fingerprint / status だけの public transport として受けます。backend module は checker module を import せず、handoff を module-private upstream evidence へ写して既存 readiness gate に通すだけです。
@@ -72,6 +73,7 @@
 //: - fresh witness request-evidence bridge は witness 検査 O(w)、Resource proof table から request-evidence table への変換 O(p)、既存 request gate の request 再収集 O(n + m)、proof lookup O(m * p) に従います。ここで固定するのは HIR root authority と owner cleanup の契約であり、proof lookup の sorted index 化は後続で置換できます。
 //: - actual traversal bundle stage0 は source 数 `s` と witness 数 `w` に対して O(s + w) 時間で、source table から region candidate を作り、matching witness を request-evidence bridge へ渡します。actual Resource IR body traversal の探索範囲、PrivateCache / PrivateState effect fold、sealed backend lowering はまだ別 stage の計算量として扱います。
 //: - context-bound reader traversal bundle stage0 は source 数 `s` に対して O(s) 時間で request context と source table の key / graph を照合し、照合成功後だけ witness table を作って既存 bundle gate へ渡します。この段階で固定するのは owner lifecycle と fail-closed taxonomy であり、source lookup index や actual Resource IR traversal の探索削減は後続 stage で追加できます。
+//: - context-bound coverage witness bundle stage0 は source 数 `s` に対して O(s) 時間で coverage pair を作り、その後同じ source owner を fresh witness request-evidence gate へ渡します。source table を複製せず、coverage 計算失敗時だけ owner をこの boundary で閉じます。
 //: - collector-owned traversal bundle stage0 は collector input の body / place / edge / unsupported / observation 数を `g`、source 数を `s`、witness 数を `w` とすると O(g + s + w + n + p) です。actual Resource IR body traversal を読む計算量ではなく、collector output owner と fresh witness owner を同じ bundle boundary で閉じるための stage0 計算量です。
 //: - producer-owned unavailable traversal bundle stage0 は HIR root からの request 再収集 O(n)、unavailable source table 生成 O(n)、source / witness gate O(s + w)、既存 request-evidence 再照合 O(n + p) に従います。ここで固定するのは production authority と owner cleanup であり、actual Resource IR traversal の探索範囲や accepted source 生成の計算量ではありません。
 //: - operation-classified traversal bundle stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w` に対して O(o + a + g + s + w + n + p) です。operation table は module-private stage0 descriptor であり、actual Resource IR body traversal の探索範囲ではありません。
@@ -2759,6 +2761,52 @@ pub struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleS
     producer_not_connected_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
     missing_reader_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind: coverage / witness 同一 owner boundary の拒否理由
+//:
+//: [目的/もくてき]:
+//: - coverage handoff pair 生成の拒否と、source-derived fresh witness / request-evidence 側の拒否を混同しないための public stage0 error です。
+//:
+//: [契約/けいやく]:
+//: - coverage 側は payload-less `SourceRejected` を含む既存 public error taxonomy だけを保持します。
+//: - witness 側は既存 Resource proof producer error を保持しますが、source table、fresh witness owner、coverage pair owner は public payload にしません。
+pub enum SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind:
+    CoverageRejected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
+    WitnessRejected %SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle: coverage pair と source-derived witness bundle の module-private owner
+//:
+//: [契約/けいやく]:
+//: - coverage pair は public handoff evidence 2 件を束ねた module-private pair です。bundle は source / witness owner を保持します。
+//: - この struct は public API に出しません。同じ source owner から coverage を先に借用生成し、その owner を fresh witness bundle へ移した場合だけ作ります。
+struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle:
+    coverage_pair %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair
+    bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalBundle
+
+//: SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary: coverage pair と request-evidence summary の module-private aggregate
+//:
+//: [契約/けいやく]:
+//: - coverage pair code と request-evidence count だけを保持します。backend bytes、effect mask、artifact key は含めません。
+struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary:
+    coverage_pair_code %i32
+    request_count %i32
+    proven_request_count %i32
+
+//: SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary: context-bound source owner から coverage と witness を同時に作る smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - resolver-bound reader context が作る 1 つの source table owner を、coverage handoff pair と source-derived fresh witness bundle の両方に使えることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は coverage pair code、request / proof count、typed rejection だけを公開します。source table、fresh witness table、bundle、coverage private pair、Resource proof table は公開しません。
+//: - `accepted_coverage_pair_code` は同じ accepted source owner から coverage pair を作った後に、同じ owner が request-evidence gate へ届いたことを表します。
+//: - `private_cache_effect_rejected` は coverage 側では unsupported handoff に分類できる source が、fresh witness 側では no-escape proof に昇格しないことを固定します。
+//: - full Resource IR body traversal、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
+pub struct SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary:
+    accepted_request_count %i32
+    accepted_proof_count %i32
+    accepted_coverage_pair_code %i32
+    private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind
+
 //: SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary: collector output bundle 接続 smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -3891,6 +3939,32 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBun
 //: Copy for SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary: context-bound reader bundle smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind: coverage witness error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error payload は owner を持たない既存 public error enum だけです。source table / witness table / coverage pair owner は含めません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind: coverage witness error の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary: coverage witness smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は owner を含まない count / pair code / Result payload だけを保持します。source owner と witness owner は private helper 内で閉じます。
+impl Clone for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary: coverage witness smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheCollectorOwnedTraversalBundleStage0Summary: collector-owned bundle smoke summary を値として[複製/ふくせい]する
@@ -14584,6 +14658,86 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_
 fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_bundle_from_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\context\resolutions:
     selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_from_request_context_result module context resolutions
 
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_new: coverage pair と witness bundle を 1 owner boundary に[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - coverage pair は owner を持たない public handoff evidence pair です。bundle は source / witness owner を保持します。
+//: - この constructor は module-private であり、checker API へ coverage pair や bundle owner を渡しません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair fn SelfhostMemoCallBackendPrivateCacheActualTraversalBundle SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle \coverage_pair\bundle:
+    SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle coverage_pair bundle
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_free: combined owner の bundle を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - request-evidence gate へ渡す前に stage0 setup が失敗した場合だけ呼びます。gate へ進んだ bundle は gate 側で閉じます。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_free %impure fn SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle unit \combined:
+    let bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalBundle field::get combined "bundle"
+    selfhost_memo_call_backend_private_cache_actual_traversal_bundle_free bundle
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result: 1 source owner から coverage と witness bundle を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - resolver-bound context が作った source table owner を coverage handoff pair と source-derived fresh witness bundle の共通 authority にします。
+//:
+//: [契約/けいやく]:
+//: - coverage pair は borrowed source table から先に作ります。coverage が拒否した場合は source owner をこの helper で閉じます。
+//: - coverage 成功後は同じ source owner を `actual_traversal_bundle_source_derived_witness_result` へ渡します。source table を複製したり再生成したりしません。
+//: - stage0 witness fixture、GraphInput、Resource proof table push、request proof table push、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \authority\sources:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_from_sources_result authority &sources:
+        Result::Ok coverage_pair:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources:
+                Result::Ok bundle:
+                    Result::Ok selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_new coverage_pair bundle
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind::WitnessRejected e
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            Result::Err SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind::CoverageRejected e
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_summary_new: combined gate summary を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_summary_new %fn i32 fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary \coverage_pair_code\request_count\proven_request_count:
+    SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary coverage_pair_code request_count proven_request_count
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_request_evidence_gate_result: combined owner を request-evidence gate へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - coverage pair code は bundle を gate へ渡す前に取り出します。
+//: - gate へ進んだ bundle は既存 request-evidence gate が source / witness owner を閉じます。この helper は gate 失敗を witness 側の拒否として保持します。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_request_evidence_gate_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \module\root\fuel\body_module_fingerprint\combined:
+    let coverage_pair %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair field::get combined "coverage_pair"
+    let coverage_pair_code %i32 selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code coverage_pair
+    let bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalBundle field::get combined "bundle"
+    match selfhost_memo_call_backend_private_cache_actual_traversal_bundle_request_evidence_gate_result module root fuel body_module_fingerprint bundle:
+        Result::Ok summary:
+            Result::Ok selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_summary_new coverage_pair_code summary.request_count summary.proven_request_count
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind::WitnessRejected e
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_from_context_result: reader context から coverage と witness gate を同一 source owner で[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - production reader context の resolver-bound body root と source output を、coverage handoff と source-derived fresh witness request-evidence gate の同じ authority に束ねます。
+//:
+//: [契約/けいやく]:
+//: - coverage authority は resolver lookup から作ります。request root を body root として代用しません。
+//: - source table は `actual_traversal_body_adapter_sources_from_request_context_result` で 1 回だけ作り、その owner を combined helper へ渡します。
+//: - source 作成や authority 作成に失敗した場合は coverage 側の fail-closed rejection として返し、fresh witness owner を作りません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_from_context_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \module\root\fuel\context\resolutions:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result module context resolutions:
+        Result::Ok authority:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions:
+                Result::Ok sources:
+                    match selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result authority sources:
+                        Result::Ok combined:
+                            selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_request_evidence_gate_result module root fuel context.body_module_fingerprint combined
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind::CoverageRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind::CoverageRejected e
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_bundle_stage0_run_summary_with_body_expr_result: body reader bundle producer を request-evidence gate へ[渡/わた]す
 //:
 //: [目的/もくてき]:
@@ -14884,6 +15038,84 @@ pub fn selfhost_memo_call_backend_private_cache_context_bound_reader_traversal_b
                     Result::Ok SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary accepted.request_count accepted.proven_request_count actual_body_reader_bundle_accepted.proven_request_count hir_body_private_cache_effect_rejected hir_body_fn_value_observation_rejected hir_body_memoized_function_value_observation_rejected seed_key_mismatch_rejected seed_graph_mismatch_rejected seed_missing_rejected seed_observation_rejected seed_unsupported_rejected seed_malformed_rejected producer_not_connected_availability_rejected missing_reader_availability_rejected
                 Result::Err e:
                     Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected: setup 失敗を coverage source rejection へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected %fn void SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \void:
+    SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind::CoverageRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_with_body_expr_result: body expr fixture から coverage + witness gate summary を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - request table、reader context、resolution table は既存 context-bound runner と同じく HIR root から内部再構築します。
+//: - source table owner は `coverage_witness_gate_from_context_result` の内部で 1 回だけ作られ、coverage pair と source-derived witness bundle の共通 authority になります。
+//: - setup 失敗は coverage public producer と同じ payload-less `SourceRejected` に畳み、source / witness owner を作りません。
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_with_body_expr_result %impure fn i32 impure fn i32 impure fn SelfhostHirExpr Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \context_body_module_fingerprint\graph_index\body_expr:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module_with_body_expr function_ty span def_id body_expr:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
+                Result::Ok table:
+                    let result %Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index:
+                                Result::Ok context:
+                                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint:
+                                        Result::Ok resolutions:
+                                            let resolved_result %Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_from_context_result &module root 8 context &resolutions
+                                            selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions
+                                            resolved_result
+                                        Result::Err _e:
+                                            Result::Err selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected
+                                Result::Err _e:
+                                    Result::Err selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected
+                        Option::None:
+                            Result::Err selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    result
+                Result::Err _e:
+                    selfhost_hir_module_free module
+                    Result::Err selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected
+        Result::Err _e:
+            Result::Err selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_stage0_source_rejected
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_result: neutral body から coverage + witness gate summary を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_result %impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \context_body_module_fingerprint\graph_index:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span
+    selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_with_body_expr_result context_body_module_fingerprint graph_index body_expr
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_i32_with_body_expr_result: body expr fixture の proof count を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_i32_with_body_expr_result %impure fn i32 impure fn i32 impure fn SelfhostHirExpr Result i32 SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \context_body_module_fingerprint\graph_index\body_expr:
+    match selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_with_body_expr_result context_body_module_fingerprint graph_index body_expr:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0: context-bound source owner 由来 coverage + witness 接続 contract の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - resolver-bound context から作った 1 つの source owner を、coverage handoff pair と source-derived fresh witness request-evidence gate の両方に使えることを確認します。
+//:
+//: [現状/げんじょう]:
+//: - accepted result は non-executable summary です。PrivateCache / PrivateState effect mask、backend bytes、sealed representation、artifact key はまだ作りません。
+//: - PrivateCache effect source は coverage 側では unsupported handoff になりますが、fresh witness 側では no-escape proof に昇格せず typed rejection になります。
+pub fn selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_result 77 0:
+        Result::Ok accepted:
+            let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+            let function_ty %SelfhostTypeId selfhost_type_id_new 11
+            let private_cache_callee_def_id %SelfhostDefId selfhost_def_id_new 501
+            let private_cache_body_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "body_call" private_cache_callee_def_id function_ty SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+            let private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_i32_with_body_expr_result 77 0 private_cache_body_expr
+            Result::Ok SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary accepted.request_count accepted.proven_request_count accepted.coverage_pair_code private_cache_effect_rejected
         Result::Err e:
             Result::Err e
 

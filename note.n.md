@@ -80842,3 +80842,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_coverage_orchestrator.json`
 - checked JSON: `output/playground_editor_selfhost_actual_coverage_orchestrator.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost context-bound coverage witness bundle checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、resolver-bound reader context が作る 1 つの source table owner を coverage handoff pair と source-derived fresh witness request-evidence gate の両方へ渡す backend-private boundary を追加した。
+- `SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle` と gate summary は module-private に留め、public stage0 summary は accepted request/proof count、coverage pair code、PrivateCache effect body の typed rejection だけを返す。
+- coverage pair は borrowed source owner から先に生成し、成功した場合だけ同じ owner を source-derived witness bundle へ移す。coverage rejected path は source owner をこの boundary で閉じ、witness / request-evidence rejected path は既存 witness gate 側の owner cleanup に委譲する。
+- neutral body は same-owner path で coverage pair code `33`、request/proof `1/1` になる。PrivateCache effect body は coverage 側では unsupported source vocabulary として分類できるが、fresh witness 側では no-escape proof に昇格せず typed rejection のままになる。
+- この checkpoint は full Resource IR traversal、actual fresh witness / no-escape authority、GraphInput、Resource proof table、checker proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、`.neplobj` / `.neplproof` artifact key を作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、combined owner / gate summary の public exposure 禁止、combined owner Clone / Copy 禁止、coverage-before-witness 順序、coverage rejection source cleanup、stage0 witness fixture / lower proof / backend / artifact 合成禁止、reader context 由来 single-source-owner path を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、context-bound coverage witness bundle 接続後の残件を full Resource IR traversal output vocabulary、actual fresh witness / no-escape authority、`EffectObservedNoEscape` 発行条件、Resource summary hash invalidation、artifact policy hash、effect mask 実体、sealed representation、`.neplobj` / `.neplproof` stable key projectionへ更新した。plan.md との差異はない。
+- Euler の design review は、full traversal output を唯一の authority とし、coverage handoff と fresh witness を同じ request root / body root / fingerprint / graph id で束ねる方向を確認した。実装はこの指摘に従い、backend-private combined owner を public API に出さず、PrivateCache / PrivateState operation を proof ではなく source vocabulary のまま fail-closed にした。
+- 新しい stage0 の module-level doctest を巨大 module に追加すると selfhost doctest harness が `RangeError: Maximum call stack size exceeded` になったため、module-level doctest 追加は取り下げた。実装自体は一時的な standalone doctest で 1/1 pass しており、既存 module doctest は 18/18 pass のまま維持した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-coverage-witness-bundle-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-coverage-witness-bundle-doctest.json`。18 passed / 0 failed。
+- pass: temporary standalone doctest `tmp/context_bound_coverage_witness_stage0_doctest_source.nepl`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- Hubble の implementation review は blocker / non-blocking ともになし。coverage failure の source owner cleanup、witness / request-evidence 側 cleanup 委譲、coverage-before-witness、resolver-bound same-context authority、combined owner / gate summary / private handoff pair / traversal bundle / source table / witness table / request context / resolution table の public API 非露出、forbidden proof / backend / artifact 非生成、docs / todo / note の整合を確認した。
