@@ -8653,6 +8653,14 @@ Error recovery always uses previous dispatch state. A schedule failure wraps the
 
 F5my does not execute host imports and does not call F5mv directly. F5mv remains reachable only through F5mw schedule state. F5my must not reuse lower F5cu/F5ct/F5cs/F5cr/F5cq, project compositor records to lower row-tile records, call dispatch loops, host execution actions, queues, timers, schedulers, platform APIs, raw packet storage, `Vec`, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
 
+## Std compositor tile RLE present host execution action boundary
+
+F5mz is the std layer compositor tile RLE present host execution action boundary after F5mx. It consumes F5mx requests, not F5my ready requests. The only public transition input is `&GuiRgba8888CompositorTileRlePresentHostImportRequest`; the transition reads the target and record through F5mx request accessor functions and returns `GuiRgba8888CompositorTileRlePresentHostExecutionAction`.
+
+The action shape is a flat target x record action. Window / Offscreen / Device are crossed with BeginFrame / RunRecord / EndFrame, yielding WindowBegin, WindowRun, WindowEnd, OffscreenBegin, OffscreenRun, OffscreenEnd, DeviceBegin, DeviceRun, and DeviceEnd. Window variants carry `WindowId` plus the compositor descriptor or run record. Begin and End variants carry `GuiRgba8888CompositorTileRlePresentFrameDescriptor`; Run variants carry `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord`. This is a metadata-preserving boundary, so the compositor frame metadata remains attached to the action that later platform-specific executors will consume.
+
+F5mz does not execute host imports and does not depend on F5my, F5mw, or F5mv. Capability validation and request construction remain in F5mx, and schedule / budget authority remains in F5mw/F5my. Therefore F5mz does not introduce a new `Result` path, does not synthesize execution outcome reports, and does not advance any scheduler state. It must not reuse lower F5cw/F5cr/F5cq, project compositor descriptors to lower row-tile descriptors, call dispatch loops, queues, timers, schedulers, platform APIs, raw memory, `Vec`, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

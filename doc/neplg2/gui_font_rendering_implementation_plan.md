@@ -5516,6 +5516,57 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5my.json
 ```
 
+## Phase F5mz: std compositor tile RLE present host execution action boundary
+
+目的:
+
+- F5mx request accessor だけで compositor host continuation request を読み、std layer compositor tile RLE present host execution action boundary を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionAction` は Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の flat target x record action とする。
+- Window payload は `WindowId` と metadata-preserving compositor descriptor / run record を保持する。
+- Begin / End action は `GuiRgba8888CompositorTileRlePresentFrameDescriptor`、Run action は `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord` を保持し、lower row-tile descriptor へ投影しない。
+- F5mz consumes F5mx requests, not F5my ready requests。F5mz does not depend on F5my and does not depend on F5mw/F5mv schedule or drain state。
+- F5mz does not execute host imports。capability validation と request construction は F5mx の責務なので、F5mz は新しい `Result` path を作らない。
+- lower F5cw / F5cr / F5cq、F5my dispatch、F5mw schedule、F5mv virtual drain、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Boyle design/source-policy review は F5mz policy/doc/test/facade wiring が未追加であることを required changes として指摘した。
+- F5mz の invariant は lower F5cw の compositor counterpart として、入力を F5mx request、出力を `GuiRgba8888CompositorTileRlePresentHostExecutionAction`、action shape を flat target x record action に固定する。
+- source policy では F5mu record type / variants と accessors は許可し、F5mu constructors、F5my/F5mw/F5mv imports / calls、lower row-tile host execution / import / command、host/platform/raw/fallback leakage を禁止する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_execution.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin`、`WindowRun`、`WindowEnd`、`GuiRgba8888CompositorTileRlePresentHostExecutionAction` を追加する。
+- Window payload accessors と `gui_rgba8888_compositor_tile_rle_present_host_execution_action` を追加する。
+- `action` は F5mx request target / record accessor の順に読み、Window / Offscreen / Device の target と F5mu BeginFrame / RunRecord / EndFrame を action enum に写す。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present host execution action boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mz source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Boyle design/source-policy review、facade export、action enum shape、F5mx request-only input、metadata-preserving descriptor/run-record payload、F5mx request accessor order、F5mu Begin/Run/End mapping、no F5my/F5mw/F5mv、lower row-tile / host / raw / platform / Vec / fallback 禁止、runtime smoke label を検査する。
+- focused doctest、module doctest、F5mx compositor host-import regression、F5my compositor dispatch regression、F5cw lower host execution regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で F5mx request-only、F5my/F5mw/F5mv 非依存、metadata preservation、no host execution / platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5mz.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_module_f5mz.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5mz_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_f5mz_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5mz_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mz.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -191,6 +191,8 @@ const stdGuiCompositorTilePresentHostImport = read("stdlib/std/gui/compositor_ti
 const stdGuiCompositorTilePresentHostImportImpl = withoutComments(stdGuiCompositorTilePresentHostImport);
 const stdGuiCompositorTilePresentDispatch = read("stdlib/std/gui/compositor_tile_present_dispatch.nepl");
 const stdGuiCompositorTilePresentDispatchImpl = withoutComments(stdGuiCompositorTilePresentDispatch);
+const stdGuiCompositorTilePresentHostExecution = read("stdlib/std/gui/compositor_tile_present_host_execution.nepl");
+const stdGuiCompositorTilePresentHostExecutionImpl = withoutComments(stdGuiCompositorTilePresentHostExecution);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -441,6 +443,7 @@ const guiStdCompositorTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_
 const guiStdCompositorTilePresentScheduleTests = read("tests/stdlib/gui_std_compositor_tile_present_schedule.n.md");
 const guiStdCompositorTilePresentHostImportTests = read("tests/stdlib/gui_std_compositor_tile_present_host_import.n.md");
 const guiStdCompositorTilePresentDispatchTests = read("tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md");
+const guiStdCompositorTilePresentHostExecutionTests = read("tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -30207,6 +30210,116 @@ assert(
         guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_error_preserves_previous_state_ok") &&
         guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_no_f5mv_no_lower_raw_no_platform_no_fallback"),
     "F5my std compositor tile present dispatch focused doctest must cover dispatch source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mz") &&
+            doc.includes("std layer compositor tile RLE present host execution action boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostExecutionAction") &&
+            doc.includes("flat target x record action") &&
+            doc.includes("F5mx request accessor") &&
+            doc.includes("metadata-preserving") &&
+            doc.includes("does not execute host imports") &&
+            doc.includes("does not depend on F5my") &&
+            doc.includes("fallback"),
+        `F5mz ${name} must document compositor host execution action, F5mx request-only input, metadata preservation, no F5my dependency, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mz") &&
+        implementationPlan.includes("Boyle design/source-policy review") &&
+        implementationPlan.includes("consumes F5mx requests, not F5my ready requests") &&
+        implementationPlan.includes("flat target x record action"),
+    "F5mz implementation plan must record subagent review and F5mx-request-only flat action policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_execution" as *'), "std/gui facade must export F5mz compositor tile present host execution action boundary");
+assert(
+    stdGuiCompositorTilePresentHostExecution.includes("pub enum GuiRgba8888CompositorTileRlePresentHostExecutionAction:") &&
+        stdGuiCompositorTilePresentHostExecution.includes("WindowBegin %GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin") &&
+        stdGuiCompositorTilePresentHostExecution.includes("WindowRun %GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun") &&
+        stdGuiCompositorTilePresentHostExecution.includes("WindowEnd %GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd") &&
+        stdGuiCompositorTilePresentHostExecution.includes("OffscreenBegin %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostExecution.includes("OffscreenRun %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord") &&
+        stdGuiCompositorTilePresentHostExecution.includes("OffscreenEnd %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostExecution.includes("DeviceBegin %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostExecution.includes("DeviceRun %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord") &&
+        stdGuiCompositorTilePresentHostExecution.includes("DeviceEnd %GuiRgba8888CompositorTileRlePresentFrameDescriptor"),
+    "std/gui/compositor_tile_present_host_execution F5mz action enum must preserve compositor descriptor and run-record payloads",
+);
+assert(
+    stdGuiCompositorTilePresentHostExecution.includes("descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostExecution.includes("run_record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord") &&
+        stdGuiCompositorTilePresentHostExecution.includes("pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_action %fn &GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentHostExecutionAction"),
+    "std/gui/compositor_tile_present_host_execution F5mz public surface must consume only F5mx request and keep metadata-bearing payloads",
+);
+assertMatch(
+    stdGuiCompositorTilePresentHostExecutionImpl,
+    /#import "std\/gui\/compositor_tile_present" as \*/,
+    "std/gui/compositor_tile_present_host_execution F5mz must depend on compositor present descriptor boundary",
+);
+assertMatch(
+    stdGuiCompositorTilePresentHostExecutionImpl,
+    /#import "std\/gui\/compositor_tile_present_host_command" as \*/,
+    "std/gui/compositor_tile_present_host_execution F5mz must depend on F5mu compositor host-command record boundary",
+);
+assertMatch(
+    stdGuiCompositorTilePresentHostExecutionImpl,
+    /#import "std\/gui\/compositor_tile_present_host_import" as \*/,
+    "std/gui/compositor_tile_present_host_execution F5mz must depend on F5mx host import request boundary",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostExecutionImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bGuiRgba8888RowTileRlePresentHost(?:Command|Import|Execution)[A-Za-z0-9_]*\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain)" as \*|\bgui_rgba8888_compositor_tile_rle_present_(dispatch|schedule|virtual_drain)_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(command_cursor|run_cursor|run_step)" as \*|\bgui_rgba8888_compositor_tile_rle_present_(command_cursor|run_cursor|run_step)_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_command_(record_begin|record_run|record_end|run_record)\b|#import "std\/gui\/host" as \*|\bGuiHost\b|\bResult::Ok unit\b|\bResult::Err GuiError\b|\bcompositor_tile_present_host_execution_report\b|\bcompositor_tile_present_host_executor\b|\bcompositor_tile_present_host_action\b|\bcompositor_tile_present_virtual_executor\b|\btile_present_host_execution\b|\btile_present_host_action\b|\btile_present_virtual_executor\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bscheduler\b|\bplatform\b|\bplatforms\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_execution F5mz must not call F5my/F5mw/F5mv, construct F5mu records, reuse lower row-tile host execution/import/command, execute host imports, use raw/platform APIs, allocate Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutionImpl, "gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_window"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_new window descriptor",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_new window run_record",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_new window descriptor",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd payload",
+    ],
+    "std/gui/compositor_tile_present_host_execution F5mz must map window target against F5mu Begin/Run/End without losing metadata",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutionImpl, "gui_rgba8888_compositor_tile_rle_present_host_execution_action"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_import_request_target request",
+        "gui_rgba8888_compositor_tile_rle_present_host_import_request_record request",
+        "GuiRgba8888CompositorTileRlePresentHostImportTarget::Window window:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_window window record",
+        "GuiRgba8888CompositorTileRlePresentHostImportTarget::Offscreen:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_offscreen record",
+        "GuiRgba8888CompositorTileRlePresentHostImportTarget::Device:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_device record",
+    ],
+    "std/gui/compositor_tile_present_host_execution F5mz public action must read only F5mx request accessors and dispatch by target",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostExecutionImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_execution F5mz implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_facade_ok") &&
+        guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_action_enum_ok") &&
+        guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_f5mx_request_only_ok") &&
+        guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_metadata_descriptor_preserved_ok") &&
+        guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_run_record_preserved_ok") &&
+        guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_flat_target_record_mapping_ok") &&
+        guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_no_f5my_f5mw_f5mv_no_lower_no_platform_no_fallback"),
+    "F5mz std compositor tile present host execution focused doctest must cover host-execution source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
