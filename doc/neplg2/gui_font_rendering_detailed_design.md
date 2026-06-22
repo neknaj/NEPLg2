@@ -8721,6 +8721,16 @@ The ordering is fixed. F5nf driver first reads the action from `GuiRgba8888Compo
 
 If F5nf sink accepts the action, F5nf driver calls F5ne `complete_outcome support driver outcome` with the same caller-supplied outcome. If F5ne succeeds, F5nf driver returns the sink step plus completion. If F5ne fails, the driver pending has already been consumed, so `DriverCompletionFailed` stores the F5ne driver error and the accepted sink step only. F5nf driver therefore does not manufacture executor outcome. It never builds `Result::Ok unit` or synthetic `Result::Err` on behalf of the executor, and it never calls F5nc direct completion, F5nd bridge directly, F5nb validation directly, F5na report construction, F5mx request construction, F5my/F5mw/F5mv lower dispatch paths, platform APIs, raw packet storage, lower row-tile paths, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer compositor tile RLE present host action attempt driver boundary
+
+F5ng introduces the std layer compositor tile RLE present host action attempt driver boundary. It is the shared identity check for actual Web, native, bare, and headless executor wrappers that return an attempted action together with an executor-supplied `Result unit GuiError`. The boundary does not execute platform work and does not complete F5ne directly.
+
+`GuiRgba8888CompositorTileRlePresentHostActionAttempt` stores the attempted F5mz action and the executor-supplied outcome. It is a Copy value because it does not own the F5ne driver pending. `GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep` stores the accepted attempt and the F5nf `GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep`.
+
+The ordering is fixed. F5ng first reads the expected action from `GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending` by shared borrow. It then reads the attempted action from the attempt and compares both with F5nb `gui_rgba8888_compositor_tile_rle_present_host_executor_action_same`. If the actions differ, F5ng does not call F5nf sink driver. It returns `AttemptActionMismatch` as an owner-bearing error containing expected action, attempted action, `Some GuiError::InvalidCommand`, and the original driver pending.
+
+If the actions match, F5ng reads the attempt outcome and calls F5nf `gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_step support driver outcome`. F5ng does not reimplement F5nf support preflight or F5ne completion; lower `SinkRejected` and `DriverCompletionFailed` errors are wrapped as `SinkDriverFailed`. F5ng therefore does not manufacture executor outcome, does not call F5nf sink directly, and never reaches F5ne direct completion, F5nd bridge directly, F5nb validation directly, F5na report construction, F5mx request construction, F5my/F5mw/F5mv lower dispatch paths, platform APIs, raw packet storage, lower row-tile paths, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
