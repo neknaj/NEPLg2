@@ -3365,6 +3365,16 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 GraphInput、Resource proof table push、request-evidence gate、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。今回の checkpoint は full Resource IR traversal ではなく、HIR body reader source vocabulary 由来の no-escape handoff pair 値境界である。残件は、full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で実発行し、その public handoff evidence を checker-layer upper orchestration と effect mask / sealed backend / artifact stable key projectionへ渡す production boundary である。
 
+## 2026-06-23 selfhost traversal source output origin boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resolver-bound HIR body reader の source owner を直接 no-escape authority bundle に渡す前に、`SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput` envelope へ載せる境界を追加した。output は `origin`、recheck 済み request context、same-body coverage authority、resolver が返した body root、source table owner を保持する module-private owner である。
+
+現在の origin は `HirReaderSourceDerived` であり、full Resource IR / HIR lowering traversal producer が返す `ResourceLoweringTraversalProduced` とは区別する。`actual_traversal_source_output_from_request_context_result` が resolver lookup を 1 回だけ行い、`actual_traversal_source_output_from_body_root_result` がその body root から coverage authority と HIR reader source owner を作る。body-reader no-escape request-context path はこの output を `actual_traversal_source_output_into_no_escape_authority_bundle_result` で既存 `BodyReaderNoEscapeCoverageAuthorityBundle` へ渡し、その後は既存 handoff pair value boundary と code projection を使う。compact pair code や output source count は stage0 / contract 用の代表値であり、authority ではない。
+
+`actual_traversal_production_output_pair_code_result` は `HirReaderSourceDerived` origin の output を source owner cleanup 後に `SourceDerivedHirBodyReaderRejected` として拒否する。これにより、HIR reader smoke が source vocabulary と no-escape handoff pair を same body identity で作れても、production Resource traversal 完了とは扱わない。`ResourceLoweringTraversalProduced` origin は将来の full traversal producer が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を実発行した場合だけ使う。
+
+GraphInput、Resource proof table push、request-evidence gate、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、real full Resource IR / HIR lowering traversal producer をこの output origin へ接続し、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、artifact stable key projectionへ進めることである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

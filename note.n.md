@@ -81484,3 +81484,31 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mx.json`
 - checked JSON: `tmp-playground-editor-tests-f5mx.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - Godel の implementation review は `PLAN_APPROVED`。F5mu record 直接消費、metadata-preserving request、F5cr 同等 capability/target validation、no host import execution、no F5mw/F5mv dependency、no lower F5cr/F5cq/raw/platform/fallback に blocker はないと確認された。
+## 2026-06-23 selfhost traversal source output origin boundary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に `SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin` と module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput` を追加した。
+- source output は origin、recheck 済み request context、resolver body root 由来 coverage authority、body root、source table owner を保持する。source owner は output free helper で閉じるか、既存 `body_reader_no_escape_coverage_authority_bundle_from_sources_result` へ move する。
+- `actual_traversal_source_output_from_request_context_result` が resolver lookup を 1 回だけ所有し、`actual_traversal_source_output_from_body_root_result` が coverage authority と HIR reader source owner を同じ body root から作る。
+- 既存 body-reader no-escape request-context path は source output envelope から existing no-escape authority bundle へ進み、その後 existing handoff pair value boundary / pair-code projection を使う。lower pair-producing helper や compact-code helper へ直行しない。
+- `actual_traversal_production_output_pair_code_result` は `HirReaderSourceDerived` origin を source owner cleanup 後に `SourceDerivedHirBodyReaderRejected` として拒否する。`ResourceLoweringTraversalProduced` は将来の real full Resource IR / HIR lowering traversal producer 用に残し、現 checkpoint では生成しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、source output origin / owner shape、source output private owner 非公開、resolver lookup exactly once、body-reader no-escape path の output envelope 経由、source-derived production rejection、GraphInput / proof table / request-evidence gate / effect mask / backend / artifact 非進出を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、今回の checkpoint は full Resource IR traversal ではなく origin-tagged source output envelope と source-derived production gate rejection であること、次は real traversal producer / effect mask / sealed representation / artifact stable key projectionへ進むことを明記した。plan.md との差異はない。
+- Planck の read-only design review は、次 slice を origin-tagged traversal output boundary とし、full production traversal 完了と呼ばないこと、source-derived HIR reader output と future Resource lowering traversal output を origin で分けること、existing handoff pair boundary を再実装しないことを確認した。実装はこの方針に従った。
+- Jason の implementation review は blocker なし。non-blocking 指摘に従い、現 producer が `ResourceLoweringTraversalProduced` origin を構築しないことを contract に追加し、古い fresh witness private helper も origin-tagged source output envelope 経由に寄せた。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after review fixes: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-production-output-boundary-doctest-after-review.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-production-output-boundary-doctest-after-review.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js` は 900 秒で timeout。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_output_boundary.json`
+- checked JSON: `tmp/playground_editor_selfhost_production_output_boundary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- main merge 後再検証 pass: `trunk build`
+- main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_output_boundary_merge.json`
+- checked JSON: `tmp/playground_editor_selfhost_production_output_boundary_merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
