@@ -80760,6 +80760,32 @@ MERGE_APPROVED
 - post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator_postmerge.json`
 - post-merge checked JSON: `output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator_postmerge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 
+## 2026-06-22 selfhost production reader coverage authority checkpoint
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority` を production reader context から作る private helper を追加した。
+- authority の `body_root_expr_id` は `ActualTraversalBodyReaderRequestContext.root_expr_id` ではなく、`actual_traversal_body_resolution_lookup_result` が module に対して検査した resolver body root から作る。
+- production coverage connector は `actual_traversal_body_adapter_sources_from_request_context_result` が返す source table owner を、source-derived witness / bundle helper より前に coverage mapper へ渡す。これにより PrivateCache effect / unsupported / observation source が witness rejection に隠れない。
+- source owner は既存 coverage wrapper が閉じる。fresh witness owner、Resource proof table、GraphInput、checker proof table、effect mask、backend bytes、sealed representation、artifact key は作らない。
+- public stage0 summary に `reader_context_complete_absence_pair_code` と `reader_context_private_cache_effect_unsupported_pair_code` を追加した。neutral body は `33`、PrivateCache effect body は `53` になることを固定する。`EffectObservedNoEscape` はまだ発行しない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、resolver-bound authority、pre-witness source owner mapping、bundle / source-derived witness / lower proof / artifact 合成禁止、reader-context stage0 coverage を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、production reader context 由来 coverage handoff producer 接続後の残件を full Resource IR traversal source vocabulary、fresh witness / no-escape authority、checker-layer coverage bridge upper orchestration、artifact / sealed representation 接続へ更新した。plan.md との差異はない。
+- Russell の design review は、context だけで authority を作らず resolver lookup を必須にすること、post-witness bundle path ではなく source-derived witness 前の source table を coverage に渡すこと、bundle を使う場合は witness owner cleanup が必要なことを blocker として指摘した。実装はこの指摘に従い、bundle connector を使わず pre-witness source owner path に修正した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-production-coverage-authority-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-production-coverage-authority-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_production_coverage_authority.json`
+- checked JSON: `output/playground_editor_selfhost_production_coverage_authority.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- Socrates の implementation review は blocker / non-blocking ともになし。resolver lookup 由来 body root、pre-witness source owner mapping、payload-less `SourceRejected`、PrivateCache / PrivateState effect source の `TraversalUnsupported` 維持、GraphInput / proof table / checker proof / effect mask / backend bytes / sealed artifact 非生成、docs / todo / note の整合を確認した。
+
 ## 2026-06-22 selfhost actual traversal private-effect coverage bridge checkpoint
 
 - backend proof gate に `SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus` / `Evidence` を追加した。

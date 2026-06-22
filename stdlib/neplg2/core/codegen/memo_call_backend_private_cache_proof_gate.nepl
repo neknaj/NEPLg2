@@ -50,7 +50,7 @@
 //: - Private-effect readiness handoff API は、checker-layer orchestration が作った neutral mask evidence を root / body fingerprint / status だけの public transport として受けます。backend module は checker module を import せず、handoff を module-private upstream evidence へ写して既存 readiness gate に通すだけです。
 //: - Actual traversal private-effect readiness projection stage0 は、actual traversal source table を neutral upstream private-effect status へ fail-closed に写します。現時点の source vocabulary は explicit 2-slot coverage / mask proof ではないため、この projection から `UpstreamPrivateEffectProven` は作りません。
 //: - Actual traversal private-effect coverage handoff API は、actual traversal 由来の explicit 2-slot coverage を checker-layer bridge へ渡す public transport です。root / fingerprint / effect / status だけを運び、source table や proof table は公開しません。
-//: - Actual traversal coverage handoff producer stage0 は、module-private traversal source table を同じ body identity / graph identity で再検査し、public coverage handoff pair へ写します。空 source は complete absence ではなく typed error にし、private effect operation が無く、かつ unsupported / unavailable / escape source が無い場合だけ explicit complete absence にします。
+//: - Actual traversal coverage handoff producer stage0 は、module-private traversal source table を同じ body identity / graph identity で再検査し、public coverage handoff pair へ写します。production reader context path では resolver が検査した body root から complete authority を作り、source-derived witness より前の source table を coverage mapper へ渡します。空 source は complete absence ではなく typed error にし、private effect operation が無く、かつ unsupported / unavailable / escape source が無い場合だけ explicit complete absence にします。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -79,7 +79,7 @@
 //: - upstream private-effect mask conversion は neutral evidence 1 件の status / identity を O(1) で写すだけです。checker-layer proof table scan、actual private-effect proof production、effect mask policy fold はこの conversion では行いません。
 //: - private-effect readiness handoff は O(1) で、public handoff evidence を private upstream evidence へ写して既存 readiness gate を呼ぶだけです。
 //: - actual traversal private-effect readiness projection は source record 数 `s` に対して O(s) 時間で、accepted-shaped source を Missing、escaping source を Refuted、private-effect operation / unavailable source を Unknown に写します。explicit complete-traversal 2-slot coverage は checker-layer orchestration の後続責務です。
-//: - actual traversal coverage handoff producer は source record 数 `s` に対して O(s) 時間で、fixed 2 slot の coverage handoff pair を作ります。source table owner は producer wrapper が閉じ、checker proof table、fresh witness table、effect mask、backend artifact は別 boundary のままです。
+//: - actual traversal coverage handoff producer は source record 数 `s` に対して O(s) 時間で、fixed 2 slot の coverage handoff pair を作ります。production reader context path は resolver lookup O(r) と body reader source production O(s) を先に行い、source table owner は producer wrapper が閉じます。checker proof table、fresh witness table、effect mask、backend artifact は別 boundary のままです。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -1479,6 +1479,8 @@ pub enum SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverage
 //: - summary は fixed status code と typed Result だけを公開します。source table owner、handoff pair、fresh witness、proof table、effect mask、backend artifact は保持しません。
 pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary:
     complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
+    reader_context_complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
+    reader_context_private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
     private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
     private_state_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
     may_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind
@@ -8508,6 +8510,22 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_cove
         Result::Err _e:
             Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result: resolver-bound context から complete authority を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - production body reader context の request root と resolver が返す actual body root を分けたまま、coverage handoff producer の authority に束ねます。
+//:
+//: [契約/けいやく]:
+//: - `context.root_expr_id` は source record の proof key root と照合する request root です。
+//: - `body_root` は resolver lookup が module に対して再検査した actual body root です。request root を body root として流用しません。
+//: - resolver failure は accepted coverage に進めず、public producer surface では payload-less `SourceRejected` に畳みます。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result %fn &SelfhostHirModule fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind \module\context\resolutions:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions:
+        Result::Ok body_root:
+            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
+        Result::Err _e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code: handoff pair の代表 code を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair i32 \pair:
     let cache_code %i32 selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_status_code pair.cache_handoff.status
@@ -8519,6 +8537,23 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_cove
     match selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_from_source_result authority source_result:
         Result::Ok pair:
             Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code pair
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_reader_context_result: production reader source から pair code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - recheck 済み reader context と resolver-bound body root から complete authority を作り、body reader が返す source table owner を coverage handoff producer へ渡します。
+//:
+//: [契約/けいやく]:
+//: - authority は `actual_traversal_body_resolution_lookup_result` に成功した場合だけ作ります。request root を public handoff の body root として使いません。
+//: - source table は `actual_traversal_body_adapter_sources_from_request_context_result` が作る production reader source owner です。source-derived witness helper より前に coverage mapper へ渡すため、private effect / unsupported / observation source が witness rejection に隠れません。
+//: - source owner は coverage wrapper が必ず閉じます。fresh witness owner、Resource proof table、GraphInput、effect mask、backend artifact はここで作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_reader_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind \module\context\resolutions:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result module context resolutions:
+        Result::Ok authority:
+            let source_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions
+            selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_source_result authority source_result
         Result::Err e:
             Result::Err e
 
@@ -8535,6 +8570,63 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_cove
     let body_root %SelfhostHirExprId selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_body_root_expr_id
     let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
     selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new request_root body_root 77 graph_id
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_with_body_expr_result: body reader production path の coverage pair code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - stage0 module から request context と resolver table を再構築し、resolver-bound body root と production reader source table を coverage handoff producer へ渡します。
+//:
+//: [契約/けいやく]:
+//: - body expr は stage0 module の expr id 1 に置き、resolver table から得た body root を authority にします。
+//: - request table、resolver table、source table、HIR module は success / failure のどちらでも閉じます。
+//: - setup 失敗は producer public surface では payload-less `SourceRejected` に畳みます。internal bridge error taxonomy は公開しません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_with_body_expr_result %impure fn i32 impure fn i32 impure fn SelfhostHirExpr Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind \context_body_module_fingerprint\graph_index\body_expr:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module_with_body_expr function_ty span def_id body_expr:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
+                Result::Ok table:
+                    let result %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint graph_index:
+                                Result::Ok context:
+                                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint:
+                                        Result::Ok resolutions:
+                                            let resolved_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_reader_context_result &module context &resolutions
+                                            selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions
+                                            resolved_result
+                                        Result::Err _e:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+                                Result::Err _e:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+                        Option::None:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    result
+                Result::Err _e:
+                    selfhost_hir_module_free module
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+        Result::Err _e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceRejected
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_result: neutral body の production coverage pair code を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind \void:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_with_body_expr_result 77 0 body_expr
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_private_cache_effect_pair_code_result: body reader の private cache effect source を coverage pair code へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_private_cache_effect_pair_code_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind \void:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let private_cache_callee_def_id %SelfhostDefId selfhost_def_id_new 501
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "body_call" private_cache_callee_def_id function_ty SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_with_body_expr_result 77 0 body_expr
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_pair_code_from_source_kind_result: 1 source kind の coverage pair code を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_pair_code_from_source_kind_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind \kind:
@@ -8715,6 +8807,8 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq: producer summary の代表 contract を[確認/かくにん]する
 pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary bool \summary:
     let absence_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_result_eq summary.complete_absence_pair_code 33
+    let reader_context_absence_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_result_eq summary.reader_context_complete_absence_pair_code 33
+    let reader_context_cache_effect_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_result_eq summary.reader_context_private_cache_effect_unsupported_pair_code 53
     let cache_effect_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_result_eq summary.private_cache_effect_unsupported_pair_code 53
     let state_effect_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_result_eq summary.private_state_effect_unsupported_pair_code 35
     let may_escape_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_result_eq summary.may_escape_pair_code 23
@@ -8729,26 +8823,30 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_
     and:
         absence_ok
         and:
-            cache_effect_ok
+            reader_context_absence_ok
             and:
-                state_effect_ok
+                reader_context_cache_effect_ok
                 and:
-                    may_escape_ok
+                    cache_effect_ok
                     and:
-                        mixed_absence_escape_ok
+                        state_effect_ok
                         and:
-                            missing_ok
+                            may_escape_ok
                             and:
-                                unsupported_ok
+                                mixed_absence_escape_ok
                                 and:
-                                    empty_ok
+                                    missing_ok
                                     and:
-                                        placeholder_ok
+                                        unsupported_ok
                                         and:
-                                            fingerprint_ok
+                                            empty_ok
                                             and:
-                                                identity_ok
-                                                graph_ok
+                                                placeholder_ok
+                                                and:
+                                                    fingerprint_ok
+                                                    and:
+                                                        identity_ok
+                                                        graph_ok
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0: actual traversal source 由来 coverage handoff producer smoke
 //:
@@ -8759,6 +8857,8 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_
 //: - stage0 は handoff pair code と typed error だけを公開します。source table、fresh witness、proof table、effect mask、backend artifact は公開しません。
 pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary \void:
     let complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_pair_code_from_closed_clone_result
+    let reader_context_complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_pair_code_result
+    let reader_context_private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_reader_context_private_cache_effect_pair_code_result
     let private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_pair_code_from_source_kind_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation
     let private_state_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_pair_code_from_source_kind_result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation
     let may_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_pair_code_from_escape_result
@@ -8770,7 +8870,7 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_
     let fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_fingerprint_mismatch_result
     let identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_identity_mismatch_result
     let graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_graph_mismatch_result
-    SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary complete_absence_pair_code private_cache_effect_unsupported_pair_code private_state_effect_unsupported_pair_code may_escape_pair_code mixed_absence_escape_pair_code missing_pair_code unsupported_pair_code empty_source_rejected placeholder_rejected fingerprint_mismatch_rejected identity_mismatch_rejected graph_mismatch_rejected
+    SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary complete_absence_pair_code reader_context_complete_absence_pair_code reader_context_private_cache_effect_unsupported_pair_code private_cache_effect_unsupported_pair_code private_state_effect_unsupported_pair_code may_escape_pair_code mixed_absence_escape_pair_code missing_pair_code unsupported_pair_code empty_source_rejected placeholder_rejected fingerprint_mismatch_rejected identity_mismatch_rejected graph_mismatch_rejected
 
 //: selfhost_memo_call_backend_private_cache_backend_readiness_error_code: readiness error kind の比較用 code を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_backend_readiness_error_code %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind i32 \error:
