@@ -1,0 +1,150 @@
+//: # std/gui/compositor_tile_present_host_action_sink
+//: compositor tile RLE present host action sink の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - Web / native / bare / headless executor が[返/かえ]した outcome を、F5mz action と[一緒/いっしょ]に std layer の typed step へ[包/つつ]みます。
+//: - outcome を[包/つつ]む[前/まえ]に、F5nb support validation を[必/かなら]ず[通/とお]します。
+//:
+//: ### [契約/けいやく]
+//: - この module は actual platform execution を[行/おこな]いません。
+//: - success / failure outcome は caller が[渡/わた]した `Result unit GuiError` をそのまま[保持/ほじ]し、std layer では[作/つく]りません。
+//: - unsupported target は fallback や silent no-op にせず、typed error として[返/かえ]します。
+//: - F5ne driver pending、dispatch loop completion、host report bridge、platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_action_sink" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostActionSinkStep: action と outcome の[組/く]み[合/あ]わせ
+//:
+//: F5nb support validation [後/ご]に、actual executor が[返/かえ]した outcome を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionSinkStep:
+    action %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    outcome %Result unit GuiError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionSinkStep:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkStep GuiRgba8888CompositorTileRlePresentHostActionSinkStep \step:
+        *step
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionSinkStep:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionSinkStep GuiRgba8888CompositorTileRlePresentHostActionSinkStep \step:
+        step
+
+//: GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind: sink preflight failure の[種類/しゅるい]
+//:
+//: unsupported target を F5nb executor error として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind:
+    UnsupportedAction %GuiRgba8888CompositorTileRlePresentHostExecutorError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentHostActionSinkError: action context [付/つ]き sink error
+//:
+//: category と action を[保持/ほじ]し、executor wrapper が rejection を[診断/しんだん]できるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionSinkError:
+    kind %GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind
+    category %Option GuiError
+    action %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionSinkError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkError GuiRgba8888CompositorTileRlePresentHostActionSinkError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionSinkError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionSinkError GuiRgba8888CompositorTileRlePresentHostActionSinkError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_new: sink step payload を[作/つく]る
+//:
+//: action と caller-supplied outcome を[同/おな]じ value に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_new %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888CompositorTileRlePresentHostActionSinkStep \action\outcome:
+    GuiRgba8888CompositorTileRlePresentHostActionSinkStep action outcome
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_new: typed sink error を[作/つく]る
+//:
+//: kind、category、action context を[同/おな]じ形で[保存/ほぞん]する module [内部/ないぶ] helper です。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_new %fn GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostActionSinkError \kind\category\action:
+    GuiRgba8888CompositorTileRlePresentHostActionSinkError kind category action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_unsupported_error: F5nb unsupported error を sink error に[包/つつ]む
+//:
+//: F5nb の category を[保/たも]ち、rejected action を[失/うしな]わないようにします。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_unsupported_error %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutorError GuiRgba8888CompositorTileRlePresentHostActionSinkError \action\support_error:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_executor_error_category_value &support_error
+    let kind %GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind::UnsupportedAction support_error
+    gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_new kind category action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_step: executor outcome を support validation [後/ご]に step へ[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - F5nb `require_supported` が[成功/せいこう]した action だけを step にします。
+//: - outcome は caller が[渡/わた]した[値/あたい]をそのまま[保持/ほじ]し、この boundary では success / failure を[作/つく]りません。
+//: - F5ne pending completion は caller の[責務/せきむ]であり、この function は pending を[所有/しょゆう]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_step %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn Result unit GuiError Result GuiRgba8888CompositorTileRlePresentHostActionSinkStep GuiRgba8888CompositorTileRlePresentHostActionSinkError \support\action\outcome:
+    match gui_rgba8888_compositor_tile_rle_present_host_executor_require_supported support action:
+        Result::Err support_error:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_host_action_sink_unsupported_error action support_error
+        Result::Ok _unit:
+            let step %GuiRgba8888CompositorTileRlePresentHostActionSinkStep gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_new action outcome
+            Result::Ok step
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_action: sink step の action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_action %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkStep GuiRgba8888CompositorTileRlePresentHostExecutionAction \step:
+    *field::get_ref step "action"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_outcome: sink step の outcome を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_outcome %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkStep Result unit GuiError \step:
+    *field::get_ref step "outcome"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_kind: sink error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_kind %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkError GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_category_value: sink error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_action: rejected action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_action %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkError GuiRgba8888CompositorTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "action"

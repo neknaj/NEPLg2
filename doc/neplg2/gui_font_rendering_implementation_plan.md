@@ -5768,6 +5768,45 @@ plan review:
 - focused doctest、module doctest、F5nc dispatch loop regression、F5nd host report bridge regression、F5mz/F5na/F5nb regressions、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で one-shot pending owner lifecycle、stored action usage、F5nd bridge-only completion、no direct `validate_report_for_action`、no lower row-tile / platform leakage がないことを確認する。
 
+## Phase F5nf: std layer compositor tile RLE present host action sink and sink driver boundary
+
+目的:
+
+- actual Web / native / bare / headless executor が返した executor-supplied outcome を、F5mz action と一緒に typed step へ包む std layer compositor tile RLE present host action sink boundary を追加する。
+- sink は F5nb `require_supported` を step construction より前に呼び、unsupported target は typed `UnsupportedAction` error にする。
+- sink は F5ne driver pending ownership、F5ne completion、F5na report construction、F5nd bridge に進まず、actual executor が返した `Result unit GuiError` だけを保持する。
+- F5nf sink と F5ne one-shot driver completion を接続する std layer compositor tile RLE present host action sink driver boundary を追加する。
+- driver は F5ne driver pending から action を借用で読み、sink success の場合だけ同じ caller-supplied outcome を F5ne `complete_outcome` へ渡す。
+- sink rejection では F5ne completion を呼ばず、original driver pending を `SinkRejected` の owner-bearing error として返す。
+- driver completion failure では pending は消費済みなので、F5ne driver error と accepted sink step だけを `DriverCompletionFailed` に保持する。
+- F5nf does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、actual executor から渡された `Result unit GuiError` だけを扱う。
+- F5nf は actual platform execution、F5nc direct completion、F5nd direct bridge、F5nb direct validation、F5na report construction、F5mx request construction、F5my / F5mw / F5mv、lower row-tile path、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Curie read-only design/source-policy review は、sink と driver を同じ実装単位で入れつつ semantic boundary を別ファイル・別責務に分ける方針を妥当と確認した。
+- sink は F5dc compositor 版として F5nb support preflight と executor-supplied outcome packaging のみを所有する。
+- driver は F5dd compositor 版として F5ne `pending_action`、F5nf sink、F5ne `complete_outcome` の順序だけを所有する。
+- source policy では F5ne/F5nd の bridge-only 方針を維持し、driver から F5nc / F5nd / F5nb を直接呼ばないことを固定する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_action_sink.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostActionSinkStep`、`GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind`、`GuiRgba8888CompositorTileRlePresentHostActionSinkError`、step/accessors を追加する。
+- `stdlib/std/gui/compositor_tile_present_host_action_sink_driver.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep`、owner-bearing `SinkRejected` payload、`DriverCompletionFailed` payload、driver step/accessors を追加する。
+- `stdlib/std/gui.nepl` facade から compositor host action sink / sink driver boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_action_sink.n.md` を追加し、success outcome preservation、failure outcome preservation、unsupported target rejection を固定する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_action_sink_driver.n.md` を追加し、success completion、sink rejection owner recovery、host failure driver completion wrapping を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5nf source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、facade export、sink/driver type shape、allowed F5mz/F5nb/F5ne/F5nc imports、banned F5nc direct completion / F5nd direct bridge / F5nb direct validation / F5my-F5mv / lower row-tile / platform / raw / fallback tokens、sink validation before packaging order、driver sink-before-completion order、owner-bearing rejection Clone/Copy 禁止、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5ne execution driver regression、F5nd report bridge regression、F5nb executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で sink/driver responsibility split、no manufactured outcome、owner recovery、F5ne-only completion、no direct F5nc/F5nd/F5nb/lower row-tile/platform leakage がないことを確認する。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

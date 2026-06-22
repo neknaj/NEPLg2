@@ -203,6 +203,10 @@ const stdGuiCompositorTilePresentHostReportLoopBridge = read("stdlib/std/gui/com
 const stdGuiCompositorTilePresentHostReportLoopBridgeImpl = withoutComments(stdGuiCompositorTilePresentHostReportLoopBridge);
 const stdGuiCompositorTilePresentHostExecutionDriver = read("stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl");
 const stdGuiCompositorTilePresentHostExecutionDriverImpl = withoutComments(stdGuiCompositorTilePresentHostExecutionDriver);
+const stdGuiCompositorTilePresentHostActionSink = read("stdlib/std/gui/compositor_tile_present_host_action_sink.nepl");
+const stdGuiCompositorTilePresentHostActionSinkImpl = withoutComments(stdGuiCompositorTilePresentHostActionSink);
+const stdGuiCompositorTilePresentHostActionSinkDriver = read("stdlib/std/gui/compositor_tile_present_host_action_sink_driver.nepl");
+const stdGuiCompositorTilePresentHostActionSinkDriverImpl = withoutComments(stdGuiCompositorTilePresentHostActionSinkDriver);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -544,6 +548,8 @@ const guiStdTilePresentDispatchLoopTests = read("tests/stdlib/gui_std_tile_prese
 const guiStdCompositorTilePresentDispatchLoopTests = read("tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md");
 const guiStdCompositorTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md");
 const guiStdCompositorTilePresentHostExecutionDriverTests = read("tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md");
+const guiStdCompositorTilePresentHostActionSinkTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_sink.n.md");
+const guiStdCompositorTilePresentHostActionSinkDriverTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_sink_driver.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -30879,6 +30885,140 @@ assert(
         guiStdCompositorTilePresentHostExecutionDriverTests.includes("std_compositor_tile_rle_present_host_execution_driver_unsupported_support_stops_before_completion_ok") &&
         guiStdCompositorTilePresentHostExecutionDriverTests.includes("std_compositor_tile_rle_present_host_execution_driver_no_direct_completion_validation_no_lower_no_platform_no_fallback"),
     "F5ne std compositor tile present host-execution-driver focused doctest must cover driver source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer compositor tile RLE present host action sink boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostActionSinkStep") &&
+            doc.includes("executor-supplied outcome") &&
+            doc.includes("does not manufacture success"),
+        `F5nf ${name} must document compositor host action sink boundary and executor-supplied outcome contract`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_action_sink" as *'), "std/gui facade must export F5nf compositor tile present host action sink boundary");
+assert(
+    stdGuiCompositorTilePresentHostActionSink.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionSinkStep:") &&
+        stdGuiCompositorTilePresentHostActionSink.includes("action %GuiRgba8888CompositorTileRlePresentHostExecutionAction") &&
+        stdGuiCompositorTilePresentHostActionSink.includes("outcome %Result unit GuiError") &&
+        stdGuiCompositorTilePresentHostActionSink.includes("pub enum GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind:") &&
+        stdGuiCompositorTilePresentHostActionSink.includes("UnsupportedAction %GuiRgba8888CompositorTileRlePresentHostExecutorError") &&
+        stdGuiCompositorTilePresentHostActionSink.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionSinkError:") &&
+        stdGuiCompositorTilePresentHostActionSink.includes("category %Option GuiError"),
+    "std/gui/compositor_tile_present_host_action_sink F5nf must define action sink step and narrow typed unsupported error",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/compositor_tile_present_host_execution" as \*/, "std/gui/compositor_tile_present_host_action_sink F5nf must consume F5mz action shape"],
+    [/#import "std\/gui\/compositor_tile_present_host_executor" as \*/, "std/gui/compositor_tile_present_host_action_sink F5nf must preflight support through F5nb"],
+]) {
+    assertMatch(stdGuiCompositorTilePresentHostActionSinkImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionSinkImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_sink_step"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_require_supported support action",
+        "Result::Err support_error:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_present_host_action_sink_unsupported_error action support_error",
+        "Result::Ok _unit:",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_sink_step_new action outcome",
+        "Result::Ok step",
+    ],
+    "std/gui/compositor_tile_present_host_action_sink F5nf must validate support before packaging executor-supplied outcome",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionSinkImpl,
+    /\bResult::Ok unit\b|\bResult::Err GuiError::|\bgui_rgba8888_compositor_tile_rle_present_host_execution_driver\b|\bGuiRgba8888CompositorTileRlePresentHostExecutionDriverPending\b|\bcompositor_tile_present_host_execution_report\b|\bcompositor_tile_present_host_report_loop_bridge\b|\bgui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request\b|#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain|host_import)" as \*|\bgui_rgba8888_compositor_tile_rle_present_dispatch_(?!loop_)[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_action_sink F5nf must not manufacture success, consume driver pending, or call completion/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionSinkImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_action_sink F5nf implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostActionSinkTests.includes("std_compositor_tile_rle_present_host_action_sink_facade_ok") &&
+        guiStdCompositorTilePresentHostActionSinkTests.includes("std_compositor_tile_rle_present_host_action_sink_executor_outcome_ok") &&
+        guiStdCompositorTilePresentHostActionSinkTests.includes("std_compositor_tile_rle_present_host_action_sink_support_preflight_ok") &&
+        guiStdCompositorTilePresentHostActionSinkTests.includes("std_compositor_tile_rle_present_host_action_sink_no_manufactured_success_ok") &&
+        guiStdCompositorTilePresentHostActionSinkTests.includes("std_compositor_tile_rle_present_host_action_sink_no_driver_no_platform_no_fallback"),
+    "F5nf std compositor tile present host-action-sink focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer compositor tile RLE present host action sink driver boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep") &&
+            doc.includes("SinkRejected") &&
+            doc.includes("owner-bearing error") &&
+            doc.includes("does not manufacture executor outcome"),
+        `F5nf ${name} must document compositor host action sink driver bridge and owner recovery contract`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_action_sink_driver" as *'), "std/gui facade must export F5nf compositor tile present host action sink driver boundary");
+assert(
+    stdGuiCompositorTilePresentHostActionSinkDriver.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep:") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("sink_step %GuiRgba8888CompositorTileRlePresentHostActionSinkStep") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("completion %GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionSinkDriverRejected:") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("pub enum GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError:") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("SinkRejected %GuiRgba8888CompositorTileRlePresentHostActionSinkDriverRejected") &&
+        stdGuiCompositorTilePresentHostActionSinkDriver.includes("DriverCompletionFailed %GuiRgba8888CompositorTileRlePresentHostActionSinkDriverCompletionFailed"),
+    "std/gui/compositor_tile_present_host_action_sink_driver F5nf must define sink step, completion, and owner-bearing rejection payloads",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/compositor_tile_present_host_action_sink" as \*/, "std/gui/compositor_tile_present_host_action_sink_driver F5nf must consume compositor sink boundary"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution_driver" as \*/, "std/gui/compositor_tile_present_host_action_sink_driver F5nf must complete through F5ne driver"],
+    [/#import "std\/gui\/compositor_tile_present_dispatch_loop" as \*/, "std/gui/compositor_tile_present_host_action_sink_driver F5nf must expose dispatch-loop completion type"],
+]) {
+    assertMatch(stdGuiCompositorTilePresentHostActionSinkDriverImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionSinkDriverImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_step"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action &driver",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_sink_step support action outcome",
+        "Result::Err sink_error:",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_sink_error sink_error driver",
+        "Result::Ok sink_step:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome support driver outcome",
+        "Result::Ok completion:",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_step_new sink_step completion",
+        "Result::Err driver_error:",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_error sink_step driver_error",
+    ],
+    "std/gui/compositor_tile_present_host_action_sink_driver F5nf must package external outcome before one-shot driver completion and preserve rejection owner recovery",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionSinkDriverImpl,
+    /\bResult::Ok unit\b|\bResult::Err GuiError::|\bgui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_action_same\b|\bgui_rgba8888_compositor_tile_rle_present_host_execution_report\b|\bcompositor_tile_present_host_execution_report\b|\bcompositor_tile_present_host_report_loop_bridge\b|#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain|host_import)" as \*|\bgui_rgba8888_compositor_tile_rle_present_dispatch_(?!loop_)[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_action_sink_driver F5nf must not manufacture executor outcome or call direct bridge/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionSinkDriverImpl,
+    /impl Clone for GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError\b|impl Copy for GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError\b|impl Clone for GuiRgba8888CompositorTileRlePresentHostActionSinkDriverRejected\b|impl Copy for GuiRgba8888CompositorTileRlePresentHostActionSinkDriverRejected\b/,
+    "std/gui/compositor_tile_present_host_action_sink_driver F5nf owner-bearing rejection and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionSinkDriverImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_action_sink_driver F5nf implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostActionSinkDriverTests.includes("std_compositor_tile_rle_present_host_action_sink_driver_facade_ok") &&
+        guiStdCompositorTilePresentHostActionSinkDriverTests.includes("std_compositor_tile_rle_present_host_action_sink_driver_owner_recovery_ok") &&
+        guiStdCompositorTilePresentHostActionSinkDriverTests.includes("std_compositor_tile_rle_present_host_action_sink_driver_sink_before_completion_ok") &&
+        guiStdCompositorTilePresentHostActionSinkDriverTests.includes("std_compositor_tile_rle_present_host_action_sink_driver_no_manufactured_outcome_ok") &&
+        guiStdCompositorTilePresentHostActionSinkDriverTests.includes("std_compositor_tile_rle_present_host_action_sink_driver_no_direct_bridge_no_platform_no_fallback"),
+    "F5nf std compositor tile present host-action-sink-driver focused doctest must cover source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
