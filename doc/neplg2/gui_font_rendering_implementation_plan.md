@@ -4761,6 +4761,62 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mk.json
 ```
 
+## Phase F5ml: render2d compositor tile RLE storage bridge boundary
+
+目的:
+
+- F5mk writer plan owner を authority とし、既存 lower `gui_rgba8888_row_tile_rle_storage_prepare` を compositor metadata 付きで接続する。
+- lower storage prepare を 1 回だけ呼び、success では lower storage owner と copied metadata を `GuiRgba8888CompositorTileRleStorageOwner` として束ねる。
+- lower storage prepare error は original writer plan owner を返す契約なので、kind / category / total run count / encoded byte count を読んだ後で lower writer plan owner を metadata 付き F5mk writer plan owner へ戻す。
+- この phase では encoded storage allocation に留め、write cursor start、write step、encoded seal、packet、packet record、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no write / encoded / packet / present の compositor tile RLE storage bridge で止める。
+
+plan review:
+
+- Pauli plan review は `PLAN_APPROVED`。
+- lower storage prepare は失敗時に original writer plan owner を保持し、成功時だけ writer plan owner を storage owner へ移す契約なので、success は lower `GuiRgba8888RowTileRleStorageOwner` + metadata でよいと確認された。
+- error recovery は payload owner ではなく `GuiRgba8888CompositorTileRleWriterPlanOwner` が適切と確認された。storage allocation failure は writer plan を消費する前の allocation failure なので、retry / free 可能な writer plan evidence を保持する。
+- storage finish は deallocation failure を返しうるため、`owner_finish_payload` は fallible にし、storage finish failure でも lower cursor を metadata 付き payload owner へ戻す。
+- storage finish failure と payload finish failure は error domain が異なるため、owner_finish_entry は作らない。caller は `owner_finish_payload` の後で F5me payload finish を呼ぶ。
+- source policy で lower storage prepare exact once、metadata-before-lower-plan-consume、owner-bearing success / prepare error / finish error no Clone / Copy、lower error read-before-writer-plan-recovery、lower storage prepare error を公開 recovery payload にしないこと、prepare error の F5mk/F5me delegation、finish error payload recovery、owner free の lower storage free delegation、write cursor / write step / encoded seal / packet / std present / host / platform / raw byte access / fallback 禁止を検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_storage.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleStoragePrepareErrorKind` と `GuiRgba8888CompositorTileRleStorageFinishErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleStorageOwner`、`GuiRgba8888CompositorTileRleStoragePrepareError`、`GuiRgba8888CompositorTileRleStorageFinishError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_storage_prepare` は metadata を writer plan owner から Copy してから lower writer plan owner を取り出し、lower storage prepare を 1 回だけ呼ぶ。
+- success は lower storage owner を metadata 付き storage owner へ戻し、metadata / total run count / encoded byte count / cursor next pixel index / cursor pixel count accessor を提供する。
+- lower prepare error は lower kind / category / total run count / encoded byte count を読んでから lower writer plan owner を取り出し、metadata 付き F5mk writer plan owner を持つ storage prepare error に正規化する。
+- storage owner の finish payload、free helper を追加する。finish payload は lower storage finish cursor 経由で F5me payload owner へ戻し、deallocation failure では finish error が payload owner を保持する。free helper は lower storage owner free に委譲する。
+- storage prepare error の finish writer plan owner、finish payload、free helper を追加し、payload recovery は F5mk writer plan owner 経由で F5me payload finish / free に委譲する。
+- storage finish error の finish payload、free helper を追加し、F5me payload free に委譲する。
+- `owner_finish_entry` は作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE storage を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md` を追加し、facade、writer-plan-to-storage、exact byte count、metadata、finish payload recovery、prepare error writer plan recovery source policy label、lower storage free delegation、no write / encoded / packet / present / fallback label、malformed writer plan owner 直 constructor 禁止 compile_fail を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ml source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Pauli approval、facade export、typed lower storage prepare/finish error variant、storage success、writer-plan recovery prepare error、payload recovery finish error、owner-bearing success / prepare error / finish error no Clone / Copy、lower storage prepare exact once、metadata-before-lower-plan-consume、lower error kind/category/counts before writer-plan recovery、lower storage prepare error 公開 recovery 禁止、success finish payload の metadata-preserving payload recovery、finish error payload recovery、prepare error free の F5mk/F5me 委譲、owner free の lower storage free 委譲、`owner_finish_entry` 禁止、direct write cursor / write step / encoded / packet / raw byte access / std present / host / platform / fallback 禁止、focused doctest label を検査する。malformed writer plan owner は通常 application code から直 constructor で作れないため、prepare error recovery の forged branch は source policy と compile_fail で固定する。
+- focused doctest、module doctest、F5mk compositor writer plan regression、F5cj/F5ck row tile RLE storage regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower storage prepare error exposure、writer plan recovery loss、write/encoded/packet/present leakage、mixed-domain `owner_finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_storage_f5ml.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_storage.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_storage_module_f5ml.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_writer_plan_f5ml_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5ml_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ml.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

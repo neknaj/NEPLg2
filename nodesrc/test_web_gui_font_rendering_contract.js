@@ -125,6 +125,8 @@ const allocRender2dCompositorTileRleEncodeCursor = read("stdlib/alloc/gui/render
 const allocRender2dCompositorTileRleEncodeCursorImpl = withoutComments(allocRender2dCompositorTileRleEncodeCursor);
 const allocRender2dCompositorTileRleWriterPlan = read("stdlib/alloc/gui/render2d/compositor_tile_rle_writer_plan.nepl");
 const allocRender2dCompositorTileRleWriterPlanImpl = withoutComments(allocRender2dCompositorTileRleWriterPlan);
+const allocRender2dCompositorTileRleStorage = read("stdlib/alloc/gui/render2d/compositor_tile_rle_storage.nepl");
+const allocRender2dCompositorTileRleStorageImpl = withoutComments(allocRender2dCompositorTileRleStorage);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -380,6 +382,7 @@ const guiRender2dCompositorTileRleCountCompletedTests = read("tests/stdlib/gui_r
 const guiRender2dCompositorTileRleEncodeSeedTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md");
 const guiRender2dCompositorTileRleEncodeCursorTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_encode_cursor.n.md");
 const guiRender2dCompositorTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md");
+const guiRender2dCompositorTileRleStorageTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -27906,6 +27909,190 @@ assert(
         guiRender2dCompositorTileRleWriterPlanTests.includes("render2d_compositor_tile_rle_writer_plan_error_recovers_ready_owner_ok") &&
         guiRender2dCompositorTileRleWriterPlanTests.includes("render2d_compositor_tile_rle_writer_plan_no_storage_packet_present_no_fallback"),
     "F5mk compositor tile RLE writer plan focused doctest must cover facade, ready-to-capacity success, encoded byte count, metadata, payload delegation, error ready-owner recovery, and no storage/packet/present/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5ml") &&
+            doc.includes("compositor tile RLE storage") &&
+            doc.includes("GuiRgba8888CompositorTileRleStorageOwner") &&
+            doc.includes("gui_rgba8888_row_tile_rle_storage_prepare") &&
+            doc.includes("encoded storage allocation") &&
+            doc.includes("writer plan owner") &&
+            doc.includes("no write / encoded / packet / present") &&
+            doc.includes("fallback"),
+        `F5ml ${name} must document compositor tile RLE storage, lower storage prepare, encoded storage allocation, writer-plan recovery, deferred write/encoded/packet/present, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5ml") &&
+        implementationPlan.includes("Pauli plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mk writer plan owner") &&
+        implementationPlan.includes("lower storage prepare error を公開 recovery payload にしない") &&
+        implementationPlan.includes("owner_finish_entry は作らない"),
+    "F5ml implementation plan must retain plan approval, writer-plan recovery, lower error hiding, and no mixed-domain finish-entry helper",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_rle_storage" as *'), "alloc/gui/render2d facade must export F5ml compositor tile RLE storage");
+assert(
+    allocRender2dCompositorTileRleStorage.includes("pub enum GuiRgba8888CompositorTileRleStoragePrepareErrorKind:") &&
+        allocRender2dCompositorTileRleStorage.includes("StoragePrepareFailed %GuiRgba8888RowTileRleStoragePrepareErrorKind") &&
+        allocRender2dCompositorTileRleStorage.includes("pub enum GuiRgba8888CompositorTileRleStorageFinishErrorKind:") &&
+        allocRender2dCompositorTileRleStorage.includes("StorageFinishFailed %GuiRgba8888RowTileRleStorageFinishErrorKind") &&
+        allocRender2dCompositorTileRleStorage.includes("pub struct GuiRgba8888CompositorTileRleStorageOwner:") &&
+        allocRender2dCompositorTileRleStorage.includes("storage %GuiRgba8888RowTileRleStorageOwner") &&
+        allocRender2dCompositorTileRleStorage.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorTileRleStorage.includes("pub struct GuiRgba8888CompositorTileRleStoragePrepareError:") &&
+        allocRender2dCompositorTileRleStorage.includes("total_run_count %i32") &&
+        allocRender2dCompositorTileRleStorage.includes("encoded_byte_count %i32") &&
+        allocRender2dCompositorTileRleStorage.includes("plan %GuiRgba8888CompositorTileRleWriterPlanOwner") &&
+        allocRender2dCompositorTileRleStorage.includes("pub struct GuiRgba8888CompositorTileRleStorageFinishError:") &&
+        allocRender2dCompositorTileRleStorage.includes("payload %GuiRgba8888CompositorTilePayloadOwner"),
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml must define typed lower storage prepare/finish errors, storage success owner, writer-plan recovery error, and payload-recovery finish error",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleStorageImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRleStorageOwner|GuiRgba8888CompositorTileRleStoragePrepareError|GuiRgba8888CompositorTileRleStorageFinishError)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorTileRleStorageOwnerDeclMatch = allocRender2dCompositorTileRleStorage.match(/pub struct GuiRgba8888CompositorTileRleStorageOwner:\r?\n(?:    .+\r?\n)+/);
+const compositorTileRleStoragePrepareErrorDeclMatch = allocRender2dCompositorTileRleStorage.match(/pub struct GuiRgba8888CompositorTileRleStoragePrepareError:\r?\n(?:    .+\r?\n)+/);
+const compositorTileRleStorageFinishErrorDeclMatch = allocRender2dCompositorTileRleStorage.match(/pub struct GuiRgba8888CompositorTileRleStorageFinishError:\r?\n(?:    .+\r?\n)+/);
+assert(
+    compositorTileRleStorageOwnerDeclMatch !== null &&
+        compositorTileRleStoragePrepareErrorDeclMatch !== null &&
+        compositorTileRleStorageFinishErrorDeclMatch !== null,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml public success and error structs must be present",
+);
+const compositorTileRleStoragePrepare = functionSlice(allocRender2dCompositorTileRleStorageImpl, "gui_rgba8888_compositor_tile_rle_storage_prepare");
+assertOrderedFragments(
+    compositorTileRleStoragePrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_writer_plan_owner_metadata &plan",
+        'let lower_plan %GuiRgba8888RowTileRleWriterPlanOwner field::get plan "plan"',
+        "match gui_rgba8888_row_tile_rle_storage_prepare lower_plan:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_storage_prepare_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_storage_owner_new storage metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml must copy metadata before consuming lower writer plan and wrap lower storage with metadata",
+);
+assert(
+    (compositorTileRleStoragePrepare.match(/\bgui_rgba8888_row_tile_rle_storage_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml prepare helper must call lower storage prepare exactly once",
+);
+assertNoMatch(
+    compositorTileRleStoragePrepare,
+    /\b(?:gui_rgba8888_row_tile_rle_write_cursor|gui_rgba8888_row_tile_rle_write_step|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|load_u8|store_u8|region_ptr_at|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml prepare helper must not directly start write cursor, write runs, seal encoded owner, packetize, read raw bytes, present, host/platform, or fallback",
+);
+assertNoMatch(
+    compositorTileRleStoragePrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml prepare helper must preserve NEPL prefix style without parentheses",
+);
+const compositorTileRleStoragePrepareErrorFromLower = functionSlice(allocRender2dCompositorTileRleStorageImpl, "gui_rgba8888_compositor_tile_rle_storage_prepare_error_from_lower");
+assertOrderedFragments(
+    compositorTileRleStoragePrepareErrorFromLower,
+    [
+        "let lower_kind %GuiRgba8888RowTileRleStoragePrepareErrorKind gui_rgba8888_row_tile_rle_storage_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_storage_prepare_error_category_value &lower",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_storage_prepare_error_plan_total_run_count &lower",
+        "let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_storage_prepare_error_plan_encoded_byte_count &lower",
+        "let lower_plan %GuiRgba8888RowTileRleWriterPlanOwner gui_rgba8888_row_tile_rle_storage_prepare_error_finish_plan lower",
+        "let plan %GuiRgba8888CompositorTileRleWriterPlanOwner GuiRgba8888CompositorTileRleWriterPlanOwner lower_plan metadata",
+        "GuiRgba8888CompositorTileRleStoragePrepareErrorKind::StoragePrepareFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_storage_prepare_error_new kind category total_run_count encoded_byte_count plan",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml lower prepare error wrapper must read lower kind/category/counts before writer-plan recovery",
+);
+assertNoMatch(
+    compositorTileRleStoragePrepareErrorFromLower,
+    /\b(?:GuiRgba8888CompositorTilePayloadOwner|GuiRgba8888RowTileRleCursorOwner|gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor|gui_rgba8888_row_tile_rle_cursor_finish_payload)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml prepare error wrapper must recover writer plan without payload/cursor fallback",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleStorageImpl, "gui_rgba8888_compositor_tile_rle_storage_owner_finish_payload"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_storage_owner_metadata &owner",
+        'let storage %GuiRgba8888RowTileRleStorageOwner field::get owner "storage"',
+        "match gui_rgba8888_row_tile_rle_storage_finish_cursor storage:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_storage_finish_error_from_lower lower metadata",
+        "let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor",
+        "Result::Ok GuiRgba8888CompositorTilePayloadOwner lower_payload metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml success finish payload must preserve metadata and normalize lower storage cursor to compositor payload",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleStorageImpl, "gui_rgba8888_compositor_tile_rle_storage_finish_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888RowTileRleStorageFinishErrorKind gui_rgba8888_row_tile_rle_storage_finish_error_kind &lower",
+        "let lower_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_storage_finish_error_cursor lower",
+        "let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor",
+        "let payload %GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTilePayloadOwner lower_payload metadata",
+        "GuiRgba8888CompositorTileRleStorageFinishErrorKind::StorageFinishFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_storage_finish_error_new kind payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml finish error wrapper must recover compositor payload after lower storage finish failure",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleStorageImpl, "gui_rgba8888_compositor_tile_rle_storage_prepare_error_finish_payload"),
+    [
+        "let plan %GuiRgba8888CompositorTileRleWriterPlanOwner gui_rgba8888_compositor_tile_rle_storage_prepare_error_finish_plan_owner error",
+        "gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_payload plan",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml prepare error finish payload must delegate through F5mk writer plan recovery",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleStorageImpl, "gui_rgba8888_compositor_tile_rle_storage_owner_free"),
+    [
+        'let storage %GuiRgba8888RowTileRleStorageOwner field::get owner "storage"',
+        "match gui_rgba8888_row_tile_rle_storage_owner_free storage:",
+        "Result::Err GuiRgba8888CompositorTileRleStorageFinishErrorKind::StorageFinishFailed lower_kind",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml owner free must delegate to lower storage owner free and wrap lower finish kind",
+);
+for (const [helperName, message] of [
+    ["gui_rgba8888_compositor_tile_rle_storage_prepare_error_free", "prepare error free"],
+    ["gui_rgba8888_compositor_tile_rle_storage_finish_error_free", "finish error free"],
+]) {
+    assertOrderedFragments(
+        functionSlice(allocRender2dCompositorTileRleStorageImpl, helperName),
+        [
+            "let payload %GuiRgba8888CompositorTilePayloadOwner",
+            "gui_rgba8888_compositor_tile_payload_owner_free payload",
+        ],
+        `alloc/gui/render2d/compositor_tile_rle_storage F5ml ${message} must delegate to F5me payload free`,
+    );
+}
+assertNoMatch(
+    allocRender2dCompositorTileRleStorageImpl,
+    /\bpub\s+fn\s+gui_rgba8888_compositor_tile_rle_storage_owner_finish_entry\b/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml must not add mixed-domain owner_finish_entry helper",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleStorageImpl,
+    /\b(?:gui_rgba8888_row_tile_rle_write_cursor|gui_rgba8888_row_tile_rle_write_step|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|load_u8|store_u8|region_ptr_at|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml must not expose write cursor/step, encoded seal, packet, raw byte access, present, host, platform, or fallback APIs",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleStorageImpl,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_storage F5ml implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_facade_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_writer_plan_to_storage_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_exact_byte_count_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_metadata_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_finish_payload_recovery_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_prepare_error_recovery_source_policy_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_free_delegates_lower_storage_ok") &&
+        guiRender2dCompositorTileRleStorageTests.includes("render2d_compositor_tile_rle_storage_no_write_encoded_packet_present_no_fallback"),
+    "F5ml compositor tile RLE storage focused doctest must cover facade, writer-plan-to-storage success, exact byte count, metadata, payload recovery, source-policy writer-plan recovery, lower free delegation, and no write/encoded/packet/present/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
