@@ -81842,3 +81842,14 @@ MERGE_APPROVED
 - rebase 後再検証 pass: `trunk build`
 - rebase 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nd-rebase.json`
 - checked JSON: `tmp-playground-editor-tests-f5nd-rebase.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- main merge 後再検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5nd_main.json -j 1`。1/1。
+- main merge 後再検証 retry pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5nd_main_retry.json -j 1`。1/1。初回 parallel 実行の 60000ms compile timeout は単独再実行で再現しなかった。
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_module_f5nd_main.json -j 1`。25/25。
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_report_loop_bridge.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_module_f5nd_main.json -j 1`。10/10。
+- main merge 後再検証 pass with LF/CRLF warnings only: `git diff --check`
+- main merge 後再検証 pass: `trunk build`
+- main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nd-main.json`
+- checked JSON: `tmp-playground-editor-tests-f5nd-main.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
