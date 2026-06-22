@@ -5875,6 +5875,40 @@ plan review:
 - focused doctest、module doctest、F5ng attempt driver regression、F5nf sink driver regression、F5ne execution driver regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で outcome-only complete、borrowed-derived expected action authority、no manufactured outcome、F5ng-only completion delegation、no direct F5nf/F5ne/F5nd/F5nb/F5na/lower row-tile/platform leakage がないことを確認する。
 
+## Phase F5ni: std/Web compositor host action platform bridge boundary
+
+目的:
+
+- std layer compositor tile RLE present host action platform bridge boundary を追加し、F5nh session pending から borrowed pending accessor で expected action を読み、target / record kind / descriptor を platform executor 用に投影する。
+- completion は F5nh outcome-only complete だけに戻し、platform executor から action identity / report / attempt を受け取らない。
+- Web compositor host action executor backend bridge を追加し、expected action を `nepl_gui_web.compositor_tile_present_begin/run/end` の begin / run / end import いずれか 1 回に渡す。
+- raw status は `Result unit GuiError` へ写し、default import は actual compositor implementation が入るまで fail-closed に `GuiError::Unsupported` 相当を返す。
+- F5ni does not manufacture platform outcome。std helper は `Result::Ok unit` や `Result::Err GuiError::...` を作らず、Web bridge は host status だけを typed outcome へ写す。
+- F5ni は F5ng / F5nf / F5ne lower completion direct call、F5nd direct bridge、F5nb direct validation、F5na report construction、F5mx request construction、F5my / F5mw / F5mv、lower row-tile owner path、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory fallback、silent no-op には進まない。
+
+plan review:
+
+- Cicero the 2nd read-only design/source-policy review は、F5ni で platform bridge が attempt action / report / action identity を受け取る API は blocker と確認した。
+- Cicero the 2nd は platform 側の責務を「F5nh pending から expected action を借用で読む」「その action を platform host import へ 1 回だけ渡す」「raw status を `Result unit GuiError` に写す」「F5nh complete へ outcome-only で戻す」に限定すべきと指摘した。
+- Web / native / bare / headless を同一 slice で固定しない方針を採用し、この phase では platform-neutral std helper と Web compositor ABI / fail-closed backend bridge だけを接続する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_action_platform_bridge.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget`、`GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind`、pending action / complete outcome / target / record kind / descriptor / target raw projection helper を追加する。
+- `stdlib/platforms/gui/web/compositor_host_executor.nepl` を追加し、`nepl_gui_web.compositor_tile_present_begin/run/end` host import ABI、status mapper、action executor、F5nh session step を追加する。
+- `nodesrc/run_test.js` と `web/src/runtime/worker.ts` に fail-closed default compositor host executor import を追加する。
+- `stdlib/std/gui.nepl` と `stdlib/platforms/gui/web.nepl` facade から F5ni boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_action_platform_bridge.n.md` と `tests/stdlib/gui_platform_web_compositor_host_executor.n.md` を追加し、pending expected action、target / record kind projection、descriptor projection、outcome-only completion、Web default unsupported status mapping を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ni source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、std / Web facade export、allowed F5nh/F5mz/F5nb imports、std helper no outcome manufacturing、Web host import ABI、one raw import per begin/run/end helper、F5nh pending action -> Web execute -> F5nh outcome-only complete order、run_test / worker fail-closed stub、no action/report return、no lower direct completion、no scheduler / queue / timer / fallback tokens、focused doctest labels を検査する。
+- focused doctest、module doctest、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で outcome-only complete、borrowed expected action authority、no manufactured platform outcome、Web no video memory fallback、native / bare / headless を未接続として後続に残していることを確認する。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

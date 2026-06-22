@@ -4,6 +4,7 @@
 //: ### [目的/もくてき]
 //: - NEPLg2 program が Web Playground の GUI host へ frame command を[渡/わた]すための platform [境界/きょうかい]を公開します。
 //: - `core/gui` と `alloc/gui` は DOM、Canvas、stdout protocol を知らず、この module だけが Web host [連携/れんけい]を[扱/あつか]います。
+//: - compositor tile RLE present host action executor backend bridge は F5nh session pending を Web host import ABI へ fail-closed に[接続/せつぞく]します。
 //:
 //: ### [注意/ちゅうい]
 //: - 正式 presentation path は `web/surface` の video memory surface contract です。
@@ -16,3 +17,4 @@ pub #import "./web/timer" as @merge
 pub #import "./web/clock" as @merge
 pub #import "./web/stdout_protocol" as @merge
 pub #import "./web/input" as @merge
+pub #import "./web/compositor_host_executor" as @merge

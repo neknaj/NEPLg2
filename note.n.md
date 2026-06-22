@@ -1,3 +1,52 @@
+# 2026-06-23 Agent2 GUI std/Web F5ni compositor host action platform bridge boundary
+
+## 目的
+
+- F5nh session pending の expected action を platform executor が読むための std helper を追加する。
+- platform 側から action identity / report / attempt を返さず、host status 由来の `Result unit GuiError` だけを F5nh outcome-only complete へ戻す。
+- まず Web compositor host import ABI を fail-closed backend bridge として追加し、native / bare / headless と actual Web compositor implementation は別 boundary に残す。
+
+## 実装内容
+
+- `stdlib/std/gui/compositor_tile_present_host_action_platform_bridge.nepl` を追加した。
+- `GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget`、`GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind`、pending action / complete outcome / target / record kind / descriptor / target raw projection helper を追加した。
+- std helper は F5nh pending accessor と F5nh complete だけを F5nh 接点にし、`Result::Ok unit` や `Result::Err GuiError::...` を作らない。
+- `stdlib/platforms/gui/web/compositor_host_executor.nepl` を追加し、`nepl_gui_web.compositor_tile_present_begin/run/end` ABI、status mapper、action executor、F5nh session step を追加した。
+- Web bridge は action を match して begin / run / end import のいずれか 1 回だけを呼び、raw status を `Result unit GuiError` に変換する。
+- `nodesrc/run_test.js` と `web/src/runtime/worker.ts` に fail-closed default import を追加し、actual compositor implementation が入るまで unsupported を返す。
+- `stdlib/std/gui.nepl` と `stdlib/platforms/gui/web.nepl` facade、focused doctest、source policy、仕様/詳細設計/標準ライブラリ仕様/実装計画、`todo.md` を更新した。
+
+## plan.md との差異
+
+- F5ni は plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う host executor backend bridge である。
+- 現時点では actual Web compositor implementation、native / bare / headless bridge、real scheduler integration には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Cicero the 2nd read-only design/source-policy review は、platform bridge が attempt action / report / action identity を受け取る API は blocker と確認した。
+- 指摘に従い、std helper は F5nh pending action を読むだけにし、completion は F5nh outcome-only complete のみへ委譲する設計にした。
+- Web / native / bare / headless を同一 slice で固定しない方針にし、この checkpoint では Web compositor ABI / fail-closed backend bridge だけを追加した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_action_platform_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_action_platform_bridge_f5ni.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_action_platform_bridge.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_action_platform_bridge_module_f5ni.json -j 1`（10/10）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_platform_web_compositor_host_executor.n.md --no-tree -o tmp_gui_platform_web_compositor_host_executor_f5ni.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/web/compositor_host_executor.nepl --no-tree -o tmp_gui_platform_web_compositor_host_executor_module_f5ni.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5ni.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_action_executor_session.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_action_executor_session_module_f5ni_regression.json -j 1`（19/19）
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5ni.json`
+- checked JSON: `tmp_playground_editor_f5ni.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 残り
+
+- F5ni 後続として、native / bare / headless platform host executor bridge、Web compositor host import の actual implementation、scheduler integration へ進む。
+
 # 2026-06-23 Agent2 GUI std F5nh compositor host action executor session boundary
 
 ## 目的

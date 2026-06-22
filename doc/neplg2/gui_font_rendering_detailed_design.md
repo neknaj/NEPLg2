@@ -8741,6 +8741,18 @@ F5nh complete is outcome-only complete. The actual executor does not report acti
 
 On success, F5nh returns a completion payload containing the F5ng step and the F5ng-derived `GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion`. On failure, F5nh reads the category through the F5ng error category accessor and stores the lower F5ng error as the recovery authority. F5nh does not manufacture executor outcome, never builds `Result::Ok unit` or synthetic `Result::Err`, does not inspect F5nf/F5ne lower enum internals directly, and never reaches F5nf sink / sink driver direct calls, F5ne direct completion, F5nd bridge directly, F5nb validation directly, F5na report construction, F5mx request construction, F5my/F5mw/F5mv lower dispatch paths, platform APIs, raw packet storage, lower row-tile paths, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer compositor tile RLE present host action platform bridge boundary
+
+F5ni introduces the std layer compositor tile RLE present host action platform bridge boundary. It is a platform-neutral helper between F5nh and any concrete executor backend. It reads the expected action from F5nh session pending through a borrowed pending accessor, projects target / record kind / descriptor values, and sends only the platform executor outcome back to F5nh outcome-only complete.
+
+The bridge deliberately does not create action identity, report values, attempted action payloads, raw host status, or platform imports. `gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_complete_outcome` delegates directly to F5nh complete, so it does not manufacture platform outcome and cannot bypass the existing F5nh / F5ng identity authority. It never calls F5ng / F5nf / F5ne lower completion APIs directly, never validates reports directly, and does not introduce scheduler, queue, timer, DOM / Canvas / minifb, video memory, fallback, or silent no-op behavior.
+
+## Web compositor host action executor backend bridge
+
+F5ni also defines the initial Web compositor host action executor backend bridge. `platforms/gui/web/compositor_host_executor` consumes the F5ni std helper, takes the expected action, and calls exactly one `nepl_gui_web.compositor_tile_present_begin/run/end` import according to the action record shape. Begin / end imports receive target, surface / frame, packet descriptor, and compositor metadata. Run imports receive the same descriptor metadata plus one RLE run offset / count / RGBA payload.
+
+The Web bridge maps raw status `0` to `Result::Ok unit`; negative status values become typed `GuiError`, including `GuiError::Unsupported`. The `gui_web_compositor_host_executor_step` function reads F5nh pending action, executes that action once, and returns through the F5ni bridge into F5nh outcome-only complete. The default `nodesrc/run_test.js` and Web worker imports are fail-closed stubs that return unsupported until the actual Web compositor implementation is connected. This is explicitly no video memory fallback: the bridge does not reuse the legacy video memory path, does not call Canvas / DOM directly, and does not run a scheduler, queue, timer wait, present loop, fallback, or silent no-op path.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

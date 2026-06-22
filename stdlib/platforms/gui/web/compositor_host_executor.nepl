@@ -1,0 +1,225 @@
+//: # platforms/gui/web/compositor_host_executor
+//: Web compositor tile RLE present host action executor backend bridge
+//:
+//: ### [目的/もくてき]
+//: - F5ni Web compositor host action executor backend bridge として、F5nh session pending の expected action を Web host import へ 1 operation だけ[渡/わた]します。
+//: - `compositor_tile_present_begin` / `run` / `end` の status を `Result unit GuiError` に[写/うつ]し、F5nh outcome-only completion path へ[戻/もど]します。
+//: - これは backend-facing bridge であり、not long-running scheduler backend です。
+//:
+//: ### [契約/けいやく]
+//: - action は F5ni std platform bridge の borrowed pending accessor から[読/よ]み、platform 側で action identity を[作/つく]りません。
+//: - host import は record kind ごとに begin、run、end のいずれかを 1 [回/かい]だけ[呼/よ]びます。
+//: - descriptor host import には lower packet descriptor と compositor metadata の両方を[渡/わた]します。
+//: - status `0` は `Ok unit`、負 status は typed `GuiError` として[返/かえ]します。
+//: - long-running scheduler backend、queue、while loop、timer wait、present loop、Canvas、DOM、video memory fallback、silent no-op は[扱/あつか]いません。
+//:
+//: neplg2:test[stdio]
+//: stdout: ""
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "platforms/gui/web/compositor_host_executor" as *
+//:|
+//:| fn main %impure fn void i32 \void:
+//:|      0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/cast" as *
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_action_platform_bridge" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/window" as *
+
+#extern "nepl_gui_web" "compositor_tile_present_begin" fn gui_web_compositor_tile_present_begin_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "compositor_tile_present_run" fn gui_web_compositor_tile_present_run_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "compositor_tile_present_end" fn gui_web_compositor_tile_present_end_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+
+fn gui_web_compositor_host_executor_status_error %fn i32 GuiError \status:
+    if eq status -1:
+        then GuiError::Unsupported
+        else:
+            if eq status -2:
+                then GuiError::InvalidCommand
+                else:
+                    if eq status -3:
+                        then GuiError::ResourceExhausted
+                        else:
+                            if eq status -4:
+                                then GuiError::ResourceExhausted
+                                else:
+                                    if eq status -6:
+                                        then GuiError::InvalidCommand
+                                        else GuiError::BackendFailure
+
+fn gui_web_compositor_host_executor_status_unit %fn i32 Result unit GuiError \status:
+    if eq status 0:
+        then Result::Ok unit
+        else Result::Err gui_web_compositor_host_executor_status_error status
+
+fn gui_web_compositor_host_executor_descriptor_begin %impure fn GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget impure fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiError \target\descriptor:
+    let target_kind %i32 gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_kind target
+    let window_raw %i32 gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_window_raw &target
+    let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+    let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+    let packet %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet descriptor
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    let surface_raw %i32 surface_id_raw &surface
+    let frame_raw %i32 frame_id_raw &frame
+    let packet_frame_id %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id &packet
+    let batch_index %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index &packet
+    let tile_index %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index &packet
+    let plan_row_start %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start &packet
+    let plan_row_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count &packet
+    let row_start %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start &packet
+    let row_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count &packet
+    let width %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_width &packet
+    let height %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_height &packet
+    let stride_bytes %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes &packet
+    let tile_rows %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows &packet
+    let tile_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count &packet
+    let pixel_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count &packet
+    let total_run_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count &packet
+    let encoded_byte_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count &packet
+    let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata
+    let metadata_width %i32 gui_rgba8888_compositor_frame_entry_metadata_width &metadata
+    let metadata_height %i32 gui_rgba8888_compositor_frame_entry_metadata_height &metadata
+    let metadata_row_start %i32 gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata
+    let metadata_row_count %i32 gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata
+    let metadata_batch_count %i32 gui_rgba8888_compositor_frame_entry_metadata_batch_count &metadata
+    let metadata_max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch &metadata
+    let status %i32 gui_web_compositor_tile_present_begin_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count metadata_frame_id metadata_width metadata_height metadata_row_start metadata_row_count metadata_batch_count metadata_max_rows_per_batch
+    gui_web_compositor_host_executor_status_unit status
+
+fn gui_web_compositor_host_executor_descriptor_end %impure fn GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget impure fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiError \target\descriptor:
+    let target_kind %i32 gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_kind target
+    let window_raw %i32 gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_window_raw &target
+    let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+    let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+    let packet %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet descriptor
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    let surface_raw %i32 surface_id_raw &surface
+    let frame_raw %i32 frame_id_raw &frame
+    let packet_frame_id %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id &packet
+    let batch_index %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index &packet
+    let tile_index %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index &packet
+    let plan_row_start %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start &packet
+    let plan_row_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count &packet
+    let row_start %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start &packet
+    let row_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count &packet
+    let width %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_width &packet
+    let height %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_height &packet
+    let stride_bytes %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes &packet
+    let tile_rows %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows &packet
+    let tile_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count &packet
+    let pixel_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count &packet
+    let total_run_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count &packet
+    let encoded_byte_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count &packet
+    let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata
+    let metadata_width %i32 gui_rgba8888_compositor_frame_entry_metadata_width &metadata
+    let metadata_height %i32 gui_rgba8888_compositor_frame_entry_metadata_height &metadata
+    let metadata_row_start %i32 gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata
+    let metadata_row_count %i32 gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata
+    let metadata_batch_count %i32 gui_rgba8888_compositor_frame_entry_metadata_batch_count &metadata
+    let metadata_max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch &metadata
+    let status %i32 gui_web_compositor_tile_present_end_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count metadata_frame_id metadata_width metadata_height metadata_row_start metadata_row_count metadata_batch_count metadata_max_rows_per_batch
+    gui_web_compositor_host_executor_status_unit status
+
+fn gui_web_compositor_host_executor_run_record %impure fn GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget impure fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord Result unit GuiError \target\record:
+    let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor record
+    let run %GuiRgba8888RowTileRleRun gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run record
+    let target_kind %i32 gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_kind target
+    let window_raw %i32 gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_window_raw &target
+    let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface &descriptor
+    let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame &descriptor
+    let packet %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet &descriptor
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata &descriptor
+    let surface_raw %i32 surface_id_raw &surface
+    let frame_raw %i32 frame_id_raw &frame
+    let packet_frame_id %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id &packet
+    let batch_index %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index &packet
+    let tile_index %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index &packet
+    let plan_row_start %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start &packet
+    let plan_row_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count &packet
+    let row_start %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start &packet
+    let row_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count &packet
+    let width %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_width &packet
+    let height %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_height &packet
+    let stride_bytes %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes &packet
+    let tile_rows %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows &packet
+    let tile_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count &packet
+    let pixel_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count &packet
+    let total_run_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count &packet
+    let encoded_byte_count %i32 gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count &packet
+    let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata
+    let metadata_width %i32 gui_rgba8888_compositor_frame_entry_metadata_width &metadata
+    let metadata_height %i32 gui_rgba8888_compositor_frame_entry_metadata_height &metadata
+    let metadata_row_start %i32 gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata
+    let metadata_row_count %i32 gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata
+    let metadata_batch_count %i32 gui_rgba8888_compositor_frame_entry_metadata_batch_count &metadata
+    let metadata_max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch &metadata
+    let color %Rgba8888 gui_rgba8888_row_tile_rle_run_color &run
+    let run_pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+    let run_pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+    let r %i32 cast rgba8888_r &color
+    let g %i32 cast rgba8888_g &color
+    let b %i32 cast rgba8888_b &color
+    let a %i32 cast rgba8888_a &color
+    let status %i32 gui_web_compositor_tile_present_run_raw target_kind window_raw surface_raw frame_raw packet_frame_id batch_index tile_index plan_row_start plan_row_count row_start row_count width height stride_bytes tile_rows tile_count pixel_count total_run_count encoded_byte_count metadata_frame_id metadata_width metadata_height metadata_row_start metadata_row_count metadata_batch_count metadata_max_rows_per_batch run_pixel_offset run_pixel_count r g b a
+    gui_web_compositor_host_executor_status_unit status
+
+//: gui_web_compositor_host_executor_execute_action: Web host import へ action 1 [件/けん]を[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - action variant は F5ni std platform bridge で target と record kind に[投影/とうえい]します。
+//: - 各 branch は begin、run、end のいずれか 1 import だけを[呼/よ]びます。
+//: - unsupported host は `GuiError::Unsupported` として[返/かえ]します。
+pub fn gui_web_compositor_host_executor_execute_action %impure fn GuiRgba8888CompositorTileRlePresentHostExecutionAction Result unit GuiError \action:
+    let target %GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_target &action
+    match action:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload:
+            let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_descriptor &payload
+            gui_web_compositor_host_executor_descriptor_begin target &descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload:
+            let record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record &payload
+            gui_web_compositor_host_executor_run_record target &record
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd payload:
+            let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_descriptor &payload
+            gui_web_compositor_host_executor_descriptor_end target &descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+            gui_web_compositor_host_executor_descriptor_begin target &descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun record:
+            gui_web_compositor_host_executor_run_record target &record
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd descriptor:
+            gui_web_compositor_host_executor_descriptor_end target &descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin descriptor:
+            gui_web_compositor_host_executor_descriptor_begin target &descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun record:
+            gui_web_compositor_host_executor_run_record target &record
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd descriptor:
+            gui_web_compositor_host_executor_descriptor_end target &descriptor
+
+//: gui_web_compositor_host_executor_step: Web host execution outcome を F5nh session complete へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - session pending から expected action を borrowed accessor で[読/よ]みます。
+//: - Web host execution outcome を F5ni std platform bridge で F5nh complete へ[戻/もど]します。
+//: - action identity は completion API へ[渡/わた]しません。
+pub fn gui_web_compositor_host_executor_step %impure fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport impure fn GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending Result GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError \support\pending:
+    let action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_pending_action &pending
+    let outcome %Result unit GuiError gui_web_compositor_host_executor_execute_action action
+    gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_complete_outcome support pending outcome

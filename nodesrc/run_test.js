@@ -136,6 +136,9 @@ function defaultNeplGuiWebImports() {
         video_memory_publish_slot: () => -2,
         video_memory_present_surface: () => -2,
         video_memory_close_surface: () => -2,
+        compositor_tile_present_begin: () => -1,
+        compositor_tile_present_run: () => -1,
+        compositor_tile_present_end: () => -1,
     };
 }
 

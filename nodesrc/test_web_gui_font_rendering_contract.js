@@ -211,6 +211,8 @@ const stdGuiCompositorTilePresentHostActionAttemptDriver = read("stdlib/std/gui/
 const stdGuiCompositorTilePresentHostActionAttemptDriverImpl = withoutComments(stdGuiCompositorTilePresentHostActionAttemptDriver);
 const stdGuiCompositorTilePresentHostActionExecutorSession = read("stdlib/std/gui/compositor_tile_present_host_action_executor_session.nepl");
 const stdGuiCompositorTilePresentHostActionExecutorSessionImpl = withoutComments(stdGuiCompositorTilePresentHostActionExecutorSession);
+const stdGuiCompositorTilePresentHostActionPlatformBridge = read("stdlib/std/gui/compositor_tile_present_host_action_platform_bridge.nepl");
+const stdGuiCompositorTilePresentHostActionPlatformBridgeImpl = withoutComments(stdGuiCompositorTilePresentHostActionPlatformBridge);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -312,6 +314,8 @@ const platformGuiWebClock = read("stdlib/platforms/gui/web/clock.nepl");
 const platformGuiWebClockImpl = withoutComments(platformGuiWebClock);
 const platformGuiWebTimer = read("stdlib/platforms/gui/web/timer.nepl");
 const platformGuiWebTimerImpl = withoutComments(platformGuiWebTimer);
+const platformGuiWebCompositorHostExecutor = read("stdlib/platforms/gui/web/compositor_host_executor.nepl");
+const platformGuiWebCompositorHostExecutorImpl = withoutComments(platformGuiWebCompositorHostExecutor);
 const platformGuiHeadlessFacade = read("stdlib/platforms/gui/headless.nepl");
 const platformGuiHeadlessClock = read("stdlib/platforms/gui/headless/clock.nepl");
 const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
@@ -382,6 +386,7 @@ const platformGuiBareDisplayFlushCompletionImpl = withoutComments(platformGuiBar
 const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
+const webRuntimeWorkerSource = read("web/src/runtime/worker.ts");
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -556,6 +561,8 @@ const guiStdCompositorTilePresentHostActionSinkTests = read("tests/stdlib/gui_st
 const guiStdCompositorTilePresentHostActionSinkDriverTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_sink_driver.n.md");
 const guiStdCompositorTilePresentHostActionAttemptDriverTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_attempt_driver.n.md");
 const guiStdCompositorTilePresentHostActionExecutorSessionTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_executor_session.n.md");
+const guiStdCompositorTilePresentHostActionPlatformBridgeTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_platform_bridge.n.md");
+const guiPlatformWebCompositorHostExecutorTests = read("tests/stdlib/gui_platform_web_compositor_host_executor.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -31209,6 +31216,192 @@ assert(
         guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_lower_recovery_authority_ok") &&
         guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_no_scheduler_no_platform_no_fallback"),
     "F5nh std compositor tile present host-action-executor-session focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer compositor tile RLE present host action platform bridge boundary") &&
+            doc.includes("F5nh session pending") &&
+            doc.includes("borrowed pending accessor") &&
+            doc.includes("outcome-only complete") &&
+            doc.includes("does not manufacture platform outcome"),
+        `F5ni ${name} must document std compositor host action platform bridge contract`,
+    );
+    assert(
+        doc.includes("Web compositor host action executor backend bridge") &&
+            doc.includes("nepl_gui_web.compositor_tile_present_begin/run/end") &&
+            doc.includes("fail-closed") &&
+            doc.includes("GuiError::Unsupported") &&
+            doc.includes("no video memory fallback"),
+        `F5ni ${name} must document Web compositor host executor ABI and fail-closed policy`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_action_platform_bridge" as *'), "std/gui facade must export F5ni compositor tile present host action platform bridge boundary");
+assert(platformGuiWebFacade.includes('pub #import "./web/compositor_host_executor" as @merge'), "platforms/gui/web facade must export F5ni Web compositor host executor bridge");
+assert(
+    stdGuiCompositorTilePresentHostActionPlatformBridge.includes("pub enum GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget:") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("Window %WindowId") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("Offscreen") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("Device") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("pub enum GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind:") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("Begin") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("Run") &&
+        stdGuiCompositorTilePresentHostActionPlatformBridge.includes("End"),
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must define target and record-kind projection enums",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/compositor_tile_present_host_action_executor_session" as \*/, "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must consume F5nh session API"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution" as \*/, "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must consume F5mz action shape"],
+    [/#import "std\/gui\/compositor_tile_present_host_command" as \*/, "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must read run record descriptors through typed host-command accessors"],
+    [/#import "std\/gui\/compositor_tile_present_host_executor" as \*/, "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must accept F5nb support type for F5nh completion"],
+]) {
+    assertMatch(stdGuiCompositorTilePresentHostActionPlatformBridgeImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionPlatformBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_pending_action"),
+    ["gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action pending"],
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must read expected action only through F5nh pending accessor",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionPlatformBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_complete_outcome"),
+    ["gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete support pending outcome"],
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must return platform outcome only through F5nh complete",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionPlatformBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_target"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload:",
+        "GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Window",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:",
+        "GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Offscreen",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin _descriptor:",
+        "GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Device",
+    ],
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must project target from all action variants",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionPlatformBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_record_kind"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin _payload:",
+        "GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Begin",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun _payload:",
+        "GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Run",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd _payload:",
+        "GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::End",
+    ],
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must project begin/run/end record kind from action variants",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionPlatformBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_descriptor"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record &payload",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor &record",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun record:",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor &record",
+    ],
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must derive run descriptors from typed run records",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionPlatformBridgeImpl,
+    /\bResult::Ok unit\b|\bResult::Err GuiError::|\b#extern\b|\b#intrinsic\b|\bgui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_action_sink_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome\b|\bgui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action\b|\bgui_rgba8888_compositor_tile_rle_present_host_execution_report\b|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|#import\s+"std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain|host_import)"\s+as\s+(?:\*|[A-Za-z_][A-Za-z0-9_]*)|\bgui_rgba8888_compositor_tile_rle_present_dispatch_(?!loop_)[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni must not manufacture platform outcome or call direct lower/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionPlatformBridgeImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_action_platform_bridge F5ni implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostActionPlatformBridgeTests.includes("std_compositor_tile_rle_present_host_action_platform_bridge_facade_ok") &&
+        guiStdCompositorTilePresentHostActionPlatformBridgeTests.includes("std_compositor_tile_rle_present_host_action_platform_bridge_pending_action_ok") &&
+        guiStdCompositorTilePresentHostActionPlatformBridgeTests.includes("std_compositor_tile_rle_present_host_action_platform_bridge_target_record_kind_ok") &&
+        guiStdCompositorTilePresentHostActionPlatformBridgeTests.includes("std_compositor_tile_rle_present_host_action_platform_bridge_descriptor_projection_ok") &&
+        guiStdCompositorTilePresentHostActionPlatformBridgeTests.includes("std_compositor_tile_rle_present_host_action_platform_bridge_outcome_only_complete_ok") &&
+        guiStdCompositorTilePresentHostActionPlatformBridgeTests.includes("std_compositor_tile_rle_present_host_action_platform_bridge_no_platform_no_lower_fallback"),
+    "F5ni std compositor tile present host-action-platform-bridge focused doctest must cover source-policy labels",
+);
+assert(
+    platformGuiWebCompositorHostExecutor.includes('#extern "nepl_gui_web" "compositor_tile_present_begin"') &&
+        platformGuiWebCompositorHostExecutor.includes('#extern "nepl_gui_web" "compositor_tile_present_run"') &&
+        platformGuiWebCompositorHostExecutor.includes('#extern "nepl_gui_web" "compositor_tile_present_end"'),
+    "platforms/gui/web/compositor_host_executor F5ni must define Web compositor host import ABI",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebCompositorHostExecutorImpl, "gui_web_compositor_host_executor_status_unit"),
+    ["if eq status 0:", "then Result::Ok unit", "else Result::Err gui_web_compositor_host_executor_status_error status"],
+    "platforms/gui/web/compositor_host_executor F5ni must map host status to Result unit GuiError",
+);
+assert(
+    functionSlice(platformGuiWebCompositorHostExecutorImpl, "gui_web_compositor_host_executor_descriptor_begin").match(/\bgui_web_compositor_tile_present_begin_raw\b/g)?.length === 1 &&
+        functionSlice(platformGuiWebCompositorHostExecutorImpl, "gui_web_compositor_host_executor_run_record").match(/\bgui_web_compositor_tile_present_run_raw\b/g)?.length === 1 &&
+        functionSlice(platformGuiWebCompositorHostExecutorImpl, "gui_web_compositor_host_executor_descriptor_end").match(/\bgui_web_compositor_tile_present_end_raw\b/g)?.length === 1,
+    "platforms/gui/web/compositor_host_executor F5ni must call exactly one begin/run/end raw import in each action helper",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebCompositorHostExecutorImpl, "gui_web_compositor_host_executor_execute_action"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_target &action",
+        "match action:",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload:",
+        "gui_web_compositor_host_executor_descriptor_begin target &descriptor",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload:",
+        "gui_web_compositor_host_executor_run_record target &record",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd payload:",
+        "gui_web_compositor_host_executor_descriptor_end target &descriptor",
+    ],
+    "platforms/gui/web/compositor_host_executor F5ni must execute the expected action through one platform-specific record import",
+);
+assertOrderedFragments(
+    functionSlice(platformGuiWebCompositorHostExecutorImpl, "gui_web_compositor_host_executor_step"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostExecutorSupport",
+        "GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_pending_action &pending",
+        "gui_web_compositor_host_executor_execute_action action",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_complete_outcome support pending outcome",
+    ],
+    "platforms/gui/web/compositor_host_executor F5ni must read F5nh pending action, execute once, and complete outcome-only through F5ni/F5nh",
+);
+assertNoMatch(
+    platformGuiWebCompositorHostExecutorImpl,
+    /\bgui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_action_sink_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome\b|\bgui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action\b|\bgui_rgba8888_compositor_tile_rle_present_host_execution_report\b|\bGuiRgba8888CompositorTileRlePresentHostExecutionReport\b|\bwhile\b|\bVec\b|\bqueue\b|\bsetTimeout\b|\brequest_timer\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bDrawTarget\b|\bRenderTarget\b|\bfallback\b|\bsilent no-op\b/,
+    "platforms/gui/web/compositor_host_executor F5ni must not return action/report identity, loop, queue, schedule, or fallback to another backend",
+);
+assertNoMatch(
+    platformGuiWebCompositorHostExecutorImpl,
+    /[()]/,
+    "platforms/gui/web/compositor_host_executor F5ni implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    runTestSource.includes("compositor_tile_present_begin: () => -1") &&
+        runTestSource.includes("compositor_tile_present_run: () => -1") &&
+        runTestSource.includes("compositor_tile_present_end: () => -1"),
+    "nodesrc/run_test default Web imports must fail closed for compositor host executor ABI",
+);
+assert(
+    webRuntimeWorkerSource.includes("compositor_tile_present_begin: this.nepl_gui_web_compositor_tile_present_begin.bind(this)") &&
+        webRuntimeWorkerSource.includes("compositor_tile_present_run: this.nepl_gui_web_compositor_tile_present_run.bind(this)") &&
+        webRuntimeWorkerSource.includes("compositor_tile_present_end: this.nepl_gui_web_compositor_tile_present_end.bind(this)") &&
+        webRuntimeWorkerSource.includes("nepl_gui_web_compositor_tile_present_begin(..._args: number[]): number") &&
+        webRuntimeWorkerSource.includes("nepl_gui_web_compositor_tile_present_run(..._args: number[]): number") &&
+        webRuntimeWorkerSource.includes("nepl_gui_web_compositor_tile_present_end(..._args: number[]): number") &&
+        (webRuntimeWorkerSource.match(/return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;/g) || []).length >= 3,
+    "web runtime worker must expose fail-closed compositor host executor imports until actual Web compositor implementation is connected",
+);
+assert(
+    guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_facade_ok") &&
+        guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_backend_boundary_ok") &&
+        guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_host_import_status_ok") &&
+        guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_borrowed_pending_action_ok") &&
+        guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_reuses_f5ni_f5nh_ok") &&
+        guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_fail_closed_default_stub_ok") &&
+        guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_no_loop_queue_fallback"),
+    "F5ni Web compositor host executor focused doctest must cover source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

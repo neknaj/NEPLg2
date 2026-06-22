@@ -219,6 +219,9 @@ class WorkerWASI extends WASI {
             video_memory_publish_slot: this.nepl_gui_web_video_memory_publish_slot.bind(this),
             video_memory_present_surface: this.nepl_gui_web_video_memory_present_surface.bind(this),
             video_memory_close_surface: this.nepl_gui_web_video_memory_close_surface.bind(this),
+            compositor_tile_present_begin: this.nepl_gui_web_compositor_tile_present_begin.bind(this),
+            compositor_tile_present_run: this.nepl_gui_web_compositor_tile_present_run.bind(this),
+            compositor_tile_present_end: this.nepl_gui_web_compositor_tile_present_end.bind(this),
             request_timer: this.nepl_gui_web_request_timer.bind(this),
             monotonic_clock_ms: this.nepl_gui_web_monotonic_clock_ms.bind(this),
         };
@@ -487,6 +490,18 @@ class WorkerWASI extends WASI {
             return 0;
         }
         return this.lastGuiWebInputEvent.event.tick;
+    }
+
+    nepl_gui_web_compositor_tile_present_begin(..._args: number[]): number {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    }
+
+    nepl_gui_web_compositor_tile_present_run(..._args: number[]): number {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    }
+
+    nepl_gui_web_compositor_tile_present_end(..._args: number[]): number {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
     }
 
     nepl_gui_web_video_memory_create_surface(width: number, height: number, slotCount: number): number {

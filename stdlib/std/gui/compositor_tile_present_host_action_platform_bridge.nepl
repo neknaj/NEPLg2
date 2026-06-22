@@ -1,0 +1,188 @@
+//: # std/gui/compositor_tile_present_host_action_platform_bridge
+//: compositor tile RLE present host action platform bridge helper
+//:
+//: ### [目的/もくてき]
+//: - F5nh session pending から platform executor が[読む/よむ] action と target / record kind を[取/と]り[出/だ]します。
+//: - platform executor が[返/かえ]した outcome を F5nh outcome-only completion へ[戻/もど]します。
+//:
+//: ### [契約/けいやく]
+//: - pending action は F5nh pending accessor だけから[読/よ]み、platform 側で action identity を[作/つく]らせません。
+//: - completion は F5nh complete だけに[委譲/いじょう]し、F5ng / F5nf / F5ne lower boundary を直接[呼/よ]びません。
+//: - record kind は Begin / Run / End の 3 [種類/しゅるい]であり、target と record kind の直積 action enum から純粋に[投影/とうえい]します。
+//: - platform host import、DOM、Canvas、minifb、video memory、raw storage、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_action_platform_bridge" as *
+//: ```
+
+#indent 4
+
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_action_executor_session" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/window" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget: platform host import target
+//:
+//: Window は window id を[保持/ほじ]し、Offscreen / Device は raw window id 0 として host import へ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget:
+    Window %WindowId
+    Offscreen
+    Device
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget \target:
+        *target
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget \target:
+        target
+
+//: GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind: platform host import record kind
+//:
+//: host import の begin / run / end [分岐/ぶんき]を enum として[固定/こてい]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind:
+    Begin
+    Run
+    End
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind \kind:
+        kind
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_pending_action: session pending の expected action を[返/かえ]す
+//:
+//: platform executor はこの action を[実行/じっこう]し、completion へ action identity を[返/かえ]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_pending_action %fn &GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending GuiRgba8888CompositorTileRlePresentHostExecutionAction \pending:
+    gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action pending
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_complete_outcome: platform outcome を F5nh complete へ[戻/もど]す
+//:
+//: F5nh の outcome-only complete を[保/たも]ち、platform 側の action identity report は[受/う]け[取/と]りません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_complete_outcome %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending fn Result unit GuiError Result GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError \support\pending\outcome:
+    gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete support pending outcome
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_target: action target を[返/かえ]す
+//:
+//: Window / Offscreen / Device の target を action variant から[投影/とうえい]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_target %fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget \action:
+    match *action:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Window gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_window &payload
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Window gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_window &payload
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd payload:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Window gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_window &payload
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Offscreen
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun _record:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Offscreen
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Offscreen
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Device
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun _record:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Device
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Device
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_record_kind: action record kind を[返/かえ]す
+//:
+//: target は[変/か]えず、Begin / Run / End だけを[投影/とうえい]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_record_kind %fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind \action:
+    match *action:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin _payload:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Begin
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun _payload:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Run
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd _payload:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::End
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Begin
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun _record:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Run
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::End
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Begin
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun _record:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::Run
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostActionPlatformRecordKind::End
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_descriptor: action の descriptor を[返/かえ]す
+//:
+//: Run action では run record に[含/ふく]まれる metadata [付/つ]き descriptor を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_action_descriptor %fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentFrameDescriptor \action:
+    match *action:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload:
+            gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_descriptor &payload
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload:
+            let record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record &payload
+            gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor &record
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd payload:
+            gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_descriptor &payload
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin descriptor:
+            descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun record:
+            gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor &record
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd descriptor:
+            descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin descriptor:
+            descriptor
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun record:
+            gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor &record
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd descriptor:
+            descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_kind: host import target kind を[返/かえ]す
+//:
+//: 1 は Window、2 は Offscreen、3 は Device です。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_kind %fn GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget i32 \target:
+    match target:
+        GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Window _window:
+            1
+        GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Offscreen:
+            2
+        GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Device:
+            3
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_window_raw: host import window raw id を[返/かえ]す
+//:
+//: Window target 以外は 0 を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_platform_bridge_target_window_raw %fn &GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget i32 \target:
+    match *target:
+        GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Window window:
+            window_id_raw &window
+        GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Offscreen:
+            0
+        GuiRgba8888CompositorTileRlePresentHostActionPlatformTarget::Device:
+            0
