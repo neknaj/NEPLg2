@@ -4708,6 +4708,59 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mj.json
 ```
 
+## Phase F5mk: render2d compositor tile RLE writer plan bridge boundary
+
+目的:
+
+- F5mj の `GuiRgba8888CompositorTileRleEncodeCursorOwner` を authority とし、既存 lower `gui_rgba8888_row_tile_rle_writer_plan_prepare` を compositor metadata 付きで接続する。
+- lower writer plan prepare を 1 回だけ呼び、success では lower writer plan owner と copied metadata を `GuiRgba8888CompositorTileRleWriterPlanOwner` として束ねる。
+- lower writer plan error は original ready cursor owner を返す契約なので、kind / category / total run count を読んだ後で lower ready cursor owner を metadata 付き F5mj ready cursor owner へ戻す。
+- この phase では capacity plan-only に留め、storage allocation、write step、encoded seal、packet、packet record、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no storage / packet / present の compositor tile RLE writer plan bridge で止める。
+
+plan review:
+
+- Aquinas plan review は `PLAN_APPROVED`。
+- lower writer plan prepare は失敗時に original ready owner を保持し、成功時だけ ready owner を cursor へ移す契約なので、success は lower `GuiRgba8888RowTileRleWriterPlanOwner` + metadata でよいと確認された。
+- error recovery は payload owner ではなく `GuiRgba8888CompositorTileRleEncodeCursorOwner` が適切と確認された。writer plan failure は ready cursor を消費する前の capacity failure なので、retry 可能な ready cursor evidence を保持する。
+- success finish payload は metadata を先に Copy し、lower writer plan -> lower cursor -> lower payload -> compositor payload owner の順で復元する。
+- source policy で lower writer plan prepare exact once、metadata-before-lower-ready-consume、owner-bearing success / error no Clone / Copy、lower error read-before-ready-recovery、lower writer plan error を公開 recovery payload にしないこと、success finish/free の F5me delegation、error finish/free の F5mj ready cursor owner 経由で F5me payload finish / free、storage allocation / write step / encoded seal / packet / std present / host / platform / raw byte access / fallback 禁止を検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_writer_plan.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleWriterPlanErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleWriterPlanOwner` と `GuiRgba8888CompositorTileRleWriterPlanError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_writer_plan_prepare` は metadata を ready cursor owner から Copy してから lower ready cursor owner を取り出し、lower writer plan prepare を 1 回だけ呼ぶ。
+- success は lower writer plan owner を metadata 付き writer plan owner へ戻し、metadata / total run count / encoded byte count / cursor next pixel index / cursor pixel count accessor を提供する。
+- lower error は lower kind / category / total run count を読んでから lower ready cursor owner を取り出し、metadata 付き F5mj ready cursor owner を持つ writer plan error に正規化する。
+- writer plan owner の finish payload、finish entry、free helper を追加し、entry/free は F5me payload finish / free に委譲する。
+- writer plan error の finish ready owner、finish payload、finish entry、free helper を追加し、payload recovery は F5mj ready cursor owner 経由で F5me payload finish / free に委譲する。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE writer plan を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md` を追加し、facade、ready-to-capacity、encoded byte count、metadata、finish payload delegation、error ready owner recovery、no storage / packet / present / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mk source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Aquinas approval、facade export、typed lower writer-plan error variant、writer-plan success、encoded-byte-count success accessor、total/ready-owner error、owner-bearing success / error no Clone / Copy、lower writer plan prepare exact once、metadata-before-lower-ready-consume、lower error kind/category/total before ready-owner recovery、lower writer plan error 公開 recovery 禁止、success finish/free の F5me 委譲、error finish/free の F5mj/F5me 委譲、direct cursor start / count step / direct drain / storage / write / packet / raw byte access / std present / host / platform / fallback 禁止、focused doctest label を検査する。
+- focused doctest、module doctest、F5mj compositor encode cursor regression、F5ci row tile RLE writer plan regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower writer plan error exposure、ready recovery loss、storage/write/packet/present leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_writer_plan_f5mk.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_writer_plan.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_writer_plan_module_f5mk.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encode_cursor.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_cursor_f5mk_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_writer_plan_f5mk_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mk.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
