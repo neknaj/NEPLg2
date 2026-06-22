@@ -1,3 +1,55 @@
+# 2026-06-23 Agent2 GUI std F5nf compositor host action sink driver boundary
+
+## 目的
+
+- F5ne の compositor host execution driver pending から actual Web / native / bare / headless executor outcome を受け取り、F5nb support preflight と F5ne one-shot completion を接続する。
+- sink は executor-supplied outcome を作らず、caller が返した `Result unit GuiError` を F5mz action と一緒に保持する。
+- driver は sink rejection では F5ne completion を呼ばず、original driver pending を owner-bearing `SinkRejected` として返す。
+
+## 実装内容
+
+- `stdlib/std/gui/compositor_tile_present_host_action_sink.nepl` を追加した。
+- `GuiRgba8888CompositorTileRlePresentHostActionSinkStep`、`GuiRgba8888CompositorTileRlePresentHostActionSinkErrorKind`、`GuiRgba8888CompositorTileRlePresentHostActionSinkError` と accessor を追加した。
+- `stdlib/std/gui/compositor_tile_present_host_action_sink_driver.nepl` を追加した。
+- `GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep`、owner-bearing `GuiRgba8888CompositorTileRlePresentHostActionSinkDriverRejected`、`GuiRgba8888CompositorTileRlePresentHostActionSinkDriverCompletionFailed`、driver step/accessor を追加した。
+- driver completion failure は pending 消費後なので、sink step と F5ne driver error だけを保持する。
+- actual platform execution、F5nc direct completion、F5nd direct bridge、F5nb direct validation、F5na report construction、F5mx request construction、F5my / F5mw / F5mv、lower row-tile path、raw storage、queue、timer、scheduler、DOM / Canvas / minifb、video memory、fallback、silent no-op は追加していない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、仕様/詳細設計/標準ライブラリ仕様/実装計画、`todo.md` を更新した。
+
+## plan.md との差異
+
+- F5nf は plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う std layer host completion 境界である。
+- 現時点では actual Web / native / bare executor 実装、platform host import、action attempt identity verification には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Curie read-only design/source-policy review は、sink と driver を同じ作業単位で入れつつ semantic boundary を別ファイル・別責務として分ける方針を妥当と確認した。
+- sink は F5dc compositor 版として F5nb `require_supported` と executor-supplied outcome packaging のみを所有する方針が確認された。
+- driver は F5dd compositor 版として F5ne `pending_action`、F5nf sink、F5ne `complete_outcome` の順序のみを所有する方針が確認された。
+- source policy では F5nc direct completion、F5nd direct bridge、F5nb direct validation、lower row-tile / platform / fallback leakage を禁止する必要があると確認された。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_action_sink.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_action_sink_f5nf.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_action_sink_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_action_sink_driver_f5nf.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_action_sink.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_action_sink_module_f5nf.json -j 1`（13/13）
+- pass: `node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_action_sink_driver.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_action_sink_driver_module_f5nf.json -j 1`（17/17）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_f5nf_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5nf_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5nf_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5nf_regression.json -j 1`（1/1）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nf.json`
+- checked JSON: `tmp_playground_editor_f5nf.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 残り
+
+- F5nf 後続として、actual executor が返した attempted action と F5ne driver pending の expected action を照合する compositor host action attempt driver boundary を実装する。
+
 # 2026-06-22 Agent2 post-merge GUI owner doctest diag_code metadata fix
 
 - `main` merge 後の `node nodesrc/run_source_policy_regressions.js` で、`tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md::doctest#3` が compile_fail doctest の安定 `diag_code` 未記録として失敗した。

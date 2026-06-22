@@ -8703,6 +8703,24 @@ F5ne is the std layer compositor tile RLE present host execution driver boundary
 
 F5ne must not construct F5mx requests, advance F5my dispatch state, call F5mw schedule helpers, call F5mv virtual drain, reuse lower row-tile host / dispatch / schedule / virtual modules, use raw packet storage, `Vec`, platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, queues, timers, schedulers, fallback paths, or silent no-op behavior. F5nb import is support-type authority only; action/report validation remains F5nd responsibility.
 
+## Std layer compositor tile RLE present host action sink boundary
+
+F5nf introduces the std layer compositor tile RLE present host action sink boundary. It sits between F5ne driver action exposure and actual Web, native, bare, or headless executor code. The boundary packages an executor-supplied outcome together with the F5mz action that was sent to the executor, but it does not perform platform execution itself.
+
+`GuiRgba8888CompositorTileRlePresentHostActionSinkStep` stores the F5mz action and the `Result unit GuiError` returned by the executor. This is deliberately not an accept/reject helper. F5nf sink does not manufacture success, and it does not turn unsupported work into a silent no-op. The only validation it owns is F5nb `require_supported support action` before step construction.
+
+The boundary does not own F5ne driver pending and does not call F5ne completion. It also does not build F5na reports or call F5nd bridge. Those layers remain responsible for one-shot completion and report validation. F5nf sink therefore gives Web/native/bare/headless wrappers a shared typed preflight and outcome packaging contract without duplicating the dispatch-loop completion path or depending on DOM, Canvas, minifb, video memory, queue, timer, scheduler, raw packet storage, lower row-tile paths, or fallback behavior.
+
+## Std layer compositor tile RLE present host action sink driver boundary
+
+F5nf also introduces the std layer compositor tile RLE present host action sink driver boundary. It is the shared bridge for actual Web, native, bare, and headless executors after they have produced an executor-supplied `Result unit GuiError`. The bridge does not execute platform work. It coordinates ownership between F5nf sink outcome packaging and F5ne one-shot completion.
+
+`GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep` stores the F5nf `GuiRgba8888CompositorTileRlePresentHostActionSinkStep` and the F5nc `GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion`. This keeps diagnostic visibility into the action/outcome pair while returning the dispatch-loop completion that the runtime must continue from.
+
+The ordering is fixed. F5nf driver first reads the action from `GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending` by shared borrow. It then calls F5nf sink `gui_rgba8888_compositor_tile_rle_present_host_action_sink_step support action outcome`. If F5nf sink rejects the action, F5nf driver does not call F5ne completion. It returns `SinkRejected` as an owner-bearing error that contains the sink error and the original driver pending. This preserves recovery authority for the actual executor wrapper and avoids cleanup by fabricated success.
+
+If F5nf sink accepts the action, F5nf driver calls F5ne `complete_outcome support driver outcome` with the same caller-supplied outcome. If F5ne succeeds, F5nf driver returns the sink step plus completion. If F5ne fails, the driver pending has already been consumed, so `DriverCompletionFailed` stores the F5ne driver error and the accepted sink step only. F5nf driver therefore does not manufacture executor outcome. It never builds `Result::Ok unit` or synthetic `Result::Err` on behalf of the executor, and it never calls F5nc direct completion, F5nd bridge directly, F5nb validation directly, F5na report construction, F5mx request construction, F5my/F5mw/F5mv lower dispatch paths, platform APIs, raw packet storage, lower row-tile paths, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
