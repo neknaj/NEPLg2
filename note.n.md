@@ -82173,3 +82173,28 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_producer_authority_direct.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_traversal_producer_authority_direct.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering producer traversal output checkpoint
+
+- 2026-06-23 に Zenn の開発方針を再確認した。今回の slice では、producer-owned source owner を単に既存 adapter 呼び出しへ逃がさず、module-private owner と `Result` 境界で full Resource IR walker の差し替え点を固定した。
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に `SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput` を追加した。
+- 新 owner は recheck 済み request context、resolver body root、walker input owner、observation table owner を保持する。source table、fresh witness table、coverage pair、GraphInput、proof table、effect mask、backend bytes、artifact key は持たない。
+- `actual_traversal_resource_lowering_producer_sources_from_body_root_result` は、reader source を producer-owned source table に merge した後、body-reader split output / request-context adapter を直接呼ばず、`actual_traversal_resource_lowering_producer_traversal_output_from_sources_result` へ渡す。
+- `actual_traversal_resource_lowering_producer_traversal_output_from_sources_result` は producer-owned source table を context と再照合し、body-reader output helper で split output を作って、walker input / observation owner を producer traversal output に束ねる。validation failure では source owner を閉じる。
+- `actual_traversal_resource_lowering_producer_sources_from_traversal_output_result` は producer traversal output の walker input / observation owner を既存 input-owner adapter へ move し、collector-owned source table を key / graph / empty validation に通してから返す。拒否時は source owner を閉じる。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、new owner の shape / module-private / no Clone-Copy、free helper の owner cleanup、split-output conversion、body-root helper が direct body-reader split/request-context adapter へ戻らないこと、traversal output helper / collector helper が request-evidence / GraphInput / effect mask / backend / artifact へ進まないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint は full Resource IR graph walker 完了ではなく、underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。残件は actual Resource IR graph walker 本体の source / fresh-witness / coverage authority 実発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
+- Boyle の read-only review は blocker なし。owner lifecycle、producer source body-root helper が direct body-reader split/request-context adapter path を避けること、contract の粒度、docs/todo が full Resource IR walker / effect mask / backend artifact 未完了を明示していることを確認した。residual risk として unused free helper の契約化が挙がったため、free helper と split-output conversion の contract を追加して対応した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost_resource_lowering_producer_traversal_output_doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost_resource_lowering_producer_traversal_output_doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_producer_traversal_output.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_traversal_producer_traversal_output.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

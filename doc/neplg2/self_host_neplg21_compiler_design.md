@@ -3463,6 +3463,14 @@ body-reader source output 用の `actual_traversal_source_output_into_no_escape_
 
 この checkpoint は full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source / fresh witness / coverage を実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-06-23 selfhost resource-lowering producer traversal output checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resource-lowering producer の source path に `SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput` を追加した。この owner は recheck 済み request context、resolver body root、operation projection と unified event split を通った walker input owner、observation table owner を保持する module-private boundary である。
+
+`actual_traversal_resource_lowering_producer_sources_from_body_root_result` は、reader source を producer-owned source table に merge した後、body-reader split output helper や request-context adapter を直接呼ばず、`actual_traversal_resource_lowering_producer_traversal_output_from_sources_result` へ渡す。新 helper は context-bound source validation の後に split output を作り、walker input / observation owner を producer traversal output に束ねる。`actual_traversal_resource_lowering_producer_sources_from_traversal_output_result` はその owner を collector に渡し、source table 生成後に key / graph / empty validation を再実行する。
+
+この checkpoint は、full Resource IR walker 本体を差し替える producer-owned output 境界を作るものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source と fresh witness / coverage authority を同じ resolver-bound body identity へ実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
