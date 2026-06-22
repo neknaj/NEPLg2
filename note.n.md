@@ -80604,3 +80604,27 @@ MERGE_APPROVED
 - post-merge pass: `trunk build`
 - post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_slot_coverage_postmerge.json`
 - post-merge checked JSON: `output/playground_editor_selfhost_private_effect_slot_coverage_postmerge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost memo_call backend actual traversal private-effect readiness projection checkpoint
+
+- backend readiness gate に、actual traversal source table から neutral upstream private-effect status へ写す module-private projection を追加した。
+- この projection は backend readiness 用の fail-closed 分類だけを行う。checker-layer fixed 2 slot coverage record、mask evidence、Resource no-escape proof、GraphInput、backend bytes、artifact key は作らない。
+- source kind は accepted-shaped source を `UpstreamPrivateEffectMissing`、`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` / unsupported / unavailable を `UpstreamPrivateEffectUnknown`、escape / public store / observable source を `UpstreamPrivateEffectRefuted` に分類する。actual traversal source table から `UpstreamPrivateEffectProven` は推測しない。
+- empty source table は `Missing` として扱い、明示 complete traversal の 2 slot proof とは区別する。今後の actual traversal 由来 explicit coverage record と checker-layer mask evidence orchestration が Proven authority になる。
+- source table owner は readiness count helper 内で閉じ、public stage0 summary は typed readiness `Result` だけを公開する。upstream evidence 型や private-effect status 型は public surface に出さない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、stage0 public summary、source kind mapping、Proven 推測禁止、empty source Missing、source owner cleanup、checker proof / slot coverage / GraphInput / backend / effect mask / artifact 合成禁止を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、backend 側 projection 接続後の残件を actual traversal 由来 coverage record 生成、checker mask evidence から backend upstream evidence への upper orchestration、Resource summary hash invalidation、artifact policy hash、sealed backend representation、`.neplobj` / `.neplproof` stable key projectionとして更新した。plan.md との差異はない。
+- Meitner の design review は、backend module が行うべき範囲を module-private readiness projection に限定し、canonical actual traversal coverage record / fixed 2 slot proof / mask evidence は checker-layer または上位 orchestration に残す方針を承認した。この指摘に従い、backend projection は actual walker source table から `Proven` を作らない。
+
+### 検証
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-actual-private-effect-readiness-rerun.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-actual-private-effect-readiness-rerun.json`。17 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_private_effect_readiness_projection.json`
+- checked JSON: `output/playground_editor_selfhost_actual_private_effect_readiness_projection.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

@@ -88,9 +88,10 @@ assert.ok(
         source.includes("Operation-classified traversal bundle stage0") &&
         source.includes("Context-bound reader traversal bundle stage0") &&
         source.includes("Backend readiness stage0") &&
+        source.includes("Actual traversal private-effect readiness projection stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, request-evidence bridge, and backend readiness stage are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, request-evidence bridge, backend readiness stage, and actual traversal private-effect readiness projection are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -811,6 +812,122 @@ assert.doesNotMatch(
     upstreamMaskReadinessImplementation,
     /memo_trait_operation_private_effect_(?:no_escape_gate|resource_no_escape_producer)|ResourceProof|GraphInput|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "upstream private-effect readiness conversion must not call checker gates, read Resource proof records, push proof tables, build GraphInput, backend bytes, effect masks, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary"),
+    [
+        "closed_clone_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "private_cache_effect_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "private_state_effect_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "escape_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "unavailable_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "empty_source_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+    ],
+    "actual traversal private-effect readiness stage0 summary must expose only typed readiness errors for missing, unknown, refuted, and placeholder cases",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary")),
+    /UpstreamPrivateEffect|MaskEvidence|ProofTable|GraphInput|Wasm|LLVM|neplobj|neplproof|artifact/i,
+    "actual traversal private-effect readiness public summary must not expose upstream evidence, mask evidence, proof, graph, backend, or artifact payloads",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind"),
+    [
+        "PrivateCacheStoragePlace:",
+        "UpstreamPrivateEffectMissing",
+        "ReturnCacheReferencePlace:",
+        "UpstreamPrivateEffectRefuted",
+        "CacheLookupOperation:",
+        "UpstreamPrivateEffectUnknown",
+        "PrivateCacheEffectOperation:",
+        "UpstreamPrivateEffectUnknown",
+        "PrivateStateEffectOperation:",
+        "UpstreamPrivateEffectUnknown",
+        "CacheHitObservation:",
+        "UpstreamPrivateEffectRefuted",
+        "ResourceIrTraversalUnavailable:",
+        "UpstreamPrivateEffectUnknown",
+    ],
+    "actual traversal private-effect source projection must treat accepted-shaped sources as missing coverage, private-effect operations as unknown, escapes/observations as refuted, and unavailable traversal as unknown",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind"),
+    /UpstreamPrivateEffectProven|_:/,
+    "actual traversal private-effect source projection must not infer Proven and must not use a wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_fold"),
+    [
+        "UpstreamPrivateEffectRefuted:",
+        "UpstreamPrivateEffectRefuted",
+        "UpstreamPrivateEffectMissing:",
+        "UpstreamPrivateEffectRefuted:",
+        "UpstreamPrivateEffectRefuted",
+        "UpstreamPrivateEffectUnknown:",
+        "UpstreamPrivateEffectMissing",
+        "UpstreamPrivateEffectUnknown:",
+        "UpstreamPrivateEffectMissing:",
+        "UpstreamPrivateEffectMissing",
+        "UpstreamPrivateEffectProven:",
+        "UpstreamPrivateEffectUnknown",
+    ],
+    "actual traversal private-effect status fold must keep Refuted > Missing > Unknown > Proven fail-closed priority",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_fold"),
+    /_:/,
+    "actual traversal private-effect status fold must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_evidence_from_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources",
+        "eq source_count 0",
+        "UpstreamPrivateEffectMissing",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_sources_loop sources 0 source_count SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven",
+    ],
+    "actual traversal private-effect evidence projection must treat empty source table as Missing and only use Proven as fold identity for non-empty source tables",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_evidence_from_sources_result root_expr_id body_module_fingerprint &sources",
+        "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root_expr_id body_module_fingerprint gate_result evidence",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+    ],
+    "actual traversal private-effect readiness projection must close source owners and pass only neutral upstream evidence into the existing readiness gate",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_stage0"),
+    [
+        "closed_clone_missing_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_closed_clone_result 77",
+        "private_cache_effect_unknown_rejected",
+        "PrivateCacheEffectOperation",
+        "private_state_effect_unknown_rejected",
+        "PrivateStateEffectOperation",
+        "escape_refuted_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_escape_result 77",
+        "unavailable_unknown_rejected",
+        "ResourceIrTraversalUnavailable",
+        "empty_source_missing_rejected",
+        "placeholder_rejected",
+    ],
+    "actual traversal private-effect readiness stage0 must cover missing accepted-shaped sources, private effect unknowns, escape refutation, unavailable unknown, empty missing, and placeholder rejection",
+);
+const actualTraversalPrivateEffectReadinessImplementation = [
+    "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind",
+    "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_fold",
+    "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_sources_loop",
+    "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_evidence_from_sources_result",
+    "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result",
+    "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_stage0",
+].map((name) => stripDocComments(topLevelBlock(source, "fn", name))).join("\n");
+assert.doesNotMatch(
+    actualTraversalPrivateEffectReadinessImplementation,
+    /SelfhostMemoTraitOperationPrivateEffect|memo_trait_operation_private_effect_|ResourceProof|GraphInput|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "actual traversal private-effect readiness projection must not call checker slot/proof/mask producers, synthesize Resource proof records, build GraphInput, backend bytes, effect masks, or artifact keys",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceProofStatus"),

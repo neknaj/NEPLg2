@@ -47,6 +47,7 @@
 //: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
 //: - Backend readiness stage0 は、request-evidence gate の `Result` と、同じ body identity を持つ private-effect mask evidence を module-private に照合します。これは effect mask 実体や backend artifact ではなく、`RequestEvidenceProven` だけを backend 完了として扱わないための non-executable boundary です。
 //: - Upstream private-effect mask stage0 は、checker-layer proof producer を直接呼ばず、上位 orchestration が渡すべき neutral private-effect status / evidence を private-effect mask evidence へ写します。evidence の root / body fingerprint を保持して readiness gate へ渡すため、request gate result と別 body の mask evidence は accepted になりません。
+//: - Actual traversal private-effect readiness projection stage0 は、actual traversal source table を neutral upstream private-effect status へ fail-closed に写します。現時点の source vocabulary は explicit 2-slot coverage / mask proof ではないため、この projection から `UpstreamPrivateEffectProven` は作りません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -73,6 +74,7 @@
 //: - operation-classified traversal bundle stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w` に対して O(o + a + g + s + w + n + p) です。operation table は module-private stage0 descriptor であり、actual Resource IR body traversal の探索範囲ではありません。
 //: - backend readiness gate は owner を持たない request evidence と mask evidence の identity / status を O(1) で照合します。actual PrivateCache / PrivateState effect fold や mask policy の計算量は後続 stage の責務です。
 //: - upstream private-effect mask conversion は neutral evidence 1 件の status / identity を O(1) で写すだけです。checker-layer proof table scan、actual private-effect proof production、effect mask policy fold はこの conversion では行いません。
+//: - actual traversal private-effect readiness projection は source record 数 `s` に対して O(s) 時間で、accepted-shaped source を Missing、escaping source を Refuted、private-effect operation / unavailable source を Unknown に写します。explicit complete-traversal 2-slot coverage は checker-layer orchestration の後続責務です。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -1338,6 +1340,22 @@ pub struct SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
     upstream_mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
     upstream_mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
     upstream_mask_placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary: actual traversal source 由来 private-effect readiness projection smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - actual traversal source table から backend readiness 用の neutral upstream private-effect evidence へ写す前段が、Proven を推測せず fail-closed になることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は typed Result だけを公開します。upstream evidence、checker proof、slot coverage table、effect mask 実体、backend bytes、artifact key は公開しません。
+pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary:
+    closed_clone_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    private_cache_effect_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    private_state_effect_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    escape_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    unavailable_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    empty_source_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer の失敗分類
 //:
@@ -2803,6 +2821,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
 //: Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary: backend readiness smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary: actual traversal private-effect readiness smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は typed Result だけを持ち、source table owner や upstream evidence owner は保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary: actual traversal private-effect readiness smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer error を値として[複製/ふくせい]する
@@ -7685,6 +7716,225 @@ fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_re
             Result::Ok summary.request_count
         Result::Err e:
             Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind: traversal source kind を neutral upstream private-effect status へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - actual traversal source table を backend readiness の upstream evidence に渡す前に、現時点で証明できないものを fail-closed status へ分類します。
+//:
+//: [契約/けいやく]:
+//: - この projection は explicit 2-slot coverage / checker mask evidence ではありません。`UpstreamPrivateEffectProven` は返しません。
+//: - accepted-shaped graph source は「private effect slot が証明された」ことを意味しないため Missing にします。
+//: - private-effect operation、unsupported、unavailable は Unknown にし、escape / public store / observable identity は Refuted にします。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind %fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEntryPlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnedOwnedClonePlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferencePlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PublicStorePlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ExternalHandlePlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedPlace:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::OwnsEdge:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::BorrowViewEdge:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CloneOutOwnedValueEdge:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferenceEdge:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PublicStoreEdge:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CallBoundaryUnsupportedEdge:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheLookupOperation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheInsertOperation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheMissObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheSizeObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheStatsObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheClearObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheDebugObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheRegionIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionHashObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::FunctionDebugObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ClosureAllocationIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawIdentityObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::RawRepresentationObservation:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedTraversalSource:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedObservationSource:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_fold: upstream private-effect status を fail-closed に[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - priority は Refuted > Missing > Unknown > Proven です。Missing は required slot coverage の欠落なので、Unknown より先に拒否します。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_fold %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus \left\right:
+    match left:
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing:
+            match right:
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown:
+            match right:
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven:
+            match right:
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_sources_loop: source table を upstream status へ[畳/たた]む
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_sources_loop %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus Result SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources\idx\n\status:
+    if:
+        ge idx n
+        then:
+            Result::Ok status
+        else:
+            match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_get sources idx:
+                Option::Some record:
+                    let record_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind record.kind
+                    let next_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_fold status record_status
+                    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_sources_loop sources add idx 1 n next_status
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalSourceReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_evidence_from_sources_result: traversal source table から neutral upstream evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source table は borrowed input です。この関数は owner を閉じません。
+//: - 空 table は complete traversal absence ではなく coverage 欠落なので Missing evidence にします。
+//: - source projection の current vocabulary からは Proven evidence を返しません。将来の explicit 2-slot coverage は checker-layer orchestration が別 evidence として渡します。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_evidence_from_sources_result %fn SelfhostHirExprId fn i32 fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \root_expr_id\body_module_fingerprint\sources:
+    let source_count %i32 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources
+    if:
+        eq source_count 0
+        then:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root_expr_id body_module_fingerprint SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        else:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_sources_loop sources 0 source_count SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven:
+                Result::Ok status:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root_expr_id body_module_fingerprint status
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result: source owner を閉じながら readiness count result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result %impure fn SelfhostHirExprId impure fn i32 impure fn Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\source_result:
+    let gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 1 1
+    match source_result:
+        Result::Ok sources:
+            let result %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind:
+                match selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_evidence_from_sources_result root_expr_id body_module_fingerprint &sources:
+                    Result::Ok evidence:
+                        selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root_expr_id body_module_fingerprint gate_result evidence
+                    Result::Err _e:
+                        Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskUnknown
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            result
+        Result::Err _e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskUnknown
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_kind_result: 1 source kind の readiness projection smoke を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_kind_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \body_module_fingerprint\kind:
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let source_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_single_table_result kind
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result root body_module_fingerprint source_result
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_closed_clone_result: accepted-shaped source を Missing readiness に[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_closed_clone_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \body_module_fingerprint:
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let source_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_closed_clone_table_result
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result root body_module_fingerprint source_result
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_escape_result: escaping source を Refuted readiness に[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_escape_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \body_module_fingerprint:
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let source_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_escape_table_result
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result root body_module_fingerprint source_result
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_empty_source_result: empty source table を Missing readiness に[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_empty_source_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \body_module_fingerprint:
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok sources:
+            let source_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind Result::Ok sources
+            selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_result root body_module_fingerprint source_result
+        Result::Err _e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskUnknown
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_placeholder_evidence_result: placeholder evidence rejection を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_placeholder_evidence_result %fn void Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \void:
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 1 1
+    let evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 0 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+    selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 gate_result evidence
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_stage0: actual traversal source 由来 private-effect readiness projection smoke
+//:
+//: [目的/もくてき]:
+//: - actual traversal source table から neutral upstream evidence を作る precheck が、accepted-shaped source や private-effect operation を Proven にしないことを確認します。
+//:
+//: [契約/けいやく]:
+//: - この stage0 は checker-layer proof producer、slot coverage producer、mask evidence producer、GraphInput、backend bytes、artifact key を作りません。
+pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary \void:
+    let closed_clone_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_closed_clone_result 77
+    let private_cache_effect_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_kind_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation
+    let private_state_effect_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_kind_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation
+    let escape_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_escape_result 77
+    let unavailable_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_source_kind_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable
+    let empty_source_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_empty_source_result 77
+    let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_readiness_count_from_placeholder_evidence_result
+    SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary closed_clone_missing_rejected private_cache_effect_unknown_rejected private_state_effect_unknown_rejected escape_refuted_rejected unavailable_unknown_rejected empty_source_missing_rejected placeholder_rejected
 
 //: selfhost_memo_call_backend_private_cache_backend_readiness_error_code: readiness error kind の比較用 code を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_backend_readiness_error_code %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind i32 \error:
