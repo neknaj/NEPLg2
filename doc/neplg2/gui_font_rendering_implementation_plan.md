@@ -5840,6 +5840,41 @@ plan review:
 - focused doctest、module doctest、F5nf sink driver regression、F5ne execution driver regression、F5nd report bridge regression、F5nb executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で action identity check、no manufactured outcome、mismatch owner recovery、F5nf-only delegation、no direct F5ne/F5nd/F5nb/F5na/lower row-tile/platform leakage がないことを確認する。
 
+## Phase F5nh: std layer compositor tile RLE present host action executor session boundary
+
+目的:
+
+- F5ne one-shot driver pending を actual Web / native / bare / headless executor が扱う request / complete session surface に包む。
+- `SessionState` は `Ready driver` または `Completed` とし、`Completed` request は lower call なしで terminal result を返す。
+- `SessionPending` は F5ne driver pending owner と borrowed-derived expected action value を保持する。driver owner は completion まで Clone / Copy しない。
+- complete は outcome-only complete とし、executor から action identity を受け取らず、pending expected action と caller supplied `Result unit GuiError` から F5ng attempt を作る。
+- F5nh does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、caller supplied outcome だけを F5ng attempt に包む。
+- F5nh は F5nf sink / sink driver direct call、F5ne direct completion、F5nd direct bridge、F5nb direct validation、F5na report construction、F5mx request construction、F5my / F5mw / F5mv、lower row-tile path、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Peirce read-only design review は、大きなアーキテクチャ上の blocker はないと確認した。
+- Peirce は row-tile F5du pattern と合わせ、session complete は executor supplied attempt ではなく outcome-only complete にし、pending expected action から attempt を内部生成すべきと指摘した。
+- Peirce は session 側で F5ng/F5nf/F5ne lower enum を掘らず、F5ng / F5nf に category / completion accessor を追加して public accessor 経由で読む方針を推奨した。
+- revised plan では F5nf sink driver category accessor、F5ng completion / category accessor、F5nh outcome-only complete を追加する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_action_sink_driver.nepl` に sink driver error category accessor を追加する。
+- `stdlib/std/gui/compositor_tile_present_host_action_attempt_driver.nepl` に attempt driver step completion accessor と attempt driver error category accessor を追加する。
+- `stdlib/std/gui/compositor_tile_present_host_action_executor_session.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState`、`GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending`、`GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult`、`GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion`、`GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError` と accessors を追加する。
+- `stdlib/std/gui.nepl` facade から compositor host action executor session boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_action_executor_session.n.md` を追加し、Ready request expected action、Completed terminal request、success dispatch completion、unsupported lower recovery category、executor failure outcome preservation を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5nh source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、facade export、F5nf/F5ng accessor、session state / pending / completion / complete error type shape、allowed F5nc/F5ng/F5mz/F5ne/F5nb imports、banned F5nf sink direct call / F5ne direct completion / F5nd direct bridge / F5nb direct validation / F5na report construction / F5my-F5mv / lower row-tile / platform / raw / fallback tokens、start / request / complete order、owner-bearing state / pending / request result / complete error Clone/Copy 禁止、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5ng attempt driver regression、F5nf sink driver regression、F5ne execution driver regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で outcome-only complete、borrowed-derived expected action authority、no manufactured outcome、F5ng-only completion delegation、no direct F5nf/F5ne/F5nd/F5nb/F5na/lower row-tile/platform leakage がないことを確認する。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

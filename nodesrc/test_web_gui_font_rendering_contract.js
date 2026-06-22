@@ -209,6 +209,8 @@ const stdGuiCompositorTilePresentHostActionSinkDriver = read("stdlib/std/gui/com
 const stdGuiCompositorTilePresentHostActionSinkDriverImpl = withoutComments(stdGuiCompositorTilePresentHostActionSinkDriver);
 const stdGuiCompositorTilePresentHostActionAttemptDriver = read("stdlib/std/gui/compositor_tile_present_host_action_attempt_driver.nepl");
 const stdGuiCompositorTilePresentHostActionAttemptDriverImpl = withoutComments(stdGuiCompositorTilePresentHostActionAttemptDriver);
+const stdGuiCompositorTilePresentHostActionExecutorSession = read("stdlib/std/gui/compositor_tile_present_host_action_executor_session.nepl");
+const stdGuiCompositorTilePresentHostActionExecutorSessionImpl = withoutComments(stdGuiCompositorTilePresentHostActionExecutorSession);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -553,6 +555,7 @@ const guiStdCompositorTilePresentHostExecutionDriverTests = read("tests/stdlib/g
 const guiStdCompositorTilePresentHostActionSinkTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_sink.n.md");
 const guiStdCompositorTilePresentHostActionSinkDriverTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_sink_driver.n.md");
 const guiStdCompositorTilePresentHostActionAttemptDriverTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_attempt_driver.n.md");
+const guiStdCompositorTilePresentHostActionExecutorSessionTests = read("tests/stdlib/gui_std_compositor_tile_present_host_action_executor_session.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -31102,6 +31105,110 @@ assert(
         guiStdCompositorTilePresentHostActionAttemptDriverTests.includes("std_compositor_tile_rle_present_host_action_attempt_driver_no_manufactured_outcome_ok") &&
         guiStdCompositorTilePresentHostActionAttemptDriverTests.includes("std_compositor_tile_rle_present_host_action_attempt_driver_no_direct_platform_no_fallback"),
     "F5ng std compositor tile present host-action-attempt-driver focused doctest must cover source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer compositor tile RLE present host action executor session boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending") &&
+            doc.includes("borrowed-derived expected action") &&
+            doc.includes("outcome-only complete") &&
+            doc.includes("does not manufacture executor outcome"),
+        `F5nh ${name} must document compositor host action executor session request/complete contract`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_action_executor_session" as *'), "std/gui facade must export F5nh compositor tile present host action executor session boundary");
+assert(
+    stdGuiCompositorTilePresentHostActionSinkDriver.includes("pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_error_category_value") &&
+        stdGuiCompositorTilePresentHostActionAttemptDriver.includes("pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_completion") &&
+        stdGuiCompositorTilePresentHostActionAttemptDriver.includes("pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_category_value"),
+    "F5nh lower boundaries must expose F5nf/F5ng completion and category accessors without forcing session to inspect lower enums",
+);
+assert(
+    stdGuiCompositorTilePresentHostActionExecutorSession.includes("pub enum GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState:") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("Ready %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("Completed") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending:") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("expected_action %GuiRgba8888CompositorTileRlePresentHostExecutionAction") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("pub enum GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult:") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("Action %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion:") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("attempt_driver_step %GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("dispatch_completion %GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("pub struct GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError:") &&
+        stdGuiCompositorTilePresentHostActionExecutorSession.includes("lower %GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError"),
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh must define session state, pending owner, completion, and lower error payloads",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/compositor_tile_present_dispatch_loop" as \*/, "std/gui/compositor_tile_present_host_action_executor_session F5nh must expose F5nc dispatch completion type"],
+    [/#import "std\/gui\/compositor_tile_present_host_action_attempt_driver" as \*/, "std/gui/compositor_tile_present_host_action_executor_session F5nh must complete through F5ng attempt driver"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution" as \*/, "std/gui/compositor_tile_present_host_action_executor_session F5nh must build F5ng attempt from F5mz action shape"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution_driver" as \*/, "std/gui/compositor_tile_present_host_action_executor_session F5nh must own F5ne driver pending"],
+    [/#import "std\/gui\/compositor_tile_present_host_executor" as \*/, "std/gui/compositor_tile_present_host_action_executor_session F5nh must take target support for F5ng completion"],
+]) {
+    assertMatch(stdGuiCompositorTilePresentHostActionExecutorSessionImpl, pattern, message);
+}
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionExecutorSessionImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_start"),
+    ["GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState::Ready driver"],
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh start must only wrap the supplied driver pending",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionExecutorSessionImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_request"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState::Completed:",
+        "GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult::Completed",
+        "GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState::Ready driver:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action &driver",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_new driver expected_action",
+        "GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult::Action pending",
+    ],
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh request must expose expected action and keep Completed terminal",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostActionExecutorSessionImpl, "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action &pending",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_attempt expected_action outcome",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_driver pending",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step support driver attempt",
+        "Result::Err lower:",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_from_attempt_driver_error lower",
+        "Result::Ok attempt_driver_step:",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_completion &attempt_driver_step",
+        "gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_new attempt_driver_step dispatch_completion",
+    ],
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh must build attempt from expected action, call F5ng once, and return F5ng-derived completion",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionExecutorSessionImpl,
+    /\bResult::Ok unit\b|\bResult::Err GuiError::|#import\s+"std\/gui\/compositor_tile_present_host_action_sink(?:_driver)?"\s+as\s+(?:\*|[A-Za-z_][A-Za-z0-9_]*)|\bgui_rgba8888_compositor_tile_rle_present_host_action_sink_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome\b|\bgui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request\b|\bgui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_require_supported\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action\b|\bgui_rgba8888_compositor_tile_rle_present_host_executor_action_same\b|\bgui_rgba8888_compositor_tile_rle_present_host_execution_report\b|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|\bcompositor_tile_present_host_execution_report\b|\bcompositor_tile_present_host_report_loop_bridge\b|#import\s+"std\/gui\/tile_present(?:_[^"]*)?"\s+as\s+(?:\*|[A-Za-z_][A-Za-z0-9_]*)|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import\s+"std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain|host_import)"\s+as\s+(?:\*|[A-Za-z_][A-Za-z0-9_]*)|\bgui_rgba8888_compositor_tile_rle_present_dispatch_(?!loop_)[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh must not manufacture executor outcome or call direct sink/driver/bridge/platform/raw APIs",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionExecutorSessionImpl,
+    /impl Clone for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState\b|impl Copy for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState\b|impl Clone for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending\b|impl Copy for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending\b|impl Clone for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult\b|impl Copy for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult\b|impl Clone for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError\b|impl Copy for GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError\b/,
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh owner-bearing state, pending, request result, and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostActionExecutorSessionImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_action_executor_session F5nh implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_facade_ok") &&
+        guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_state_terminal_ok") &&
+        guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_pending_owner_expected_action_ok") &&
+        guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_outcome_only_complete_ok") &&
+        guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_attempt_driver_completion_ok") &&
+        guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_lower_recovery_authority_ok") &&
+        guiStdCompositorTilePresentHostActionExecutorSessionTests.includes("std_compositor_tile_rle_present_host_action_executor_session_no_scheduler_no_platform_no_fallback"),
+    "F5nh std compositor tile present host-action-executor-session focused doctest must cover source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

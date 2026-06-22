@@ -23,6 +23,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
 #import "std/gui/compositor_tile_present_host_action_sink_driver" as *
 #import "std/gui/compositor_tile_present_host_execution" as *
 #import "std/gui/compositor_tile_present_host_execution_driver" as *
@@ -197,6 +198,13 @@ pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_
 pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_sink_driver_step %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep \step:
     *field::get_ref step "sink_driver_step"
 
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_completion: success step の dispatch loop completion を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_completion %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \step:
+    let sink_driver_step %GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_sink_driver_step step
+    gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_step_completion &sink_driver_step
+
 //: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_expected: mismatch の expected action を[返/かえ]す
 //:
 //: neplg2:test[skip]
@@ -230,3 +238,14 @@ pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_dri
 //: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError \failure:
     field::get failure "lower"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_category_value: attempt driver error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError Option GuiError \error:
+    match *error:
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::AttemptActionMismatch mismatch:
+            gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_category_value &mismatch
+        GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::SinkDriverFailed failure:
+            let lower %&GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError field::get_ref &failure "lower"
+            gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_error_category_value lower
