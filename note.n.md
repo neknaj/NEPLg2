@@ -80681,6 +80681,15 @@ MERGE_APPROVED
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `node nodesrc/run_source_policy_regressions.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+- post-merge pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js`
+- post-merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- post-merge pass: `node nodesrc/issues.js check --dir issues`
+- post-merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_bridge.nepl --dist web/dist -o tmp/selfhost-private-effect-actual-coverage-bridge-postmerge.json`。1/1。
+- post-merge pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-actual-coverage-bridge-postmerge.json`。1 passed / 0 failed。
+- post-merge pass: `node nodesrc/run_source_policy_regressions.js`
+- post-merge pass: `trunk build`
+- post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_actual_coverage_bridge.json`
+- post-merge checked JSON: `output/playground_editor_selfhost_private_effect_actual_coverage_bridge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_private_effect_readiness_projection.json`
 - checked JSON: `output/playground_editor_selfhost_actual_private_effect_readiness_projection.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
