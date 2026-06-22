@@ -1,3 +1,43 @@
+# 2026-06-22 Agent2 GUI render2d F5mi compositor tile RLE encode seed bridge boundary
+
+## 目的
+
+- F5mh の `GuiRgba8888CompositorTileRleCountCompletedOwner` を lower `gui_rgba8888_row_tile_rle_encode_seed_prepare` へ 1 回だけ通す compositor bridge を追加した。
+- lower payload seed owner と compositor metadata を `GuiRgba8888CompositorTileRleEncodeSeedOwner` に束ね、後続 cursor restart / writer capacity boundary が exact run count を失わないようにした。
+- この checkpoint は cursor restart、count step 再実行、drain、encode cursor / writer / storage / packet、std present、host / platform API、fallback / silent no-op へ進まない。
+
+## subagent review
+
+- Carver plan review は `PLAN_APPROVED`。
+- F5mi は lower F5cg を mirror し、completed-owner recovery を持つ seed preparation と payload/start-error recovery を持つ cursor restart を分ける boundary として承認された。
+- 指摘に従い、success finish / free は metadata 付き payload owner へ戻して F5me payload finish / free に委譲し、error finish / free は metadata 付き completed owner へ戻して F5mh completed owner finish / free に委譲する形にした。
+- Carver implementation review は `REVIEW_APPROVED`。seed-only scope、success/error owner recovery、F5me/F5mh delegation、owner-bearing struct の non-Copy、facade/docs/tests/source policy の整合性が確認された。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_encode_seed.nepl` を追加し、seed owner、seed error、typed error kind、metadata / total accessors、payload recovery、completed owner recovery、finish entry、free helper を実装した。
+- `gui_rgba8888_compositor_tile_rle_encode_seed_prepare` は completed owner から metadata を Copy してから lower completed owner を取り出し、lower seed prepare を 1 回だけ呼ぶ。
+- lower seed error では kind / category / total run count を lower error 消費前に読み、lower completed owner を metadata 付き `GuiRgba8888CompositorTileRleCountCompletedOwner` へ戻す。
+- `stdlib/alloc/gui/render2d.nepl` facade に `compositor_tile_rle_encode_seed` を追加した。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md` を追加し、success total/metadata、finish payload delegation、error completed owner recovery、no cursor start / encode / storage / packet / present / fallback label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mi contract に合わせて更新した。
+- `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: Carver implementation review `REVIEW_APPROVED`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_seed_f5mi.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_encode_seed.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_seed_module_f5mi.json -j 1`。19/19。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_count_completed_f5mi_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_f5mi_regression.json -j 1`。2/2。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests-f5mi.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+- F5mi 後続は encode cursor / writer / storage / packet と std present への payload transport / present continuation に分ける。
+
 # 2026-06-22 selfhost memo_call backend body reader explicit accepted source checkpoint
 
 ## 目的

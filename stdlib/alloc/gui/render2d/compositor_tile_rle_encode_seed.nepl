@@ -1,0 +1,268 @@
+//: # alloc/gui/render2d/compositor_tile_rle_encode_seed
+//: RGBA8888 compositor tile RLE encode seed bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mh の `GuiRgba8888CompositorTileRleCountCompletedOwner` を lower encode seed owner へ[渡/わた]します。
+//: - payload seed と compositor metadata を[束/たば]ね、後続 cursor restart / writer capacity boundary が exact run count を[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - completed owner を lower completed owner へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_rle_encode_seed_prepare` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower seed error では lower kind / category / total を[読/よ]んでから lower completed owner を[回収/かいしゅう]し、metadata [付/つ]き completed owner へ[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - cursor restart、count step、drain、encode cursor、writer、storage、packet、std present、host / platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op は[含/ふく]めません。
+//: - cursor restart と encoded transport は後続 boundary で[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count" as *
+#import "alloc/gui/render2d/compositor_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle_count_completed" as *
+#import "alloc/gui/render2d/row_tile_rle_encode_seed" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTileRleEncodeSeedErrorKind: encode seed bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower encode seed error kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRleEncodeSeedErrorKind:
+    SeedPrepareFailed %GuiRgba8888RowTileRleEncodeSeedErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRleEncodeSeedErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRleEncodeSeedErrorKind GuiRgba8888CompositorTileRleEncodeSeedErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRleEncodeSeedErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRleEncodeSeedErrorKind GuiRgba8888CompositorTileRleEncodeSeedErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRleEncodeSeedOwner: lower seed owner と compositor metadata の owner
+//:
+//: lower payload seed owner と copied frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodeSeedOwner:
+    seed %GuiRgba8888RowTileRleEncodeSeedOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTileRleEncodeSeedError: completed owner を[回収/かいしゅう]できる seed error
+//:
+//: lower kind / category / total と、metadata [付/つ]き completed owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodeSeedError:
+    kind %GuiRgba8888CompositorTileRleEncodeSeedErrorKind
+    category %Option GuiError
+    total_run_count %i32
+    completed %GuiRgba8888CompositorTileRleCountCompletedOwner
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_owner_new: seed owner と metadata を[束/たば]ねる
+//:
+//: lower seed prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encode_seed_owner_new %fn GuiRgba8888RowTileRleEncodeSeedOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodeSeedOwner \seed\metadata:
+    GuiRgba8888CompositorTileRleEncodeSeedOwner seed metadata
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_new: seed error payload を[作/つく]る
+//:
+//: lower kind、category、total、回収用 completed owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encode_seed_error_new %fn GuiRgba8888CompositorTileRleEncodeSeedErrorKind fn Option GuiError fn i32 fn GuiRgba8888CompositorTileRleCountCompletedOwner GuiRgba8888CompositorTileRleEncodeSeedError \kind\category\total_run_count\completed:
+    GuiRgba8888CompositorTileRleEncodeSeedError kind category total_run_count completed
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_from_lower: lower seed error を compositor completed error へ[写/うつ]す
+//:
+//: lower kind / category / total を[読/よ]んでから lower completed owner を[回収/かいしゅう]し、metadata [付/つ]き completed owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encode_seed_error_from_lower %fn GuiRgba8888RowTileRleEncodeSeedError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodeSeedError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRleEncodeSeedErrorKind gui_rgba8888_row_tile_rle_encode_seed_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_encode_seed_error_category_value &lower
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_encode_seed_error_total_run_count &lower
+    let lower_completed %GuiRgba8888RowTileRleCountCompletedOwner gui_rgba8888_row_tile_rle_encode_seed_error_finish_completed_owner lower
+    let completed %GuiRgba8888CompositorTileRleCountCompletedOwner GuiRgba8888CompositorTileRleCountCompletedOwner lower_completed metadata
+    let kind %GuiRgba8888CompositorTileRleEncodeSeedErrorKind GuiRgba8888CompositorTileRleEncodeSeedErrorKind::SeedPrepareFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_encode_seed_error_new kind category total_run_count completed
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_prepare: completed evidence から compositor seed を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower completed owner を[取/と]り[出/だ]します。
+//: - lower seed prepare を 1 [回/かい]だけ[呼/よ]び、success では seed owner と metadata を[束/たば]ねます。
+//: - error では lower completed owner を metadata [付/つ]き completed owner に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_prepare %fn GuiRgba8888CompositorTileRleCountCompletedOwner Result GuiRgba8888CompositorTileRleEncodeSeedOwner GuiRgba8888CompositorTileRleEncodeSeedError \completed:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_count_completed_owner_metadata &completed
+    let lower_completed %GuiRgba8888RowTileRleCountCompletedOwner field::get completed "completed"
+    match gui_rgba8888_row_tile_rle_encode_seed_prepare lower_completed:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_encode_seed_error_from_lower lower metadata
+        Result::Ok seed:
+            Result::Ok gui_rgba8888_compositor_tile_rle_encode_seed_owner_new seed metadata
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata: seed owner に[保持/ほじ]した metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので seed owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata %fn &GuiRgba8888CompositorTileRleEncodeSeedOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_owner_total_run_count: seed total run count を[返/かえ]す
+//:
+//: lower seed owner が[保持/ほじ]する exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_owner_total_run_count %fn &GuiRgba8888CompositorTileRleEncodeSeedOwner i32 \owner:
+    let seed %&GuiRgba8888RowTileRleEncodeSeedOwner field::get_ref owner "seed"
+    gui_rgba8888_row_tile_rle_encode_seed_owner_total_run_count seed
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload: seed owner を tile payload owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower seed owner を[消費/しょうひ]し、metadata [付/つ]き payload owner を[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload %fn GuiRgba8888CompositorTileRleEncodeSeedOwner GuiRgba8888CompositorTilePayloadOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata &owner
+    let seed %GuiRgba8888RowTileRleEncodeSeedOwner field::get owner "seed"
+    let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_encode_seed_owner_finish_payload seed
+    GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_entry: seed owner を entry owner へ[戻/もど]す
+//:
+//: seed owner を F5me payload owner へ[戻/もど]してから payload finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_entry %fn GuiRgba8888CompositorTileRleEncodeSeedOwner Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePayloadFinishError \owner:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload owner
+    gui_rgba8888_compositor_tile_payload_owner_finish_entry payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_kind: seed error kind を[返/かえ]す
+//:
+//: lower seed prepare failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_error_kind %fn &GuiRgba8888CompositorTileRleEncodeSeedError GuiRgba8888CompositorTileRleEncodeSeedErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_category_value: seed error の category を[返/かえ]す
+//:
+//: lower seed error の coarse category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_error_category_value %fn &GuiRgba8888CompositorTileRleEncodeSeedError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_total_run_count: error [発生/はっせい][時/じ]の total run count を[返/かえ]す
+//:
+//: lower seed error から owner 消費前に[読/よ]んだ total value です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_error_total_run_count %fn &GuiRgba8888CompositorTileRleEncodeSeedError i32 \error:
+    *field::get_ref error "total_run_count"
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_completed_owner: error から completed owner を[取/と]り[出/だ]す
+//:
+//: caller が recovery / free を[選/えら]べるように metadata [付/つ]き completed owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_completed_owner %fn GuiRgba8888CompositorTileRleEncodeSeedError GuiRgba8888CompositorTileRleCountCompletedOwner \error:
+    field::get error "completed"
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_entry: error completed owner を entry owner へ[戻/もど]す
+//:
+//: error が[保持/ほじ]する completed owner を F5mh completed owner finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_entry %fn GuiRgba8888CompositorTileRleEncodeSeedError Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTileRleCountFinishError \error:
+    let completed %GuiRgba8888CompositorTileRleCountCompletedOwner gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_completed_owner error
+    gui_rgba8888_compositor_tile_rle_count_completed_owner_finish_entry completed
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_owner_free: seed owner を[閉/と]じて payload owner まで[破棄/はき]する
+//:
+//: F5me payload owner free に[戻/もど]してから[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_owner_free %fn GuiRgba8888CompositorTileRleEncodeSeedOwner Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \owner:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload owner
+    gui_rgba8888_compositor_tile_payload_owner_free payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_seed_error_free: seed error の completed owner を[破棄/はき]する
+//:
+//: error から completed owner を[取/と]り[出/だ]し、F5mh completed owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_seed_error_free %fn GuiRgba8888CompositorTileRleEncodeSeedError Result unit GuiRgba8888CompositorTileRleCountFreeErrorKind \error:
+    let completed %GuiRgba8888CompositorTileRleCountCompletedOwner gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_completed_owner error
+    gui_rgba8888_compositor_tile_rle_count_completed_owner_free completed

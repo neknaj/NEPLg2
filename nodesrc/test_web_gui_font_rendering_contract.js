@@ -119,6 +119,8 @@ const allocRender2dCompositorTileRleCountStep = read("stdlib/alloc/gui/render2d/
 const allocRender2dCompositorTileRleCountStepImpl = withoutComments(allocRender2dCompositorTileRleCountStep);
 const allocRender2dCompositorTileRleCountCompleted = read("stdlib/alloc/gui/render2d/compositor_tile_rle_count_completed.nepl");
 const allocRender2dCompositorTileRleCountCompletedImpl = withoutComments(allocRender2dCompositorTileRleCountCompleted);
+const allocRender2dCompositorTileRleEncodeSeed = read("stdlib/alloc/gui/render2d/compositor_tile_rle_encode_seed.nepl");
+const allocRender2dCompositorTileRleEncodeSeedImpl = withoutComments(allocRender2dCompositorTileRleEncodeSeed);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -371,6 +373,7 @@ const guiRender2dCompositorTilePayloadTests = read("tests/stdlib/gui_render2d_co
 const guiRender2dCompositorTileRleCountTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md");
 const guiRender2dCompositorTileRleCountStepTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md");
 const guiRender2dCompositorTileRleCountCompletedTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_count_completed.n.md");
+const guiRender2dCompositorTileRleEncodeSeedTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -27420,6 +27423,149 @@ assert(
         guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_finish_free_delegation_ok") &&
         guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_no_count_step_no_encode_no_present_no_fallback"),
     "F5mh compositor tile RLE completed count focused doctest must cover facade, success total, metadata, pending rejection, count owner recovery, finish/free delegation, and no count-step/encode/present/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5mi") &&
+            doc.includes("compositor tile RLE encode seed") &&
+            doc.includes("GuiRgba8888CompositorTileRleEncodeSeedOwner") &&
+            doc.includes("gui_rgba8888_row_tile_rle_encode_seed_prepare") &&
+            doc.includes("payload seed") &&
+            doc.includes("no cursor restart / encode / present") &&
+            doc.includes("fallback"),
+        `F5mi ${name} must document compositor tile RLE encode seed, lower seed prepare, payload seed ownership, deferred cursor/encode/present, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mi") &&
+        implementationPlan.includes("Carver plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("seed-only") &&
+        implementationPlan.includes("F5me payload finish / free") &&
+        implementationPlan.includes("F5mh completed owner finish / free"),
+    "F5mi implementation plan must retain plan review approval, seed-only scope, F5me success delegation, and F5mh error delegation",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_rle_encode_seed" as *'), "alloc/gui/render2d facade must export F5mi compositor tile RLE encode seed");
+assert(
+    allocRender2dCompositorTileRleEncodeSeed.includes("pub enum GuiRgba8888CompositorTileRleEncodeSeedErrorKind:") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("SeedPrepareFailed %GuiRgba8888RowTileRleEncodeSeedErrorKind") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("pub struct GuiRgba8888CompositorTileRleEncodeSeedOwner:") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("seed %GuiRgba8888RowTileRleEncodeSeedOwner") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("pub struct GuiRgba8888CompositorTileRleEncodeSeedError:") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("total_run_count %i32") &&
+        allocRender2dCompositorTileRleEncodeSeed.includes("completed %GuiRgba8888CompositorTileRleCountCompletedOwner"),
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi must define typed lower seed error, seed-owner success, and total+completed-owner error",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleEncodeSeedImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRleEncodeSeedOwner|GuiRgba8888CompositorTileRleEncodeSeedError)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorTileRleEncodeSeedPrepare = functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_prepare");
+assertOrderedFragments(
+    compositorTileRleEncodeSeedPrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_count_completed_owner_metadata &completed",
+        'let lower_completed %GuiRgba8888RowTileRleCountCompletedOwner field::get completed "completed"',
+        "match gui_rgba8888_row_tile_rle_encode_seed_prepare lower_completed:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_encode_seed_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_encode_seed_owner_new seed metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi must copy metadata before consuming lower completed owner and wrap lower seed owner with metadata",
+);
+assert(
+    (compositorTileRleEncodeSeedPrepare.match(/\bgui_rgba8888_row_tile_rle_encode_seed_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi prepare helper must call lower seed prepare exactly once",
+);
+assertNoMatch(
+    compositorTileRleEncodeSeedPrepare,
+    /\b(?:gui_rgba8888_row_tile_rle_cursor_start|gui_rgba8888_row_tile_rle_count_step|gui_rgba8888_row_tile_rle_drain|gui_rgba8888_row_tile_rle_encode_cursor|gui_rgba8888_row_tile_rle_writer|gui_rgba8888_row_tile_rle_storage|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi prepare helper must not cursor-restart, rerun count step, direct-drain, encode cursor/writer/storage/packet, read raw bytes, present, host/platform, or fallback",
+);
+assertNoMatch(
+    compositorTileRleEncodeSeedPrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi prepare helper must preserve NEPL prefix style without parentheses",
+);
+const compositorTileRleEncodeSeedErrorFromLower = functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_error_from_lower");
+assertOrderedFragments(
+    compositorTileRleEncodeSeedErrorFromLower,
+    [
+        "let lower_kind %GuiRgba8888RowTileRleEncodeSeedErrorKind gui_rgba8888_row_tile_rle_encode_seed_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_encode_seed_error_category_value &lower",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_encode_seed_error_total_run_count &lower",
+        "let lower_completed %GuiRgba8888RowTileRleCountCompletedOwner gui_rgba8888_row_tile_rle_encode_seed_error_finish_completed_owner lower",
+        "let completed %GuiRgba8888CompositorTileRleCountCompletedOwner GuiRgba8888CompositorTileRleCountCompletedOwner lower_completed metadata",
+        "GuiRgba8888CompositorTileRleEncodeSeedErrorKind::SeedPrepareFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_encode_seed_error_new kind category total_run_count completed",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi lower error wrapper must read lower kind/category/total before completed-owner recovery",
+);
+assertNoMatch(
+    compositorTileRleEncodeSeedErrorFromLower,
+    /\b(?:GuiRgba8888CompositorTilePayloadOwner|GuiRgba8888RowTilePayloadOwner|gui_rgba8888_row_tile_rle_encode_seed_owner_finish_payload|gui_rgba8888_row_tile_rle_cursor_finish_payload)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi error wrapper must recover completed owner instead of falling back to payload recovery",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata &owner",
+        'let seed %GuiRgba8888RowTileRleEncodeSeedOwner field::get owner "seed"',
+        "let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_encode_seed_owner_finish_payload seed",
+        "GuiRgba8888CompositorTilePayloadOwner lower_payload metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi success finish payload must preserve metadata and wrap lower payload",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_entry"),
+    [
+        "let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload owner",
+        "gui_rgba8888_compositor_tile_payload_owner_finish_entry payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi success finish must delegate to F5me payload finish",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_entry"),
+    [
+        "let completed %GuiRgba8888CompositorTileRleCountCompletedOwner gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_completed_owner error",
+        "gui_rgba8888_compositor_tile_rle_count_completed_owner_finish_entry completed",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi error finish must delegate to F5mh completed owner finish",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_owner_free"),
+    [
+        "let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_seed_owner_finish_payload owner",
+        "gui_rgba8888_compositor_tile_payload_owner_free payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi success free must delegate to F5me payload free",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodeSeedImpl, "gui_rgba8888_compositor_tile_rle_encode_seed_error_free"),
+    [
+        "let completed %GuiRgba8888CompositorTileRleCountCompletedOwner gui_rgba8888_compositor_tile_rle_encode_seed_error_finish_completed_owner error",
+        "gui_rgba8888_compositor_tile_rle_count_completed_owner_free completed",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi error free must delegate to F5mh completed owner free",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleEncodeSeedImpl,
+    /\b(?:gui_rgba8888_row_tile_rle_cursor_start|gui_rgba8888_row_tile_rle_count_step|gui_rgba8888_row_tile_rle_drain|gui_rgba8888_row_tile_rle_encode_cursor|gui_rgba8888_row_tile_rle_writer|gui_rgba8888_row_tile_rle_storage|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encode_seed F5mi must not expose cursor restart, count step, drain, encode cursor/writer/storage/packet, raw byte read, present, host, platform, or fallback APIs",
+);
+assert(
+    guiRender2dCompositorTileRleEncodeSeedTests.includes("render2d_compositor_tile_rle_encode_seed_facade_ok") &&
+        guiRender2dCompositorTileRleEncodeSeedTests.includes("render2d_compositor_tile_rle_encode_seed_completed_to_seed_total_ok") &&
+        guiRender2dCompositorTileRleEncodeSeedTests.includes("render2d_compositor_tile_rle_encode_seed_metadata_ok") &&
+        guiRender2dCompositorTileRleEncodeSeedTests.includes("render2d_compositor_tile_rle_encode_seed_finish_payload_delegation_ok") &&
+        guiRender2dCompositorTileRleEncodeSeedTests.includes("render2d_compositor_tile_rle_encode_seed_error_recovers_completed_owner_ok") &&
+        guiRender2dCompositorTileRleEncodeSeedTests.includes("render2d_compositor_tile_rle_encode_seed_no_cursor_start_no_encode_storage_packet_present_no_fallback"),
+    "F5mi compositor tile RLE encode seed focused doctest must cover facade, completed-to-seed total, metadata, payload delegation, error completed-owner recovery, and no cursor/encode/storage/packet/present/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

@@ -6,7 +6,7 @@
 //: - font rasterizer、widget renderer、offscreen screenshot が同じ surface owner contract を使えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、compositor frame entry / batch drain / batch range / byte storage / tile plan / tile payload / tile RLE count owner / tile RLE count step / tile RLE completed count、row batch plan / cursor / drain / range / byte storage / row tile plan / row tile payload view / row tile RLE cursor / drain / count / completed count owner / encode seed owner / encode cursor owner / writer plan owner / encoded storage owner / sealed encoded owner / packet owner / typed packet record reader、SourceOver alpha-mask 合成 helper を公開します。
+//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、compositor frame entry / batch drain / batch range / byte storage / tile plan / tile payload / tile RLE count owner / tile RLE count step / tile RLE completed count / tile RLE encode seed、row batch plan / cursor / drain / range / byte storage / row tile plan / row tile payload view / row tile RLE cursor / drain / count / completed count owner / encode seed owner / encode cursor owner / writer plan owner / encoded storage owner / sealed encoded owner / packet owner / typed packet record reader、SourceOver alpha-mask 合成 helper を公開します。
 //: - platform surface、window、DrawTarget、RenderTarget への接続は含めません。
 //:
 //: ### [注意/ちゅうい]
@@ -32,6 +32,7 @@ pub #import "./render2d/compositor_tile_payload" as *
 pub #import "./render2d/compositor_tile_rle_count" as *
 pub #import "./render2d/compositor_tile_rle_count_step" as *
 pub #import "./render2d/compositor_tile_rle_count_completed" as *
+pub #import "./render2d/compositor_tile_rle_encode_seed" as *
 pub #import "./render2d/row_batch_plan" as *
 pub #import "./render2d/row_batch_cursor" as *
 pub #import "./render2d/row_batch_drain" as *
