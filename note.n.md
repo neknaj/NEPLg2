@@ -81418,3 +81418,17 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_body_reader_handoff_pair.json`
 - checked JSON: `tmp/playground_editor_selfhost_body_reader_handoff_pair.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present virtual drain checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_virtual_drain.nepl` を追加し、F5mu compositor host-command record だけを受け取る F5mv target-free virtual drain boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentVirtualDrain` は phase、optional surface / frame / metadata、expected / seen run count、expected / seen pixel count を保持する。BeginFrame で fixed authority を作り、RunRecord / EndFrame では descriptor surface / frame / expected counts / metadata full equality を検査する。
+- descriptor frame と metadata frame id の内部不一致は `DescriptorFrameMetadataMismatch` として拒否する。metadata field mismatch は frame id / width / height / row_start / row_count / batch_count / max_rows_per_batch ごとに typed error に分けた。
+- RunRecord は `run_pixel_offset == seen_pixel_count`、positive pixel count、checked end、expected pixel count bound、expected run count bound を検査する。EndFrame は expected run count と expected pixel count が完了した場合だけ Ended へ進む。
+- F5mv は lower F5cq `tile_present_host_command`、lower F5cs `tile_present_virtual_drain`、lower command cursor / run cursor / run-span / schedule / dispatch、host import、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Erdos の design review は `PLAN_APPROVED`。F5mv を F5cs の compositor 版として host continuation / scheduler より先に置くこと、lower F5cq/F5cs へ落とさず F5mu record を直接消費すること、metadata を drain state に入れることが妥当と確認された。
+- Ampere の source-policy review は `PLAN_APPROVED`。F5mu record-only、metadata consistency、run offset continuity、no lower cursor / host / platform / fallback を固定し、`surface_id_raw` / `frame_id_raw` は typed id equality のみに限定して許容する方針で問題ないと確認された。
+- Galileo の source-policy implementation review は初回 `PLAN_CHANGES_REQUIRED`。blocker は lower `std/gui/tile_present_*` host execution / virtual executor 系と `platforms/` import の禁止が狭いこと、および public step signature / direct record match の固定が弱いことだった。指摘に従い、F5mv source policy は lower `tile_present` family import 全体、platforms import、platforms token を禁止し、`gui_rgba8888_compositor_tile_rle_present_virtual_drain_step` の F5mu record-only signature と BeginFrame / RunRecord / EndFrame direct match を固定した。
+- Galileo の修正後再レビューは `PLAN_APPROVED`。lower host execution / virtual executor / host span operation / host import scheduler-start 系と platforms import の捕捉、F5mu import と typed id equality の許容、F5mu record-only signature / direct match 固定に blocker は残っていないと確認された。
+- Bernoulli の implementation review は `PLAN_APPROVED`。F5mu record-only、metadata full equality、F5cs 同等の run offset continuity / checked end / expected bounds / End completion、typed id raw usage の限定、docs/source policy/doctest/note/todo に blocker はないと確認された。

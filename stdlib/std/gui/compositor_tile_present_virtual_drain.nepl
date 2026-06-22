@@ -1,0 +1,609 @@
+//: # std/gui/compositor_tile_present_virtual_drain
+//: compositor tile RLE present host-command record の headless/test drain
+//:
+//: ### [目的/もくてき]
+//: - F5mu の metadata [付/つ]き compositor host-command record stream を、headless / test で deterministic に[検査/けんさ]する virtual drain を[提供/ていきょう]します。
+//: - この module は presentation target、host import、scheduler、platform presenter ではなく、Begin / Run / End の[順序/じゅんじょ]、count [整合/せいごう]、metadata [一貫性/いっかんせい]を[検査/けんさ]するだけです。
+//:
+//: ### [契約/けいやく]
+//: - input は `GuiRgba8888CompositorTileRlePresentHostCommandRecord` だけです。
+//: - lower F5cq / F5cs に[落/お]とさず、compositor descriptor と metadata を drain authority として[保持/ほじ]します。
+//: - run は `pixel_offset == seen_pixel_count` を[要求/ようきゅう]し、gap / overlap / reorder を[検出/けんしゅつ]します。
+//: - failure は enum kind と `Option GuiError` category と直前 drain state を[返/かえ]します。
+//: - Headless を presentation target として[扱/あつか]わず、pixel present / screenshot の fallback も[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_virtual_drain" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/window" as *
+
+//: GuiRgba8888CompositorTileRlePresentVirtualDrainPhase: compositor virtual drain の[段階/だんかい]
+//:
+//: Begin [前/まえ]、frame [中/ちゅう]、End [後/あと]を enum で[表/あらわ]し、不正な record 順序を typed error にします。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentVirtualDrainPhase:
+    WaitingBegin
+    InFrame
+    Ended
+
+impl Clone for GuiRgba8888CompositorTileRlePresentVirtualDrainPhase:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentVirtualDrainPhase GuiRgba8888CompositorTileRlePresentVirtualDrainPhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888CompositorTileRlePresentVirtualDrainPhase:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentVirtualDrainPhase GuiRgba8888CompositorTileRlePresentVirtualDrainPhase \phase:
+        phase
+
+//: GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind: drain [失敗/しっぱい]の[原因/げんいん]
+//:
+//: record 順序、descriptor [不一致/ふいっち]、metadata [不一致/ふいっち]、run offset / count [不整合/ふせいごう]を[分/わ]けて[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind:
+    BeginAfterBegin
+    BeginAfterEnd
+    RunBeforeBegin
+    RunAfterEnd
+    EndBeforeBegin
+    EndAfterEnd
+    SurfaceMissing
+    FrameMissing
+    MetadataMissing
+    DescriptorSurfaceMismatch
+    DescriptorFrameMismatch
+    DescriptorFrameMetadataMismatch
+    DescriptorExpectedRunCountMismatch
+    DescriptorExpectedPixelCountMismatch
+    DescriptorMetadataFrameMismatch
+    DescriptorMetadataWidthMismatch
+    DescriptorMetadataHeightMismatch
+    DescriptorMetadataRowStartMismatch
+    DescriptorMetadataRowCountMismatch
+    DescriptorMetadataBatchCountMismatch
+    DescriptorMetadataMaxRowsPerBatchMismatch
+    ExpectedRunCountInvalid
+    ExpectedPixelCountInvalid
+    SeenRunCountInvalid
+    SeenPixelCountInvalid
+    RunPixelCountInvalid
+    RunPixelOffsetMismatch
+    RunEndOverflow
+    RunEndOutOfBounds
+    SeenRunCountOverflow
+    SeenRunCountExceeded
+    IncompleteRunCount
+    IncompletePixelCount
+
+impl Clone for GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentVirtualDrain: compositor record stream の[検査/けんさ][状態/じょうたい]
+//:
+//: BeginFrame で surface / frame / metadata / expected count を[固定/こてい]し、RunRecord ごとに seen count を[進/すす]めます。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentVirtualDrain:
+    phase %GuiRgba8888CompositorTileRlePresentVirtualDrainPhase
+    surface %Option SurfaceId
+    frame %Option FrameId
+    metadata %Option GuiRgba8888CompositorFrameEntryMetadata
+    expected_run_count %i32
+    seen_run_count %i32
+    expected_pixel_count %i32
+    seen_pixel_count %i32
+
+impl Clone for GuiRgba8888CompositorTileRlePresentVirtualDrain:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrain \drain:
+        *drain
+
+impl Copy for GuiRgba8888CompositorTileRlePresentVirtualDrain:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrain \drain:
+        drain
+
+//: GuiRgba8888CompositorTileRlePresentVirtualDrainError: 直前 state [付/つ]き drain error
+//:
+//: caller が原因 kind、coarse GUI category、失敗[直前/ちょくぜん]の drain state を同時に[読/よ]めるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentVirtualDrainError:
+    kind %GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind
+    category %Option GuiError
+    drain %GuiRgba8888CompositorTileRlePresentVirtualDrain
+
+impl Clone for GuiRgba8888CompositorTileRlePresentVirtualDrainError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentVirtualDrainError GuiRgba8888CompositorTileRlePresentVirtualDrainError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentVirtualDrainError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentVirtualDrainError GuiRgba8888CompositorTileRlePresentVirtualDrainError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_new: drain state を[組/く]み[立/た]てる
+//:
+//: phase、optional identity、metadata、count を 1 つの Copy state に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_new %fn GuiRgba8888CompositorTileRlePresentVirtualDrainPhase fn Option SurfaceId fn Option FrameId fn Option GuiRgba8888CompositorFrameEntryMetadata fn i32 fn i32 fn i32 fn i32 GuiRgba8888CompositorTileRlePresentVirtualDrain \phase\surface\frame\metadata\expected_run_count\seen_run_count\expected_pixel_count\seen_pixel_count:
+    GuiRgba8888CompositorTileRlePresentVirtualDrain phase surface frame metadata expected_run_count seen_run_count expected_pixel_count seen_pixel_count
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category: error kind を coarse GUI category へ[写/うつ]す
+//:
+//: geometry 由来の値不正と stream command 不正を[分/わ]けます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category %fn GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::ExpectedRunCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::ExpectedPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunEndOutOfBounds:
+            Option::Some GuiError::InvalidGeometry
+        _:
+            Option::Some GuiError::InvalidCommand
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_error: drain error payload を[作/つく]る
+//:
+//: kind と直前 state から category [付/つ]き error を[作/つく]ります。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_error %fn GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind fn GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \kind\drain:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category kind
+    GuiRgba8888CompositorTileRlePresentVirtualDrainError kind category drain
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error: Result error を[返/かえ]す
+//:
+//: 各 validation helper が同じ error payload を[返/かえ]すための小さな constructor です。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error %fn GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind fn GuiRgba8888CompositorTileRlePresentVirtualDrain Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \kind\drain:
+    Result::Err gui_rgba8888_compositor_tile_rle_present_virtual_drain_error kind drain
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_i32_max: checked add 用の i32 [上限/じょうげん]を[返/かえ]す
+//:
+//: run end overflow を[分/わ]かりやすく検査するための定数 accessor です。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_i32_max %fn void i32 \void:
+    2147483647
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_empty: empty drain を[作/つく]る
+//:
+//: BeginFrame を[待/ま]つ初期 state です。surface / frame / metadata はまだ[未確定/みかくてい]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_empty %fn void GuiRgba8888CompositorTileRlePresentVirtualDrain \void:
+    gui_rgba8888_compositor_tile_rle_present_virtual_drain_new:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::WaitingBegin
+        none
+        none
+        none
+        0
+        0
+        0
+        0
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase: drain phase を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainPhase \drain:
+    *field::get_ref drain "phase"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_surface: BeginFrame で[固定/こてい]した surface を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_surface %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain Option SurfaceId \drain:
+    *field::get_ref drain "surface"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_frame: BeginFrame で[固定/こてい]した frame を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_frame %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain Option FrameId \drain:
+    *field::get_ref drain "frame"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_metadata: BeginFrame で[固定/こてい]した compositor metadata を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_metadata %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain Option GuiRgba8888CompositorFrameEntryMetadata \drain:
+    *field::get_ref drain "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_run_count: expected run count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_run_count %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "expected_run_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count: observed run count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "seen_run_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_pixel_count: expected pixel count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_pixel_count %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "expected_pixel_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count: observed pixel count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain i32 \drain:
+    *field::get_ref drain "seen_pixel_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_metadata_consistent: descriptor 内の frame と metadata frame を[照合/しょうごう]する
+//:
+//: descriptor frame id と metadata frame id が同じ frame を[指/さ]すことを[確/たし]かめます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_metadata_consistent %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \descriptor:
+    let descriptor_frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+    let descriptor_frame_id %i32 frame_id_raw &descriptor_frame
+    let descriptor_metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &descriptor_metadata
+    if eq descriptor_frame_id metadata_frame_id:
+        then Result::Ok unit
+        else Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorFrameMetadataMismatch
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_counts_from_descriptor: BeginFrame descriptor から authority state を[作/つく]る
+//:
+//: expected count と descriptor / metadata consistency を[検査/けんさ]してから InFrame state へ[進/すす]めます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_counts_from_descriptor %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor fn GuiRgba8888CompositorTileRlePresentVirtualDrain Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \descriptor\drain:
+    let expected_run_count %i32 gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor
+    if le expected_run_count 0:
+        then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::ExpectedRunCountInvalid drain
+        else:
+            let expected_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor
+            if le expected_pixel_count 0:
+                then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::ExpectedPixelCountInvalid drain
+                else:
+                    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_metadata_consistent descriptor:
+                        Result::Err kind:
+                            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error kind drain
+                        Result::Ok _:
+                            let surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+                            let frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+                            let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+                            Result::Ok:
+                                gui_rgba8888_compositor_tile_rle_present_virtual_drain_new:
+                                    GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame
+                                    some surface
+                                    some frame
+                                    some metadata
+                                    expected_run_count
+                                    0
+                                    expected_pixel_count
+                                    0
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_surface_matches: fixed surface と descriptor surface を[照合/しょうごう]する
+//:
+//: typed surface id accessor から得た value だけを raw id equality に[使/つか]います。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_surface_matches %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_surface drain:
+        Option::Some surface:
+            let descriptor_surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor
+            let left %i32 surface_id_raw &surface
+            let right %i32 surface_id_raw &descriptor_surface
+            if eq left right:
+                then Result::Ok unit
+                else Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorSurfaceMismatch
+        Option::None:
+            Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::SurfaceMissing
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_matches: fixed frame と descriptor frame を[照合/しょうごう]する
+//:
+//: typed frame id accessor から得た value だけを raw id equality に[使/つか]います。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_matches %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_frame drain:
+        Option::Some frame:
+            let descriptor_frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor
+            let left %i32 frame_id_raw &frame
+            let right %i32 frame_id_raw &descriptor_frame
+            if eq left right:
+                then Result::Ok unit
+                else Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorFrameMismatch
+        Option::None:
+            Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::FrameMissing
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_count_matches: fixed expected counts と descriptor counts を[照合/しょうごう]する
+//:
+//: Run / End の descriptor が BeginFrame と同じ run / pixel count authority を[持/も]つことを[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_count_matches %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    let expected_run_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_run_count drain
+    let descriptor_run_count %i32 gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor
+    if ne expected_run_count descriptor_run_count:
+        then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorExpectedRunCountMismatch
+        else:
+            let expected_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_pixel_count drain
+            let descriptor_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor
+            if ne expected_pixel_count descriptor_pixel_count:
+                then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorExpectedPixelCountMismatch
+                else Result::Ok unit
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_metadata_matches: fixed metadata と descriptor metadata を[照合/しょうごう]する
+//:
+//: frame id、size、row range、batch count、batch capacity の full equality を[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_metadata_matches %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_metadata drain:
+        Option::Some metadata:
+            let descriptor_metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+            let metadata_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata
+            let descriptor_frame_id %i32 gui_rgba8888_compositor_frame_entry_metadata_frame_id &descriptor_metadata
+            if ne metadata_frame_id descriptor_frame_id:
+                then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataFrameMismatch
+                else:
+                    let metadata_width %i32 gui_rgba8888_compositor_frame_entry_metadata_width &metadata
+                    let descriptor_width %i32 gui_rgba8888_compositor_frame_entry_metadata_width &descriptor_metadata
+                    if ne metadata_width descriptor_width:
+                        then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataWidthMismatch
+                        else:
+                            let metadata_height %i32 gui_rgba8888_compositor_frame_entry_metadata_height &metadata
+                            let descriptor_height %i32 gui_rgba8888_compositor_frame_entry_metadata_height &descriptor_metadata
+                            if ne metadata_height descriptor_height:
+                                then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataHeightMismatch
+                                else:
+                                    let metadata_row_start %i32 gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata
+                                    let descriptor_row_start %i32 gui_rgba8888_compositor_frame_entry_metadata_row_start &descriptor_metadata
+                                    if ne metadata_row_start descriptor_row_start:
+                                        then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataRowStartMismatch
+                                        else:
+                                            let metadata_row_count %i32 gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata
+                                            let descriptor_row_count %i32 gui_rgba8888_compositor_frame_entry_metadata_row_count &descriptor_metadata
+                                            if ne metadata_row_count descriptor_row_count:
+                                                then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataRowCountMismatch
+                                                else:
+                                                    let metadata_batch_count %i32 gui_rgba8888_compositor_frame_entry_metadata_batch_count &metadata
+                                                    let descriptor_batch_count %i32 gui_rgba8888_compositor_frame_entry_metadata_batch_count &descriptor_metadata
+                                                    if ne metadata_batch_count descriptor_batch_count:
+                                                        then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataBatchCountMismatch
+                                                        else:
+                                                            let metadata_max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch &metadata
+                                                            let descriptor_max_rows_per_batch %i32 gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch &descriptor_metadata
+                                                            if ne metadata_max_rows_per_batch descriptor_max_rows_per_batch:
+                                                                then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::DescriptorMetadataMaxRowsPerBatchMismatch
+                                                                else Result::Ok unit
+        Option::None:
+            Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::MetadataMissing
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_matches: Run / End descriptor を fixed authority と[照合/しょうごう]する
+//:
+//: surface、frame、counts、descriptor 内 metadata consistency、metadata full equality の順に[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_matches %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result unit GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_surface_matches drain descriptor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_matches drain descriptor:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok _:
+                    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_count_matches drain descriptor:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok _:
+                            match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_metadata_consistent descriptor:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok _:
+                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_metadata_matches drain descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_begin: BeginFrame record を[処理/しょり]する
+//:
+//: WaitingBegin だけを受け入れ、InFrame / Ended では record 順序 error を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_begin %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn GuiRgba8888CompositorTileRlePresentFrameDescriptor Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::WaitingBegin:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_counts_from_descriptor &descriptor drain
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::BeginAfterBegin drain
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::BeginAfterEnd drain
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_checked_run_end: run end offset を checked arithmetic で[求/もと]める
+//:
+//: `offset + count` が i32 を[越/こ]える場合は overflow error を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_checked_run_end %fn i32 fn i32 Result i32 GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \run_pixel_offset\run_pixel_count:
+    let max_i32 %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_i32_max
+    let max_offset %i32 sub max_i32 run_pixel_count
+    if gt run_pixel_offset max_offset:
+        then Result::Err GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunEndOverflow
+        else Result::Ok add run_pixel_offset run_pixel_count
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_run_in_frame: InFrame の RunRecord を[処理/しょり]する
+//:
+//: descriptor authority を[照合/しょうごう]してから offset continuity、checked end、expected bounds を[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_run_in_frame %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \drain\run_record:
+    let descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor run_record
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_matches &drain &descriptor:
+        Result::Err kind:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error kind drain
+        Result::Ok _:
+            let seen_run_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain
+            let seen_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain
+            if lt seen_run_count 0:
+                then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::SeenRunCountInvalid drain
+                else:
+                    if lt seen_pixel_count 0:
+                        then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::SeenPixelCountInvalid drain
+                        else:
+                            let run %GuiRgba8888RowTileRleRun gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run run_record
+                            let run_pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+                            if le run_pixel_count 0:
+                                then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunPixelCountInvalid drain
+                                else:
+                                    let run_pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+                                    if ne run_pixel_offset seen_pixel_count:
+                                        then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunPixelOffsetMismatch drain
+                                        else:
+                                            match gui_rgba8888_compositor_tile_rle_present_virtual_drain_checked_run_end run_pixel_offset run_pixel_count:
+                                                Result::Err kind:
+                                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error kind drain
+                                                Result::Ok run_end:
+                                                    let expected_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_pixel_count &drain
+                                                    if gt run_end expected_pixel_count:
+                                                        then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunEndOutOfBounds drain
+                                                        else:
+                                                            let max_i32 %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_i32_max
+                                                            if ge seen_run_count max_i32:
+                                                                then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::SeenRunCountOverflow drain
+                                                                else:
+                                                                    let next_seen_run_count %i32 add seen_run_count 1
+                                                                    let expected_run_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_run_count &drain
+                                                                    if gt next_seen_run_count expected_run_count:
+                                                                        then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::SeenRunCountExceeded drain
+                                                                        else:
+                                                                            Result::Ok:
+                                                                                gui_rgba8888_compositor_tile_rle_present_virtual_drain_new:
+                                                                                    GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame
+                                                                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_surface &drain
+                                                                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_frame &drain
+                                                                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_metadata &drain
+                                                                                    expected_run_count
+                                                                                    next_seen_run_count
+                                                                                    expected_pixel_count
+                                                                                    run_end
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_run: RunRecord の phase dispatch を[行/おこな]う
+//:
+//: InFrame だけを受け入れ、Begin 前 / End 後の Run を typed error にします。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_run %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn GuiRgba8888CompositorTileRlePresentHostCommandRunRecord Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \drain\run_record:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::WaitingBegin:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunBeforeBegin drain
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_run_in_frame drain &run_record
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunAfterEnd drain
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_end_in_frame: InFrame の EndFrame を[処理/しょり]する
+//:
+//: descriptor authority と observed counts がすべて完了している場合だけ Ended state を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_end_in_frame %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_matches &drain descriptor:
+        Result::Err kind:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error kind drain
+        Result::Ok _:
+            let seen_run_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_run_count &drain
+            let expected_run_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_run_count &drain
+            if ne seen_run_count expected_run_count:
+                then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::IncompleteRunCount drain
+                else:
+                    let seen_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_seen_pixel_count &drain
+                    let expected_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_pixel_count &drain
+                    if ne seen_pixel_count expected_pixel_count:
+                        then gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::IncompletePixelCount drain
+                        else:
+                            Result::Ok:
+                                gui_rgba8888_compositor_tile_rle_present_virtual_drain_new:
+                                    GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended
+                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_surface &drain
+                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_frame &drain
+                                    gui_rgba8888_compositor_tile_rle_present_virtual_drain_metadata &drain
+                                    expected_run_count
+                                    seen_run_count
+                                    expected_pixel_count
+                                    seen_pixel_count
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_end: EndFrame の phase dispatch を[行/おこな]う
+//:
+//: InFrame だけを受け入れ、Begin 前 / End 後の End を typed error にします。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_end %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn GuiRgba8888CompositorTileRlePresentFrameDescriptor Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \drain\descriptor:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase &drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::WaitingBegin:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::EndBeforeBegin drain
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::InFrame:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_end_in_frame drain &descriptor
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_result_error GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::EndAfterEnd drain
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_step: F5mu record を headless/test drain に[流/なが]す
+//:
+//: [契約/けいやく]:
+//: - Begin / Run / End の[順序/じゅんじょ]を enum phase で[検査/けんさ]します。
+//: - Begin の surface / frame / metadata / expected count を authority とし、Run / End descriptor の[差/さ]し[替/か]えを[拒否/きょひ]します。
+//: - Run は `pixel_offset == seen_pixel_count` を[要求/ようきゅう]し、gap / overlap / reorder を[拒否/きょひ]します。
+//: - End は expected run count と expected pixel count を[満/み]たした場合だけ success です。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_step %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError \drain\record:
+    match record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_begin drain descriptor
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_run drain run_record
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:
+            gui_rgba8888_compositor_tile_rle_present_virtual_drain_end drain descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_is_ended: Ended phase かを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_is_ended %fn &GuiRgba8888CompositorTileRlePresentVirtualDrain bool \drain:
+    match gui_rgba8888_compositor_tile_rle_present_virtual_drain_phase drain:
+        GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended:
+            true
+        _:
+            false
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_kind %fn &GuiRgba8888CompositorTileRlePresentVirtualDrainError GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category_value: error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category_value %fn &GuiRgba8888CompositorTileRlePresentVirtualDrainError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_drain: 失敗[直前/ちょくぜん]の drain state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_drain %fn &GuiRgba8888CompositorTileRlePresentVirtualDrainError GuiRgba8888CompositorTileRlePresentVirtualDrain \error:
+    *field::get_ref error "drain"

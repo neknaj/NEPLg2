@@ -183,6 +183,8 @@ const stdGuiCompositorTilePresentCommandCursor = read("stdlib/std/gui/compositor
 const stdGuiCompositorTilePresentCommandCursorImpl = withoutComments(stdGuiCompositorTilePresentCommandCursor);
 const stdGuiCompositorTilePresentHostCommand = read("stdlib/std/gui/compositor_tile_present_host_command.nepl");
 const stdGuiCompositorTilePresentHostCommandImpl = withoutComments(stdGuiCompositorTilePresentHostCommand);
+const stdGuiCompositorTilePresentVirtualDrain = read("stdlib/std/gui/compositor_tile_present_virtual_drain.nepl");
+const stdGuiCompositorTilePresentVirtualDrainImpl = withoutComments(stdGuiCompositorTilePresentVirtualDrain);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -429,6 +431,7 @@ const guiStdCompositorTilePresentRunCursorTests = read("tests/stdlib/gui_std_com
 const guiStdCompositorTilePresentRunStepTests = read("tests/stdlib/gui_std_compositor_tile_present_run_step.n.md");
 const guiStdCompositorTilePresentCommandCursorTests = read("tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md");
 const guiStdCompositorTilePresentHostCommandTests = read("tests/stdlib/gui_std_compositor_tile_present_host_command.n.md");
+const guiStdCompositorTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -29634,6 +29637,181 @@ assert(
         guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_uses_f5mt_accessor_ok") &&
         guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_no_lower_host_import_platform_fallback"),
     "F5mu std compositor tile present host-command focused doctest must cover host-command source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mv") &&
+            doc.includes("compositor tile RLE present virtual drain") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentVirtualDrain") &&
+            doc.includes("F5mu compositor host-command records only") &&
+            doc.includes("metadata is part of the drain authority") &&
+            doc.includes("does not reuse lower F5cq/F5cs") &&
+            doc.includes("fallback"),
+        `F5mv ${name} must document compositor virtual drain, F5mu-only input, metadata authority, lower F5cq/F5cs non-reuse, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mv") &&
+        implementationPlan.includes("Erdos plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Ampere source-policy review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("metadata consistency") &&
+        implementationPlan.includes("F5mu compositor host-command records only"),
+    "F5mv implementation plan must record subagent reviews, metadata consistency, and F5mu-only record policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_virtual_drain" as *'), "std/gui facade must export F5mv compositor tile present virtual drain boundary");
+assert(
+    stdGuiCompositorTilePresentVirtualDrain.includes("pub enum GuiRgba8888CompositorTileRlePresentVirtualDrainPhase:") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("WaitingBegin") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("InFrame") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("Ended") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("pub struct GuiRgba8888CompositorTileRlePresentVirtualDrain:") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("surface %Option SurfaceId") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("frame %Option FrameId") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("metadata %Option GuiRgba8888CompositorFrameEntryMetadata") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("expected_run_count %i32") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("seen_pixel_count %i32"),
+    "std/gui/compositor_tile_present_virtual_drain F5mv must define explicit phase, optional id state, metadata state, and count state",
+);
+assert(
+    stdGuiCompositorTilePresentVirtualDrain.includes("pub enum GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind:") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("MetadataMissing") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("DescriptorFrameMetadataMismatch") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("DescriptorMetadataFrameMismatch") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("DescriptorMetadataMaxRowsPerBatchMismatch") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("RunPixelOffsetMismatch") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("RunEndOverflow") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("RunEndOutOfBounds") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("IncompleteRunCount") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("IncompletePixelCount") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("pub struct GuiRgba8888CompositorTileRlePresentVirtualDrainError:") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("category %Option GuiError") &&
+        stdGuiCompositorTilePresentVirtualDrain.includes("drain %GuiRgba8888CompositorTileRlePresentVirtualDrain"),
+    "std/gui/compositor_tile_present_virtual_drain F5mv must define concrete error enum, category, metadata mismatch errors, and previous drain state",
+);
+assertMatch(
+    stdGuiCompositorTilePresentVirtualDrainImpl,
+    /#import "std\/gui\/compositor_tile_present_host_command" as \*/,
+    "std/gui/compositor_tile_present_virtual_drain F5mv must consume F5mu compositor host-command records",
+);
+assertMatch(
+    stdGuiCompositorTilePresentVirtualDrainImpl,
+    /#import "std\/gui\/compositor_tile_present" as \*/,
+    "std/gui/compositor_tile_present_virtual_drain F5mv must use compositor descriptor accessors",
+);
+assertMatch(
+    stdGuiCompositorTilePresentVirtualDrainImpl,
+    /#import "alloc\/gui\/render2d\/compositor_frame_entry" as \*/,
+    "std/gui/compositor_tile_present_virtual_drain F5mv must use compositor metadata accessors",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentVirtualDrainImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|#import "(?:stdlib\/)?platforms\/|GuiRgba8888RowTileRlePresent|gui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(command_cursor|run_cursor|run_step)" as \*|gui_rgba8888_compositor_tile_rle_present_(command_cursor|run_cursor|run_step)_[a-z0-9_]+|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bVec\b|\bqueue\b|\bscheduler\b|\bplatform\b|\bplatforms\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_virtual_drain F5mv must not reuse lower F5cq/F5cs, bypass F5mu, use cursor/run-span/scheduler/host/platform/raw APIs, allocate Vec, or fallback",
+);
+assert(
+    stdGuiCompositorTilePresentVirtualDrain.includes("pub fn gui_rgba8888_compositor_tile_rle_present_virtual_drain_step %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentVirtualDrain GuiRgba8888CompositorTileRlePresentVirtualDrainError"),
+    "std/gui/compositor_tile_present_virtual_drain F5mv public step must accept F5mu compositor host-command records only",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentVirtualDrainImpl, "gui_rgba8888_compositor_tile_rle_present_virtual_drain_step"),
+    [
+        "match record:",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_begin drain descriptor",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_run drain run_record",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_end drain descriptor",
+    ],
+    "std/gui/compositor_tile_present_virtual_drain F5mv step must directly match F5mu Begin/Run/End records",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentVirtualDrainImpl, "gui_rgba8888_compositor_tile_rle_present_virtual_drain_expected_counts_from_descriptor"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count descriptor",
+        "if le expected_run_count 0:",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count descriptor",
+        "if le expected_pixel_count 0:",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_frame_metadata_consistent descriptor",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface descriptor",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame descriptor",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor",
+    ],
+    "std/gui/compositor_tile_present_virtual_drain F5mv begin path must read expected counts and metadata through compositor descriptor accessors",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentVirtualDrainImpl, "gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_metadata_matches"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_metadata drain",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor",
+        "gui_rgba8888_compositor_frame_entry_metadata_frame_id &metadata",
+        "DescriptorMetadataFrameMismatch",
+        "gui_rgba8888_compositor_frame_entry_metadata_width &metadata",
+        "DescriptorMetadataWidthMismatch",
+        "gui_rgba8888_compositor_frame_entry_metadata_height &metadata",
+        "DescriptorMetadataHeightMismatch",
+        "gui_rgba8888_compositor_frame_entry_metadata_row_start &metadata",
+        "DescriptorMetadataRowStartMismatch",
+        "gui_rgba8888_compositor_frame_entry_metadata_row_count &metadata",
+        "DescriptorMetadataRowCountMismatch",
+        "gui_rgba8888_compositor_frame_entry_metadata_batch_count &metadata",
+        "DescriptorMetadataBatchCountMismatch",
+        "gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch &metadata",
+        "DescriptorMetadataMaxRowsPerBatchMismatch",
+    ],
+    "std/gui/compositor_tile_present_virtual_drain F5mv must make metadata full equality part of the drain authority",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentVirtualDrainImpl, "gui_rgba8888_compositor_tile_rle_present_virtual_drain_run_in_frame"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor run_record",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_matches &drain &descriptor",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run run_record",
+        "gui_rgba8888_row_tile_rle_run_pixel_count &run",
+        "if le run_pixel_count 0:",
+        "gui_rgba8888_row_tile_rle_run_pixel_offset &run",
+        "if ne run_pixel_offset seen_pixel_count:",
+        "GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunPixelOffsetMismatch",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_checked_run_end run_pixel_offset run_pixel_count",
+        "if gt run_end expected_pixel_count:",
+        "GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::RunEndOutOfBounds",
+        "if gt next_seen_run_count expected_run_count:",
+        "GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::SeenRunCountExceeded",
+    ],
+    "std/gui/compositor_tile_present_virtual_drain F5mv must enforce run offset continuity, checked end, and expected count bounds",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentVirtualDrainImpl, "gui_rgba8888_compositor_tile_rle_present_virtual_drain_end_in_frame"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_descriptor_matches &drain descriptor",
+        "if ne seen_run_count expected_run_count:",
+        "GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::IncompleteRunCount",
+        "if ne seen_pixel_count expected_pixel_count:",
+        "GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind::IncompletePixelCount",
+        "GuiRgba8888CompositorTileRlePresentVirtualDrainPhase::Ended",
+    ],
+    "std/gui/compositor_tile_present_virtual_drain F5mv must only end after expected run and pixel counts are observed",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentVirtualDrainImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_virtual_drain F5mv implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_facade_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_phase_enum_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_error_enum_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_f5mu_record_only_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_descriptor_accessor_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_metadata_consistency_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_run_offset_continuity_ok") &&
+        guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_no_lower_cursor_host_platform_fallback"),
+    "F5mv std compositor tile present virtual-drain focused doctest must cover virtual-drain source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

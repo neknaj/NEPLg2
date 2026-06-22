@@ -5308,6 +5308,59 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mu.json
 ```
 
+## Phase F5mv: std compositor tile RLE present virtual drain boundary
+
+目的:
+
+- F5mu compositor host-command records only を入力にし、host continuation / scheduler の前で deterministic に stream validation できる compositor tile RLE present virtual drain を追加する。
+- `GuiRgba8888CompositorTileRlePresentVirtualDrain` は phase、surface / frame、metadata、expected / seen count を保持する。
+- metadata is part of the drain authority とし、BeginFrame で固定した `GuiRgba8888CompositorFrameEntryMetadata` と RunRecord / EndFrame の descriptor metadata full equality を検査する。
+- RunRecord は `run_pixel_offset == seen_pixel_count` を要求し、EndFrame は expected run count と expected pixel count を満たした場合だけ Ended にする。
+- F5mv は presentation target ではない。F5mv does not reuse lower F5cq/F5cs。lower host-command record / lower virtual drain、host import、dispatch、scheduler、run-span、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Erdos plan review は `PLAN_APPROVED`。
+- F5mv は F5cs の compositor 版として妥当であり、host continuation / scheduler より前に置くことで後続 scheduler が Begin / Run / End、run offset continuity、metadata consistency を再実装しなくてよくなる。
+- lower F5cs/F5cq へ落とさず、`GuiRgba8888CompositorTileRlePresentHostCommandRecord` を直接消費する。lower record projection は compositor metadata を検査対象から外しやすい。
+- drain state は `SurfaceId` / `FrameId` / expected counts / seen counts に加え、`Option GuiRgba8888CompositorFrameEntryMetadata` を保持する。
+- Ampere source-policy review は `PLAN_APPROVED`。
+- `surface_id_raw` / `frame_id_raw` は typed accessor で得た id equality と descriptor frame / metadata frame id の照合に限って許容する。raw storage や host / platform identity へ渡す用途は禁止する。
+- source policy は facade export、phase / error enum、metadata state、F5mu record-only input、compositor descriptor accessor、metadata full equality、run offset continuity、End completion、no lower cursor / host / platform / fallback を固定する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_virtual_drain.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentVirtualDrainPhase`、`GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind`、`GuiRgba8888CompositorTileRlePresentVirtualDrain`、`GuiRgba8888CompositorTileRlePresentVirtualDrainError` を追加する。
+- `empty`、phase / surface / frame / metadata / count accessors、`step`、`is_ended`、error accessors を追加する。
+- descriptor validation は compositor descriptor accessors と compositor metadata accessorsだけを使い、surface / frame / expected counts / descriptor frame metadata consistency / metadata full equality を検査する。
+- RunRecord validation は F5mu run-record accessor から descriptor と run を読み、positive pixel count、offset continuity、checked end、expected pixel count / run count bound を検査する。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present virtual drain boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mv source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Erdos / Ampere plan review、facade export、phase / drain / error shape、metadata state、F5mu record-only input、compositor descriptor accessor usage、metadata full equality、run offset continuity、End completion、lower F5cq/F5cs non-reuse、cursor / host import / scheduler / platform / raw / Vec / fallback 禁止、runtime smoke label を検査する。
+- focused doctest、module doctest、F5mu compositor host-command regression、F5cs lower virtual drain regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata authority、F5mu record-only、lower F5cq/F5cs non-reuse、typed id raw usage の限定、host / scheduler / platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_compositor_tile_present_virtual_drain_f5mv.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_virtual_drain.nepl --no-tree -o tmp_gui_std_compositor_tile_present_virtual_drain_module_f5mv.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_command.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_command_f5mv_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5mv_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mv.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

@@ -8597,6 +8597,28 @@ The mapping function takes a borrowed `GuiRgba8888CompositorTileRlePresentComman
 
 F5mu must not expose lower `std/gui/tile_present_host_command`, lower `tile_present_command_cursor`, F5mr/F5ms/F5co run cursor calls, host import, dispatch, scheduler, virtual drain, run-span, packet record reader, raw storage, `RegionToken`, `MemPtr`, raw byte load/store, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no lower-host-command / host-import / platform compositor tile RLE present host-command record boundary; compositor host continuation / drain / scheduler remain later boundaries.
 
+## Std compositor tile RLE present virtual drain boundary
+
+F5mv is the std-side compositor tile RLE present virtual drain boundary after F5mu. It is not a presentation target and does not submit a frame. It consumes F5mu compositor host-command records only and validates a compositor record stream before host continuation or scheduler layers re-use that validation authority.
+
+```text
+GuiRgba8888CompositorTileRlePresentVirtualDrain:
+    phase GuiRgba8888CompositorTileRlePresentVirtualDrainPhase
+    surface Option SurfaceId
+    frame Option FrameId
+    metadata Option GuiRgba8888CompositorFrameEntryMetadata
+    expected_run_count i32
+    seen_run_count i32
+    expected_pixel_count i32
+    seen_pixel_count i32
+```
+
+metadata is part of the drain authority. BeginFrame fixes the compositor descriptor surface, frame, expected counts, and metadata. RunRecord and EndFrame must keep the same surface, frame, expected counts, and full metadata fields: frame id, width, height, row_start, row_count, batch_count, and max_rows_per_batch. A descriptor whose frame id and metadata frame id disagree is rejected before the descriptor becomes drain state.
+
+RunRecord validation mirrors the lower F5cs continuity rule but stays at the compositor record layer: the run must have positive pixel count, `run_pixel_offset == seen_pixel_count`, checked end arithmetic, end within expected pixel count, and the next seen run count must not exceed expected run count. EndFrame succeeds only after expected run count and expected pixel count are both observed.
+
+F5mv does not reuse lower F5cq/F5cs. Lower record projection would remove compositor metadata from the validation surface, so the drain consumes `GuiRgba8888CompositorTileRlePresentHostCommandRecord` directly. F5mv must not expose lower `std/gui/tile_present_host_command`, lower `std/gui/tile_present_virtual_drain`, lower command cursor / run cursor / run-span / schedule / dispatch / host import APIs, host import execution, scheduler, platform backend, raw storage, `RegionToken`, `MemPtr`, raw byte load/store, `Vec`, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
