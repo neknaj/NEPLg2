@@ -3343,6 +3343,18 @@ source-to-operation projection、operation classifier、region proof input proje
 - full traversal 由来 source と fresh witness table を、private effect no-escape gate と request-evidence bridge の両方へ同じ body identity で渡す upper orchestration を追加する。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-23 selfhost resolver-bound body source vocabulary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resolver-bound HIR body reader が返す source vocabulary smoke を拡張し、PrivateCache effect だけでなく PrivateState effect、MemoizedFunctionValue identity、pure call unsupported source も production reader context から source table に届くことを固定した。
+
+PrivateCache / PrivateState effect は typed private-effect source として保持するだけで、accepted wrapper source や no-escape proof には混ぜない。FnValue / MemoizedFunctionValue は function identity observation source に写し、pure call は recursive lowering 未接続の unsupported source として扱う。いずれも source-derived witness / candidate rejection path へ落ちる語彙であり、GraphInput、Resource proof table、request-evidence table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、`.neplobj` / `.neplproof` artifact key は作らない。
+
+public stage0 summary は `hir_body_private_state_effect_source_count`、`hir_body_memoized_function_identity_source_count`、`hir_body_pure_call_unsupported_source_count` を追加し、resolver-bound body root payload からそれぞれ 1 source が得られることだけを返す。helper は module-private に留め、accepted enum は wrapper root/support のまま増やさない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。stage0 field order と production reader context helper 呼び出しを固定し、PrivateState effect / MemoizedFunctionValue identity / pure call unsupported を accepted path へ入れず、source vocabulary としてのみ扱うことを確認する。
+
+この checkpoint は full Resource IR traversal ではない。残件は、full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で発行し、coverage handoff、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionへ渡す production boundary である。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

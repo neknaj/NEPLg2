@@ -81345,3 +81345,28 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mt.json`
 - checked JSON: `tmp-playground-editor-tests-f5mt.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resolver-bound body source vocabulary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resolver-bound HIR body reader が返す source vocabulary smoke を拡張した。
+- public stage0 summary に `hir_body_private_state_effect_source_count`、`hir_body_memoized_function_identity_source_count`、`hir_body_pure_call_unsupported_source_count` を追加し、production reader context からそれぞれ 1 source が得られることを固定した。
+- PrivateCache / PrivateState effect は typed private-effect source として保持するだけで、accepted wrapper source や no-escape proof には混ぜない。
+- FnValue / MemoizedFunctionValue は function identity observation source に写し、pure call は recursive lowering 未接続の unsupported source に写す。
+- MemoizedFunctionValue 用の source count helper は module-private に留め、GraphInput、Resource proof table、request-evidence table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、`.neplobj` / `.neplproof` artifact key は作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、stage0 field order、production reader context helper 呼び出し、resolver-bound private effects / function observations / pure-call unsupported source の contract を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、今回の checkpoint は full Resource IR traversal ではなく、次は full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で発行する production boundary へ進むことを明記した。plan.md との差異はない。
+- Goodall の implementation review は blocker / non-blocking ともになし。accepted enum が増えていないこと、PrivateCache / PrivateState effect、MemoizedFunctionValue identity、pure-call unsupported が accepted path に入っていないこと、source owner cleanup / resolver-bound body root / public helper 非公開の既存契約が弱まっていないことを確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resolver-bound-body-source-vocabulary-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resolver-bound-body-source-vocabulary-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resolver_bound_body_source_vocabulary.json`
+- checked JSON: `tmp/playground_editor_selfhost_resolver_bound_body_source_vocabulary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
