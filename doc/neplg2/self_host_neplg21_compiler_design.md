@@ -3419,9 +3419,17 @@ stage0 summary には `resource_lowering_authority_bundle_witness_count` を追�
 
 この checkpoint により production no-escape pair code は、source output から直接組み立てる処理ではなく、coverage authority と fresh witness authority bundle を同じ resolver-bound body identity で束ねた authority bundle を経由する。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を実 traversal から発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-06-23 selfhost resource-lowering producer witness authority boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resource-lowering producer output から fresh witness authority output へ進むときの source-to-witness 境界を producer 専用 helper に分離した。producer-owned source table は `ResourceLoweringTraversalProduced` source output envelope や generic production fresh witness input owner へ戻さず、context-bound source validation を通ってから same-source fresh witness authority producer へ move する。
+
+これにより、producer output が coverage identity を再検査した後に、producer-owned source lifecycle のまま fresh witness authority bundle を発行し、その bundle を producer authority output に保持する。generic `ProductionFreshWitnessAuthorityInput` は source output 経由の検証 path として残るが、production no-escape stage0 の producer path では使わない。
+
+この checkpoint は producer-owned source / fresh witness authority の責務を production input helper から切り離すものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source / fresh witness / coverage を実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+
 ## 2026-06-23 selfhost resource-lowering producer authority output checkpoint
 
-`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ActualTraversalResourceLoweringProducerOutput` から `ActualTraversalResourceLoweringProducerAuthorityOutput` へ進む module-private boundary を追加した。producer output は coverage identity を再検査し、producer-owned source table を production fresh witness input owner へ渡し、same-source fresh witness authority bundle を作って producer authority output に束ねる。
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ActualTraversalResourceLoweringProducerOutput` から `ActualTraversalResourceLoweringProducerAuthorityOutput` へ進む module-private boundary を追加した。producer output は coverage identity を再検査し、producer-owned source table から same-source fresh witness authority bundle を作って producer authority output に束ねる。後続 checkpoint では、この source-to-witness boundary を production fresh witness input owner 経由ではなく producer 専用 helper 経由に分離した。
 
 no-escape authority bundle witness count と production gate stage0 は、`ResourceLoweringTraversalProduced` の source output envelope へ戻らず、producer authority output から no-escape authority bundle / pair code projection へ進む。source output は origin-tagged envelope の検証経路として残すが、production no-escape path の fresh witness authority は producer output owner からだけ発行する。
 
@@ -3433,7 +3441,7 @@ no-escape authority bundle witness count と production gate stage0 は、`Resou
 
 新しい boundary は、HIR body reader が返した request-local source owner を producer-owned source table に merge し、元の request context で key / graph を再検査してから、operation projection、unified event split、collector-owned source table へ進める。その collector-owned source owner と、同じ resolver lookup の body root / request root / body module fingerprint / graph id から作った coverage authority は、module-private な `ActualTraversalResourceLoweringProducerOutput` に束ねる。`ResourceLoweringTraversalProduced` source output envelope はこの producer output owner からだけ作り、request-context helper は source table や origin enum を直接 mint しない。
 
-後続 checkpoint では、この producer output owner が coverage identity を再検査し、producer-owned source table を same-source fresh witness authority bundle へ move した `ActualTraversalResourceLoweringProducerAuthorityOutput` を発行する。production no-escape path の stage0 は source output envelope に戻らず、この producer authority output から no-escape authority bundle / pair code projection へ進む。
+後続 checkpoint では、この producer output owner が coverage identity を再検査し、producer-owned source table を producer 専用 source-to-witness helper で same-source fresh witness authority bundle へ move した `ActualTraversalResourceLoweringProducerAuthorityOutput` を発行する。production no-escape path の stage0 は source output envelope に戻らず、この producer authority output から no-escape authority bundle / pair code projection へ進む。
 
 この checkpoint は producer-owned source lifecycle を production origin の前段に入れるものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source / fresh witness / coverage を実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 

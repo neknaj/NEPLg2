@@ -82072,3 +82072,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_producer_authority_output.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_traversal_producer_authority_output.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering producer witness authority boundary checkpoint
+
+- 2026-06-23 に Zenn の開発方針を再確認した。今回の slice では、producer path の責務を generic input helper の慣習に預けず、producer-owned source table 用の module-private helper と contract test で境界を固定した。
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、`actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result` を追加した。
+- 新 helper は producer-owned source table を request context と再照合し、成功時だけ same-source candidate 由来 fresh witness authority producer へ source owner を move する。validation failure では source owner を閉じ、fresh witness owner は作らない。
+- `actual_traversal_resource_lowering_producer_output_into_authority_output_result` は coverage identity validation の後、source output envelope や `ProductionFreshWitnessAuthorityInput` に戻らず、producer 専用 source-to-witness helper から producer authority output を作る。
+- generic `ProductionFreshWitnessAuthorityInput` は source output 経由の検証 path として残すが、production no-escape stage0 の producer path では使わない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、新 helper の使用回数、source validation と source cleanup、producer output into-authority helper が production fresh witness input owner を経由しないこと、request-evidence / GraphInput / effect mask / backend / artifact へ進まないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint は full Resource IR graph walker 完了ではなく、underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。残件は actual Resource IR graph walker 本体の source / fresh-witness / coverage 実発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
+- Kierkegaard の read-only review は blocker / non-blocker とも無し。new helper の source owner lifecycle、producer output が `ProductionFreshWitnessAuthorityInput` / source output envelope を経由しないこと、contract の ban 粒度、docs/todo/note の未完了範囲を確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-traversal-producer-witness-authority-boundary-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resource-traversal-producer-witness-authority-boundary-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_producer_witness_authority_boundary.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_traversal_producer_witness_authority_boundary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
