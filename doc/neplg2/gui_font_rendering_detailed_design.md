@@ -8631,6 +8631,18 @@ Yield means exact slice budget: after a valid record advances F5mv and the sched
 
 F5mw does not bypass F5mv and does not reuse lower F5cq/F5cs. It must not import lower F5ct/F5cs/F5cq modules, call compositor command cursor / run cursor / run step internals, construct host import requests, dispatch to host execution, allocate queues, call real schedulers or timers, read raw packet storage, expose platform APIs, use `Vec`, touch video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
 
+## Std compositor tile RLE present host continuation request boundary
+
+F5mx is the std layer compositor tile RLE present host continuation request boundary after the F5mu host-command record and before compositor scheduled dispatch. It is the compositor counterpart of lower F5cr, but it consumes the F5mu compositor record directly rather than projecting to lower row-tile records.
+
+`GuiRgba8888CompositorTileRlePresentHostImportTarget` has exactly Window, Offscreen, and Device. Headless is not a presentation target. `GuiRgba8888CompositorTileRlePresentHostImportRequest` stores the validated target and the original `GuiRgba8888CompositorTileRlePresentHostCommandRecord`, so the compositor descriptor and metadata remain in the request surface.
+
+F5mx validates only host capability and target selection. The host color format must be `FormatRgba8888`. `SurfaceKind::WindowPixel` additionally requires windowing capability and `default_window` to be present. `SurfaceKind::OffscreenPixel` maps to Offscreen and `SurfaceKind::DevicePixel` maps to Device. Headless, TextGrid, unsupported surface kinds, a missing default window, or a wrong color format return `GuiError::Unsupported`; there is no fallback to a different target and no silent no-op.
+
+F5mx does not execute host imports and does not validate record stream ordering. Begin / Run / End ordering, metadata consistency, run offset continuity, and schedule budget are F5mv/F5mw responsibilities. F5mx also does not consume F5mu terminal `Completed`; only actual F5mu records are request inputs.
+
+F5mx consumes F5mu compositor host-command record only and does not reuse lower F5cr/F5cq. F5mx does not depend on F5mw. It must not depend on F5mw schedule state, lower row-tile host import / host-command modules, lower virtual drain / scheduler, compositor command cursor / run cursor / run step internals, host execution action conversion, dispatch, queues, timers, raw packet storage, platform APIs, `Vec`, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

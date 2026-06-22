@@ -7157,6 +7157,10 @@ F5mw は std layer compositor tile RLE present schedule boundary であり、F5m
 
 F5mw の `Yield means exact slice budget` は、valid record を消費した後に command budget または pixel budget へちょうど到達した場合だけ `Yield` を返すという意味である。over-budget is a typed error であり、single RunRecord pixel budget 超過、total command / pixel budget 超過、checked arithmetic overflow、lower F5mv failure は previous schedule state を持つ error で返す。EndFrame により F5mv が Ended へ進む場合は terminal `Completed` を返し、`resume_slice` は F5mv drain を保持して slice counters だけ reset する。F5mw does not bypass F5mv and does not reuse lower F5cq/F5cs。lower F5ct / F5cs / F5cq、host import、dispatch、real scheduler、timer、queue、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
 
+F5mx は std layer compositor tile RLE present host continuation request boundary であり、F5mu compositor host-command record を `GuiRgba8888CompositorTileRlePresentHostImportRequest` に包む。`GuiRgba8888CompositorTileRlePresentHostImportTarget` は Window / Offscreen / Device の 3 target だけを表し、Headless is not a presentation target である。host capability の color format は `FormatRgba8888` でなければならず、Window target は WindowPixel surface kind、windowing capability、default window id をすべて要求する。
+
+F5mx does not execute host imports。unsupported target から別 target への fallback や silent no-op は行わず、`GuiError::Unsupported` を返す。F5mx consumes F5mu compositor host-command record only であり、F5mx does not depend on F5mw。F5mw schedule state にはまだ接続しない。F5mx does not reuse lower F5cr/F5cq。lower row-tile request / record へ投影すると compositor metadata が request surface から外れるためである。F5mx は lower F5cr / F5cq / F5ct / F5cs、compositor cursor、virtual drain、schedule、dispatch、host execution action、raw storage、Vec、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
