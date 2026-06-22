@@ -40,6 +40,7 @@ use super::summary::{OwnerExtentSummary, OwnerReturnSummary, OwnerReturnSummaryI
 use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::SummaryNameIndex;
 use super::summary_worklist::SummaryWorklist;
+use super::timing::ResourceFunctionTimer;
 
 pub(super) fn compute_owner_return_summaries_with_recomputations(
     module: &ResourceModule,
@@ -63,10 +64,13 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
     let mut summaries = Vec::new();
     let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
     while let Some(function_index) = worklist.pop() {
+        let function = &module.functions[function_index];
+        let function_start = ResourceFunctionTimer::start();
         let summary = {
             let summary_index = summary_name_index.as_summary_index(&summaries);
-            function_owner_return_summary(&module.functions[function_index], types, &summary_index)
+            function_owner_return_summary(function, types, &summary_index)
         };
+        function_start.log("owner_summary", function);
         if update_owner_return_summary_with_index(&mut summaries, &mut summary_name_index, summary)
         {
             worklist.notify_changed(function_index);

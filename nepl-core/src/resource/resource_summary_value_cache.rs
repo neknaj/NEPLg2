@@ -296,6 +296,7 @@ pub(super) enum ResourceSummaryComputationStage {
 pub struct ResourceSummaryValueCache {
     stats: ResourceSummaryValueCacheStats,
     stable_entry_collection_enabled: bool,
+    same_session_pass_snapshot_collection_enabled: bool,
     raw_alias_return_entry_collection_enabled: bool,
     drop_traversal_forall_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
@@ -322,6 +323,7 @@ impl Default for ResourceSummaryValueCache {
         Self {
             stats: ResourceSummaryValueCacheStats::default(),
             stable_entry_collection_enabled: true,
+            same_session_pass_snapshot_collection_enabled: true,
             raw_alias_return_entry_collection_enabled: true,
             drop_traversal_forall_leaf_entries: BTreeMap::new(),
             raw_alias_return_entries: BTreeMap::new(),
@@ -919,10 +921,10 @@ impl ResourceSummaryValueCache {
 
     /// `.neplproof` へ永続化できる stable entry の収集を止める。
     ///
-    /// 同一 `CompilerSession` 内の微小編集には changed-function pass plan が効くため、
+    /// 同一 `CompilerSession` 内の微小編集には changed-function pass snapshot を使い、
     /// Web playground の通常 compile では `TypeId` を含む検査結果を stable mirror へ
-    /// 変換する固定費を払わない。disk-backed `.neplproof` を作る CLI 経路や、明示的に
-    /// proof artifact を扱う検証では default の有効状態を使う。
+    /// 変換する固定費だけを払わない。disk-backed `.neplproof` を作る CLI 経路や、
+    /// 明示的に proof artifact を扱う検証では default の有効状態を使う。
     pub fn disable_stable_entry_collection(&mut self) {
         self.stable_entry_collection_enabled = false;
         self.drop_traversal_forall_leaf_entries.clear();
@@ -938,6 +940,10 @@ impl ResourceSummaryValueCache {
 
     pub(in crate::resource) fn stable_entry_collection_enabled(&self) -> bool {
         self.stable_entry_collection_enabled
+    }
+
+    pub(in crate::resource) fn same_session_pass_snapshot_collection_enabled(&self) -> bool {
+        self.same_session_pass_snapshot_collection_enabled
     }
 
     /// raw-alias return summary の stable entry 収集を止める。

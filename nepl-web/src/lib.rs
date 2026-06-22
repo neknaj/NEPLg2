@@ -4641,11 +4641,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     } else {
         loader_cache
     };
-    let mut resource_summary_value_cache = if overlay_overrides_stdlib {
-        None
-    } else {
-        resource_summary_value_cache
-    };
+    let mut resource_summary_value_cache = resource_summary_value_cache;
     let preseed_resource_summary_proof_artifact = if overlay_overrides_stdlib {
         None
     } else {
@@ -4653,7 +4649,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
     };
 
     let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
-    let stdlib_content_hash = bundled_stdlib_hash_u64();
+    let stdlib_content_hash = if overlay_overrides_stdlib {
+        None
+    } else {
+        bundled_stdlib_hash_u64()
+    };
     let mut loader = Loader::new(stdlib_root.clone());
     let mut provider = |path: &PathBuf| {
         lookup_web_source(&bundled_sources, &overlay_sources, path).ok_or_else(|| {
@@ -6539,36 +6539,39 @@ impl CompilerSession {
         self.record_resource_summary_proof_preseed_report(None);
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
-        self.loader_cache.borrow_mut().record_stdlib_override_bypass();
         self.nepl_meta_artifact_store.borrow_mut().clear();
         self.nepl_obj_direct_call_fragment_store.borrow_mut().clear();
         let mut stage_timings = CompileStageTimings::new();
-        let compiled = match compile_wasm_with_bundled_sources_and_cache(
-            entry_path,
-            source,
-            &self.stdlib_root,
-            &self.bundled_sources,
-            Some(vfs),
-            Some(stdlib_vfs),
-            Some(parsed),
-            false,
-            test_mode,
-            None,
-            None,
-            None,
-            None,
-            Some(&mut stage_timings),
-            None,
-            None,
-            None,
-            None,
-        ) {
-            Ok(compiled) => compiled,
-            Err(msg) => {
-                *self.last_compile_stage_timing_status.borrow_mut() = "failed";
-                *self.last_compile_stage_timings.borrow_mut() =
-                    Some(stage_timings.to_json_array());
-                return Err(JsValue::from_str(&msg));
+        let compiled = {
+            let mut loader_cache = self.loader_cache.borrow_mut();
+            let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
+            match compile_wasm_with_bundled_sources_and_cache(
+                entry_path,
+                source,
+                &self.stdlib_root,
+                &self.bundled_sources,
+                Some(vfs),
+                Some(stdlib_vfs),
+                Some(parsed),
+                false,
+                test_mode,
+                Some(&mut loader_cache),
+                Some(&mut resource_summary_value_cache),
+                None,
+                None,
+                Some(&mut stage_timings),
+                None,
+                None,
+                None,
+                None,
+            ) {
+                Ok(compiled) => compiled,
+                Err(msg) => {
+                    *self.last_compile_stage_timing_status.borrow_mut() = "failed";
+                    *self.last_compile_stage_timings.borrow_mut() =
+                        Some(stage_timings.to_json_array());
+                    return Err(JsValue::from_str(&msg));
+                }
             }
         };
         *self.last_compile_stage_timing_status.borrow_mut() = "compiled";

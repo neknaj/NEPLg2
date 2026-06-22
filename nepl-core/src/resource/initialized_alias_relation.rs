@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use super::initialized_alias_relation_op::{relation_implication, relation_reverse};
 use super::model::{Place, ResourceI32RelationOp};
+use super::place_utils::push_unique_place;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct I32RelationFact {
@@ -28,6 +29,15 @@ impl I32RelationFacts {
                 .iter()
                 .any(|alias| alias == &fact.left || alias == &fact.right)
         })
+    }
+
+    pub(super) fn condition_candidate_places(&self) -> Vec<Place> {
+        let mut out = Vec::new();
+        for fact in &self.relations {
+            push_unique_place(&mut out, &fact.left);
+            push_unique_place(&mut out, &fact.right);
+        }
+        out
     }
 
     pub(super) fn add_relation(&mut self, left: &Place, op: ResourceI32RelationOp, right: &Place) {

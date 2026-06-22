@@ -139,6 +139,43 @@ fn owner_obligation_check_replays_without_rerunning_checker() {
     );
 }
 
+/// stable entry 収集を止めても、owner obligation の同一 session pass snapshot は残す。
+/// Resource proof artifact 用の保存は行わず、未変更関数だけを pass として replay する。
+#[test]
+fn owner_obligation_check_pass_snapshot_replays_with_stable_entries_disabled() {
+    let types = TypeCtx::new();
+    let module = single_function_module(raw_alias_function(&types, "raw_alias", false));
+    let context = test_context(11);
+    let mut cache = ResourceSummaryValueCache::new();
+    cache.disable_stable_entry_collection();
+
+    let first =
+        check_resource_owner_obligations_with_summary_cache(&module, &types, &mut cache, &context);
+    let second =
+        check_resource_owner_obligations_with_summary_cache(&module, &types, &mut cache, &context);
+
+    assert_eq!(first.diagnostics, second.diagnostics);
+    assert_eq!(first.deferred, second.deferred);
+    assert_eq!(first.functions.len(), second.functions.len());
+    assert!(second.functions[0].final_owners.is_empty());
+    let stats = cache.stats();
+    assert_eq!(stats.resource_owner_obligation_function_checks, 1);
+    assert_eq!(
+        stats.resource_summary_value_owner_obligation_check_stores,
+        0
+    );
+    assert_eq!(
+        stats.resource_summary_value_owner_obligation_check_plan_skip_functions,
+        1
+    );
+    assert_eq!(stats.resource_summary_value_lazy_pass_hits, 1);
+    assert_eq!(stats.resource_owner_return_summary_recomputations, 1);
+    assert_eq!(
+        stats.resource_owner_return_summary_pass_cache_skip_functions,
+        1
+    );
+}
+
 /// scalar-only の pure 関数は owner obligation が観測する資源を持たない。
 /// cache が有効な compile でも stable key probe や checker 起動へ進めず、no-cache 経路と
 /// 同じ空の検査結果を返す。

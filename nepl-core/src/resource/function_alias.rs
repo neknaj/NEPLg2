@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use crate::function_identity::FunctionValueIdentity;
 
 use super::model::{AggregateKind, Place, ResourceFunctionValueKind};
-use super::place_utils::construct_aggregate_field_place;
+use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct FunctionAliasTable {
@@ -111,6 +111,11 @@ impl FunctionAliasTable {
 
     pub(super) fn clear_alias(&mut self, place: &Place) {
         self.entries.retain(|entry| entry.place != *place);
+    }
+
+    pub(super) fn clear_alias_prefix(&mut self, place: &Place) {
+        self.entries
+            .retain(|entry| place_suffix_after_prefix(&entry.place, place).is_none());
     }
 
     fn union_functions<I>(&mut self, place: &Place, functions: I)

@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::model::Place;
-use super::place_utils::{place_suffix_after_prefix, replace_place_prefix};
+use super::place_utils::{place_suffix_after_prefix, push_unique_place, replace_place_prefix};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct I32ScaleFact {
@@ -77,6 +77,14 @@ impl I32ScaleFacts {
         aliases
             .iter()
             .any(|alias| self.facts.iter().any(|fact| fact.target == *alias))
+    }
+
+    pub(super) fn condition_candidate_places(&self) -> Vec<Place> {
+        let mut out = Vec::new();
+        for fact in &self.facts {
+            push_unique_place(&mut out, &fact.target);
+        }
+        out
     }
 
     pub(super) fn facts_with_replaced_prefix(&self, source: &Place, target: &Place) -> Self {

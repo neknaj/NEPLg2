@@ -4874,6 +4874,62 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mm.json
 ```
 
+## Phase F5mn: render2d compositor tile RLE write step bridge boundary
+
+目的:
+
+- F5mm write cursor owner を authority とし、既存 lower `gui_rgba8888_row_tile_rle_write_cursor_step_one` を compositor metadata 付きで接続する。
+- lower write step を 1 回だけ呼び、success では lower write step status と copied metadata 付き next write cursor owner を `GuiRgba8888CompositorTileRleWriteStep` として束ねる。
+- lower write step error は original write cursor owner を返す契約なので、kind / category を読んだ後で lower write cursor owner を metadata 付き F5mm write cursor owner へ戻す。
+- この phase では write step に留め、encoded seal、packet、packet record、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport、fallback / silent no-op へ進まない。no encoded / packet / present の compositor tile RLE write step bridge で止める。
+
+plan review:
+
+- Ramanujan plan review は `PLAN_APPROVED`。
+- lower write step errors retain the write cursor owner なので、recovered lower owner を copied metadata で包む recovery shape が正しいと確認された。
+- success `step_finish_owner` と error `step_error_finish_owner` はどちらも `GuiRgba8888CompositorTileRleWriteCursorOwner` を返すべきと確認された。
+- error wrapper は lower kind / category を `gui_rgba8888_row_tile_rle_write_step_error_finish_owner` より前に読む。
+- `gui_rgba8888_compositor_tile_rle_write_step_one` は metadata を owner から Copy してから lower owner を取り出し、lower `gui_rgba8888_row_tile_rle_write_cursor_step_one` を 1 回だけ呼ぶ。
+- `step_finish_payload/free` と `step_error_finish_payload/free` は F5mm 経由の recovery / abort helper であり、encoded completion ではない。
+- source policy で `write_step_finish_entry`、`write_step_error_finish_entry` を含む finish_entry は作らないこと、encoded seal / packet / std present / raw byte API / host / platform / fallback 禁止、lower step status / finish-owner / error accessor と single lower step call だけを許すことを検査する。
+- focused doctest は value-only facade / status / wrapped lower error kind を default WASM runner で実行し、public owner chain の lower one-step / completion / progress / metadata / recovery / free は source policy fixture として固定する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_write_step.nepl` を追加する。
+- `GuiRgba8888CompositorTileRleWriteStepErrorKind` を追加する。
+- `GuiRgba8888CompositorTileRleWriteStep`、`GuiRgba8888CompositorTileRleWriteStepError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。
+- `gui_rgba8888_compositor_tile_rle_write_step_one` は metadata を write cursor owner から Copy してから lower write cursor owner を取り出し、lower write step を 1 回だけ呼ぶ。
+- success は lower write step status と lower next write cursor owner を metadata 付き write cursor owner へ戻し、metadata / total run count / encoded byte count / written run count / written byte count / cursor next pixel index / cursor pixel count accessor を提供する。
+- lower write step error は lower kind / category を読んでから lower write cursor owner を取り出し、metadata 付き F5mm write cursor owner を持つ step error に正規化する。lower write step error を公開 recovery payload にしない。
+- step と step error の finish owner、finish payload、free helper を追加する。finish payload / free は F5mm write cursor owner finish payload / free に委譲する。
+- `finish_entry` は作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE write step を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md` を追加し、default runtime smoke で facade / status / wrapped lower error kind を固定し、source policy fixture で one-run lower write step、completion status、progress、metadata、finish payload recovery、step error write cursor recovery、write cursor free delegation、no encoded / packet / present / fallback label を固定する。malformed write cursor owner 直 constructor 禁止 compile_fail も追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mn source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Ramanujan approval、facade export、typed lower write-step error variant、status + write cursor owner success、write cursor owner recovery error、owner-bearing success / error no Clone / Copy、lower write step exact once、metadata-before-lower-owner-consume、lower error kind/category before write cursor owner recovery、lower write step error を公開 recovery payload にしないこと、success / error finish payload の F5mm write cursor owner finish payload 委譲、success / error free の F5mm write cursor owner free 委譲、`finish_entry` 禁止、encoded seal / packet / raw byte access / std present / host / platform / fallback 禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5mm write cursor regression、F5cj/F5ck row tile RLE storage regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。public owner chain 全体の Resource check は default WASM runner で timeout するため、巨大な E2E fixture を長時間 timeout で通すのではなく、owner-backed contract は source policy と軽量 runtime smoke に分割して検査する。
+- implementation review で metadata-after-move、owner loss、lower write step error exposure、write cursor owner recovery loss、encoded/packet/present leakage、`write_step_finish_entry` / `write_step_error_finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_f5mn.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_write_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_module_f5mn.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_cursor_f5mn_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5mn_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mn.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
@@ -6182,26 +6238,27 @@ git diff --check
 目的:
 
 - F5cj の encoded storage owner を exact run writer cursor へ変換する。
-- storage への 12 byte record write が全て成功した後でだけ lower RLE cursor を進める。
-- store / projection / advance failure では owner-bearing error により original cursor、storage、unchanged written counts を回収できるようにする。
+- storage への 12 byte record write が全て成功した後でだけ lower RLE next cursor を committed cursor として返す。
+- store / projection failure では owner-bearing error により original cursor、storage、unchanged written counts を回収できるようにする。
 - encoded byte reader、payload byte reader、host present、tile transport ABI、platform API、fallback には進まない。
 
 plan review:
 
 - Descartes plan review 1 は `PLAN_BLOCKED`。当初案では consuming `cursor_next_run` を write 前に呼ぶため、store failure 時に pre-step cursor を正しく返せないと指摘された。
-- revised plan では `row_tile_rle` に borrowed `cursor_peek_run` と consuming `cursor_advance_by_run` を追加し、writer は peek、write、advance の順にする。
-- Descartes revised plan review は `PLAN_APPROVED`。write-success-before-advance、unchanged written counts、uncommitted slot、reader 禁止、little-endian layout、completion 明示を source policy と docs に固定する条件で承認された。
+- revised plan では `row_tile_rle` に borrowed `cursor_peek_run` と consuming `cursor_advance_by_run` を追加し、writer は peek、write、advance の順にする案で承認された。
+- F5mn performance fix では、Resource checker の initialized-move path explosion を避けるため、writer path を `cursor_next_run`、12 byte write、`step_recover_start_cursor` による failure recovery へ置き換えた。external contract は write failure で original cursor / unchanged written counts を返す点を維持する。
 
 実装:
 
 - `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_cursor_peek_run` を追加する。
 - `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を追加する。
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` に `gui_rgba8888_row_tile_rle_step_recover_start_cursor` を追加し、writer が consuming `cursor_next_run` 後の write failure で pre-run cursor を復元できるようにする。
 - `advance_by_run` 用に `RunPixelOffsetMismatch`、`RunPixelCountInvalid`、`RunEndOutOfBounds` を lower step error kind に追加する。
 - `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` に `GuiRgba8888RowTileRleWriteCursorOwner`、start error、step status、step error を追加する。
 - `gui_rgba8888_row_tile_rle_write_cursor_start` は encoded byte count / total run count / `total_run_count * 12` を再検査し、成功時だけ storage owner を writer owner へ移す。
-- `gui_rgba8888_row_tile_rle_write_cursor_step_one` は stored counts / written counts、completion、`written_byte_count + 12`、`written_run_count + 1` を検査し、`peek_run`、12 byte write、`advance_by_run` の順に進む。
-- record layout は `pixel_offset i32 LE`、`pixel_count i32 LE`、`Rgba8888 r,g,b,a` とする。
-- `region_ptr_at` と `store_u8` は byte projection / byte store helper に閉じ込める。
+- `gui_rgba8888_row_tile_rle_write_cursor_step_one` は stored counts / written counts、completion、`written_byte_count + 12`、`written_run_count + 1` を検査し、`cursor_next_run`、12 byte write、success 時の next cursor commit、failure 時の `step_recover_start_cursor` による original cursor recovery の順に進む。
+- record layout は `pixel_offset i32 LE`、`pixel_count i32 LE`、`Rgba8888 r,g,b,a` とし、checked base pointer projection 後に `pixel_offset`、`pixel_count`、packed RGBA word の 3 個の i32 word として `store_i32_3_u8` に集約する。
+- `region_ptr_at` と raw `store_i32` は byte projection / 3-word bulk store helper に閉じ込める。
 - `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` は timeout を避けるため import smoke と source policy labels に絞る。writer の詳細契約は source policy で固定する。
 - `nodesrc/test_web_gui_font_rendering_contract.js` に F5ck source policy を追加する。
 - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
@@ -6209,7 +6266,7 @@ plan review:
 完了条件:
 
 - import smoke、row tile RLE storage module doctest、source policy、`git diff --check` が通る。
-- implementation review で consuming `cursor_next_run` を使わず、write helper だけが raw byte storage に触れ、reader / payload read / host present / platform / fallback へ進んでいないことを確認する。
+- implementation review で write helper だけが raw byte storage に触れ、write failure で `step_recover_start_cursor` により original cursor / unchanged counts を返し、reader / direct payload read / host present / platform / fallback へ進んでいないことを確認する。
 
 検証:
 

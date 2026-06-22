@@ -17,8 +17,10 @@ use super::initialized_alias_flow_apply::{
 use super::initialized_scalar_flow::{
     apply_direct_call_i32_scalar_summary, I32ScalarReturnSummaryIndex,
 };
-use super::model::{EffectOp, RawMemoryOp, ResourceExprKind, ResourceOp};
-use super::place_utils::{match_bind_payload_place, raw_memory_cell_place, reference_target_place};
+use super::model::{EffectOp, Place, RawMemoryOp, ResourceExprKind, ResourceOp};
+use super::place_utils::{
+    match_bind_payload_place, places_overlap, raw_memory_cell_place, reference_target_place,
+};
 
 pub(super) fn propagate_i32_scalar_ops(
     raw_aliases: &mut RawCellAddressAliases,
@@ -323,12 +325,27 @@ pub(super) fn propagate_i32_scalar_op(
             let target = reference_target_place(output, source.ty);
             raw_aliases.copy_alias_if_tracked(source, &target);
         }
-        ResourceOp::Drop { place, .. } => raw_aliases.clear(place),
+        ResourceOp::Drop { place, .. } => {
+            raw_aliases.clear(place);
+            function_aliases.clear_alias_prefix(place);
+        }
+        ResourceOp::EndScope { locals, result, .. } => {
+            for local in locals {
+                if end_scope_result_preserves_local(local, result.as_ref()) {
+                    continue;
+                }
+                raw_aliases.clear(local);
+                function_aliases.clear_alias_prefix(local);
+            }
+        }
         ResourceOp::CallEffect { .. }
-        | ResourceOp::EndScope { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
         | ResourceOp::CollectionSlotTransformRange { .. } => {}
     }
+}
+
+fn end_scope_result_preserves_local(local: &Place, result: Option<&Place>) -> bool {
+    result.is_some_and(|result| places_overlap(local, result))
 }

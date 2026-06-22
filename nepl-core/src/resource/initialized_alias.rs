@@ -290,6 +290,10 @@ impl RawCellAddressAliases {
             .any(|group| group.iter().any(|alias| alias == place))
     }
 
+    pub(super) fn has_nontrivial_raw_address_alias_group(&self) -> bool {
+        self.groups.iter().any(|group| group.len() > 1)
+    }
+
     pub(super) fn value_is_known_raw_address(&self, place: &Place) -> bool {
         self.contains_exact(place) || self.aliases_for(place).len() > 1
     }
@@ -412,6 +416,54 @@ impl RawCellAddressAliases {
             || self.i32_relations.has_facts()
             || self.i32_scales.has_facts()
             || self.i32_offsets.has_i32_constant_endpoint()
+    }
+
+    pub(super) fn i32_value_condition_candidate_places(&self) -> Vec<Place> {
+        let mut out = Vec::new();
+        for place in self.i32_facts.condition_candidate_places() {
+            push_unique_place(&mut out, &place);
+        }
+        for place in self.i32_relations.condition_candidate_places() {
+            push_unique_place(&mut out, &place);
+        }
+        for place in self.i32_offsets.condition_candidate_places() {
+            push_unique_place(&mut out, &place);
+        }
+        for place in self.i32_scales.condition_candidate_places() {
+            push_unique_place(&mut out, &place);
+        }
+        out
+    }
+
+    pub(super) fn scalar_alias_candidate_places_under_prefix_linked_to_prefix(
+        &self,
+        source_prefix: &Place,
+        target_prefix: &Place,
+    ) -> Vec<Place> {
+        let mut out = Vec::new();
+        for alias in self.projected_aliases_between(source_prefix, target_prefix) {
+            push_unique_place(
+                &mut out,
+                &place_with_suffix(source_prefix, &alias.left_projection, alias.left_ty),
+            );
+        }
+        for (place, origin) in self.scalar_origins.origin_pairs() {
+            push_scalar_origin_linked_candidate(
+                &mut out,
+                &place,
+                &origin,
+                source_prefix,
+                target_prefix,
+            );
+            push_scalar_origin_linked_candidate(
+                &mut out,
+                &origin,
+                &place,
+                source_prefix,
+                target_prefix,
+            );
+        }
+        out
     }
 
     pub(super) fn can_prove_i32_value_condition_for_value_with_context(
@@ -650,5 +702,19 @@ impl RawCellAddressAliases {
             retained.push(merged);
         }
         self.groups = retained;
+    }
+}
+
+fn push_scalar_origin_linked_candidate(
+    out: &mut Vec<Place>,
+    source: &Place,
+    target: &Place,
+    source_prefix: &Place,
+    target_prefix: &Place,
+) {
+    if place_suffix_after_prefix(source, source_prefix).is_some()
+        && place_suffix_after_prefix(target, target_prefix).is_some()
+    {
+        push_unique_place(out, source);
     }
 }

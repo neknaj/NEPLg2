@@ -188,7 +188,7 @@ fn check_resource_initialized_moves_inner(
         summary_value_cache_context,
     ) {
         (Some(cache), Some(context))
-            if cache.stable_entry_collection_enabled()
+            if cache.same_session_pass_snapshot_collection_enabled()
                 || cache.has_initialized_function_check_pass_snapshot() =>
         {
             Some(cache.begin_initialized_function_check_pass_plan(
@@ -309,7 +309,9 @@ fn check_resource_initialized_moves_inner(
             function_has_diagnostics,
             function_op_count,
         );
-        if recorded_cache_pass {
+        let checked_pass_can_be_snapshotted =
+            !function_has_diagnostics && function_check.auto_drop_points.is_empty();
+        if recorded_cache_pass || checked_pass_can_be_snapshotted {
             if let Some(plan) = final_check_pass_plan.as_mut() {
                 plan.record_pass(function_index, function_check.deferred);
             }
