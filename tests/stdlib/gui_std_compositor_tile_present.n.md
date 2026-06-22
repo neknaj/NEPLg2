@@ -10,6 +10,7 @@ source policy labels:
 - std_compositor_tile_rle_present_frame_metadata_validation_ok
 - std_compositor_tile_rle_present_frame_owner_recovery_ok
 - std_compositor_tile_rle_present_frame_lower_present_recovery_ok
+- std_compositor_tile_rle_present_frame_rewrap_helper_ok
 - std_compositor_tile_rle_present_frame_free_delegates_packet_ok
 - std_compositor_tile_rle_present_frame_no_cursor_record_host_platform_fallback
 
@@ -65,6 +66,7 @@ neplg2:test[skip]
 // std_compositor_tile_rle_present_frame_metadata_validation_ok
 // std_compositor_tile_rle_present_frame_owner_recovery_ok
 // std_compositor_tile_rle_present_frame_lower_present_recovery_ok
+// std_compositor_tile_rle_present_frame_rewrap_helper_ok
 // std_compositor_tile_rle_present_frame_free_delegates_packet_ok
 // std_compositor_tile_rle_present_frame_no_cursor_record_host_platform_fallback
 ```

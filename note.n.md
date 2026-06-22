@@ -81210,3 +81210,29 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_reader_traversal_output_witness.json`
 - checked JSON: `output/playground_editor_selfhost_reader_traversal_output_witness.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 GUI std compositor present run cursor checkpoint
+
+- `stdlib/std/gui/compositor_tile_present.nepl` に、lower present owner と compositor metadata を metadata 付き F5mq present-frame owner へ戻す `gui_rgba8888_compositor_tile_rle_present_frame_rewrap` を追加した。
+- rewrap helper は lower present descriptor frame id と metadata frame id を照合し、不一致は `GuiRgba8888CompositorTileRlePresentFrameRewrapError` として owner-bearing に返す。これにより後続 module が F5mq present owner の direct constructor に依存せず、finish packet / free 可能な recovery owner を維持できる。
+- `stdlib/std/gui/compositor_tile_present_run_cursor.nepl` を追加し、F5mq present-frame owner を lower F5co `gui_rgba8888_row_tile_rle_present_run_cursor_start` へ 1 回だけ渡す bridge を接続した。
+- F5mr owner は lower run cursor owner と copied compositor metadata を保持する。metadata、next record index、total run count は non-consuming accessor で読めるが、run cursor step、command cursor、packet record reader、host / platform には進まない。
+- lower F5co start error では lower kind / category を読んでから lower present owner を回収し、F5mq rewrap helper で metadata 付き present-frame owner へ戻す。rewrap failure は `PresentFrameRewrapFailed` として F5mr start error に保持する。
+- `owner_finish_present_frame` は lower run cursor finish present 後に F5mq rewrap helper の `Result` を返す。`start_error_free` は F5mq present owner free、`owner_free` は lower run cursor owner free に委譲し、lower encoded finish kind を compositor encoded finish kind に包む。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Einstein の design review は初回 `PLAN_BLOCKED`。F5mq present owner direct constructor を別 module から使う blocker への対応として F5mq rewrap helper を追加し、F5mr は helper 経由だけで復元する方針へ修正した。
+- Herschel の implementation review は初回 `PLAN_BLOCKED`。blocker は `note.n.md` 未更新のみで、実装本体については F5mq rewrap helper 経由の復元、metadata-before-owner-move、lower kind/category before recovery、free error domain、command / step / record / raw / host / platform / fallback 非進出に blocker はないと確認された。指摘に従い、この checkpoint 記録を追記した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_cursor_f5mr.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_run_cursor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_run_cursor_module_f5mr.json -j 1`。18/18。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present.n.md --no-tree -o tmp_gui_std_compositor_tile_present_f5mr_regression.json -j 1`。3/3。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5mr_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mr.json`
+- checked JSON: `tmp-playground-editor-tests-f5mr.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
