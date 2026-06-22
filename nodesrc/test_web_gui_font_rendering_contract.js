@@ -191,12 +191,16 @@ const stdGuiCompositorTilePresentHostImport = read("stdlib/std/gui/compositor_ti
 const stdGuiCompositorTilePresentHostImportImpl = withoutComments(stdGuiCompositorTilePresentHostImport);
 const stdGuiCompositorTilePresentDispatch = read("stdlib/std/gui/compositor_tile_present_dispatch.nepl");
 const stdGuiCompositorTilePresentDispatchImpl = withoutComments(stdGuiCompositorTilePresentDispatch);
+const stdGuiCompositorTilePresentDispatchLoop = read("stdlib/std/gui/compositor_tile_present_dispatch_loop.nepl");
+const stdGuiCompositorTilePresentDispatchLoopImpl = withoutComments(stdGuiCompositorTilePresentDispatchLoop);
 const stdGuiCompositorTilePresentHostExecution = read("stdlib/std/gui/compositor_tile_present_host_execution.nepl");
 const stdGuiCompositorTilePresentHostExecutionImpl = withoutComments(stdGuiCompositorTilePresentHostExecution);
 const stdGuiCompositorTilePresentHostExecutionReport = read("stdlib/std/gui/compositor_tile_present_host_execution_report.nepl");
 const stdGuiCompositorTilePresentHostExecutionReportImpl = withoutComments(stdGuiCompositorTilePresentHostExecutionReport);
 const stdGuiCompositorTilePresentHostExecutor = read("stdlib/std/gui/compositor_tile_present_host_executor.nepl");
 const stdGuiCompositorTilePresentHostExecutorImpl = withoutComments(stdGuiCompositorTilePresentHostExecutor);
+const stdGuiCompositorTilePresentHostReportLoopBridge = read("stdlib/std/gui/compositor_tile_present_host_report_loop_bridge.nepl");
+const stdGuiCompositorTilePresentHostReportLoopBridgeImpl = withoutComments(stdGuiCompositorTilePresentHostReportLoopBridge);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -535,6 +539,8 @@ const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_prese
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
 const guiStdTilePresentDispatchLoopTests = read("tests/stdlib/gui_std_tile_present_dispatch_loop.n.md");
+const guiStdCompositorTilePresentDispatchLoopTests = read("tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md");
+const guiStdCompositorTilePresentHostReportLoopBridgeTests = read("tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -30597,6 +30603,198 @@ assert(
         guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_failed_report_preserved_ok") &&
         guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_no_f5my_f5mw_f5mv_no_lower_host_no_platform_no_fallback"),
     "F5nb std compositor tile present host-executor focused doctest must cover validation and source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5nc") &&
+            doc.includes("std layer compositor tile RLE present dispatch loop outcome boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest") &&
+            doc.includes("complete_request consumes pending") &&
+            doc.includes("F5my dispatch step only") &&
+            doc.includes("HostImportExecutionFailed") &&
+            doc.includes("fallback"),
+        `F5nc ${name} must document compositor dispatch loop one-shot pending completion and no fallback policy`,
+    );
+    assert(
+        doc.includes("F5nd") &&
+            doc.includes("std layer compositor tile RLE present host report loop bridge boundary") &&
+            doc.includes("validation before completion") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError") &&
+            doc.includes("F5mz action decoding") &&
+            doc.includes("F5nb validate_report_for_action") &&
+            doc.includes("F5na report_outcome") &&
+            doc.includes("fallback"),
+        `F5nd ${name} must document compositor host report loop bridge validation-before-completion and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5nc") &&
+        implementationPlan.includes("Dewey") &&
+        implementationPlan.includes("one-shot pending") &&
+        implementationPlan.includes("F5my dispatch step only"),
+    "F5nc implementation plan must record subagent review and one-shot pending policy",
+);
+assert(
+    implementationPlan.includes("Phase F5nd") &&
+        implementationPlan.includes("validation before completion") &&
+        implementationPlan.includes("F5mz") &&
+        implementationPlan.includes("F5na") &&
+        implementationPlan.includes("F5nb"),
+    "F5nd implementation plan must record report bridge validation/completion order",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_dispatch_loop" as *'), "std/gui facade must export F5nc compositor dispatch loop boundary");
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_report_loop_bridge" as *'), "std/gui facade must export F5nd compositor host report loop bridge boundary");
+assert(
+    stdGuiCompositorTilePresentDispatchLoop.includes("pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopState:") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("dispatch %GuiRgba8888CompositorTileRlePresentDispatchState") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest:") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("previous %GuiRgba8888CompositorTileRlePresentDispatchLoopState") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("next %GuiRgba8888CompositorTileRlePresentDispatchLoopState") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("request %GuiRgba8888CompositorTileRlePresentHostImportRequest") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase"),
+    "std/gui/compositor_tile_present_dispatch_loop F5nc must wrap F5my state and keep previous/next/request/post phase in pending",
+);
+assert(
+    stdGuiCompositorTilePresentDispatchLoop.includes("pub enum GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion:") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("Continue %GuiRgba8888CompositorTileRlePresentDispatchLoopState") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("Yield %GuiRgba8888CompositorTileRlePresentDispatchLoopState") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("Completed %GuiRgba8888CompositorTileRlePresentDispatchLoopState") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("pub enum GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind:") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("DispatchFailed %GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("HostImportExecutionFailed %GuiError") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopError:") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("category %Option GuiError") &&
+        stdGuiCompositorTilePresentDispatchLoop.includes("state %GuiRgba8888CompositorTileRlePresentDispatchLoopState"),
+    "std/gui/compositor_tile_present_dispatch_loop F5nc must expose completion and typed rollback errors",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentDispatchLoopImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest\b|impl (?:Clone|Copy) for GuiRgba8888CompositorTileRlePresentDispatchLoopStep\b/,
+    "std/gui/compositor_tile_present_dispatch_loop F5nc pending and step must be one-shot owner values without Clone/Copy",
+);
+assertMatch(
+    stdGuiCompositorTilePresentDispatchLoopImpl,
+    /#import "std\/gui\/compositor_tile_present_dispatch" as \*/,
+    "std/gui/compositor_tile_present_dispatch_loop F5nc must depend on F5my dispatch boundary",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentDispatchLoopImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|\bcompositor_tile_present_host_execution\b|\bcompositor_tile_present_host_executor\b|\bcompositor_tile_present_host_execution_report\b|\bcompositor_tile_present_host_report_loop_bridge\b|\bcompositor_tile_present_virtual_executor\b|\btile_present_host_execution\b|\btile_present_host_executor\b|\btile_present_host_execution_report\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_dispatch_loop F5nc must not call F5mw/F5mx/F5mv directly, reuse lower row-tile paths, use raw/platform APIs, allocate Vec, queue, schedule timers, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentDispatchLoopImpl, "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_record"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch &state",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_record host policy dispatch record",
+        "Result::Err lower_error:",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_kind &lower_error",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_category_value &lower_error",
+        "GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind::DispatchFailed lower_kind",
+        "Result::Ok dispatch_step:",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_state &dispatch_step",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_output &dispatch_step",
+        "GuiRgba8888CompositorTileRlePresentDispatchOutput::RequestReady ready:",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request &ready",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_post_phase &ready",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request_new state next request post_phase",
+    ],
+    "std/gui/compositor_tile_present_dispatch_loop F5nc step_record must call F5my once and preserve previous/next/request/post phase",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentDispatchLoopImpl, "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request"),
+    [
+        "Result::Err host_error:",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous &pending",
+        "GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind::HostImportExecutionFailed host_error",
+        "Result::Ok _unit:",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_next &pending",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_post_phase &pending",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_completion_from_post_phase post_phase next",
+    ],
+    "std/gui/compositor_tile_present_dispatch_loop F5nc complete_request must consume pending and map host outcome exactly",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentDispatchLoopImpl, "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_pending"),
+    [
+        'field::get step "pending"',
+    ],
+    "std/gui/compositor_tile_present_dispatch_loop F5nc step_pending must move pending from owned step",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentDispatchLoopImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_dispatch_loop F5nc implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentDispatchLoopTests.includes("std_compositor_tile_rle_present_dispatch_loop_facade_ok") &&
+        guiStdCompositorTilePresentDispatchLoopTests.includes("std_compositor_tile_rle_present_dispatch_loop_pending_owner_ok") &&
+        guiStdCompositorTilePresentDispatchLoopTests.includes("std_compositor_tile_rle_present_dispatch_loop_f5my_only_ok") &&
+        guiStdCompositorTilePresentDispatchLoopTests.includes("std_compositor_tile_rle_present_dispatch_loop_complete_request_outcome_ok") &&
+        guiStdCompositorTilePresentDispatchLoopTests.includes("std_compositor_tile_rle_present_dispatch_loop_failure_preserves_previous_state_ok") &&
+        guiStdCompositorTilePresentDispatchLoopTests.includes("std_compositor_tile_rle_present_dispatch_loop_no_lower_no_platform_no_fallback"),
+    "F5nc std compositor tile present dispatch-loop focused doctest must cover one-shot pending source-policy labels",
+);
+assert(
+    stdGuiCompositorTilePresentHostReportLoopBridge.includes("pub enum GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind:") &&
+        stdGuiCompositorTilePresentHostReportLoopBridge.includes("ExecutorValidationFailed %GuiRgba8888CompositorTileRlePresentHostExecutorError") &&
+        stdGuiCompositorTilePresentHostReportLoopBridge.includes("LoopCompletionFailed %GuiRgba8888CompositorTileRlePresentDispatchLoopError") &&
+        stdGuiCompositorTilePresentHostReportLoopBridge.includes("pub struct GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError:") &&
+        stdGuiCompositorTilePresentHostReportLoopBridge.includes("category %Option GuiError") &&
+        stdGuiCompositorTilePresentHostReportLoopBridge.includes("state %GuiRgba8888CompositorTileRlePresentDispatchLoopState"),
+    "std/gui/compositor_tile_present_host_report_loop_bridge F5nd must expose typed validation/completion errors with recovery state",
+);
+for (const [pattern, message] of [
+    [/#import "std\/gui\/compositor_tile_present_dispatch_loop" as \*/, "F5nd must consume F5nc dispatch loop pending/completion"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution" as \*/, "F5nd must derive expected F5mz action"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution_report" as \*/, "F5nd must consume F5na reports"],
+    [/#import "std\/gui\/compositor_tile_present_host_executor" as \*/, "F5nd must validate through F5nb executor validation"],
+]) {
+    assertMatch(stdGuiCompositorTilePresentHostReportLoopBridgeImpl, pattern, `std/gui/compositor_tile_present_host_report_loop_bridge ${message}`);
+}
+assertNoMatch(
+    stdGuiCompositorTilePresentHostReportLoopBridgeImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain|host_import)" as \*|\bgui_rgba8888_compositor_tile_rle_present_dispatch_(?!loop_)[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_schedule_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|\bGuiHost\b|\bstd\/gui\/host\b|\bcompositor_tile_present_virtual_executor\b|\btile_present_host_execution\b|\btile_present_host_executor\b|\btile_present_host_execution_report\b|\btile_present_host_report_loop_bridge\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatforms\/gui\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_report_loop_bridge F5nd must not call F5my/F5mw/F5mx/F5mv directly, reuse lower row-tile paths, use raw/platform APIs, allocate Vec, queue, schedule timers, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostReportLoopBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous &pending",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request &pending",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_action &request",
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action support expected report",
+        "Result::Err lower:",
+        "gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_validation_error lower previous",
+        "Result::Ok validated:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_report_outcome &validated",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request pending outcome",
+    ],
+    "std/gui/compositor_tile_present_host_report_loop_bridge F5nd must validate before completion and pass F5na outcome only after F5nb accepts the report",
+);
+assertNoMatch(
+    functionSlice(stdGuiCompositorTilePresentHostReportLoopBridgeImpl, "gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_validation_error"),
+    /complete_request/,
+    "std/gui/compositor_tile_present_host_report_loop_bridge F5nd validation errors must not complete pending requests",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostReportLoopBridgeImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_report_loop_bridge F5nd implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostReportLoopBridgeTests.includes("std_compositor_tile_rle_present_host_report_loop_bridge_facade_ok") &&
+        guiStdCompositorTilePresentHostReportLoopBridgeTests.includes("std_compositor_tile_rle_present_host_report_loop_bridge_f5nc_f5mz_f5na_f5nb_ok") &&
+        guiStdCompositorTilePresentHostReportLoopBridgeTests.includes("std_compositor_tile_rle_present_host_report_loop_bridge_validation_before_completion_ok") &&
+        guiStdCompositorTilePresentHostReportLoopBridgeTests.includes("std_compositor_tile_rle_present_host_report_loop_bridge_failed_report_completion_error_ok") &&
+        guiStdCompositorTilePresentHostReportLoopBridgeTests.includes("std_compositor_tile_rle_present_host_report_loop_bridge_state_preserved_ok") &&
+        guiStdCompositorTilePresentHostReportLoopBridgeTests.includes("std_compositor_tile_rle_present_host_report_loop_bridge_no_f5my_f5mw_f5mx_f5mv_no_lower_no_platform_no_fallback"),
+    "F5nd std compositor tile present host-report-loop-bridge focused doctest must cover validation-before-completion source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

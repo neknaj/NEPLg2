@@ -1,0 +1,279 @@
+//: # std/gui/compositor_tile_present_dispatch_loop
+//: compositor tile RLE present request の dispatch loop outcome boundary
+//:
+//: ### [目的/もくてき]
+//: - F5my の scheduled dispatch request を、platform executor が 1 [回/かい]だけ[実行/じっこう]して[返/かえ]す outcome と[接続/せつぞく]します。
+//: - request [提出/ていしゅつ]前の previous state、成功後の next state、request、post phase を one-shot pending value に[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - `PendingRequest` は Clone / Copy を[実装/じっそう]しません。`complete_request` が value を[消費/しょうひ]し、同じ outcome の replay を[防/ふせ]ぎます。
+//: - host outcome が Err の[場合/ばあい]は previous state を[返/かえ]し、Ok の[場合/ばあい]だけ post phase に[従/したが]って next state を completion に[入/い]れます。
+//: - F5my dispatch step だけを authority とし、schedule / request construction の lower authority を[重複/じゅうふく]させません。
+//: - actual host import、platform API、queue、timer、scheduler、raw storage、Vec、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_dispatch_loop" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_dispatch" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+//: GuiRgba8888CompositorTileRlePresentDispatchLoopState: F5my dispatch state を loop state として[保持/ほじ]する
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopState:
+    dispatch %GuiRgba8888CompositorTileRlePresentDispatchState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchLoopState:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchLoopState \state:
+        *state
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchLoopState:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchLoopState \state:
+        state
+
+//: GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest: host outcome [待/ま]ち one-shot pending request
+//:
+//: previous と next の両方を[保持/ほじ]することで、host failure は rollback state、success は post phase に[応/おう]じた next state を[返/かえ]せます。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest:
+    previous %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    next %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    request %GuiRgba8888CompositorTileRlePresentHostImportRequest
+    post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase
+
+//: GuiRgba8888CompositorTileRlePresentDispatchLoopStep: request [提出/ていしゅつ]を[待/ま]つ loop step
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopStep:
+    pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest
+
+//: GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion: host outcome [反映/はんえい][後/ご]の loop completion
+//:
+//: post phase を Continue / Yield / Completed として[明示/めいじ]し、bool や raw code に[落/お]としません。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion:
+    Continue %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    Yield %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+    Completed %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \completion:
+        *completion
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \completion:
+        completion
+
+//: GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind: loop step / completion failure の[種類/しゅるい]
+//:
+//: dispatch failure と host execution failure を[分/わ]け、caller が retry / abort を[判断/はんだん]できるようにします。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind:
+    DispatchFailed %GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind
+    HostImportExecutionFailed %GuiError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentDispatchLoopError: category と rollback state を[持/も]つ typed error
+//:
+//: dispatch failure でも host execution failure でも、caller が[再開/さいかい]に使う loop state を[失/うしな]わないようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchLoopError:
+    kind %GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind
+    category %Option GuiError
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchLoopError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopError GuiRgba8888CompositorTileRlePresentDispatchLoopError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchLoopError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchLoopError GuiRgba8888CompositorTileRlePresentDispatchLoopError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new: F5my dispatch state を loop state に[包/つつ]む
+//:
+//: module [内部/ないぶ]の constructor です。public entry は `state_initial` または `state_resume_slice` を[使/つか]います。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new %fn GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentDispatchLoopState \dispatch:
+    GuiRgba8888CompositorTileRlePresentDispatchLoopState dispatch
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request_new: one-shot pending request を[作/つく]る
+//:
+//: previous / next / request / post phase を 1 つの owner value に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request_new %fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentHostImportRequest fn GuiRgba8888CompositorTileRlePresentDispatchPostPhase GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest \previous\next\request\post_phase:
+    GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest previous next request post_phase
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_new: pending request を step に[包/つつ]む
+//:
+//: `step_record` の成功 payload を[作/つく]る module [内部/ないぶ] helper です。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_new %fn GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchLoopStep \pending:
+    GuiRgba8888CompositorTileRlePresentDispatchLoopStep pending
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error: loop error payload を[作/つく]る
+//:
+//: kind、category、recovery state を[同/おな]じ形で[保存/ほぞん]するための module [内部/ないぶ] helper です。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error %fn GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchLoopError \kind\category\state:
+    GuiRgba8888CompositorTileRlePresentDispatchLoopError kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_completion_from_post_phase: post phase を completion enum に[写/うつ]す
+//:
+//: Continue / Yield / Completed を match で[網羅/もうら]し、raw code や bool へ[落/お]とさず next state を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_completion_from_post_phase %fn GuiRgba8888CompositorTileRlePresentDispatchPostPhase fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \post_phase\next:
+    match post_phase:
+        GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Continue:
+            GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Continue next
+        GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Yield:
+            GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Yield next
+        GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Completed:
+            GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion::Completed next
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_initial: initial loop state を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_initial %fn void GuiRgba8888CompositorTileRlePresentDispatchLoopState \void:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_state_initial
+    gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new dispatch
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_resume_slice: loop state の slice counter を reset する
+//:
+//: F5my の resume helper に[委譲/いじょう]し、dispatch loop が F5mw schedule internals を[直接/ちょくせつ][触/さわ]らないようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_resume_slice %fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchLoopState \state:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch &state
+    let resumed %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_state_resume_slice dispatch
+    gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new resumed
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch: wrapped F5my dispatch state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentDispatchState \state:
+    *field::get_ref state "dispatch"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_pending: step から pending request を[取/と]り[出/だ]す
+//:
+//: step は value として[消費/しょうひ]されます。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_pending %fn GuiRgba8888CompositorTileRlePresentDispatchLoopStep GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest \step:
+    field::get step "pending"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous: pending の rollback state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchLoopState \pending:
+    *field::get_ref pending "previous"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_next: pending の success state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_next %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchLoopState \pending:
+    *field::get_ref pending "next"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request: pending の host import request を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentHostImportRequest \pending:
+    *field::get_ref pending "request"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_post_phase: pending の post phase を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_post_phase %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentDispatchPostPhase \pending:
+    *field::get_ref pending "post_phase"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_kind: loop error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_kind %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopError GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_category_value: loop error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_category_value %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_state: loop error の recovery state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_state %fn &GuiRgba8888CompositorTileRlePresentDispatchLoopError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_record: request [提出/ていしゅつ][待/ま]ち pending value を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5my dispatch step だけを[呼/よ]び、F5mw / F5mx の authority をこの module で[重複/じゅうふく]させません。
+//: - success path は pending request を[返/かえ]し、actual executor は request を[実行/じっこう]した[後/あと]で `complete_request` に outcome を[渡/わた]します。
+//: - dispatch error は previous loop state を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_record %fn &GuiHost fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentDispatchLoopState fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentDispatchLoopStep GuiRgba8888CompositorTileRlePresentDispatchLoopError \host\policy\state\record:
+    let dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_dispatch &state
+    match gui_rgba8888_compositor_tile_rle_present_dispatch_step_record host policy dispatch record:
+        Result::Err lower_error:
+            let lower_kind %GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_kind &lower_error
+            let lower_category %Option GuiError gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_category_value &lower_error
+            let kind %GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind::DispatchFailed lower_kind
+            Result::Err gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error kind lower_category state
+        Result::Ok dispatch_step:
+            let next_dispatch %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_step_state &dispatch_step
+            let next %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_state_new next_dispatch
+            let output %GuiRgba8888CompositorTileRlePresentDispatchOutput gui_rgba8888_compositor_tile_rle_present_dispatch_step_output &dispatch_step
+            match output:
+                GuiRgba8888CompositorTileRlePresentDispatchOutput::RequestReady ready:
+                    let request %GuiRgba8888CompositorTileRlePresentHostImportRequest gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request &ready
+                    let post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_post_phase &ready
+                    let pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request_new state next request post_phase
+                    Result::Ok gui_rgba8888_compositor_tile_rle_present_dispatch_loop_step_new pending
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request: host outcome を 1 [回/かい]だけ loop state に[反映/はんえい]する
+//:
+//: [契約/けいやく]:
+//: - `pending` は value として[消費/しょうひ]され、caller は同じ request outcome を[再利用/さいりよう]できません。
+//: - host outcome が Err の[場合/ばあい]は previous state を error に[保持/ほじ]します。
+//: - host outcome が Ok の[場合/ばあい]だけ next state を Continue / Yield / Completed の enum に[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request %fn GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest fn Result unit GuiError Result GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiRgba8888CompositorTileRlePresentDispatchLoopError \pending\outcome:
+    match outcome:
+        Result::Err host_error:
+            let previous %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous &pending
+            let kind %GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind::HostImportExecutionFailed host_error
+            Result::Err gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error kind Option::Some host_error previous
+        Result::Ok _unit:
+            let next %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_next &pending
+            let post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_post_phase &pending
+            Result::Ok gui_rgba8888_compositor_tile_rle_present_dispatch_loop_completion_from_post_phase post_phase next
