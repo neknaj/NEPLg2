@@ -15922,30 +15922,43 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_from_
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 
-//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_from_body_root_result: resolver 済み body root から production origin の source output を[作/つく]る
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_body_root_result: resolver 済み body root から producer-owned source owner を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - direct HIR reader source owner をそのまま production origin にせず、operation projection、unified event split、collector-owned source table まで通した owner を output envelope に束ねます。
+//: - request context と resolver 済み body root を保持したまま、reader source を producer-owned source table に merge し、operation projection、unified event split、collector-owned source table まで通した owner を返します。
 //:
 //: [契約/けいやく]:
-//: - coverage authority は resolver が返した `body_root` と同じ context から作ります。
-//: - HIR reader source owner は `actual_traversal_body_reader_output_from_context_sources_result` が消費し、collector output source owner だけが output に入ります。
+//: - `body_root` は caller が resolver lookup で得た値だけを受け取ります。この helper は request context から body root を再 lookup しません。
+//: - reader source owner は producer merge helper を経由し、merge 後の source owner だけを event split / collector output へ渡します。
+//: - validation failure では source owner を必ず閉じます。
 //: - GraphInput、request-evidence gate、effect mask、backend bytes、sealed representation、artifact key は作りません。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_from_body_root_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId Result SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \module\context\body_root:
-    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
-    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result module context body_root:
-        Result::Ok reader_sources:
-            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result context reader_sources:
-                Result::Ok output:
-                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output:
-                        Result::Ok lowered_sources:
-                            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_source_output_new SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced context coverage_authority body_root lowered_sources
-                        Result::Err _e:
-                            Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
-                Result::Err _e:
-                    Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
-        Result::Err _e:
-            Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_body_root_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId Result SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \module\context\body_root:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_new:
+        Result::Ok producer_sources0:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result module context body_root:
+                Result::Ok reader_sources:
+                    match selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_append_request_sources_result producer_sources0 reader_sources:
+                        Result::Ok producer_sources1:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &producer_sources1:
+                                Result::Ok _producer_identity:
+                                    match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result context producer_sources1:
+                                        Result::Ok output:
+                                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_output_result context output:
+                                                Result::Ok lowered_sources:
+                                                    Result::Ok lowered_sources
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free producer_sources1
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_producer_bridge_fail_with_traversal_sources producer_sources0 e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_from_request_context_result: request context から production origin の source output を[作/つく]る
 //:
@@ -15955,7 +15968,12 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_s
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \module\context\resolutions:
     match selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions:
         Result::Ok body_root:
-            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_from_body_root_result module context body_root
+            let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
+            match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_body_root_result module context body_root:
+                Result::Ok lowered_sources:
+                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_source_output_new SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced context coverage_authority body_root lowered_sources
+                Result::Err _e:
+                    Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 
