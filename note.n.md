@@ -81886,3 +81886,53 @@ MERGE_APPROVED
 - main merge 後再検証 pass: `trunk build`
 - main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_source_producer_boundary_main_merge.json`
 - checked JSON: `tmp/playground_editor_selfhost_production_source_producer_boundary_main_merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present host execution driver checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl` を追加し、F5nc pending request と F5mz action を one-shot driver pending に束ねる F5ne std layer compositor tile RLE present host execution driver boundary を実装した。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending` は F5nc pending owner と F5mz action を保持し、pending completion authority を複製しないため Clone / Copy を実装しない。
+- `prepare` は F5nc pending request accessor で request を読み、F5mz action を 1 回だけ導出してから original pending value と一緒に保持する。
+- `pending_action` は actual executor 用 action を借用で読ませ、`complete_outcome` は stored action と executor-supplied `Result unit GuiError` から F5na report を作り、F5nd bridge に validation before completion と F5nc completion を委譲する。
+- F5ne は F5nc `complete_request`、F5nb `validate_report_for_action`、F5mx request construction を直接呼ばない。F5nb import は support type authority 用だけであり、actual platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、F5my / F5mw / F5mv、lower row-tile path、raw storage、fallback、silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Raman の read-only design/source-policy review は `PLAN_APPROVED`。F5nb import を support type 用だけに限定し、direct `validate_report_for_action` を source policy で禁止して、validation を F5nd bridge に残す方針で問題ないと確認された。
+
+### 検証
+
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_f5ne.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_module_f5ne.json -j 1`。13/13。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5ne_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5ne_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5ne_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_f5ne_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5ne_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_f5ne_rerun.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_module_f5ne_rerun.json -j 1`。13/13。
+- Huygens の implementation review は `IMPLEMENTATION_APPROVED`。one-shot pending ownership、prepare / complete_outcome order、no direct F5nc completion、no direct F5nb validation、source policy / docs / todo coverage に blocker / required fix はないと確認された。
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ne.json`
+- checked JSON: `tmp-playground-editor-tests-f5ne.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- rebase 後再検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- rebase 後再検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- rebase 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_f5ne_rebase.json -j 1`。1/1。
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_module_f5ne_rebase.json -j 1`。13/13。
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5ne_rebase.json -j 1`。1/1。
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5ne_rebase.json -j 1`。1/1。
+- rebase 後再検証 pass: `trunk build`
+- rebase 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ne-rebase.json`
+- checked JSON: `tmp-playground-editor-tests-f5ne-rebase.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- main merge 後再検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_f5ne_main.json -j 1`。1/1。
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_module_f5ne_main.json -j 1`。13/13。
+- main merge 後再検証 retry pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5ne_main_retry.json -j 1`。1/1。初回 parallel 実行の 180000ms compile timeout は単独再実行で再現しなかった。
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5ne_main.json -j 1`。1/1。
+- main merge 後再検証 pass: `trunk build`
+- main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ne-main.json`
+- checked JSON: `tmp-playground-editor-tests-f5ne-main.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

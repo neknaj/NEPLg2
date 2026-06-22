@@ -5734,6 +5734,40 @@ plan review:
 - focused doctest、module doctest、F5nc dispatch loop regression、F5nb host executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で validation before completion、failed report preservation、wrong report stop-before-completion、no F5my-F5mv direct call、no lower row-tile / platform leakage がないことを確認する。
 
+## Phase F5ne: std layer compositor tile RLE present host execution driver boundary
+
+目的:
+
+- F5nc の `GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest` を、actual Web / native / bare / headless executor が読む action と one-shot pending value の組へ束ねる std layer compositor tile RLE present host execution driver boundary を追加する。
+- executor は `pending_action` で action を読み、executor-supplied `Result unit GuiError` だけを `complete_outcome` に返す。
+- `complete_outcome` は stored action と outcome から F5na report を作り、F5nd bridge に validation before completion と F5nc completion を委譲する。
+- F5ne は F5nc `complete_request`、F5nb `validate_report_for_action`、F5mx request construction を直接呼ばない。
+- F5ne は actual platform API、DOM / Canvas / minifb、video memory、queue、timer、scheduler、F5my / F5mw / F5mv、lower row-tile path、raw storage、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Raman read-only design/source-policy review は `PLAN_APPROVED`。
+- required public surface は `GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending`、`GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind`、`GuiRgba8888CompositorTileRlePresentHostExecutionDriverError`、`prepare`、`pending_action`、`complete_outcome`、error accessors である。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending` は pending owner を持つため Clone / Copy を実装しない。
+- F5nb import は support type 用だけとし、`validate_report_for_action` direct call を source policy で禁止する。validation は F5nd bridge の責務として保持する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending` を追加し、pending と F5mz action を保持する。
+- `BridgeFailed %GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError` を持つ error kind と、category / state を保持する driver error を追加する。
+- `prepare`、`pending_action`、`complete_outcome`、error accessors を追加する。
+- `stdlib/std/gui.nepl` facade から compositor host execution driver boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md` を追加し、action exposure、success completion、failed outcome rollback、unsupported support stop-before-completion を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ne source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Raman review、facade export、pending Clone/Copy 禁止、allowed F5nc/F5mz/F5na/F5nb/F5nd imports、banned F5nc direct completion / F5nb direct validation / F5my-F5mv / lower row-tile / platform / raw / fallback tokens、prepare order、complete_outcome order、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5nc dispatch loop regression、F5nd host report bridge regression、F5mz/F5na/F5nb regressions、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で one-shot pending owner lifecycle、stored action usage、F5nd bridge-only completion、no direct `validate_report_for_action`、no lower row-tile / platform leakage がないことを確認する。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

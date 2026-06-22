@@ -8691,6 +8691,18 @@ F5nd is the std layer compositor tile RLE present host report loop bridge bounda
 
 F5nd distinguishes validation failure from execution failure. Unsupported support and wrong action or metadata reports stop before completion and return pending previous state. A matching failed report is valid executor output; F5nd passes F5na report_outcome into F5nc completion, and `HostImportExecutionFailed` returns rollback state from F5nc. F5nd must not call F5my, F5mw, F5mx, or F5mv directly, must not reuse lower row-tile host / dispatch / schedule / virtual modules, and must not touch raw storage, `Vec`, platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, queues, timers, schedulers, fallback paths, or silent no-op behavior.
 
+## Std layer compositor tile RLE present host execution driver boundary
+
+F5ne is the std layer compositor tile RLE present host execution driver boundary after F5nd. It mirrors lower F5da while keeping compositor metadata in F5mz/F5na/F5nd form. The driver prepares the one-shot pending request for an actual Web, native, bare, or headless executor by pairing the original F5nc pending owner with the F5mz action decoded from its request.
+
+`GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending` owns `GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest` and stores the copied `GuiRgba8888CompositorTileRlePresentHostExecutionAction`. It must not implement Clone or Copy because duplicating it would duplicate completion authority. `prepare` reads the request by shared borrow, derives the action exactly once, and only then moves the original pending into the driver pending value.
+
+`pending_action` returns the stored action without consuming the driver pending. Actual executors use this to decide what platform operation to attempt. The std driver does not execute host imports and does not produce a synthetic outcome.
+
+`complete_outcome` consumes the driver pending. It reads the stored action first, moves the original F5nc pending out of the driver, builds a F5na report from the stored action and executor-supplied outcome, and calls the F5nd bridge. Therefore F5ne delegates validation before completion to F5nd bridge and never calls F5nb `validate_report_for_action` directly. It also never calls F5nc `complete_request` directly; completion authority remains behind F5nd.
+
+F5ne must not construct F5mx requests, advance F5my dispatch state, call F5mw schedule helpers, call F5mv virtual drain, reuse lower row-tile host / dispatch / schedule / virtual modules, use raw packet storage, `Vec`, platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, queues, timers, schedulers, fallback paths, or silent no-op behavior. F5nb import is support-type authority only; action/report validation remains F5nd responsibility.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
