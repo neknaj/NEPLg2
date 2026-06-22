@@ -8438,6 +8438,24 @@ The error path follows Zeno's plan review correction. Lower F5ch represents curs
 
 F5mj must not expose direct row tile cursor start, count step reruns, direct row tile RLE drain, writer plan, encoded storage, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no writer / storage / packet / present compositor tile RLE encode cursor bridge; encoded transport and present continuation remain later boundaries.
 
+## Render2d compositor tile RLE writer plan boundary
+
+F5mk is the compositor-side writer capacity bridge after F5mj. It consumes `GuiRgba8888CompositorTileRleEncodeCursorOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleEncodeCursorOwner`, and calls `gui_rgba8888_row_tile_rle_writer_plan_prepare` exactly once. It returns `GuiRgba8888CompositorTileRleWriterPlanOwner`, which stores the lower writer plan owner plus metadata for the later encoded storage / write boundary.
+
+```text
+metadata = copy compositor ready cursor owner metadata
+lower_ready = move lower row tile RLE ready cursor owner
+plan_or_error = gui_rgba8888_row_tile_rle_writer_plan_prepare lower_ready
+success = wrap lower writer plan owner with metadata
+error = copy lower kind/category/total, move lower ready cursor owner, wrap it with metadata
+```
+
+The writer plan owner exposes copied metadata, total run count, encoded byte count, cursor next pixel index, and cursor pixel count as non-consuming accessors. It does not expose the raw lower writer plan or raw lower cursor as public recovery authority. Success finish and free helpers first recover the lower cursor from the lower writer plan owner, then recover the lower payload with `gui_rgba8888_row_tile_rle_cursor_finish_payload`, wrap it as `GuiRgba8888CompositorTilePayloadOwner`, and delegate to F5me payload finish/free.
+
+The error path follows Aquinas's plan review approval. Lower F5ci represents capacity-plan failure as a lower writer plan error that keeps the original ready cursor owner. F5mk must not publish that lower writer plan error or raw lower ready owner as compositor recovery state. It reads `kind`, `category`, and `total_run_count` before consuming the lower error, recovers the lower ready cursor owner, and normalizes it to metadata-wrapped F5mj ready cursor ownership. Error finish and free therefore delegate through F5mj ready cursor recovery and then F5me payload finish/free.
+
+F5mk must not expose direct row tile cursor start, count step reruns, direct row tile RLE drain, storage allocation, write step, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no storage / packet / present compositor tile RLE writer plan bridge; encoded storage, encoded transport, and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

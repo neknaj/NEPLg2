@@ -7069,6 +7069,16 @@ F5mj は compositor seed owner を lower seed owner へ分解する前に metada
 
 success ready cursor owner の finish / free は metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻してから F5me の payload finish / free へ委譲する。cursor error の finish / free も metadata 付き payload owner へ戻してから F5me の payload finish / free へ委譲する。F5mj は direct cursor start、count step、direct drain、writer / storage / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
 
+### Render2d compositor tile RLE writer plan boundary
+
+F5mk は F5mj の `GuiRgba8888CompositorTileRleEncodeCursorOwner` を、lower `gui_rgba8888_row_tile_rle_writer_plan_prepare` へ 1 回だけ渡す compositor tile RLE writer plan bridge である。これは exact run count から encoded byte count を確定する capacity phase であり、storage allocation、write step、encoded seal、packet、std present、host present、platform backend、fallback / silent no-op を作る phase ではない。F5mk は no storage / packet / present の boundary で止まる。
+
+F5mk の success owner は `GuiRgba8888CompositorTileRleWriterPlanOwner` であり、lower `GuiRgba8888RowTileRleWriterPlanOwner` と copied compositor metadata を保持する。writer plan owner / writer plan error は Clone / Copy を実装しない。error kind は `GuiRgba8888CompositorTileRleWriterPlanErrorKind::WriterPlanPrepareFailed lower_kind` として Copy value で保持する。
+
+F5mk は compositor ready cursor owner を lower ready cursor owner へ分解する前に metadata を Copy value として読む。lower writer plan success では lower writer plan owner を metadata 付き writer plan owner へ束ね、total run count、encoded byte count、cursor next pixel index、cursor pixel count を non-consuming accessor で返す。lower writer plan error では lower kind / category / total run count を読んでから lower ready cursor owner を取り出し、metadata 付き `GuiRgba8888CompositorTileRleEncodeCursorOwner` へ戻す。F5mk error は lower writer plan error を公開 recovery payload にせず、retry 可能な F5mj ready cursor owner recovery に正規化する。
+
+success writer plan owner の finish / free は lower writer plan owner から lower cursor、lower payload を取り出し、metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻してから F5me の payload finish / free へ委譲する。writer plan error の finish / free は F5mj ready cursor owner 経由で metadata 付き payload owner へ戻し、F5me の payload finish / free へ委譲する。F5mk は direct cursor start、count step、direct drain、storage / write step / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
