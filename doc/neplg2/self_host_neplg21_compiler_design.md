@@ -3235,6 +3235,28 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - `EffectObservedNoEscape` を actual traversal 由来 fresh witness table と no-escape authority が束ねられた場合だけ発行し、その public coverage evidence を接続済み upper orchestration へ渡す。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost actual no-escape coverage authority checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、actual traversal-owned fresh witness authority bundle と coverage complete authority から PrivateCache slot の coverage handoff だけを `EffectObservedNoEscape` へ昇格する backend-private boundary を追加した。
+
+`ActualTraversalBundle` は source-derived witness helper でも作れるため、no-escape coverage の発行入力には使わない。新しい module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle` は source table owner と fresh witness table owner を持つが、source-derived witness helper や context-bound source-derived bundle からは作らない。public API に wrapper、source table、witness table、candidate、Resource proof table、coverage authority、handoff pair は出さない。
+
+発行 helper はまず `coverage_handoff_pair_from_sources_result authority &sources` を呼び、同じ source owner から region proof table、no-escape candidate、fresh witness Resource proof table の順に進む。coverage failure でも source / witness owner を両方閉じる。region proof table は candidate 成否にかかわらず閉じ、fresh witness Resource proof table は成功時も pair を返す前に閉じる。candidate の root expr id、body module fingerprint、graph id は発行直前に complete authority と直接照合する。
+
+`EffectObservedNoEscape` は PrivateCache slot だけに入れ、PrivateState slot は base coverage pair の `state_handoff.status` を保持する。現 proof domain は PrivateCache region proof であり、PrivateState no-escape proof ではないためである。`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` は source vocabulary のまま `TraversalUnsupported` に写し、source kind から no-escape を推測しない。
+
+no-escape coverage public error は internal region proof error enum をそのまま payload にせず、`WitnessMissing`、`WitnessRejected`、`WitnessUnavailable`、`WitnessUnsupportedSource`、`WitnessEscapingSource`、`WitnessAuthorityMismatch`、`WitnessInternalRejected` の小さい分類へ正規化する。これは public boundary を安定させ、巨大 internal enum を upper stage の Result payload として固定しないためである。
+
+この checkpoint は request-evidence gate、request proof table、GraphInput、checker proof table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key を作らない。source policy は no-escape helper の順序、owner cleanup、source-derived bundle からの接続禁止、witness table 再生成禁止、lower proof / backend / artifact 非生成を固定している。
+
+新しい stage0 を巨大 module の module-level doctest へ直接追加すると selfhost doctest harness が `RangeError: Maximum call stack size exceeded` になったため、doctest 追加は取り下げた。no-escape error を compact enum にしても、現時点では new stage0 参照が selfhost harness の stack に触れる。実装境界は source policy と既存 module doctest 18/18 で固定し、stage0 直接参照の selfhost stack 問題は後続の focused selfhost test / harness 分割で扱う。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で発行する。
+- production coverage handoff producer から no-escape coverage authority boundary と checker-layer upper orchestration へ、fixture ではなく full traversal output 由来の public evidence を渡す。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
