@@ -81936,3 +81936,38 @@ MERGE_APPROVED
 - main merge 後再検証 pass: `trunk build`
 - main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ne-main.json`
 - checked JSON: `tmp-playground-editor-tests-f5ne-main.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- remote main merge 後最終検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- remote main merge 後最終検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- remote main merge 後最終検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- remote main merge 後最終検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_driver.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_f5ne_final.json -j 1`。1/1。
+- remote main merge 後最終検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution_driver.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_driver_module_f5ne_final.json -j 1`。13/13。
+- remote main merge 後最終検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5ne_final.json -j 1`。1/1。
+- remote main merge 後最終検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='300000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5ne_final.json -j 1`。1/1。
+- remote main merge 後最終検証 pass: `git diff --check`
+- remote main merge 後最終検証 pass: `trunk build`
+- remote main merge 後最終検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ne-final.json`
+- checked JSON: `tmp-playground-editor-tests-f5ne-final.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost production no-escape authority bundle separation checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、production traversal path 用の `SelfhostMemoCallBackendPrivateCacheActualTraversalNoEscapeCoverageAuthorityBundle` を追加した。
+- body-reader source-derived path は `BodyReaderNoEscapeCoverageAuthorityBundle` を使い続け、`ResourceLoweringTraversalProduced` origin の production path は coverage authority と same-source fresh witness authority bundle を production 専用 bundle に束ねる。
+- `actual_traversal_production_output_into_no_escape_authority_bundle_result` は production 専用 bundle を返し、`HirReaderSourceDerived` rejection、coverage identity validation、production fresh witness input owner、same-source witness bundle の順序を保つ。
+- `actual_traversal_production_output_pair_code_result` と authority-bundle witness-count stage0 は body-reader pair / count helper に戻らず、production 専用 handoff pair / count helper を通る。
+- Mill の read-only review は、origin-blind な `actual_traversal_source_output_into_no_escape_authority_bundle_result` が `ResourceLoweringTraversalProduced` を body-reader helper へ流せる bypass を指摘した。対応として同 helper に origin guard を追加し、`ResourceLoweringTraversalProduced` は source owner cleanup 後に `SourceRejected` で拒否するようにした。
+- この checkpoint は origin の混線を型境界で閉じるものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。
+- request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は production 専用 bundle shape、module-private / no Clone-Copy、production gate が body-reader bundle constructor / pair projection へ戻らないこと、body-reader source output helper が production origin を拒否することを固定した。plan.md との差異はない。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-production-no-escape-authority-bundle-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-production-no-escape-authority-bundle-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_no_escape_authority_bundle.json`
+- checked JSON: `tmp/playground_editor_selfhost_production_no_escape_authority_bundle.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
