@@ -49,6 +49,7 @@
 //: - Upstream private-effect mask stage0 は、checker-layer proof producer を直接呼ばず、上位 orchestration が渡すべき neutral private-effect status / evidence を private-effect mask evidence へ写します。evidence の root / body fingerprint を保持して readiness gate へ渡すため、request gate result と別 body の mask evidence は accepted になりません。
 //: - Private-effect readiness handoff API は、checker-layer orchestration が作った neutral mask evidence を root / body fingerprint / status だけの public transport として受けます。backend module は checker module を import せず、handoff を module-private upstream evidence へ写して既存 readiness gate に通すだけです。
 //: - Actual traversal private-effect readiness projection stage0 は、actual traversal source table を neutral upstream private-effect status へ fail-closed に写します。現時点の source vocabulary は explicit 2-slot coverage / mask proof ではないため、この projection から `UpstreamPrivateEffectProven` は作りません。
+//: - Actual traversal private-effect coverage handoff API は、actual traversal 由来の explicit 2-slot coverage を checker-layer bridge へ渡す public transport です。root / fingerprint / effect / status だけを運び、source table や proof table は公開しません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -1259,6 +1260,33 @@ pub struct SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvide
     root_expr_id %SelfhostHirExprId
     body_module_fingerprint %i32
     status %SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus
+
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus: actual traversal coverage を checker-layer bridge へ渡す public status
+//:
+//: [目的/もくてき]:
+//: - actual traversal が private-effect slot について観測した no-escape / escape / 明示不在 / graph 欠落 / traversal 未対応を、checker module が backend private source table に依存せず受け取れる transport enum として表します。
+//:
+//: [契約/けいやく]:
+//: - `EffectAbsentAfterCompleteTraversal` は同じ body slot の complete traversal 後に effect 不在を明示した場合だけ使えます。source table 欠落や unknown を absence として推測してはいけません。
+//: - この status は checker-layer slot coverage producer の入力 status へ写すためだけの public transport であり、backend bytes、effect mask 実体、sealed representation、artifact key の authority ではありません。
+pub enum SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus:
+    EffectObservedNoEscape
+    EffectObservedMayEscape
+    EffectAbsentAfterCompleteTraversal
+    ResourceGraphMissing
+    TraversalUnsupported
+
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence: public coverage handoff の same-body slot evidence
+//:
+//: [契約/けいやく]:
+//: - `body_root` と `body_module_fingerprint` は actual traversal が走査した body identity です。
+//: - `effect` は coverage slot の effect です。checker-layer bridge が `PrivateCache` / `PrivateState` の fixed 2 slot として再検査します。
+//: - actual traversal source table、checker proof table、slot coverage table、private upstream evidence、backend readiness summary、backend bytes、artifact key は保持しません。
+pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence:
+    body_root %SelfhostHirExprId
+    body_module_fingerprint %i32
+    effect %SelfhostEffectKind
+    status %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus
 
 //: SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke の代表結果
 //:
@@ -2861,6 +2889,32 @@ impl Clone for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffE
 //: Copy for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence: handoff evidence の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus: coverage handoff status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status tag だけを持つため、actual traversal source owner や checker proof owner は copy しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus: coverage handoff status の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence: coverage handoff evidence を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - evidence は root / fingerprint / effect / status だけを保持し、owner buffer や artifact payload は含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence: coverage handoff evidence の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary: backend readiness smoke summary を値として[複製/ふくせい]する

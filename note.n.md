@@ -80681,6 +80681,15 @@ MERGE_APPROVED
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `node nodesrc/run_source_policy_regressions.js`
 - pass with LF/CRLF warnings only: `git diff --check`
+- post-merge pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js`
+- post-merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- post-merge pass: `node nodesrc/issues.js check --dir issues`
+- post-merge pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_bridge.nepl --dist web/dist -o tmp/selfhost-private-effect-actual-coverage-bridge-postmerge.json`。1/1。
+- post-merge pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-actual-coverage-bridge-postmerge.json`。1 passed / 0 failed。
+- post-merge pass: `node nodesrc/run_source_policy_regressions.js`
+- post-merge pass: `trunk build`
+- post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_actual_coverage_bridge.json`
+- post-merge checked JSON: `output/playground_editor_selfhost_private_effect_actual_coverage_bridge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_private_effect_readiness_projection.json`
 - checked JSON: `output/playground_editor_selfhost_actual_private_effect_readiness_projection.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
@@ -80724,3 +80733,33 @@ MERGE_APPROVED
 - post-merge pass: `trunk build`
 - post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator_postmerge.json`
 - post-merge checked JSON: `output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator_postmerge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost actual traversal private-effect coverage bridge checkpoint
+
+- backend proof gate に `SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus` / `Evidence` を追加した。
+- coverage handoff evidence は body root / body module fingerprint / effect / coverage status だけを持つ。actual traversal source table、checker proof table、slot coverage table、backend private upstream evidence、backend bytes、sealed representation、artifact key は public payload にしない。
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_bridge.nepl` を追加した。facade には re-export せず、`nodesrc/selfhost_ty_sources.js` にも登録しない checker-layer bridge とした。
+- bridge は handoff pair に caller context の `SelfhostTypeId` / operation kind を付与し、coverage table 構築前に cache/state handoff body identity、request body identity、`PrivateCache` / `PrivateState` effect、placeholder fingerprint を検査する。
+- success path は fixed 2 slot coverage table -> slot coverage producer の proof table helper -> mask evidence producer -> backend readiness orchestrator の順に通す。proof table は mask evidence lookup 後に free し、coverage table owner も閉じる。
+- `EffectAbsentAfterCompleteTraversal` だけを effect absence として扱い、MayEscape / ResourceGraphMissing / TraversalUnsupported / slot 欠落 / identity mismatch は Proven に丸めない。
+- `nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js` を追加し、facade 非公開、ty source 非登録、runner 登録、backend private upstream type 参照禁止、direct proof construction 禁止、GraphInput / backend bytes / sealed / artifact 合成禁止、status mapping、owner cleanup、stage0 coverage を固定した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、backend public coverage handoff 型の public surface を root / fingerprint / effect / status に制限する検査を追加した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、coverage handoff bridge 接続後の残件を actual traversal 由来 explicit coverage handoff / record generation、fresh witness との authority binding、Resource summary hash invalidation、artifact policy hash、effect mask 実体、sealed backend representation、`.neplobj` / `.neplproof` stable key projectionへ更新した。plan.md との差異はない。
+- Lagrange の design review は `PLAN_APPROVED`。backend は checker を import せず、coverage status と readiness status を混ぜず、bridge が request identity / pair identity / exact effect を table 構築前に typed error として拒否する方針を確認した。今回の実装は request identity mismatch も bridge error として追加して対応した。
+- Lagrange の implementation review は、実装は direct proof construction していないが source policy が raw no-escape proof struct constructor 回帰を検出できないと指摘した。`nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js` に `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey/Record/Table` の raw constructor 禁止を追加して対応した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_bridge.nepl --dist web/dist -o tmp/selfhost-private-effect-actual-coverage-bridge-doctest.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-actual-coverage-bridge-doctest.json`。1 passed / 0 failed。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-actual-coverage-handoff.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-actual-coverage-handoff.json`。17 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- first `node nodesrc/run_source_policy_regressions.js` timed out at 10 min; rerun with longer timeout passed.
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with LF/CRLF warnings only: `git diff --check`

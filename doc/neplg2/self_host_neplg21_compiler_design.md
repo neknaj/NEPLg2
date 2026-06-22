@@ -3166,6 +3166,22 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - actual traversal 由来 explicit coverage record を checker-layer slot coverage producer / Resource no-escape producer / mask evidence producer へ渡し、今回接続した backend readiness handoff orchestration に同じ body identity で流す。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost actual traversal private-effect coverage bridge checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に actual traversal private-effect coverage public handoff status / evidence を追加した。handoff evidence は `body_root`、`body_module_fingerprint`、`effect`、`status` だけを持ち、backend module の actual traversal source table、checker proof table、slot coverage table、private upstream evidence、backend bytes、sealed representation、artifact key は公開しない。backend module は checker-layer module を import しない。
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_bridge.nepl` は facade-private の checker-layer bridge である。backend public coverage handoff pair に caller context の `SelfhostTypeId` / operation kind を付与し、coverage table 構築前に cache / state handoff の body identity、request body identity、`PrivateCache` / `PrivateState` effect、placeholder fingerprint を検査する。成功時は fixed 2 slot coverage table を作り、slot coverage producer の production helper、Resource no-escape proof table、mask evidence producer、既存 backend readiness orchestrator の順に通す。
+
+absence は `EffectAbsentAfterCompleteTraversal` の explicit handoff だけを accepted coverage として扱う。source table 欠落、片方 slot 欠落、`ResourceGraphMissing`、`TraversalUnsupported`、MayEscape は absence に丸めず、slot coverage / mask evidence / backend readiness error として fail-closed に残す。status mapping は wildcard fallback を使わず、`EffectObservedNoEscape` / `EffectObservedMayEscape` / `EffectAbsentAfterCompleteTraversal` / `ResourceGraphMissing` / `TraversalUnsupported` をそのまま slot coverage status へ写す。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` と `nodesrc/test_selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_contract.js` で固定した。backend 側は public coverage handoff 型を root / fingerprint / effect / status に制限し、bridge 側は facade 非公開、ty source 非登録、backend-private upstream type 参照禁止、GraphInput / Resource graph internals / direct proof construction / backend bytes / effect mask 実体 / sealed representation / artifact key 合成禁止、owner cleanup、stage0 では explicit absence / observed no-escape / MayEscape / Missing / Unknown / pair mismatch / request mismatch / effect mismatch / placeholder を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の actual use、escaping、unsupported、complete absence を public coverage handoff または checker-layer slot coverage record として実 traversal 由来で発行する。
+- actual traversal 由来 fresh witness table と coverage handoff を同じ body identity / traversal authority で束ね、fixture source ではなく production traversal output から bridge へ渡す。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
