@@ -8572,6 +8572,31 @@ Start errors wrap F5mr start errors and recover the compositor present-frame own
 
 F5mt must not expose lower `tile_present_command_cursor`, `tile_present_host_command`, host import, dispatch, scheduler, packet record reader, raw storage, `RegionToken`, `MemPtr`, raw byte load/store, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no lower-command / host-command / record / host / platform compositor tile RLE present command cursor; host-command record mapping remains a later compositor boundary.
 
+## Std compositor tile RLE present host-command record boundary
+
+F5mu is the std-side compositor tile RLE present host-command record boundary after F5mt. It is not a host import and does not submit a frame. It converts F5mt command-cursor step output into a metadata-preserving record shape that later Web, native, bare, and headless presenters can consume through a formal compositor continuation.
+
+```text
+GuiRgba8888CompositorTileRlePresentHostCommandRecord:
+    BeginFrame GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    RunRecord GuiRgba8888CompositorTileRlePresentHostCommandRunRecord
+    EndFrame GuiRgba8888CompositorTileRlePresentFrameDescriptor
+
+GuiRgba8888CompositorTileRlePresentHostCommandRunRecord:
+    descriptor GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    run GuiRgba8888RowTileRleRun
+
+GuiRgba8888CompositorTileRlePresentHostCommandStepResult:
+    Record GuiRgba8888CompositorTileRlePresentHostCommandRecord
+    Completed
+```
+
+The record shape does not flatten to kind plus optional run. RunRecord owns descriptor plus run as one payload, so an invalid RunRecord without run or EndFrame with run payload cannot be represented. The descriptor is the compositor present descriptor, not the lower row tile present descriptor, because it carries the compositor metadata needed by later continuation boundaries.
+
+The mapping function takes a borrowed `GuiRgba8888CompositorTileRlePresentCommandCursorStep` and reads only F5mt public accessors: `gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor` and `gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result`. It does not bypass F5mt. It does not consume the step continuation owner, advance the command cursor, finish/free the owner, inspect the step's internal owner/result fields, or add a mismatch `Result`; BeginFrame and EndFrame command payload descriptors are F5mt-derived and the canonical descriptor for the record is the public step descriptor accessor.
+
+F5mu must not expose lower `std/gui/tile_present_host_command`, lower `tile_present_command_cursor`, F5mr/F5ms/F5co run cursor calls, host import, dispatch, scheduler, virtual drain, run-span, packet record reader, raw storage, `RegionToken`, `MemPtr`, raw byte load/store, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no lower-host-command / host-import / platform compositor tile RLE present host-command record boundary; compositor host continuation / drain / scheduler remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

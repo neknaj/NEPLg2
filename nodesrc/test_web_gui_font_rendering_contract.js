@@ -181,6 +181,8 @@ const stdGuiCompositorTilePresentRunStep = read("stdlib/std/gui/compositor_tile_
 const stdGuiCompositorTilePresentRunStepImpl = withoutComments(stdGuiCompositorTilePresentRunStep);
 const stdGuiCompositorTilePresentCommandCursor = read("stdlib/std/gui/compositor_tile_present_command_cursor.nepl");
 const stdGuiCompositorTilePresentCommandCursorImpl = withoutComments(stdGuiCompositorTilePresentCommandCursor);
+const stdGuiCompositorTilePresentHostCommand = read("stdlib/std/gui/compositor_tile_present_host_command.nepl");
+const stdGuiCompositorTilePresentHostCommandImpl = withoutComments(stdGuiCompositorTilePresentHostCommand);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -426,6 +428,7 @@ const guiStdCompositorTilePresentTests = read("tests/stdlib/gui_std_compositor_t
 const guiStdCompositorTilePresentRunCursorTests = read("tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md");
 const guiStdCompositorTilePresentRunStepTests = read("tests/stdlib/gui_std_compositor_tile_present_run_step.n.md");
 const guiStdCompositorTilePresentCommandCursorTests = read("tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md");
+const guiStdCompositorTilePresentHostCommandTests = read("tests/stdlib/gui_std_compositor_tile_present_host_command.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -29553,6 +29556,84 @@ assert(
         guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_uses_f5mr_f5ms_ok") &&
         guiStdCompositorTilePresentCommandCursorTests.includes("std_compositor_tile_rle_present_command_cursor_no_lower_command_host_record_platform_fallback"),
     "F5mt compositor tile present command cursor focused doctest/source policy must cover facade runtime types, command stream, owner recovery, one-output step, F5mr/F5ms dependency, and no lower command/host/record/platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mu") &&
+            doc.includes("compositor tile RLE present host-command record") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostCommandRecord") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostCommandStepResult") &&
+            doc.includes("does not flatten to kind plus optional run") &&
+            doc.includes("does not bypass F5mt") &&
+            doc.includes("fallback"),
+        `F5mu ${name} must document compositor host-command records, invalid-state-free enum shape, F5mt-only dependency, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mu") &&
+        implementationPlan.includes("Popper plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mt accessor") &&
+        implementationPlan.includes("compositor host-command record"),
+    "F5mu implementation plan must record subagent review, F5mt accessor dependency, and compositor host-command record policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_command" as *'), "std/gui facade must export F5mu compositor tile present host-command record boundary");
+assert(
+    stdGuiCompositorTilePresentHostCommand.includes("pub struct GuiRgba8888CompositorTileRlePresentHostCommandRunRecord:") &&
+        stdGuiCompositorTilePresentHostCommand.includes("descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostCommand.includes("run %GuiRgba8888RowTileRleRun") &&
+        stdGuiCompositorTilePresentHostCommand.includes("pub enum GuiRgba8888CompositorTileRlePresentHostCommandRecord:") &&
+        stdGuiCompositorTilePresentHostCommand.includes("BeginFrame %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostCommand.includes("RunRecord %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord") &&
+        stdGuiCompositorTilePresentHostCommand.includes("EndFrame %GuiRgba8888CompositorTileRlePresentFrameDescriptor") &&
+        stdGuiCompositorTilePresentHostCommand.includes("pub enum GuiRgba8888CompositorTileRlePresentHostCommandStepResult:") &&
+        stdGuiCompositorTilePresentHostCommand.includes("Record %GuiRgba8888CompositorTileRlePresentHostCommandRecord") &&
+        stdGuiCompositorTilePresentHostCommand.includes("Completed"),
+    "std/gui/compositor_tile_present_host_command F5mu must define invalid-state-free compositor host-command records and terminal result",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostCommandImpl,
+    /#import "std\/gui\/tile_present_host_command" as \*|\bgui_rgba8888_row_tile_rle_present_host_command_[a-z0-9_]+\b|\bgui_rgba8888_compositor_tile_rle_present_run_cursor_[a-z0-9_]+\b|\bgui_rgba8888_compositor_tile_rle_present_run_step_[a-z0-9_]+\b|#import "std\/gui\/tile_present_command_cursor" as \*|\bgui_rgba8888_row_tile_rle_present_command_cursor_[a-z0-9_]+\b|\bgui_rgba8888_row_tile_rle_present_run_cursor_[a-z0-9_]+\b|\bgui_rgba8888_row_tile_rle_packet_record_at\b|\brow_tile_rle_packet_record\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b|field::get_ref step "owner"|field::get step "owner"|field::get_ref step "result"|field::get step "result"/,
+    "std/gui/compositor_tile_present_host_command F5mu must not bypass F5mt, lower to F5cq/F5cp/F5co, expose raw storage, call host/platform APIs, allocate Vec, or fallback",
+);
+assertMatch(
+    stdGuiCompositorTilePresentHostCommandImpl,
+    /#import "std\/gui\/compositor_tile_present_command_cursor" as \*/,
+    "std/gui/compositor_tile_present_host_command F5mu must depend on the F5mt compositor command cursor boundary",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostCommandImpl, "gui_rgba8888_compositor_tile_rle_present_host_command_step_result"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_command_cursor_step_descriptor step",
+        "gui_rgba8888_compositor_tile_rle_present_command_cursor_step_result step",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Command command:",
+        "GuiRgba8888CompositorTileRlePresentCommand::BeginFrame _frame_descriptor:",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_record_begin descriptor",
+        "GuiRgba8888CompositorTileRlePresentCommand::Run run:",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_record_run descriptor run",
+        "GuiRgba8888CompositorTileRlePresentCommand::EndFrame _frame_descriptor:",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_record_end descriptor",
+        "GuiRgba8888CompositorTileRlePresentCommandCursorStepResult::Completed:",
+        "GuiRgba8888CompositorTileRlePresentHostCommandStepResult::Completed",
+    ],
+    "std/gui/compositor_tile_present_host_command F5mu step mapping must preserve F5mt order and explicit terminal state",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostCommandImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_command F5mu implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_facade_ok") &&
+        guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_record_enum_ok") &&
+        guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_step_mapping_ok") &&
+        guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_uses_f5mt_accessor_ok") &&
+        guiStdCompositorTilePresentHostCommandTests.includes("std_compositor_tile_rle_present_host_command_no_lower_host_import_platform_fallback"),
+    "F5mu std compositor tile present host-command focused doctest must cover host-command source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
