@@ -1,3 +1,9 @@
+# 2026-06-22 Agent2 post-merge GUI packet doctest diag_code metadata fix
+
+- `main` merge 後の `node nodesrc/run_source_policy_regressions.js` で、`tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md::doctest#3` が compile_fail doctest の安定 `diag_code` 未記録として失敗した。
+- 該当 doctest は malformed `GuiRgba8888CompositorTileRlePacketOwner` constructor を application surface から直接作れないことを固定するもので、単体 `run_doctest` の実診断は `type.owner_aggregate.constructor_restricted` と派生の `type.return.mismatch` だった。
+- 既存の compositor encoded / write-step / count-step owner constructor 制限 doctest と同じく、primary failure の `diag_code: type.owner_aggregate.constructor_restricted` を明記した。実装境界や public API の変更はない。
+
 # 2026-06-22 Agent2 GUI render2d F5mp compositor tile RLE packet bridge boundary
 
 ## 目的

@@ -74,6 +74,7 @@ neplg2:test[skip]
 ## owner constructor stays restricted
 
 neplg2:test[compile_fail]
+diag_code: type.owner_aggregate.constructor_restricted
 ```neplg2
 #indent 4
 
