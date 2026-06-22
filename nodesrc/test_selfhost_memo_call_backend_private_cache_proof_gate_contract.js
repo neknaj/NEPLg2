@@ -87,6 +87,7 @@ assert.ok(
         source.includes("Collector-owned traversal bundle stage0") &&
         source.includes("Operation-classified traversal bundle stage0") &&
         source.includes("Context-bound reader traversal bundle stage0") &&
+        source.includes("Context-bound coverage witness bundle stage0") &&
         source.includes("Backend readiness stage0") &&
         source.includes("Private-effect readiness handoff API") &&
         source.includes("Actual traversal private-effect readiness projection stage0") &&
@@ -3077,6 +3078,77 @@ assertOrdered(
         "missing_reader_availability_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind",
     ],
     "context-bound reader traversal bundle summary must expose only counts, HIR body problem-source rejections, and seed/availability typed Result payloads",
+);
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind"),
+    ["CoverageRejected", "WitnessRejected"],
+    "context-bound coverage witness bundle error must distinguish coverage producer rejection from source-derived witness/request-evidence rejection",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleStage0Summary"),
+    [
+        "accepted_request_count %i32",
+        "accepted_proof_count %i32",
+        "accepted_coverage_pair_code %i32",
+        "private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind",
+    ],
+    "context-bound coverage witness bundle summary must expose only counts, coverage pair code, and typed rejection payloads",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle\b/,
+    "context-bound coverage witness combined owner must stay module-private",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle|SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleGateSummary|SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair|SelfhostMemoCallBackendPrivateCacheActualTraversalBundle)\b/m,
+    "public functions must not expose combined coverage/witness owner, private gate summary, private handoff pair, or actual traversal bundle types",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundle\b/,
+    "context-bound coverage witness combined owner must not implement Clone or Copy",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_from_sources_result authority &sources",
+        "Result::Ok coverage_pair:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result sources",
+        "Result::Ok bundle:",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_new coverage_pair bundle",
+        "Result::Err e:",
+        "WitnessRejected e",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "CoverageRejected e",
+    ],
+    "context-bound coverage witness helper must borrow the same source owner for coverage before moving it into source-derived witness, and must close the source owner on coverage rejection",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result")),
+    /actual_traversal_bundle_stage0_with_sources_result|region_fresh_witness_stage0_table_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "context-bound coverage witness helper must not use stage0 witness fixtures or synthesize lower proof/backend/effect/artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_gate_from_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result module context resolutions",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result authority sources",
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_request_evidence_gate_result module root fuel context.body_module_fingerprint combined",
+    ],
+    "context-bound coverage witness gate must build resolver-derived coverage authority, create one source owner, and pass that owner through the combined coverage/witness boundary",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0"),
+    [
+        "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_summary_result 77 0",
+        "let private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheContextBoundReaderCoverageWitnessBundleErrorKind selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_stage0_run_i32_with_body_expr_result 77 0 private_cache_body_expr",
+        "accepted.coverage_pair_code",
+        "private_cache_effect_rejected",
+    ],
+    "context-bound coverage witness stage0 must prove accepted coverage pair code comes from the same source owner and PrivateCache effect source remains fail-closed for witness/request evidence",
 );
 assert.doesNotMatch(
     code,

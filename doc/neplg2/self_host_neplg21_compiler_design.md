@@ -3217,6 +3217,24 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_act
 - production coverage handoff producer からこの upper orchestration へ、fixture ではなく full traversal output 由来の public evidence 2 件を渡す boundary を接続する。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost context-bound coverage witness bundle checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resolver-bound reader context から作った 1 つの source table owner を、coverage handoff pair と source-derived fresh witness request-evidence gate の両方に渡す backend-private boundary を追加した。
+
+coverage handoff pair は borrowed source owner から先に作り、成功した場合だけ同じ owner を `actual_traversal_bundle_source_derived_witness_result` へ移す。coverage 側で拒否した場合は source owner をこの boundary で閉じ、witness 側の拒否は既存 `SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind` に包む。これにより coverage と request-evidence が別 source table を読む authority drift を防ぐ。
+
+public stage0 summary は accepted request/proof count、coverage pair code、PrivateCache effect body の typed rejection だけを返す。neutral body は same-owner path で coverage pair code `33`、request/proof `1/1` になる。PrivateCache effect source は coverage 側では unsupported handoff に分類されるが、fresh witness 側では no-escape proof に昇格しない。
+
+この checkpoint は full Resource IR traversal ではない。actual fresh-region witness table、no-escape authority、GraphInput、Resource proof table、checker proof table、PrivateCache / PrivateState effect mask、sealed backend representation、backend bytes、prechecked artifact、`.neplobj` / `.neplproof` artifact key は作らない。`EffectObservedNoEscape` は引き続き actual traversal 由来 fresh witness / no-escape authority が同じ body identity に束ねられた後だけ発行する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で固定した。combined coverage/witness owner と gate summary の public exposure 禁止、combined owner の Clone / Copy 禁止、coverage before witness の順序、coverage failure 時の source cleanup、stage0 witness fixture / GraphInput / lower proof / backend / effect mask / artifact 合成禁止、reader context から resolver-derived coverage authority と単一 source owner を作る順序を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、accepted / escaping / observation / unsupported source vocabulary と actual fresh witness / no-escape authority を同じ resolver-bound body identity で発行する。
+- `EffectObservedNoEscape` を actual traversal 由来 fresh witness table と no-escape authority が束ねられた場合だけ発行し、その public coverage evidence を接続済み upper orchestration へ渡す。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
