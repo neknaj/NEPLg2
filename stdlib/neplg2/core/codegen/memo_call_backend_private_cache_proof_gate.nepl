@@ -55,6 +55,7 @@
 //: - Actual traversal private-effect coverage handoff API は、actual traversal 由来の explicit 2-slot coverage を checker-layer bridge へ渡す public transport です。root / fingerprint / effect / status だけを運び、source table や proof table は公開しません。
 //: - Actual traversal coverage handoff producer stage0 は、module-private traversal source table を同じ body identity / graph identity で再検査し、public coverage handoff pair へ写します。production reader context path では resolver が検査した body root から complete authority を作り、source-derived witness より前の source table を coverage mapper へ渡します。空 source は complete absence ではなく typed error にし、private effect operation が無く、かつ unsupported / unavailable / escape source が無い場合だけ explicit complete absence にします。
 //: - Resource lowering source output stage0 は、resolver-bound body root から HIR body reader source、operation projection、unified event split、collector-owned source table の順に通した owner だけを `ResourceLoweringTraversalProduced` origin として production gate へ渡します。direct HIR reader source output は `HirReaderSourceDerived` のまま拒否し、effect mask、GraphInput、backend artifact は作りません。
+//: - Resource lowering fresh witness authority bundle stage0 は、`ResourceLoweringTraversalProduced` source output から分離した production fresh witness input owner を same-source candidate 由来の fresh witness authority bundle へ進めます。no-escape coverage、request-evidence、effect mask、backend artifact へは進めません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -2920,6 +2921,19 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputSta
     resource_lowering_fresh_witness_input_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     resource_lowering_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
     resource_lowering_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityBundleStage0Summary: production fresh witness authority bundle 境界の代表結果
+//:
+//: [目的/もくてき]:
+//: - Resource lowering origin output から分離した production fresh witness input owner が、same-source candidate 由来の fresh witness authority bundle へ進めることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は bundle witness count と typed rejection だけを公開します。input owner、source table、fresh witness table、candidate、coverage pair は公開しません。
+//: - bundle 生成は fresh witness owner 作成で止めます。no-escape coverage、request-evidence gate、GraphInput、proof table push、effect mask、sealed backend representation、artifact key はこの summary の範囲外です。
+//: - `ResourceLoweringTraversalProduced` は stage0 の operation projection / unified event split / collector-owned source owner を通ったことだけを表します。actual full Resource IR graph walker 完了とは扱いません。
+struct SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityBundleStage0Summary:
+    resource_lowering_bundle_witness_count %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
+    resource_lowering_private_cache_effect_bundle_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary: context-bound reader output bundle 接続 smoke の代表結果
 //:
@@ -15865,6 +15879,18 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_wi
     selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
     count
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_witness_count: fresh witness authority bundle の witness 数を[返/かえ]して owner を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - count は stage0 / contract 用の代表値です。witness count を no-escape proof や request-evidence proof の代用にしません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_witness_count %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle i32 \bundle:
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get bundle "sources"
+    let witnesses %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable field::get bundle "witnesses"
+    let count %i32 selfhost_memo_call_backend_private_cache_region_fresh_witness_table_len &witnesses
+    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+    selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses
+    count
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_from_body_root_result: resolver 済み body root から origin 付き source output を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -15969,6 +15995,16 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_
             let body_root %SelfhostHirExprId field::get output "body_root"
             let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get output "sources"
             Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new context body_root sources
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_into_bundle_result: production fresh witness input owner を fresh witness authority bundle へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - input owner が保持する source owner を same-source candidate 由来 fresh witness authority producer へ move します。
+//: - request context から source table を再生成しません。`ResourceLoweringTraversalProduced` origin 検査後に作られた input owner だけを入口にします。
+//: - この helper は no-escape coverage、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、artifact key を作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_into_bundle_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \input:
+    let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get input "sources"
+    selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_from_sources_result sources
 
 //: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new: body reader no-escape authority bundle を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority fn SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle \coverage_authority\witness_bundle:
@@ -16155,6 +16191,14 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
         Result::Err actual:
             selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_kind_eq actual expected
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_region_proof_result_i32_eq: region proof Result が期待値か[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_region_proof_result_i32_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _e:
+            false
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_with_body_expr_result: stage0 body expr から source output を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -16291,6 +16335,34 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_s
         Result::Err e:
             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_source_rejected: bundle stage0 setup rejection を region proof error へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_source_rejected %fn i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint context_body_module_fingerprint
+    SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualTraversalBodyInputUnavailable key
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_with_body_expr_result: production fresh witness bundle の witness 数を body expr 指定で[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_with_body_expr_result %impure fn i32 impure fn SelfhostHirExpr Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint\body_expr:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_with_body_expr_result context_body_module_fingerprint body_expr:
+        Result::Ok output:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result output:
+                Result::Ok input:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_into_bundle_result input:
+                        Result::Ok bundle:
+                            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_witness_count bundle
+                        Result::Err e:
+                            Result::Err e
+                Result::Err _e:
+                    Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_source_rejected context_body_module_fingerprint
+        Result::Err _e:
+            Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_source_rejected context_body_module_fingerprint
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_result: neutral body の production fresh witness bundle witness 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_result %impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context_body_module_fingerprint:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let body_expr %SelfhostHirExpr selfhost_hir_expr_unit function_ty span
+    selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_with_body_expr_result context_body_module_fingerprint body_expr
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_with_body_expr_result: source output を no-escape pair code へ[写/うつ]す
 fn selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_with_body_expr_result %impure fn i32 impure fn SelfhostHirExpr Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \context_body_module_fingerprint\body_expr:
     match selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_with_body_expr_result context_body_module_fingerprint body_expr:
@@ -16391,6 +16463,33 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
     let resource_lowering_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_production_gate_result 77
     let resource_lowering_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_source_count_with_body_expr_result 77 private_cache_body_expr
     SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary source_derived_source_count source_derived_pair_code source_derived_production_rejected source_derived_fresh_witness_input_rejected hir_body_private_cache_effect_rejected resource_lowering_source_count resource_lowering_fresh_witness_input_source_count resource_lowering_production_rejected resource_lowering_private_cache_effect_source_count
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_summary_eq: production fresh witness authority bundle smoke の代表 contract を[確認/かくにん]する
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_summary_eq %fn SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityBundleStage0Summary bool \summary:
+    let bundle_witness_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_region_proof_result_i32_eq summary.resource_lowering_bundle_witness_count 1
+    let expected_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let private_cache_rejected_ok %bool selfhost_memo_call_backend_private_cache_region_proof_unsupported_result_eq summary.resource_lowering_private_cache_effect_bundle_rejected expected_key
+    and:
+        bundle_witness_ok
+        private_cache_rejected_ok
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0: production fresh witness authority bundle 境界の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - ResourceLowering origin の source output から分離した input owner が、same-source candidate 由来の fresh witness authority bundle へ進めることを確認します。
+//:
+//: [契約/けいやく]:
+//: - source-derived output は production fresh witness input 境界で拒否します。
+//: - ResourceLowering origin は fresh witness authority bundle 生成まで確認しますが、production gate は引き続き no-escape authority 未接続として拒否します。
+//: - no-escape coverage、request-evidence gate、GraphInput、effect mask、backend bytes、sealed representation、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityBundleStage0Summary \void:
+    let resource_lowering_bundle_witness_count %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_result 77
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    let private_cache_callee_def_id %SelfhostDefId selfhost_def_id_new 501
+    let private_cache_body_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "body_call" private_cache_callee_def_id function_ty SelfhostEffectKind::PrivateCache selfhost_hir_child_range_empty
+    let resource_lowering_private_cache_effect_bundle_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_bundle_witness_count_with_body_expr_result 77 private_cache_body_expr
+    SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityBundleStage0Summary resource_lowering_bundle_witness_count resource_lowering_private_cache_effect_bundle_rejected
 
 //: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result: body expr fixture を no-escape pair code へ[写/うつ]す
 //:
