@@ -45,6 +45,19 @@ function assertOrdered(text, snippets, message) {
     }
 }
 
+function countOccurrences(text, snippet) {
+    let count = 0;
+    let offset = 0;
+    while (true) {
+        const found = text.indexOf(snippet, offset);
+        if (found === -1) {
+            return count;
+        }
+        count += 1;
+        offset = found + snippet.length;
+    }
+}
+
 function enumVariantNames(src, enumName) {
     return stripDocComments(topLevelBlock(src, "enum", enumName))
         .split("\n")
@@ -763,19 +776,76 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result module context resolutions",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions",
+        "Result::Ok body_root:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_body_root_result module context body_root",
+        "Result::Err _e:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
     ],
-    "body-reader no-escape request-context helper must use the direct reader source output fresh-witness authority boundary",
+    "body-reader no-escape request-context helper must resolve the body root once and pass that body root into the combined authority bundle producer",
+);
+assert.equal(
+    countOccurrences(
+        stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result")),
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result",
+    ),
+    1,
+    "body-reader no-escape request-context helper must perform exactly one resolver lookup",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result")),
-    /actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|body_reader_no_escape_coverage_authority_bundle_from_split_output_result|actual_traversal_body_adapter_sources_from_request_context_output_result/,
-    "body-reader no-escape request-context helper must not round-trip through event split output before deriving witness authority",
+    /actual_traversal_private_effect_coverage_authority_from_reader_context_result|actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result|actual_traversal_body_reader_sources_from_request_context_result|actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|body_reader_no_escape_coverage_authority_bundle_from_split_output_result|actual_traversal_body_adapter_sources_from_request_context_output_result|actual_traversal_body_adapter_sources_from_request_context_result/,
+    "body-reader no-escape request-context helper must not perform a second resolver/source lookup or round-trip through split-output/source adapters",
 );
 assert.doesNotMatch(
     source,
     /^fn\s+selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_split_output_result\b/m,
     "old body-reader no-escape split-output authority helper must not remain as a competing authority path",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle"),
+    [
+        "coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority",
+        "witness_bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle",
+    ],
+    "body-reader no-escape authority bundle must carry resolver-derived coverage authority and the owner-bearing fresh witness authority bundle",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_body_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result module context body_root",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_sources_result coverage_authority context sources",
+        "Result::Err _e:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+    ],
+    "body-reader no-escape body-root helper must build coverage authority and source owner from the same resolver-returned body root",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
+        "Result::Ok _valid:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_from_sources_result sources",
+        "Result::Ok witness_bundle:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new coverage_authority witness_bundle",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e",
+        "Result::Err _e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+    ],
+    "body-reader no-escape source helper must validate the source owner, move it once into fresh witness authority, and close it on validation rejection",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result"),
+    [
+        "field::get bundle \"coverage_authority\"",
+        "field::get bundle \"witness_bundle\"",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result coverage_authority witness_bundle",
+    ],
+    "body-reader no-escape pair-code helper must move the bundled witness owner into the lower no-escape coverage helper exactly once",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result"),
@@ -785,15 +855,14 @@ assertOrdered(
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result &module context &resolutions",
-        "Result::Ok authority:",
         "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result &module context &resolutions",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_run_i32_with_authority_bundle_result authority bundle_result",
+        "Result::Ok authority_bundle:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result authority_bundle",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
     ],
-    "body-reader no-escape stage0 runner must build coverage authority from resolver-bound reader context before running no-escape coverage with the reader authority bundle",
+    "body-reader no-escape stage0 runner must use one combined resolver-bound authority bundle before running no-escape coverage",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_summary_eq"),
@@ -824,8 +893,12 @@ assertOrdered(
 );
 for (const helperName of [
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new",
     "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_sources_result",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_body_root_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0",
@@ -836,6 +909,21 @@ for (const helperName of [
         `${helperName} must not route through external witness fixtures, traversal bundles, source-derived request evidence, root-wide classifier fixtures, direct source adapters, lower proof synthesis, GraphInput, backend bytes, effect masking, or artifact keys`,
     );
 }
+assert.doesNotMatch(
+    code,
+    /^pub\s+struct\s+SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle\b/m,
+    "body-reader no-escape coverage authority bundle must stay module-private",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle\b/m,
+    "public functions must not expose body-reader no-escape coverage authority bundle in their signatures",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle\b/,
+    "body-reader no-escape coverage authority bundle must not implement Clone or Copy because it owns a witness authority bundle",
+);
 for (const helperName of [
     "selfhost_memo_call_backend_private_cache_collector_owned_no_escape_coverage_authority_bundle_with_owners_result",
     "selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_split_events_result",

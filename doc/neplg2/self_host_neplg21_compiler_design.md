@@ -3199,6 +3199,16 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - full traversal output 由来の public coverage handoff 2 件を、接続済み checker-layer upper orchestration へ渡す production boundary を接続する。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost reader no-escape combined authority bundle checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、body-reader no-escape coverage path の coverage authority と fresh witness authority owner を `SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle` に束ねる backend-private boundary を追加した。
+
+新しい path は `actual_traversal_body_resolution_lookup_result` で resolver-bound body root を 1 回だけ取得し、その同じ `body_root` から coverage complete authority と HIR body source owner を作る。source owner は context validation 後に `actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ move し、fresh witness authority bundle として combined authority bundle に保持する。validation failure では source owner を閉じて `CoverageRejected(SourceRejected)` に畳み、fresh witness producer 以降の unsupported / escaping / observation は compact no-escape witness taxonomy へ写す。
+
+stage0 runner は coverage authority と witness bundle を別々に作らず、resolver-bound combined authority bundle だけを no-escape pair-code helper へ渡す。combined bundle は public API に出さず、Clone / Copy も実装しない。request-evidence gate、`ActualTraversalBundle`、source-derived witness helper、GraphInput、Resource proof table push、checker proof table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、prechecked artifact、`.neplobj` / `.neplproof` artifact key は作らない。
+
+この checkpoint も full Resource IR traversal ではない。accepted source は HIR body reader finalizer の wrapper source pair であり、resolver body root 由来の authority drift を閉じる境界である。残件は、full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual fresh witness / no-escape authority、coverage handoffを同じ resolver-bound body identity で発行し、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionへ渡す production boundary である。
+
 ## 2026-06-22 selfhost actual traversal private-effect coverage upper orchestration checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator.nepl` を追加し、actual traversal private-effect coverage の public handoff 2 件を checker-layer coverage bridge へ渡す facade-private upper orchestration を固定した。

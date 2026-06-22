@@ -109,6 +109,55 @@
 
 - F5mo で encoded seal boundary は接続済み。後続として、compositor encoded owner から lower packet / std present payload transport / present continuation へ進む boundary を実装する。
 
+# 2026-06-22 selfhost reader no-escape combined authority bundle checkpoint
+
+## 目的
+
+- body-reader no-escape coverage path で、coverage authority と fresh witness authority bundle を別々の resolver/source path から作らないようにする。
+- resolver が返した同じ body root から coverage complete authority と HIR body source owner を作り、source owner を fresh witness authority producer へ move したうえで combined authority bundle として no-escape gate へ渡す。
+- この checkpoint は request-evidence gate、`ActualTraversalBundle`、GraphInput、proof table push、effect mask、backend bytes、sealed representation、artifact key へ進まない。
+
+## subagent review
+
+- Boole の design review は `PLAN_APPROVED`。
+- resolver lookup を 1 回だけ行い、同じ body root から coverage authority と HIR body source owner を作る方向は既存 owner / authority 契約と矛盾しないと確認された。
+- source generation / context validation failure は `CoverageRejected(SourceRejected)` 側、fresh witness producer 以降は compact witness taxonomy 側へ写す方針でよいと確認された。
+- context validation 前の source を witness authority に move しないこと、combined bundle の module-private / Clone Copy 禁止 / public signature 非露出、split-output / source-adapter round-trip 禁止を contract で固定する方針とした。
+- Hilbert の implementation review は Low 2 件を指摘した。
+- `assertOrdered` だけでは resolver lookup 1 回を固定できないため、contract test に occurrence count helper を追加し、request-context helper 内の `actual_traversal_body_resolution_lookup_result` が exactly once であることを固定した。
+- `todo.md` 先頭 selfhost 項目が前 checkpoint の direct reader source output 表現のままだったため、combined authority bundle 接続済みの表現へ更新した。
+- owner cleanup / move、validation-before-move、error taxonomy、禁止 path は問題なしと確認された。
+
+## 実装状況
+
+- `SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle` を追加した。coverage authority value と owner-bearing fresh witness authority bundle を保持し、public API には出さない。
+- `body_reader_no_escape_coverage_authority_bundle_from_request_context_result` は `actual_traversal_body_resolution_lookup_result` で body root を 1 回だけ取得し、`from_body_root_result` へ渡す。
+- `from_body_root_result` は `coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id` と `actual_traversal_body_reader_hir_body_sources_from_root_result module context body_root` を同じ body root で実行する。
+- `from_sources_result` は context-bound source validation 後にだけ `actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ source owner を move する。validation failure では source owner を閉じ、fresh witness producer 以降の error は no-escape coverage error taxonomy へ写す。
+- stage0 runner は coverage authority と witness bundle を別々に作らず、combined authority bundle を pair-code helper へ渡す。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は module-private 化、public signature 非露出、Clone / Copy 禁止、resolver lookup 一回、same body-root source generation、validation-before-move、split-output / source-adapter / `ActualTraversalBundle` / request-evidence / GraphInput / proof push / effect mask / backend / artifact 禁止を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。
+
+## plan.mdとの差異
+
+- plan.md は変更していない。
+- 今回は full Resource IR traversal ではなく、resolver-bound body root 由来の no-escape authority drift を閉じる中間境界である。
+- full Resource IR / HIR lowering traversal、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionは残件である。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-reader-noescape-authority-bundle-doctest.json`（18/18）
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-reader-noescape-authority-bundle-doctest.json`（18 passed / 0 failed）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_reader_noescape_authority_bundle.json`（13/13）
+- checked JSON: `output/playground_editor_selfhost_reader_noescape_authority_bundle.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`
+
 # 2026-06-22 Agent2 GUI render2d F5mm compositor tile RLE write cursor start bridge boundary
 
 ## 目的
