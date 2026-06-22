@@ -81583,10 +81583,10 @@ MERGE_APPROVED
 - `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、`ResourceLoweringTraversalProduced` origin の source output を作る module-private production helper を追加した。
 - direct HIR reader source output は `HirReaderSourceDerived` のまま production gate で拒否する。production origin は resolver-bound body root から作った reader source owner を operation projection、context-owned unified event、event split、collector-owned source table の順に通した場合だけ付与する。
 - `actual_traversal_resource_lowering_source_output_from_request_context_result` は resolver lookup を 1 回だけ行い、body-root helper へ渡す。body-root helper は同じ body root から coverage authority を作り、collector-owned source owner を output envelope に入れる。
-- stage0 summary は source-derived rejection に加え、resource-lowering origin の source count と production gate rejectionを公開する。neutral body は `ResourceLoweringTraversalProduced` origin の source output までは到達するが、production gate では `ResourceLoweringNoEscapeAuthorityNotConnected` として source owner を閉じて拒否する。PrivateCache effect body は no-escape に進めず、source count の代表値としてだけ観測する。
+- この checkpoint 時点の stage0 summary は source-derived rejection に加え、resource-lowering origin の source count と production gate rejectionを公開していた。後続 checkpoint で neutral body は production no-escape pair code まで到達し、PrivateCache effect body は no-escape path で typed rejection になるよう更新した。
 - `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、`ResourceLoweringTraversalProduced` の生成箇所、production helper の source -> output -> collector 順序、resolver lookup exactly once、source-derived helper / request-evidence / GraphInput / proof table / effect mask / backend / artifact 非進出を固定した。
-- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。今回の checkpoint は actual full Resource IR traversal 完了ではなく、collector-owned source output を production origin として作る boundary であり、no-escape authority は未接続として fail-closed に止める。次は actual Resource IR graph walker 本体、production no-escape authority、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
-- Nietzsche の read-only review は、direct HIR source を re-tag しない方針は妥当だが、`ResourceLoweringTraversalProduced` は source -> operation -> unified event -> split -> collector を通った stage0 origin としてだけ扱い、actual full Resource IR traversal 完了と表現しないこと、PrivateCache / PrivateState effect を no-escape / mask proven に昇格しないことを確認した。James の implementation review は、production gate が no-escape pair code へ進むと region proof / fresh witness 側まで進みすぎると指摘した。実装と doc はこの指摘に従い、ResourceLowering origin でも no-escape authority 未接続として拒否する。James の再レビューでは blocker は残っていないと確認された。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint は actual full Resource IR traversal 完了ではなく、collector-owned source output を production origin として作る boundary だった。後続 checkpoint で production no-escape authority は接続済みのため、残件は actual Resource IR graph walker 本体、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
+- Nietzsche の read-only review は、direct HIR source を re-tag しない方針は妥当だが、`ResourceLoweringTraversalProduced` は source -> operation -> unified event -> split -> collector を通った stage0 origin としてだけ扱い、actual full Resource IR traversal 完了と表現しないこと、PrivateCache / PrivateState effect を no-escape / mask proven に昇格しないことを確認した。James の implementation review は、production gate が no-escape pair code へ進むと region proof / fresh witness 側まで進みすぎると指摘した。当時の実装と doc はこの指摘に従い、ResourceLowering origin を no-escape handoff へ進めず拒否した。その後の checkpoint で production fresh witness input と同一 source witness bundle を経由する no-escape handoff pair まで接続済みである。James の再レビューでは blocker は残っていないと確認された。
 
 ### 検証
 
@@ -81669,9 +81669,9 @@ MERGE_APPROVED
 - `SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput` は recheck 済み request context、resolver body root、source table owner だけを保持する。fresh witness table、coverage pair、GraphInput、proof table、request-evidence、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、artifact key は保持しない。
 - `actual_traversal_source_output_into_production_fresh_witness_authority_input_result` は origin を検査し、`HirReaderSourceDerived` は source owner cleanup 後に `SourceDerivedHirBodyReaderRejected` として拒否する。`ResourceLoweringTraversalProduced` の場合だけ source owner を input owner へ move する。
 - stage0 summary は source-derived fresh witness input rejection と resource-lowering fresh witness input source count を追加で公開する。count は owner lifecycle の smoke であり、fresh witness authority / no-escape proof / backend plan ではない。
-- production gate は引き続き `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止める。今回の checkpoint は no-escape pair code、region proof、request-evidence、effect mask、sealed backend、artifact projectionへ進まない。
+- この input boundary checkpoint 時点では production gate を no-escape pair code へ進めず fail-closed に止めていたが、後続 checkpoint で production no-escape handoff pair へ接続した。
 - `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、input owner shape / module-private / no Clone-Copy、`ResourceLoweringTraversalProduced` 出現箇所、move helper の origin 検査、stage0 helper の witness / no-escape / proof / backend / artifact 非進出、summary schema を固定した。
-- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。次は actual Resource IR graph walker 本体の source / fresh-witness 発行、production no-escape authority、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint 後に production no-escape authority は接続済みのため、残件は actual Resource IR graph walker 本体の source / fresh-witness 発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
 - Copernicus の read-only review は slice 方針と owner lifecycle は妥当と確認しつつ、contract 出現数、new owner helper の禁止語、summary/doc/todo/note 更新不足を指摘した。指摘に従い contract schema と禁止語を追加し、doc / todo / note を更新した。
 
 ### 検証
@@ -81695,7 +81695,7 @@ MERGE_APPROVED
 - `PrivateCache` effect body の bundle rejection は単なる Err ではなく、`RegionProofUnsupported` と expected key で固定した。
 - production fresh witness bundle smoke は module-private に留めた。direct doctest で public surface として materialize すると現在の selfhost compiler が stack overflow するため、no-escape authority / request-evidence 接続前の public accepted path として公開しない。境界自体は contract と private helper で固定する。
 - `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、input bundle helper が lower primitive、fixture witness、external `RegionFreshWitnessStatus`、request-evidence / no-escape / backend / artifact へ退行しないこと、bundle witness count helper が owner を閉じること、module-private summary が exact rejection を確認することを固定した。
-- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。次は actual Resource IR graph walker 本体の source / fresh-witness 発行、production no-escape authority、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint 後に production no-escape authority は接続済みのため、残件は actual Resource IR graph walker 本体の source / fresh-witness 発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
 - Aristotle の read-only review は、slice 方針と `RegionProofProducerErrorKind` field は妥当と確認した。指摘に従い、PrivateCache effect rejection を exact `RegionProofUnsupported expected_key` に変更し、doc / todo / note を更新し、input bundle helper の禁止語を追加した。
 
 ### 検証
@@ -81710,3 +81710,23 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_fresh_witness_bundle.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_lowering_fresh_witness_bundle.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering production no-escape authority checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` の production gate で、`ResourceLoweringTraversalProduced` output を production fresh witness input owner、same-source fresh witness authority bundle、coverage authority bundle、no-escape handoff pair code の順に進める境界を接続した。
+- `HirReaderSourceDerived` は引き続き source owner cleanup 後に `SourceDerivedHirBodyReaderRejected` で拒否する。`SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind` から no-escape 未接続専用 variant を削除し、production origin の失敗は `OutputRejected` に正規化した。
+- neutral body は production gate で pair code `13` に到達する。`PrivateCache` effect body は accepted wrapper source に混ぜず、resource-lowering production no-escape path で `OutputRejected WitnessUnsupportedSource` として拒否する。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、production gate が output から coverage authority / context / body root / source owner を取り出し、production fresh witness input ownerを経由して no-escape pair code を作ること、source-output helper や request-evidence / GraphInput / backend / effect mask / artifact へ迂回しないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。次は actual Resource IR graph walker 本体の source / fresh-witness 発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
+- Feynman の read-only review は、production fresh witness input bundle helper が context / body_root を保持しているのに source validation と coverage body-root validation に使っていないことを P1 として指摘した。指摘に従い、input->bundle helper に context/source validation を追加し、production gate に coverage authority の request root / body root / fingerprint / graph identity validation を追加した。
+- Feynman の P2/P3 指摘に従い、production gate がまだ no-escape authority へ接続していないように読めるコメントを更新し、内部 region candidate / witness table と request-evidence proof table push の区別が分かる表現に直した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-production-no-escape-authority-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-production-no-escape-authority-doctest.json`。18 passed / 0 failed。
+- pass after Feynman review fix: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after Feynman review fix: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after Feynman review fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-production-no-escape-authority-after-review-doctest.json`。18/18。

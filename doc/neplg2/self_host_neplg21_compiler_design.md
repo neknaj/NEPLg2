@@ -3381,9 +3381,9 @@ GraphInput、Resource proof table push、request-evidence gate、PrivateCache / 
 
 新しい helper は resolver lookup を request-context helper で 1 回だけ行い、その body root から coverage authority と reader source owner を作る。reader source owner は `actual_traversal_body_reader_output_from_context_sources_result` が消費し、split output は `actual_traversal_body_adapter_sources_from_request_context_output_result` が collector-owned source table へ変換してから output envelope に入る。これにより、source-derived output helper、request-evidence bundle、`ActualTraversalBundle`、直接 GraphInput / proof table 合成を competing authority として使わない。
 
-stage0 summary は source-derived output の count / pair smoke と production rejectionに加え、resource-lowering origin output の source count と production gate rejectionを公開する。neutral body は `ResourceLoweringTraversalProduced` origin の source output までは到達するが、production gate では `ResourceLoweringNoEscapeAuthorityNotConnected` として source owner を閉じて拒否する。`PrivateCacheEffectOperation` は source vocabulary として届いても no-escape proof には昇格せず、resource-lowering path でも source count の代表値としてだけ観測する。
+stage0 summary は source-derived output の count / pair smoke と production rejectionに加え、resource-lowering origin output の source count を公開する。この checkpoint 時点では neutral body は `ResourceLoweringTraversalProduced` origin の source output までで止めていたが、後続の production no-escape authority checkpoint で no-escape handoff pair まで接続した。`PrivateCacheEffectOperation` は source vocabulary として届いても accepted wrapper source には混ぜず、後続 production no-escape gate で typed rejection として扱う。
 
-この checkpoint は actual full Resource IR traversal 完了ではない。現時点の入力は resolver-bound HIR reader source plan であり、fresh witness / no-escape authority、full Resource IR graph walker 本体、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、actual Resource IR graph walker が source / fresh-witness / coverage を実発行する boundary、production no-escape authority、effect mask / sealed backend / artifact projection の接続である。
+この checkpoint は actual full Resource IR traversal 完了ではない。この checkpoint 時点の入力は resolver-bound HIR reader source plan であり、fresh witness / no-escape authority、full Resource IR graph walker 本体、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らなかった。後続 checkpoint で production no-escape authority までは接続したため、残件は actual Resource IR graph walker が source / fresh-witness / coverage を実発行する boundary、effect mask / sealed backend / artifact projection の接続である。
 
 ## 2026-06-23 selfhost resource-lowering fresh witness input boundary checkpoint
 
@@ -3391,7 +3391,7 @@ stage0 summary は source-derived output の count / pair smoke と production r
 
 `actual_traversal_source_output_into_production_fresh_witness_authority_input_result` は origin を必ず検査する。`HirReaderSourceDerived` は source owner を閉じて `SourceDerivedHirBodyReaderRejected` として拒否し、`ResourceLoweringTraversalProduced` の場合だけ source owner を input owner へ move する。stage0 summary は source-derived input rejection と resource-lowering input source count を公開するが、この count は contract 用の代表値であり authority ではない。
 
-production gate の `actual_traversal_production_output_pair_code_result` は引き続き no-escape authority へ進まない。`ResourceLoweringTraversalProduced` origin でも `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止め、region proof table、fresh witness table、request-evidence、PrivateCache / PrivateState effect mask、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、actual Resource IR graph walker が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を同じ resolver-bound body identity で実発行し、その後に production no-escape authority と effect mask / sealed backend / artifact projection へ接続することである。
+この input boundary checkpoint 時点では production gate はまだ no-escape authority へ進まなかった。後続の fresh witness bundle checkpoint と production no-escape authority checkpoint により、`ResourceLoweringTraversalProduced` origin は production fresh witness input、same-source witness bundle、no-escape handoff pair まで進む。request-evidence、PrivateCache / PrivateState effect mask、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は引き続き作らない。
 
 ## 2026-06-23 selfhost resource-lowering fresh witness bundle boundary checkpoint
 
@@ -3399,7 +3399,15 @@ production gate の `actual_traversal_production_output_pair_code_result` は引
 
 bundle 生成は fresh witness owner 作成で止める。`region_fresh_witness_resource_table_result`、request-evidence gate、no-escape coverage、GraphInput、proof table push、PrivateCache / PrivateState effect mask、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。`PrivateCache` effect body は `RegionProofUnsupported` と expected key で拒否されることを contract で固定した。
 
-この smoke は module-private に留める。現時点では production no-escape authority と request-evidence 境界が未接続であり、public accepted path として公開すると actual full Resource IR traversal 完了と誤解されるためである。production gate は引き続き `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止める。残件は actual Resource IR graph walker 本体の source / fresh-witness 発行、production no-escape authority、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。
+この smoke は module-private に留める。この checkpoint 時点では production no-escape authority と request-evidence 境界が未接続であり、public accepted path として公開すると actual full Resource IR traversal 完了と誤解されるためである。後続 checkpoint で production no-escape authority は接続したが、request-evidence、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projection は残っている。
+
+## 2026-06-23 selfhost resource-lowering production no-escape authority checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ResourceLoweringTraversalProduced` output を production gate 内で no-escape handoff pair まで進める境界を接続した。source-derived HIR reader output は引き続き owner cleanup 後に `SourceDerivedHirBodyReaderRejected` として拒否する。
+
+`actual_traversal_production_output_pair_code_result` の resource-lowering branch は、output の coverage authority、request context、body root、source owner を取り出し、coverage authority の request root / body root / body module fingerprint / graph id が input identity と一致することを検査してから production fresh witness input owner を作る。`actual_traversal_production_fresh_witness_authority_input_into_bundle_result` は input の context と source table を再検査し、成功した場合だけ same-source fresh witness authority producer へ source owner を move する。成功した witness bundle は `BodyReaderNoEscapeCoverageAuthorityBundle` として coverage authority に束ね、既存 handoff pair value boundary で pair code を作る。neutral body は pair code `13` に到達し、`PrivateCache` effect body は `OutputRejected WitnessUnsupportedSource` で fail-closed になる。
+
+この checkpoint は production no-escape authority の接続であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を実 traversal から発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
 ## 既存 issue との対応
 
