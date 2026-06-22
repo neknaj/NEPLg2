@@ -1,0 +1,186 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator
+//: actual traversal private-effect coverage handoff を checker-layer coverage bridge へ[渡/わた]す upper orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - backend coverage producer が返す public `HandoffEvidence` 2 件を、checker-layer の coverage bridge へ渡す位置を固定します。
+//: - backend module-private の complete authority、source table、handoff pair、reader context、resolution table を checker-layer API に出さず、public evidence だけを transport として扱います。
+//: - request-evidence gate result と coverage handoff pair を同じ request body identity で bridge に渡し、slot coverage、mask evidence、backend readiness への下位接続は既存 bridge に委譲します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は caller が渡した request-evidence gate `Result`、request body root / body fingerprint、type id / operation、cache / state の public handoff evidence だけです。
+//: - coverage handoff は `PrivateCache` slot と `PrivateState` slot の 2 件を個別引数で受けます。public pair 型は追加しません。
+//: - cache / state handoff の same-body identity、request identity、effect slot、placeholder fingerprint、coverage status の fail-closed 判定は coverage bridge に委譲します。
+//: - この module は backend の private pair / complete authority / traversal source table / reader context / resolution table / fresh witness table を受け取りません。
+//: - この module は GraphInput、Resource proof record/table、checker proof table、backend bytes、effect mask 実体、sealed backend representation、prechecked artifact、`.neplobj` / `.neplproof` artifact key を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では facade-private の non-executable upper orchestration です。
+//: - full Resource IR traversal が production handoff を発行する境界、fresh witness と `EffectObservedNoEscape` の authority binding、Resource summary hash invalidation、artifact policy hash、sealed backend representation は後続 stage です。
+//: - facade には re-export しません。full selfhost proof orchestration が artifact boundary まで揃う段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - この module 自体は O(1) で public handoff 2 件を既存 bridge に渡します。
+//: - slot coverage proof table 生成、mask evidence lookup、backend readiness gate の計算量は coverage bridge と下位 producer / gate の契約に従います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator" as *
+//: fn main %fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0:
+//:         Result::Ok summary:
+//:             if:
+//:                 selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_summary_eq summary
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Result::Err _setup:
+//:             1
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_private_effect_actual_traversal_coverage_bridge" as *
+
+//: SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind: upper orchestration の拒否理由
+//:
+//: [目的/もくてき]:
+//: - coverage bridge が拒否した理由を、upper orchestration の typed error として保持します。
+pub enum SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind:
+    CoverageBridgeRejected %SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageBridgeErrorKind
+
+//: SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary: upper orchestration smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted absence、unsupported coverage、request-evidence rejection、request identity mismatch、effect mismatch を確認します。
+pub struct SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary:
+    accepted_absence_count %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind
+    unsupported_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind
+    request_evidence_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind
+    request_identity_mismatch_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind
+    effect_mismatch_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind: orchestration error を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind: orchestration error の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary: smoke summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary: smoke summary の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_readiness_count_from_public_handoff_result: public coverage handoff を backend readiness へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - backend producer が作った public `HandoffEvidence` 2 件を、private pair や source owner に戻さず existing coverage bridge へ渡します。
+//:
+//: [契約/けいやく]:
+//: - coverage table、mask evidence、backend readiness の詳細は coverage bridge に委譲します。
+//: - この関数は handoff payload を解釈しません。status、effect、identity の fail-closed 検査は bridge 側の単一実装を使います。
+pub fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_readiness_count_from_public_handoff_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn SelfhostHirExprId impure fn i32 impure fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind \type_id\operation\request_body_root\request_body_module_fingerprint\gate_result\cache_handoff\state_handoff:
+    match selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_backend_readiness_count_from_handoff_pair_result type_id operation request_body_root request_body_module_fingerprint gate_result cache_handoff state_handoff:
+        Result::Ok count:
+            Result::Ok count
+        Result::Err bridge_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind::CoverageBridgeRejected bridge_error
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_kind_eq: orchestration error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_kind_eq %fn SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind fn SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind::CoverageBridgeRejected a_bridge:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind::CoverageBridgeRejected b_bridge:
+                    selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_bridge_error_kind_eq a_bridge b_bridge
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_count_result_eq: count result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_count_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_result_eq: result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind fn SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_kind_eq actual expected
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_result_is_err: result が fail-closed か[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_result_is_err %fn Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind bool \result:
+    match result:
+        Result::Ok _count:
+            false
+        Result::Err _error:
+            true
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_summary_eq: stage0 summary の代表 contract を[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_summary_eq %fn SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary bool \summary:
+    let accepted_ok %bool selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_count_result_eq summary.accepted_absence_count 1
+    let request_identity_error %SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind::CoverageBridgeRejected SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageBridgeErrorKind::CoverageHandoffRequestIdentityMismatch
+    let effect_error %SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind::CoverageBridgeRejected SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageBridgeErrorKind::CoverageHandoffEffectMismatch SelfhostEffectKind::PrivateState
+    let unsupported_ok %bool selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_result_is_err summary.unsupported_rejected
+    let request_evidence_ok %bool selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_result_is_err summary.request_evidence_rejected
+    let request_identity_ok %bool selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_result_eq summary.request_identity_mismatch_rejected request_identity_error
+    let effect_ok %bool selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_error_result_eq summary.effect_mismatch_rejected effect_error
+    and:
+        accepted_ok
+        and:
+            unsupported_ok
+            and:
+                request_evidence_ok
+                and:
+                    request_identity_ok
+                    effect_ok
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_handoff: stage0 用 public coverage handoff を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_handoff %fn SelfhostHirExprId fn i32 fn SelfhostEffectKind fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence \root\fingerprint\effect\status:
+    SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence root fingerprint effect status
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result: stage0 用 public handoff を upper orchestration へ[渡/わた]す
+fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result %impure fn SelfhostHirExprId impure fn i32 impure fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind \request_root\fingerprint\gate_result\cache_handoff\state_handoff:
+    let type_id %SelfhostTypeId selfhost_type_id_new 94001
+    selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_readiness_count_from_public_handoff_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq request_root fingerprint gate_result cache_handoff state_handoff
+
+//: selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0: public coverage handoff upper orchestration の smoke API
+pub fn selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0 %fn void Result SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary StdErrorKind \void:
+    let request_root %SelfhostHirExprId selfhost_hir_expr_id_new 94002
+    let mismatched_request_root %SelfhostHirExprId selfhost_hir_expr_id_new 94004
+    let fingerprint %i32 94003
+    let accepted_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 1 1
+    let rejected_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed StdErrorKind::Failure
+    let cache_absent %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_handoff request_root fingerprint SelfhostEffectKind::PrivateCache SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::EffectAbsentAfterCompleteTraversal
+    let state_absent %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_handoff request_root fingerprint SelfhostEffectKind::PrivateState SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::EffectAbsentAfterCompleteTraversal
+    let cache_unsupported %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_handoff request_root fingerprint SelfhostEffectKind::PrivateCache SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::TraversalUnsupported
+    let wrong_cache_effect %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffEvidence selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_handoff request_root fingerprint SelfhostEffectKind::PrivateState SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::EffectAbsentAfterCompleteTraversal
+    let accepted_absence_count %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result request_root fingerprint accepted_gate_result cache_absent state_absent
+    let unsupported_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result request_root fingerprint accepted_gate_result cache_unsupported state_absent
+    let request_evidence_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result request_root fingerprint rejected_gate_result cache_absent state_absent
+    let request_identity_mismatch_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result mismatched_request_root fingerprint accepted_gate_result cache_absent state_absent
+    let effect_mismatch_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_actual_traversal_coverage_orchestrator_stage0_count_result request_root fingerprint accepted_gate_result wrong_cache_effect state_absent
+    Result::Ok SelfhostMemoTraitOperationPrivateEffectActualTraversalCoverageOrchestratorStage0Summary accepted_absence_count unsupported_rejected request_evidence_rejected request_identity_mismatch_rejected effect_mismatch_rejected
