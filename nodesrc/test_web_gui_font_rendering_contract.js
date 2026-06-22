@@ -195,6 +195,8 @@ const stdGuiCompositorTilePresentHostExecution = read("stdlib/std/gui/compositor
 const stdGuiCompositorTilePresentHostExecutionImpl = withoutComments(stdGuiCompositorTilePresentHostExecution);
 const stdGuiCompositorTilePresentHostExecutionReport = read("stdlib/std/gui/compositor_tile_present_host_execution_report.nepl");
 const stdGuiCompositorTilePresentHostExecutionReportImpl = withoutComments(stdGuiCompositorTilePresentHostExecutionReport);
+const stdGuiCompositorTilePresentHostExecutor = read("stdlib/std/gui/compositor_tile_present_host_executor.nepl");
+const stdGuiCompositorTilePresentHostExecutorImpl = withoutComments(stdGuiCompositorTilePresentHostExecutor);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -447,6 +449,7 @@ const guiStdCompositorTilePresentHostImportTests = read("tests/stdlib/gui_std_co
 const guiStdCompositorTilePresentDispatchTests = read("tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md");
 const guiStdCompositorTilePresentHostExecutionTests = read("tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md");
 const guiStdCompositorTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md");
+const guiStdCompositorTilePresentHostExecutorTests = read("tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -29042,6 +29045,7 @@ const f5mqAllowedLowerPresentFunctions = new Set([
     "gui_rgba8888_row_tile_rle_present_frame_descriptor",
     "gui_rgba8888_row_tile_rle_present_descriptor_surface",
     "gui_rgba8888_row_tile_rle_present_descriptor_frame",
+    "gui_rgba8888_row_tile_rle_present_descriptor_packet",
     "gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count",
     "gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count",
     "gui_rgba8888_row_tile_rle_present_frame_finish_packet",
@@ -30408,6 +30412,191 @@ assert(
         guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_outcome_roundtrip_ok") &&
         guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_no_f5my_f5mw_f5mv_no_lower_no_platform_no_fallback"),
     "F5na std compositor tile present host-execution-report focused doctest must cover report mapping and source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5nb") &&
+            doc.includes("std layer compositor tile RLE present host executor validation boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostExecutorSupport") &&
+            doc.includes("validate_report_for_action") &&
+            doc.includes("full action identity") &&
+            doc.includes("compositor metadata") &&
+            doc.includes("failed report") &&
+            doc.includes("not actual execution") &&
+            doc.includes("fallback"),
+        `F5nb ${name} must document compositor host executor validation, full action identity, metadata equality, failed-report preservation, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5nb") &&
+        implementationPlan.includes("Sagan") &&
+        implementationPlan.includes("support check") &&
+        implementationPlan.includes("report action read") &&
+        implementationPlan.includes("full action equality"),
+    "F5nb implementation plan must record subagent review and validation order",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_executor" as *'), "std/gui facade must export F5nb compositor tile present host executor boundary");
+assert(
+    stdGuiCompositorTilePresent.includes("pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePacketDescriptor"),
+    "std/gui/compositor_tile_present must expose a narrow compositor packet descriptor accessor for F5nb without requiring lower host modules",
+);
+assert(
+    textSliceBetween(
+        stdGuiCompositorTilePresentHostExecutor,
+        "pub enum GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+        "impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+    ).includes("WindowOffscreen") &&
+        textSliceBetween(
+            stdGuiCompositorTilePresentHostExecutor,
+            "pub enum GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+            "impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+        ).includes("WindowDevice") &&
+        textSliceBetween(
+            stdGuiCompositorTilePresentHostExecutor,
+            "pub enum GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+            "impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+        ).includes("OffscreenDevice") &&
+        textSliceBetween(
+            stdGuiCompositorTilePresentHostExecutor,
+            "pub enum GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+            "impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+        ).includes("All") &&
+        !textSliceBetween(
+            stdGuiCompositorTilePresentHostExecutor,
+            "pub enum GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+            "impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:",
+        ).includes("None"),
+    "std/gui/compositor_tile_present_host_executor F5nb support enum must encode nonempty support sets only",
+);
+assert(
+    stdGuiCompositorTilePresentHostExecutor.includes("pub enum GuiRgba8888CompositorTileRlePresentHostExecutorActionKind:") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("WindowBegin") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("WindowRun") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("WindowEnd") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("OffscreenBegin") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("OffscreenRun") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("OffscreenEnd") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("DeviceBegin") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("DeviceRun") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("DeviceEnd"),
+    "std/gui/compositor_tile_present_host_executor F5nb action kind enum must cover all target x record variants",
+);
+assert(
+    stdGuiCompositorTilePresentHostExecutor.includes("pub enum GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind:") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("UnsupportedAction") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("ReportActionMismatch") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("pub struct GuiRgba8888CompositorTileRlePresentHostExecutorError:") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("category %Option GuiError") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction") &&
+        stdGuiCompositorTilePresentHostExecutor.includes("reported %Option GuiRgba8888CompositorTileRlePresentHostExecutionAction"),
+    "std/gui/compositor_tile_present_host_executor F5nb must define typed error payload with expected and optional reported action",
+);
+for (const [pattern, message] of [
+    [/#import "alloc\/gui\/render2d\/compositor_frame_entry" as \*/, "F5nb must consume compositor metadata accessors"],
+    [/#import "alloc\/gui\/render2d\/compositor_tile_rle_packet" as \*/, "F5nb must consume compositor packet descriptor accessors"],
+    [/#import "alloc\/gui\/render2d\/row_tile_rle" as \*/, "F5nb must consume RLE run accessors"],
+    [/#import "std\/gui\/compositor_tile_present" as \*/, "F5nb must consume compositor present descriptor accessors"],
+    [/#import "std\/gui\/compositor_tile_present_host_command" as \*/, "F5nb must consume compositor host-command run records"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution" as \*/, "F5nb must consume F5mz actions"],
+    [/#import "std\/gui\/compositor_tile_present_host_execution_report" as \*/, "F5nb must consume F5na reports"],
+]) {
+    assertMatch(stdGuiCompositorTilePresentHostExecutorImpl, pattern, `std/gui/compositor_tile_present_host_executor ${message}`);
+}
+assertNoMatch(
+    stdGuiCompositorTilePresentHostExecutorImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\btile_present_host_|tile_present_dispatch|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bGuiRgba8888RowTileRlePresentHost[A-Za-z0-9_]*\b|\bgui_rgba8888_row_tile_rle_present_host_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain|host_import)" as \*|\bgui_rgba8888_compositor_tile_rle_present_(dispatch|schedule|virtual_drain)_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|#import "std\/gui\/host" as \*|\bGuiHost\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bscheduler\b|\bplatform\b|\bplatforms\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_executor F5nb must not call F5my/F5mw/F5mv, construct requests, reuse lower host/dispatch paths, execute host imports, use raw/platform APIs, allocate Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutorImpl, "gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface left",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame left",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet left",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata left",
+        "surface_id_raw &left_surface",
+        "frame_id_raw &left_frame",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count left",
+        "gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count left",
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_packet_descriptor_same &left_packet &right_packet",
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_metadata_same &left_metadata &right_metadata",
+    ],
+    "std/gui/compositor_tile_present_host_executor F5nb descriptor equality must compare typed ids, expected counts, packet descriptor, and compositor metadata",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutorImpl, "gui_rgba8888_compositor_tile_rle_present_host_executor_packet_descriptor_same"),
+    [
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_width left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_height left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count left",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count left",
+    ],
+    "std/gui/compositor_tile_present_host_executor F5nb packet descriptor equality must compare all packet metadata fields",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutorImpl, "gui_rgba8888_compositor_tile_rle_present_host_executor_metadata_same"),
+    [
+        "gui_rgba8888_compositor_frame_entry_metadata_frame_id left",
+        "gui_rgba8888_compositor_frame_entry_metadata_width left",
+        "gui_rgba8888_compositor_frame_entry_metadata_height left",
+        "gui_rgba8888_compositor_frame_entry_metadata_row_start left",
+        "gui_rgba8888_compositor_frame_entry_metadata_row_count left",
+        "gui_rgba8888_compositor_frame_entry_metadata_batch_count left",
+        "gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch left",
+    ],
+    "std/gui/compositor_tile_present_host_executor F5nb metadata equality must compare compositor frame metadata",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutorImpl, "gui_rgba8888_compositor_tile_rle_present_host_executor_run_same"),
+    [
+        "gui_rgba8888_row_tile_rle_run_pixel_offset left",
+        "gui_rgba8888_row_tile_rle_run_pixel_count left",
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_color_same &left_color &right_color",
+    ],
+    "std/gui/compositor_tile_present_host_executor F5nb run equality must compare offset, count, and RGBA color",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutorImpl, "gui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_require_supported support expected",
+        "Result::Ok _unit:",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_report_action &report",
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_action_same &expected &reported",
+        "Result::Ok report",
+        "gui_rgba8888_compositor_tile_rle_present_host_executor_mismatch_error expected reported",
+    ],
+    "std/gui/compositor_tile_present_host_executor F5nb validate_report_for_action must check support, read report action, then compare full action identity",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostExecutorImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_executor F5nb implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_facade_ok") &&
+        guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_support_enum_ok") &&
+        guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_typed_error_ok") &&
+        guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_action_equality_ok") &&
+        guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_metadata_equality_ok") &&
+        guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_failed_report_preserved_ok") &&
+        guiStdCompositorTilePresentHostExecutorTests.includes("std_compositor_tile_rle_present_host_executor_no_f5my_f5mw_f5mv_no_lower_host_no_platform_no_fallback"),
+    "F5nb std compositor tile present host-executor focused doctest must cover validation and source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

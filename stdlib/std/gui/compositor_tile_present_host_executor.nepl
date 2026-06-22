@@ -1,0 +1,623 @@
+//: # std/gui/compositor_tile_present_host_executor
+//: compositor tile RLE present host executor の validation boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mz の executor action と F5na の execution report を、actual platform executor の[手前/てまえ]で[検証/けんしょう]します。
+//: - Web、native、bare executor が「対応していない target を[実行/じっこう]したことにする」ことや「別 action の report を[返/かえ]す」ことを typed error として[検出/けんしゅつ]します。
+//:
+//: ### [契約/けいやく]
+//: - support は空集合を[表現/ひょうげん]できない enum です。
+//: - unsupported target は bool ではなく `Result` の Err として[返/かえ]します。
+//: - report validation は action variant だけでなく、window、surface、frame、packet metadata、compositor metadata、run offset、run count、RGBA channel まで[比較/ひかく]します。
+//: - report の success / failure はこの boundary では[解釈/かいしゃく]せず、matching action の report は failure report でも[有効/ゆうこう]です。
+//: - actual host import、pending completion、queue、timer、scheduler、platform API、DOM、Canvas、minifb、video memory、代替 no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_execution_report" as *
+#import "std/gui/window" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutorSupport: executor が[対応/たいおう]する presentation target set
+//:
+//: 空集合を[表現/ひょうげん]しないことで、caller が「何にも対応しない executor」を validation success として[扱/あつか]えないようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostExecutorSupport:
+    Window
+    Offscreen
+    Device
+    WindowOffscreen
+    WindowDevice
+    OffscreenDevice
+    All
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutorSupport GuiRgba8888CompositorTileRlePresentHostExecutorSupport \support:
+        *support
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutorSupport:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport GuiRgba8888CompositorTileRlePresentHostExecutorSupport \support:
+        support
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutorActionKind: target x record kind の[平坦/へいたん]分類
+//:
+//: diagnostics と focused doctest が action variant を[観測/かんそく]できるように、F5mz action enum と同じ 9 [種類/しゅるい]へ[写/うつ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostExecutorActionKind:
+    WindowBegin
+    WindowRun
+    WindowEnd
+    OffscreenBegin
+    OffscreenRun
+    OffscreenEnd
+    DeviceBegin
+    DeviceRun
+    DeviceEnd
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorActionKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutorActionKind GuiRgba8888CompositorTileRlePresentHostExecutorActionKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutorActionKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutorActionKind GuiRgba8888CompositorTileRlePresentHostExecutorActionKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind: validation failure の[種類/しゅるい]
+//:
+//: unsupported target と report/action mismatch を[分/わ]けて、host executor wrapper が recovery を[選/えら]べるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind:
+    UnsupportedAction
+    ReportActionMismatch
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutorError: expected action と reported action を[保持/ほじ]する typed error
+//:
+//: unsupported target では reported action を `None`、mismatch では report が[返/かえ]した action を `Some` として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutorError:
+    kind %GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind
+    category %Option GuiError
+    expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    reported %Option GuiRgba8888CompositorTileRlePresentHostExecutionAction
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutorError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutorError GuiRgba8888CompositorTileRlePresentHostExecutorError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutorError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutorError GuiRgba8888CompositorTileRlePresentHostExecutorError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_error_new: typed error payload を[作/つく]る
+//:
+//: kind、category、expected action、optional reported action を 1 value に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_error_new %fn GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn Option GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutorError \kind\category\expected\reported:
+    GuiRgba8888CompositorTileRlePresentHostExecutorError kind category expected reported
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error: unsupported target error を[作/つく]る
+//:
+//: support preflight で[拒否/きょひ]した expected action を[保持/ほじ]し、category は `Unsupported` にします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutorError \expected:
+    let category %Option GuiError Option::Some GuiError::Unsupported
+    gui_rgba8888_compositor_tile_rle_present_host_executor_error_new GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind::UnsupportedAction category expected Option::None
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_mismatch_error: report/action mismatch error を[作/つく]る
+//:
+//: expected と reported の両方を[保持/ほじ]し、category は `InvalidCommand` にします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_mismatch_error %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutorError \expected\reported:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    let reported_value %Option GuiRgba8888CompositorTileRlePresentHostExecutionAction Option::Some reported
+    gui_rgba8888_compositor_tile_rle_present_host_executor_error_new GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind::ReportActionMismatch category expected reported_value
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_supports_window: support が Window target を[含/ふく]むか[返/かえ]す
+//:
+//: enum の exhaustive match だけで[判定/はんてい]し、bool flag set や raw bit mask は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_supports_window %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::OffscreenDevice:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::All:
+            true
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_supports_offscreen: support が Offscreen target を[含/ふく]むか[返/かえ]す
+//:
+//: enum の exhaustive match だけで[判定/はんてい]し、unsupported target fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_supports_offscreen %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Device:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::WindowOffscreen:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::WindowDevice:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::All:
+            true
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_supports_device: support が Device target を[含/ふく]むか[返/かえ]す
+//:
+//: enum の exhaustive match だけで[判定/はんてい]し、unsupported target fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_supports_device %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport bool \support:
+    match support:
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Window:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Offscreen:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::Device:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::WindowOffscreen:
+            false
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::WindowDevice:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::OffscreenDevice:
+            true
+        GuiRgba8888CompositorTileRlePresentHostExecutorSupport::All:
+            true
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_action_kind: action を target x record kind に[写/うつ]す
+//:
+//: F5mz action enum の 9 variant を[平坦/へいたん]な kind enum に[投影/とうえい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_action_kind %fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutorActionKind \action:
+    match *action:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin _payload:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::WindowBegin
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun _payload:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::WindowRun
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd _payload:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::WindowEnd
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::OffscreenBegin
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun _record:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::OffscreenRun
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::OffscreenEnd
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::DeviceBegin
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun _record:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::DeviceRun
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd _descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutorActionKind::DeviceEnd
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_require_supported: support target を[検査/けんさ]する
+//:
+//: action の target が support に[含/ふく]まれない[場合/ばあい]は typed `UnsupportedAction` error を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_require_supported %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostExecutionAction Result unit GuiRgba8888CompositorTileRlePresentHostExecutorError \support\action:
+    match action:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin _payload:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_window support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun _payload:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_window support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd _payload:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_window support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_offscreen support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun _record:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_offscreen support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_offscreen support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin _descriptor:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_device support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun _record:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_device support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd _descriptor:
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_supports_device support:
+                then Result::Ok unit
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_unsupported_error action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_color_same: RGBA channel を[比較/ひかく]する
+//:
+//: color value の identity は 4 channel の exact equality とします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_color_same %fn &Rgba8888 fn &Rgba8888 bool \left\right:
+    and:
+        eq rgba8888_r left rgba8888_r right
+        and:
+            eq rgba8888_g left rgba8888_g right
+            and:
+                eq rgba8888_b left rgba8888_b right
+                eq rgba8888_a left rgba8888_a right
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_run_same: RLE run payload を[比較/ひかく]する
+//:
+//: pixel offset、pixel count、RGBA color を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_run_same %fn &GuiRgba8888RowTileRleRun fn &GuiRgba8888RowTileRleRun bool \left\right:
+    let left_color %Rgba8888 gui_rgba8888_row_tile_rle_run_color left
+    let right_color %Rgba8888 gui_rgba8888_row_tile_rle_run_color right
+    and:
+        eq gui_rgba8888_row_tile_rle_run_pixel_offset left gui_rgba8888_row_tile_rle_run_pixel_offset right
+        and:
+            eq gui_rgba8888_row_tile_rle_run_pixel_count left gui_rgba8888_row_tile_rle_run_pixel_count right
+            gui_rgba8888_compositor_tile_rle_present_host_executor_color_same &left_color &right_color
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_metadata_same: compositor metadata を[比較/ひかく]する
+//:
+//: frame id、surface shape、row range、batch count、batch row [上限/じょうげん]を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_metadata_same %fn &GuiRgba8888CompositorFrameEntryMetadata fn &GuiRgba8888CompositorFrameEntryMetadata bool \left\right:
+    and:
+        eq gui_rgba8888_compositor_frame_entry_metadata_frame_id left gui_rgba8888_compositor_frame_entry_metadata_frame_id right
+        and:
+            eq gui_rgba8888_compositor_frame_entry_metadata_width left gui_rgba8888_compositor_frame_entry_metadata_width right
+            and:
+                eq gui_rgba8888_compositor_frame_entry_metadata_height left gui_rgba8888_compositor_frame_entry_metadata_height right
+                and:
+                    eq gui_rgba8888_compositor_frame_entry_metadata_row_start left gui_rgba8888_compositor_frame_entry_metadata_row_start right
+                    and:
+                        eq gui_rgba8888_compositor_frame_entry_metadata_row_count left gui_rgba8888_compositor_frame_entry_metadata_row_count right
+                        and:
+                            eq gui_rgba8888_compositor_frame_entry_metadata_batch_count left gui_rgba8888_compositor_frame_entry_metadata_batch_count right
+                            eq gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch left gui_rgba8888_compositor_frame_entry_metadata_max_rows_per_batch right
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_packet_descriptor_same: packet descriptor を[比較/ひかく]する
+//:
+//: compositor packet descriptor の scalar accessor だけを[使/つか]い、lower row-tile host command へは[戻/もど]りません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_packet_descriptor_same %fn &GuiRgba8888CompositorTileRlePacketDescriptor fn &GuiRgba8888CompositorTileRlePacketDescriptor bool \left\right:
+    and:
+        eq gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id left gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id right
+        and:
+            eq gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index left gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index right
+            and:
+                eq gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index left gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index right
+                and:
+                    eq gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start left gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start right
+                    and:
+                        eq gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count left gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count right
+                        and:
+                            eq gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start left gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start right
+                            and:
+                                eq gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count left gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count right
+                                and:
+                                    eq gui_rgba8888_compositor_tile_rle_packet_descriptor_width left gui_rgba8888_compositor_tile_rle_packet_descriptor_width right
+                                    and:
+                                        eq gui_rgba8888_compositor_tile_rle_packet_descriptor_height left gui_rgba8888_compositor_tile_rle_packet_descriptor_height right
+                                        and:
+                                            eq gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes left gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes right
+                                            and:
+                                                eq gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows left gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows right
+                                                and:
+                                                    eq gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count left gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count right
+                                                    and:
+                                                        eq gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count left gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count right
+                                                        and:
+                                                            eq gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count left gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count right
+                                                            eq gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count left gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count right
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same: compositor descriptor を[比較/ひかく]する
+//:
+//: surface、frame、expected count、packet descriptor、compositor metadata を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor bool \left\right:
+    let left_surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface left
+    let right_surface %SurfaceId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface right
+    let left_frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame left
+    let right_frame %FrameId gui_rgba8888_compositor_tile_rle_present_frame_descriptor_frame right
+    let left_packet %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet left
+    let right_packet %GuiRgba8888CompositorTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet right
+    let left_metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata left
+    let right_metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata right
+    and:
+        eq surface_id_raw &left_surface surface_id_raw &right_surface
+        and:
+            eq frame_id_raw &left_frame frame_id_raw &right_frame
+            and:
+                eq gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count left gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_run_count right
+                and:
+                    eq gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count left gui_rgba8888_compositor_tile_rle_present_frame_descriptor_expected_pixel_count right
+                    and:
+                        gui_rgba8888_compositor_tile_rle_present_host_executor_packet_descriptor_same &left_packet &right_packet
+                        gui_rgba8888_compositor_tile_rle_present_host_executor_metadata_same &left_metadata &right_metadata
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_run_record_same: compositor run record を[比較/ひかく]する
+//:
+//: metadata [付/つ]き descriptor と RLE run payload の[両方/りょうほう]を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_run_record_same %fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord fn &GuiRgba8888CompositorTileRlePresentHostCommandRunRecord bool \left\right:
+    let left_descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor left
+    let right_descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_command_run_record_descriptor right
+    let left_run %GuiRgba8888RowTileRleRun gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run left
+    let right_run %GuiRgba8888RowTileRleRun gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run right
+    and gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor gui_rgba8888_compositor_tile_rle_present_host_executor_run_same &left_run &right_run
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_window_begin_same: Window Begin action payload を[比較/ひかく]する
+//:
+//: window id と metadata [付/つ]き descriptor の[両方/りょうほう]を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_window_begin_same %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin bool \left\right:
+    let left_window %WindowId gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_window left
+    let right_window %WindowId gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_window right
+    let left_descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_descriptor left
+    let right_descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_window_run_same: Window Run action payload を[比較/ひかく]する
+//:
+//: window id と metadata [付/つ]き run record の[両方/りょうほう]を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_window_run_same %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun bool \left\right:
+    let left_window %WindowId gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_window left
+    let right_window %WindowId gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_window right
+    let left_record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record left
+    let right_record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_compositor_tile_rle_present_host_executor_run_record_same &left_record &right_record
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_window_end_same: Window End action payload を[比較/ひかく]する
+//:
+//: window id と metadata [付/つ]き descriptor の[両方/りょうほう]を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_executor_window_end_same %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd bool \left\right:
+    let left_window %WindowId gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_window left
+    let right_window %WindowId gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_window right
+    let left_descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_descriptor left
+    let right_descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_descriptor right
+    and eq window_id_raw &left_window window_id_raw &right_window gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_action_same: full action identity を[比較/ひかく]する
+//:
+//: target variant が[同/おな]じ[場合/ばあい]だけ、window、descriptor、metadata、run payload を exact equality で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_action_same %fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction bool \left\right:
+    match *left:
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin left_payload:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin right_payload:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_window_begin_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun left_payload:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun right_payload:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_window_run_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd left_payload:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd right_payload:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_window_end_same &left_payload &right_payload
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin left_descriptor:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin right_descriptor:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun left_record:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun right_record:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_run_record_same &left_record &right_record
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd left_descriptor:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd right_descriptor:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin left_descriptor:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin right_descriptor:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun left_record:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun right_record:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_run_record_same &left_record &right_record
+                _:
+                    false
+        GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd left_descriptor:
+            match *right:
+                GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd right_descriptor:
+                    gui_rgba8888_compositor_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor
+                _:
+                    false
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action: report を expected action に[照合/しょうごう]する
+//:
+//: support validation を[先/さき]に[行/おこな]い、成功した[場合/ばあい]だけ F5na report が[保持/ほじ]する reported action を full identity で[比較/ひかく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionReport Result GuiRgba8888CompositorTileRlePresentHostExecutionReport GuiRgba8888CompositorTileRlePresentHostExecutorError \support\expected\report:
+    match gui_rgba8888_compositor_tile_rle_present_host_executor_require_supported support expected:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _unit:
+            let reported %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_report_action &report
+            if gui_rgba8888_compositor_tile_rle_present_host_executor_action_same &expected &reported:
+                then Result::Ok report
+                else Result::Err gui_rgba8888_compositor_tile_rle_present_host_executor_mismatch_error expected reported
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_error_kind %fn &GuiRgba8888CompositorTileRlePresentHostExecutorError GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_error_category_value: error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostExecutorError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_error_expected: expected action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_error_expected %fn &GuiRgba8888CompositorTileRlePresentHostExecutorError GuiRgba8888CompositorTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "expected"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_executor_error_reported: reported action option を[返/かえ]す
+//:
+//: unsupported target では `None`、mismatch では `Some reported_action` を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_executor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_executor_error_reported %fn &GuiRgba8888CompositorTileRlePresentHostExecutorError Option GuiRgba8888CompositorTileRlePresentHostExecutionAction \error:
+    *field::get_ref error "reported"

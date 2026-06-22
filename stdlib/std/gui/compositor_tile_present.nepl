@@ -278,6 +278,20 @@ pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present %fn &Gu
 pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorFrameEntryMetadata \descriptor:
     *field::get_ref descriptor "metadata"
 
+//: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet: descriptor の packet metadata を[返/かえ]す
+//:
+//: lower present descriptor に[含/ふく]まれる packet descriptor を、compositor metadata と[束/たば]ねた Copy descriptor として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet %fn &GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePacketDescriptor \descriptor:
+    let present %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_compositor_tile_rle_present_frame_descriptor_present descriptor
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet &present
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_present_frame_descriptor_metadata descriptor
+    GuiRgba8888CompositorTileRlePacketDescriptor packet metadata
+
 //: gui_rgba8888_compositor_tile_rle_present_frame_descriptor_surface: descriptor の surface id を[返/かえ]す
 //:
 //: lower present descriptor の surface accessor に[委譲/いじょう]します。

@@ -5617,6 +5617,58 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5na.json
 ```
 
+## Phase F5nb: std compositor tile RLE present host executor validation boundary
+
+目的:
+
+- F5mz action と F5na report を、std layer compositor tile RLE present host executor validation boundary で照合する。
+- `GuiRgba8888CompositorTileRlePresentHostExecutorSupport` は Window / Offscreen / Device と非空の組み合わせだけを表し、supports-nothing variant を持たない。
+- `validate_report_for_action` は support check、report action read、full action equality の順序で進む。
+- full action identity は target x record variant、Window id、surface id、frame id、expected run count、expected pixel count、packet descriptor 全 field、compositor metadata、run offset、run count、RGBA channel を比較する。
+- matching action の failed report は valid association として保持し、executor outcome の解釈は F5na `report_outcome` と後続 completion boundary に残す。
+- F5nb is not actual execution。F5nb does not execute host imports and does not construct F5mx requests。
+- F5my dispatch、F5mw schedule、F5mv virtual drain、lower row-tile host / dispatch / schedule / virtual paths、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Sagan read-only design/source-policy review は `PLAN_APPROVED`。
+- 必須 surface は support enum、9 variant action kind enum、`UnsupportedAction` / `ReportActionMismatch` error kind、expected/reported action を持つ typed error、`action_kind`、`require_supported`、`action_same`、`validate_report_for_action`、error accessors と確認された。
+- identity 比較は compositor metadata まで含める必要があり、typed id raw access は equality だけに限定する。
+- source policy risk は lower row-tile host path の禁止と alloc-level row tile RLE accessor の許可を分けることであり、実装では F5nb module が lower `std/gui/tile_present*` を import せず、`std/gui/compositor_tile_present` の narrow descriptor packet accessor を使う方針にする。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present.nepl` に `gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet` を追加し、metadata 付き packet descriptor を返す narrow accessor とする。
+- `stdlib/std/gui/compositor_tile_present_host_executor.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostExecutorSupport`、`GuiRgba8888CompositorTileRlePresentHostExecutorActionKind`、`GuiRgba8888CompositorTileRlePresentHostExecutorErrorKind`、`GuiRgba8888CompositorTileRlePresentHostExecutorError` を追加する。
+- support helper、full action equality helper、`validate_report_for_action`、error accessors を追加する。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present host executor boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5nb source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Sagan review、facade export、narrow packet accessor、support enum、typed error、allowed imports、banned lower host/dispatch/platform/raw/fallback tokens、descriptor equality、packet descriptor equality、metadata equality、run equality、validate_report_for_action order、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5na compositor host execution report regression、F5mz compositor host execution regression、F5cy lower host executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で support-before-report order、full metadata equality、failed report preservation、no actual execution / no F5my-F5mv / no lower host / platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5nb.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_executor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_module_f5nb.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_f5nb_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5nb_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5nb_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nb.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
