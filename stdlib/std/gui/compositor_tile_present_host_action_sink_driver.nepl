@@ -20,6 +20,7 @@
 
 #import "core/field" as field
 #import "core/gui/error" as *
+#import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "std/gui/compositor_tile_present_dispatch_loop" as *
@@ -178,3 +179,15 @@ pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completi
 //: neplg2:test[skip]
 pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_driver_error %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkDriverCompletionFailed GuiRgba8888CompositorTileRlePresentHostExecutionDriverError \failure:
     *field::get_ref failure "driver_error"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_error_category_value: sink driver error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError Option GuiError \error:
+    match *error:
+        GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::SinkRejected rejection:
+            let sink_error %GuiRgba8888CompositorTileRlePresentHostActionSinkError gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_rejected_sink_error &rejection
+            gui_rgba8888_compositor_tile_rle_present_host_action_sink_error_category_value &sink_error
+        GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError::DriverCompletionFailed failure:
+            let driver_error %GuiRgba8888CompositorTileRlePresentHostExecutionDriverError gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_completion_failed_driver_error &failure
+            gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_category_value &driver_error

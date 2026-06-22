@@ -1,0 +1,190 @@
+//: # std/gui/compositor_tile_present_host_action_executor_session
+//: compositor tile RLE present host action executor session の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5ne one-shot driver pending を actual Web / native / bare / headless executor が[扱/あつか]う session state と pending action に[包/つつ]みます。
+//: - executor が[返/かえ]した outcome を pending expected action と[組/く]み[合/あ]わせ、F5ng attempt driver だけを[通/とお]して dispatch loop completion へ[戻/もど]します。
+//:
+//: ### [契約/けいやく]
+//: - `Ready` state だけが driver pending の action を[読/よ]み、owner-bearing session pending を[返/かえ]します。
+//: - `Completed` state への request は terminal `Completed` result を[返/かえ]し、lower driver / attempt driver を[呼/よ]びません。
+//: - completion は F5ng attempt driver を 1 [回/かい]だけ[呼/よ]び、success path では F5nf sink driver step の dispatch completion accessor だけを[読/よ]みます。
+//: - outcome は caller supplied `Result unit GuiError` だけを[使/つか]い、この boundary では success / failure を[作/つく]りません。
+//: - platform API、DOM、Canvas、minifb、video memory、raw storage、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_action_executor_session" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState: one-shot action executor session state
+//:
+//: Ready は F5ne driver pending を[所有/しょゆう]し、Completed は terminal state として lower call を[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState:
+    Ready %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending
+    Completed
+
+//: GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending: executor action [待/ま]ち pending owner
+//:
+//: driver pending owner と borrowed-derived expected action value を[同/おな]じ payload に[保持/ほじ]し、completion まで driver を[複製/ふくせい]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending:
+    driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending
+    expected_action %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+
+//: GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult: executor に[渡/わた]す action または terminal completion
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult:
+    Action %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending
+    Completed
+
+//: GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion: accepted attempt と dispatch loop completion
+//:
+//: F5ng の accepted attempt driver step と、F5nf sink driver step から[読/よ]んだ F5nc dispatch completion を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion:
+    attempt_driver_step %GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep
+    dispatch_completion %GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion
+
+//: GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError: complete failure payload
+//:
+//: category は lower F5ng error から[取/と]り[出/だ]し、lower error は owner recovery authority として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError:
+    category %Option GuiError
+    lower %GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_new: session pending payload を[作/つく]る
+//:
+//: driver owner と borrowed-derived expected action value を 1 つの owner-bearing payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_new %fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending fn GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending \driver\expected_action:
+    GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending driver expected_action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_new: success completion payload を[作/つく]る
+//:
+//: F5ng accepted step と dispatch loop completion を[同/おな]じ completion value に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_new %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep fn GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion \attempt_driver_step\dispatch_completion:
+    GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion attempt_driver_step dispatch_completion
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_new: complete error payload を[作/つく]る
+//:
+//: F5ng 由来の category と lower error を[同/おな]じ owner-bearing payload に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_new %fn Option GuiError fn GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError \category\lower:
+    GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError category lower
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_from_attempt_driver_error: F5ng error を session error に[包/つつ]む
+//:
+//: lower enum の recovery authority を[消費/しょうひ]せず、F5ng category accessor で category だけを[読/よ]みます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_from_attempt_driver_error %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError \lower:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_error_category_value &lower
+    gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_new category lower
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_start: driver pending を Ready session state に[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - caller が F5ne で[準備/じゅんび]した one-shot driver pending だけを[受/う]け[取/と]ります。
+//: - lower dispatch loop、attempt driver、platform executor は[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_start %fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState \driver:
+    GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState::Ready driver
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_request: session state から executor action pending を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - Completed state は terminal result を[返/かえ]し、lower call を[行/おこな]いません。
+//: - Ready state は F5ne pending action を[読/よ]み、driver pending owner と expected action を session pending に[移/うつ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_request %fn GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult \state:
+    match state:
+        GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState::Completed:
+            GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult::Completed
+        GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionState::Ready driver:
+            let expected_action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action &driver
+            let pending %GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_new driver expected_action
+            GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionRequestResult::Action pending
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete: executor outcome を dispatch loop completion へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - session pending driver と caller supplied outcome を value として[消費/しょうひ]します。
+//: - expected action は pending owner から[読/よ]み、attempt をこの boundary で[作/つく]ります。
+//: - F5ng attempt driver step を 1 [回/かい]だけ[呼/よ]びます。
+//: - success path は F5ng step と F5ng completion accessor から dispatch completion を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending fn Result unit GuiError Result GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError \support\pending\outcome:
+    let expected_action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action &pending
+    let attempt %GuiRgba8888CompositorTileRlePresentHostActionAttempt gui_rgba8888_compositor_tile_rle_present_host_action_attempt expected_action outcome
+    let driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_driver pending
+    match gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step support driver attempt:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_from_attempt_driver_error lower
+        Result::Ok attempt_driver_step:
+            let dispatch_completion %GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_completion &attempt_driver_step
+            Result::Ok gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_new attempt_driver_step dispatch_completion
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action: pending の expected action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_expected_action %fn &GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending GuiRgba8888CompositorTileRlePresentHostExecutionAction \pending:
+    *field::get_ref pending "expected_action"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_driver: pending から driver owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_pending_driver %fn GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionPending GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending \pending:
+    field::get pending "driver"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_attempt_driver_step: success completion の F5ng step を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_attempt_driver_step %fn &GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep \completion:
+    *field::get_ref completion "attempt_driver_step"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion: success completion の dispatch loop completion を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_completion_dispatch_loop_completion %fn &GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompletion GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion \completion:
+    *field::get_ref completion "dispatch_completion"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_category_value: complete error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower: lower F5ng error を[取/と]り[出/だ]す
+//:
+//: owner-bearing lower error を caller に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_executor_session_complete_error_lower %fn GuiRgba8888CompositorTileRlePresentHostActionExecutorSessionCompleteError GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError \error:
+    field::get error "lower"
