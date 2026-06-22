@@ -256,6 +256,8 @@ assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary"),
     [
         "complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "reader_context_complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "reader_context_private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
         "private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
         "private_state_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
         "may_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
@@ -265,7 +267,7 @@ assertOrdered(
         "identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
         "graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
     ],
-    "coverage handoff producer summary must distinguish explicit absence, unsupported private-effect operations, mixed escape, empty source rejection, and all authority mismatch classes",
+    "coverage handoff producer summary must distinguish fixture absence, production reader-context absence, production private-effect unsupported source, mixed escape, empty source rejection, and all authority mismatch classes",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind"),
@@ -334,6 +336,31 @@ assertOrdered(
     "coverage source validation must bind source records to the complete authority body fingerprint, request root, and graph id",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions",
+        "Result::Ok body_root:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
+        "Result::Err _e:",
+        "SourceRejected",
+    ],
+    "production coverage authority must use resolver-validated body root rather than treating request root as body root",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_reader_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_from_reader_context_result module context resolutions",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_sources_from_request_context_result module context resolutions",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_source_result authority source_result",
+    ],
+    "production reader-context coverage must build authority from resolver lookup, then map the pre-witness source owner through the coverage producer",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code_from_reader_context_result")),
+    /actual_traversal_bundle_source_derived_witness_result|actual_traversal_body_reader_bundle_from_request_context_result|context_bound_reader_traversal_bundle_from_context_result|actual_traversal_bundle_request_evidence_gate_result|region_fresh_witness|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof/,
+    "production reader-context coverage must not consume post-witness bundles or synthesize lower proof/backend/effect/artifact records",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_mixed_absence_escape_table_result"),
     [
         "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace",
@@ -344,13 +371,15 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq"),
     [
+        "summary.reader_context_complete_absence_pair_code 33",
+        "summary.reader_context_private_cache_effect_unsupported_pair_code 53",
         "summary.may_escape_pair_code 23",
         "summary.mixed_absence_escape_pair_code 23",
         "summary.fingerprint_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceBodyIdentityMismatch",
         "summary.identity_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceBodyIdentityMismatch",
         "summary.graph_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceGraphIdentityMismatch",
     ],
-    "coverage producer stage0 must prove mixed escape priority and all authority mismatch runtime cases",
+    "coverage producer stage0 must prove production reader-context absence, pre-witness private effect mapping, mixed escape priority, and all authority mismatch runtime cases",
 );
 assert.doesNotMatch(
     code,
