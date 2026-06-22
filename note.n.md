@@ -82348,3 +82348,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_authority_entry.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_traversal_authority_entry.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering traversal coverage owner checkpoint
+
+- 2026-06-23 に Zenn の開発方針を再確認した。今回の slice では、coverage authority が body-root helper の外付け値として再生成される構造を残さず、producer traversal output owner 自体に same-body coverage authority を持たせる境界へ進めた。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput` は recheck 済み request context、same-body coverage authority、resolver body root、walker input owner、observation table owner を保持する。
+- `actual_traversal_resource_lowering_producer_traversal_output_from_split_output` は split output から walker input / observation owner を取り出すときに、同じ context / body root から coverage authority を作り、producer traversal output owner に束ねる。
+- `actual_traversal_resource_lowering_producer_traversal_output_into_output_result` を追加し、source-count / origin smoke 用の producer output も traversal output owner から派生するようにした。
+- `actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result` は coverage authority を引数で受け取らず、traversal output owner から取り出して再検査する。body-root producer output helper と body-root producer authority helper はどちらも traversal output owner へ委譲するだけにした。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、traversal output owner の coverage authority field、split-output conversion での authority construction、source-only output derivation、authority output derivation、body-root helpers が coverage authority / source owner を直接再構築しないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` を更新した。この checkpoint は full Resource IR graph walker 完了ではなく、underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。残件は actual Resource IR graph walker 本体の source / fresh-witness / coverage authority 実発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost_resource_lowering_traversal_coverage_owner_doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost_resource_lowering_traversal_coverage_owner_doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_coverage_owner.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_traversal_coverage_owner.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- Godel の read-only review は、初回 blocker として note の pending 記録を指摘したため修正した。owner shape、coverage authority の traversal output owner 化、source-only / authority body-root helper の委譲、cleanup、docs/note の未完了範囲、`todo.md` 無変更については blocker なし。

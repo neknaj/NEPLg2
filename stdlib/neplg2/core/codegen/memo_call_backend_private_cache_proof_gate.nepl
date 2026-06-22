@@ -2317,11 +2317,12 @@ struct SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProduce
 //:
 //: [契約/けいやく]:
 //: - この output は module-private owner です。walker input owner と observation table owner を外部 caller に渡しません。
-//: - `context` と `body_root` は同じ resolver lookup に由来します。request root を body root として代用しません。
+//: - `context`、`coverage_authority`、`body_root` は同じ resolver lookup に由来します。request root を body root として代用しません。
 //: - この output は source table、fresh witness table、no-escape coverage pair、GraphInput、proof table、effect mask、backend bytes、sealed representation、artifact key を保持しません。
 //: - この output 自体に `Clone` / `Copy` を実装してはいけません。walker input / observation owner は source collector helper が消費します。
 struct SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput:
     context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext
+    coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority
     body_root %SelfhostHirExprId
     walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput
     observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable
@@ -15950,9 +15951,9 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new: producer traversal output owner を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - constructor は module-private です。walker input / observation owner を外へ出さず、producer source collector へ渡すためだけに使います。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn SelfhostHirExprId fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheObservationBanTable SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput \context\body_root\walker_input\observations:
-    SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput context body_root walker_input observations
+//: - constructor は module-private です。coverage authority と walker input / observation owner を同じ producer traversal output に束ねます。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority fn SelfhostHirExprId fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput fn SelfhostMemoCallBackendPrivateCacheObservationBanTable SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput \context\coverage_authority\body_root\walker_input\observations:
+    SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput context coverage_authority body_root walker_input observations
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free: producer traversal output owner を[閉/と]じる
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput unit \output:
@@ -15964,12 +15965,13 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output: generic split output を producer traversal output owner へ[移/うつ]す
 //:
 //: [契約/けいやく]:
-//: - split output から walker input owner と observation table owner を取り出し、同じ resolver-bound context / body root と束ねます。
+//: - split output から walker input owner と observation table owner を取り出し、同じ resolver-bound context / body root 由来の coverage authority と束ねます。
 //: - source table、fresh witness、no-escape coverage、request-evidence、effect mask、backend bytes、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn SelfhostHirExprId fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput \context\body_root\output:
+    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
     let walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get output "walker_input"
     let observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable field::get output "observations"
-    selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context body_root walker_input observations
+    selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root walker_input observations
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new: producer authority output owner を[作/つく]る
 //:
@@ -16140,6 +16142,25 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result: producer traversal output owner を source-only producer output へ[進/すす]める
+//:
+//: [目的/もくてき]:
+//: - source-count / origin smoke 用の producer output も、body-root helper で coverage authority と source owner を別々に作らず、producer traversal output owner から派生させます。
+//:
+//: [契約/けいやく]:
+//: - coverage authority、context、body root は traversal output からだけ取り出します。
+//: - traversal output の walker input / observation owner は source collector helper が消費し、collector-owned source table だけを producer output へ move します。
+//: - source output envelope、fresh witness、no-escape coverage、request-evidence、effect mask、backend bytes、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \output:
+    let context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext field::get output "context"
+    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority field::get output "coverage_authority"
+    let body_root %SelfhostHirExprId field::get output "body_root"
+    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result output:
+        Result::Ok sources:
+            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root sources
+        Result::Err _e:
+            Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result: producer traversal output owner を fresh witness authority bundle へ[渡/わた]す
 //:
 //: [目的/もくてき]:
@@ -16167,8 +16188,9 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //: - coverage validation failure では traversal output が保持する walker input / observation owner を必ず閉じます。
 //: - fresh witness authority bundle は traversal output owner から内部的に発行し、source table を caller に露出しません。
 //: - source output envelope、source-only producer output owner、production fresh witness input owner、no-escape handoff pair、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、artifact key は作りません。
-fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \coverage_authority\output:
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \output:
     let context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext field::get output "context"
+    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority field::get output "coverage_authority"
     let body_root %SelfhostHirExprId field::get output "body_root"
     match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
         Result::Ok _identity:
@@ -16192,14 +16214,9 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //: - `ResourceLoweringTraversalProduced` origin の `SourceOutput` は作りません。producer output owner から source output への変換は別 helper が行います。
 //: - GraphInput、request-evidence gate、effect mask、backend bytes、sealed representation、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_from_body_root_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \module\context\body_root:
-    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
     match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_body_root_result module context body_root:
         Result::Ok traversal_output:
-            match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result traversal_output:
-                Result::Ok lowered_sources:
-                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root lowered_sources
-                Result::Err _e:
-                    Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
+            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result traversal_output
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 
@@ -16214,10 +16231,9 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //: - source output envelope、source-only producer output owner、production fresh witness input owner は作りません。
 //: - GraphInput、request-evidence gate、effect mask、backend bytes、sealed representation、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_body_root_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \module\context\body_root:
-    let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id
     match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_body_root_result module context body_root:
         Result::Ok traversal_output:
-            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result coverage_authority traversal_output
+            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result traversal_output
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_from_no_escape_error selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 
