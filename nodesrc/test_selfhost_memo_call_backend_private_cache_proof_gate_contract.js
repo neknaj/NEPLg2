@@ -599,8 +599,8 @@ assert.deepEqual(
 );
 assert.equal(
     countOccurrences(code, "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced"),
-    2,
-    "ResourceLoweringTraversalProduced must appear only in the production-gate allow branch and the resource-lowering source-output producer",
+    3,
+    "ResourceLoweringTraversalProduced must appear only in the production-gate branch, the production fresh-witness input move branch, and the resource-lowering source-output producer",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput"),
@@ -623,6 +623,25 @@ assert.doesNotMatch(
     /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput\b/,
     "actual traversal source output must not implement Clone or Copy because it owns a source table",
 );
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput"),
+    [
+        "context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
+        "body_root %SelfhostHirExprId",
+        "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
+    ],
+    "production fresh-witness authority input must carry the rechecked context, resolver body root, and the moved source owner only",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput\b/,
+    "production fresh-witness authority input owner must stay module-private",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput\b/,
+    "production fresh-witness authority input must not implement Clone or Copy because it owns a source table",
+);
 assert.deepEqual(
     enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind"),
     ["OutputRejected", "SourceDerivedHirBodyReaderRejected", "ResourceLoweringNoEscapeAuthorityNotConnected"],
@@ -634,12 +653,14 @@ assertOrdered(
         "source_derived_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
         "source_derived_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
         "source_derived_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
+        "source_derived_fresh_witness_input_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
         "hir_body_private_cache_effect_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
         "resource_lowering_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
+        "resource_lowering_fresh_witness_input_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
         "resource_lowering_production_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
         "resource_lowering_private_cache_effect_source_count %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind",
     ],
-    "production output stage0 summary must expose only source-derived count/pair smoke, resource-lowering source counts, and typed production-gate rejection payloads",
+    "production output stage0 summary must expose only source-derived count/pair smoke, resource-lowering source/input counts, and typed production-gate rejection payloads",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_closed_wrapper_source_shape_result"),
@@ -1050,6 +1071,36 @@ assert.doesNotMatch(
     "source output pair-code helper must not bypass the body-reader authority bundle / handoff pair value boundary",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result"),
+    [
+        'field::get output "origin"',
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::HirReaderSourceDerived:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_free output",
+        "SourceDerivedHirBodyReaderRejected",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced:",
+        'field::get output "context"',
+        'field::get output "body_root"',
+        'field::get output "sources"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new context body_root sources",
+    ],
+    "production fresh-witness input move helper must reject source-derived output and move only resource-lowering output sources into the module-private input owner",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_production_fresh_witness_authority_input_result")),
+    /source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|actual_traversal_fresh_witness_authority_bundle_from_sources_result|region_proof_table_from_sources_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "production fresh-witness input move helper must not synthesize witnesses, consume no-escape authority, or build proof/backend/effect/artifact records",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_fresh_witness_input_source_count_result")),
+    /source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|actual_traversal_fresh_witness_authority_bundle_from_sources_result|source_output_into_fresh_witness_authority_bundle_result|region_proof_table_from_sources_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "source-derived fresh-witness input stage0 helper must not synthesize witnesses, consume no-escape authority, or build proof/backend/effect/artifact records",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_input_source_count_result")),
+    /source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|actual_traversal_fresh_witness_authority_bundle_from_sources_result|source_output_into_fresh_witness_authority_bundle_result|region_proof_table_from_sources_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "resource-lowering fresh-witness input stage0 helper must not synthesize witnesses, consume no-escape authority, or build proof/backend/effect/artifact records",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_pair_code_result"),
     [
         'field::get output "origin"',
@@ -1074,14 +1125,16 @@ assertOrdered(
         "summary.source_derived_pair_code 13",
         "SourceDerivedHirBodyReaderRejected",
         "summary.source_derived_production_rejected source_rejected_expected",
+        "summary.source_derived_fresh_witness_input_rejected source_rejected_expected",
         "OutputRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource",
         "summary.hir_body_private_cache_effect_rejected unsupported_expected",
         "summary.resource_lowering_source_count 2",
+        "summary.resource_lowering_fresh_witness_input_source_count 2",
         "ResourceLoweringNoEscapeAuthorityNotConnected",
         "summary.resource_lowering_production_rejected resource_not_connected_expected",
         "summary.resource_lowering_private_cache_effect_source_count 1",
     ],
-    "production output stage0 summary eq must prove source-derived rejection, resource-lowering source output production, no-escape authority rejection, and private-effect source vocabulary preservation",
+    "production output stage0 summary eq must prove source-derived rejection, resource-lowering source output production, fresh-witness input owner separation, no-escape authority rejection, and private-effect source vocabulary preservation",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_stage0"),
@@ -1092,17 +1145,21 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_result 77",
         "source_derived_production_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_production_gate_result 77",
+        "source_derived_fresh_witness_input_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_fresh_witness_input_source_count_result 77",
         "SelfhostEffectKind::PrivateCache",
         "hir_body_private_cache_effect_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_pair_code_with_body_expr_result 77 private_cache_body_expr",
         "resource_lowering_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_source_count_result 77",
+        "resource_lowering_fresh_witness_input_source_count",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_fresh_witness_input_source_count_result 77",
         "resource_lowering_production_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_production_gate_result 77",
         "resource_lowering_private_cache_effect_source_count",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_source_count_with_body_expr_result 77 private_cache_body_expr",
     ],
-    "production output stage0 must expose source-derived rejection plus resource-lowering source output while keeping no-escape authority and proof/backend/effect/artifact outputs disconnected",
+    "production output stage0 must expose source-derived rejection plus resource-lowering source output and fresh-witness input separation while keeping no-escape authority and proof/backend/effect/artifact outputs disconnected",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result"),

@@ -3385,6 +3385,14 @@ stage0 summary は source-derived output の count / pair smoke と production r
 
 この checkpoint は actual full Resource IR traversal 完了ではない。現時点の入力は resolver-bound HIR reader source plan であり、fresh witness / no-escape authority、full Resource IR graph walker 本体、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、actual Resource IR graph walker が source / fresh-witness / coverage を実発行する boundary、production no-escape authority、effect mask / sealed backend / artifact projection の接続である。
 
+## 2026-06-23 selfhost resource-lowering fresh witness input boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ResourceLoweringTraversalProduced` origin の source output を production fresh witness authority 前段の module-private input owner へ分離する境界を追加した。`SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput` は recheck 済み request context、resolver body root、source table owner だけを保持し、fresh witness table、coverage authority、no-escape pair、GraphInput、proof table、effect mask、backend bytes、artifact key は持たない。
+
+`actual_traversal_source_output_into_production_fresh_witness_authority_input_result` は origin を必ず検査する。`HirReaderSourceDerived` は source owner を閉じて `SourceDerivedHirBodyReaderRejected` として拒否し、`ResourceLoweringTraversalProduced` の場合だけ source owner を input owner へ move する。stage0 summary は source-derived input rejection と resource-lowering input source count を公開するが、この count は contract 用の代表値であり authority ではない。
+
+production gate の `actual_traversal_production_output_pair_code_result` は引き続き no-escape authority へ進まない。`ResourceLoweringTraversalProduced` origin でも `ResourceLoweringNoEscapeAuthorityNotConnected` で fail-closed に止め、region proof table、fresh witness table、request-evidence、PrivateCache / PrivateState effect mask、sealed backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、actual Resource IR graph walker が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を同じ resolver-bound body identity で実発行し、その後に production no-escape authority と effect mask / sealed backend / artifact projection へ接続することである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
