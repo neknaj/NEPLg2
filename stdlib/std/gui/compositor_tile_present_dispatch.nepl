@@ -1,0 +1,275 @@
+//: # std/gui/compositor_tile_present_dispatch
+//: compositor tile RLE present request の scheduled dispatch boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mw の schedule boundary と F5mx の host import request boundary を[接続/せつぞく]し、platform host へ[渡/わた]す[直前/ちょくぜん]の dispatch value を[作/つく]ります。
+//: - この module は host import を[実行/じっこう]せず、valid record 1 [件/けん]に[対/たい]して request 1 [件/けん]と record [消費/しょうひ][後/ご]の phase を[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - stream validation と slice budget は F5mw に[委譲/いじょう]します。F5mv を[直接/ちょくせつ][呼/よ]びません。
+//: - `RequestReady` は host import request と post phase を[同時/どうじ]に[持/も]つため、exact-budget record の request と `Yield`、EndFrame request と `Completed` を[落/お]としません。
+//: - error は previous dispatch state を[保持/ほじ]します。F5mx request construction に[失敗/しっぱい]した[場合/ばあい]も schedule state を[進/すす]めません。
+//: - queue、timer、host import call、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op はこの module に[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_dispatch" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/compositor_tile_present_schedule" as *
+#import "std/gui/host" as *
+
+//: GuiRgba8888CompositorTileRlePresentDispatchState: F5mw schedule state を[保持/ほじ]する dispatch state
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchState:
+    schedule %GuiRgba8888CompositorTileRlePresentScheduleState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchState:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentDispatchState \state:
+        *state
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchState:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentDispatchState \state:
+        state
+
+//: GuiRgba8888CompositorTileRlePresentDispatchPostPhase: request [生成/せいせい][後/ご]の schedule phase
+//:
+//: host import request を[実行/じっこう]した[後/あと]に caller が continue / yield / completed を[選/えら]べるようにします。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentDispatchPostPhase:
+    Continue
+    Yield
+    Completed
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchPostPhase:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchPostPhase GuiRgba8888CompositorTileRlePresentDispatchPostPhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchPostPhase:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchPostPhase GuiRgba8888CompositorTileRlePresentDispatchPostPhase \phase:
+        phase
+
+//: GuiRgba8888CompositorTileRlePresentDispatchReadyRequest: request と post phase の[束/たば]
+//:
+//: exact-budget `Yield` や terminal `Completed` でも request を[失/うしな]わないため、phase を request と[同/おな]じ value に[入/い]れます。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchReadyRequest:
+    request %GuiRgba8888CompositorTileRlePresentHostImportRequest
+    post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchReadyRequest:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchReadyRequest GuiRgba8888CompositorTileRlePresentDispatchReadyRequest \ready:
+        *ready
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchReadyRequest:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchReadyRequest GuiRgba8888CompositorTileRlePresentDispatchReadyRequest \ready:
+        ready
+
+//: GuiRgba8888CompositorTileRlePresentDispatchOutput: dispatch step の typed output
+//:
+//: 現段階では request [準備/じゅんび]だけを[表/あらわ]し、host import [実行/じっこう] outcome は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentDispatchOutput:
+    RequestReady %GuiRgba8888CompositorTileRlePresentDispatchReadyRequest
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchOutput:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchOutput GuiRgba8888CompositorTileRlePresentDispatchOutput \output:
+        *output
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchOutput:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchOutput GuiRgba8888CompositorTileRlePresentDispatchOutput \output:
+        output
+
+//: GuiRgba8888CompositorTileRlePresentDispatchStep: successful dispatch step
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchStep:
+    state %GuiRgba8888CompositorTileRlePresentDispatchState
+    output %GuiRgba8888CompositorTileRlePresentDispatchOutput
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchStep:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchStep \step:
+        *step
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchStep:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchStep \step:
+        step
+
+//: GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind: dispatch step [失敗/しっぱい]の[原因/げんいん]
+//:
+//: F5mw schedule failure と F5mx request construction failure を[分/わ]け、caller が retry / unsupported target handling を[区別/くべつ]できるようにします。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind:
+    ScheduleFailed %GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind
+    HostImportRequestFailed %GuiError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentDispatchStepError: previous state [付/つ]き dispatch error
+//:
+//: schedule error でも request construction error でも previous dispatch state を[返/かえ]し、F5mw state の[部分/ぶぶん][更新/こうしん]を caller に[見/み]せません。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentDispatchStepError:
+    kind %GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind
+    category %Option GuiError
+    state %GuiRgba8888CompositorTileRlePresentDispatchState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentDispatchStepError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentDispatchStepError GuiRgba8888CompositorTileRlePresentDispatchStepError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentDispatchStepError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentDispatchStepError GuiRgba8888CompositorTileRlePresentDispatchStepError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_state_new: dispatch state を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_new %fn GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentDispatchState \schedule:
+    GuiRgba8888CompositorTileRlePresentDispatchState schedule
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_new: ready request を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_new %fn GuiRgba8888CompositorTileRlePresentHostImportRequest fn GuiRgba8888CompositorTileRlePresentDispatchPostPhase GuiRgba8888CompositorTileRlePresentDispatchReadyRequest \request\post_phase:
+    GuiRgba8888CompositorTileRlePresentDispatchReadyRequest request post_phase
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_new: successful step を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_new %fn GuiRgba8888CompositorTileRlePresentDispatchState fn GuiRgba8888CompositorTileRlePresentDispatchOutput GuiRgba8888CompositorTileRlePresentDispatchStep \state\output:
+    GuiRgba8888CompositorTileRlePresentDispatchStep state output
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_error: category [付/つ]き error を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_error %fn GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentDispatchStepError \kind\category\state:
+    GuiRgba8888CompositorTileRlePresentDispatchStepError kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_post_phase_from_schedule: F5mw phase を dispatch post phase へ[写/うつ]す
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_dispatch_post_phase_from_schedule %fn GuiRgba8888CompositorTileRlePresentSchedulePhase GuiRgba8888CompositorTileRlePresentDispatchPostPhase \phase:
+    match phase:
+        GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue:
+            GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Continue
+        GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield:
+            GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Yield
+        GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed:
+            GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Completed
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_state_initial: initial dispatch state を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_initial %fn void GuiRgba8888CompositorTileRlePresentDispatchState \void:
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_state_initial
+    gui_rgba8888_compositor_tile_rle_present_dispatch_state_new schedule
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_state_resume_slice: F5mw schedule counter を reset する
+//:
+//: F5mv drain authority は schedule state に[残/のこ]し、slice counter だけを F5mw helper に[委譲/いじょう]して reset します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_resume_slice %fn GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentDispatchState \state:
+    let schedule %GuiRgba8888CompositorTileRlePresentScheduleState *field::get_ref &state "schedule"
+    let resumed %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_state_resume_slice schedule
+    gui_rgba8888_compositor_tile_rle_present_dispatch_state_new resumed
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule: F5mw schedule state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule %fn &GuiRgba8888CompositorTileRlePresentDispatchState GuiRgba8888CompositorTileRlePresentScheduleState \state:
+    *field::get_ref state "schedule"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request: ready request の request を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_request %fn &GuiRgba8888CompositorTileRlePresentDispatchReadyRequest GuiRgba8888CompositorTileRlePresentHostImportRequest \ready:
+    *field::get_ref ready "request"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_post_phase: ready request の post phase を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_post_phase %fn &GuiRgba8888CompositorTileRlePresentDispatchReadyRequest GuiRgba8888CompositorTileRlePresentDispatchPostPhase \ready:
+    *field::get_ref ready "post_phase"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_state: step state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_state %fn &GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchState \step:
+    *field::get_ref step "state"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_output: step output を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_output %fn &GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchOutput \step:
+    *field::get_ref step "output"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_kind %fn &GuiRgba8888CompositorTileRlePresentDispatchStepError GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_category_value: error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_category_value %fn &GuiRgba8888CompositorTileRlePresentDispatchStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_state: previous dispatch state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_error_state %fn &GuiRgba8888CompositorTileRlePresentDispatchStepError GuiRgba8888CompositorTileRlePresentDispatchState \error:
+    *field::get_ref error "state"
+
+//: gui_rgba8888_compositor_tile_rle_present_dispatch_step_record: schedule [済/ず]み host import request を 1 [件/けん][作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F5mw を[先/さき]に[呼/よ]び、stream validation と budget decision を[確定/かくてい]してから F5mx request を[作/つく]ります。
+//: - success path は[常/つね]に `RequestReady` です。post phase が `Yield` または `Completed` でも、[消費/しょうひ]した record の request を[落/お]としません。
+//: - F5mw / F5mx のどちらで[失敗/しっぱい]しても previous dispatch state を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_record %fn &GuiHost fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentDispatchState fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchStepError \host\policy\state\record:
+    let schedule_state %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &state
+    match gui_rgba8888_compositor_tile_rle_present_schedule_step_record policy schedule_state record:
+        Result::Err lower_error:
+            let lower_kind %GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind gui_rgba8888_compositor_tile_rle_present_schedule_step_error_kind &lower_error
+            let lower_category %Option GuiError gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category_value &lower_error
+            let kind %GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind::ScheduleFailed lower_kind
+            Result::Err gui_rgba8888_compositor_tile_rle_present_dispatch_step_error kind lower_category state
+        Result::Ok schedule_step:
+            let schedule_phase %GuiRgba8888CompositorTileRlePresentSchedulePhase gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &schedule_step
+            let post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase gui_rgba8888_compositor_tile_rle_present_dispatch_post_phase_from_schedule schedule_phase
+            match gui_rgba8888_compositor_tile_rle_present_host_import_request host record:
+                Result::Err host_error:
+                    let kind %GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind::HostImportRequestFailed host_error
+                    Result::Err gui_rgba8888_compositor_tile_rle_present_dispatch_step_error kind Option::Some host_error state
+                Result::Ok request:
+                    let next_schedule %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_step_state &schedule_step
+                    let next_state %GuiRgba8888CompositorTileRlePresentDispatchState gui_rgba8888_compositor_tile_rle_present_dispatch_state_new next_schedule
+                    let ready %GuiRgba8888CompositorTileRlePresentDispatchReadyRequest gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_new request post_phase
+                    let output %GuiRgba8888CompositorTileRlePresentDispatchOutput GuiRgba8888CompositorTileRlePresentDispatchOutput::RequestReady ready
+                    Result::Ok gui_rgba8888_compositor_tile_rle_present_dispatch_step_new next_state output
