@@ -8661,6 +8661,14 @@ The action shape is a flat target x record action. Window / Offscreen / Device a
 
 F5mz does not execute host imports and does not depend on F5my, F5mw, or F5mv. Capability validation and request construction remain in F5mx, and schedule / budget authority remains in F5mw/F5my. Therefore F5mz does not introduce a new `Result` path, does not synthesize execution outcome reports, and does not advance any scheduler state. It must not reuse lower F5cw/F5cr/F5cq, project compositor descriptors to lower row-tile descriptors, call dispatch loops, queues, timers, schedulers, platform APIs, raw memory, `Vec`, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
 
+## Std compositor tile RLE present host execution report boundary
+
+F5na is the std layer compositor tile RLE present host execution report boundary after F5mz. It packages a `GuiRgba8888CompositorTileRlePresentHostExecutionAction` and an executor-supplied `Result unit GuiError` into `GuiRgba8888CompositorTileRlePresentHostExecutionReport`. The report stores action context and executor outcome together so diagnostics, validation, and completion bridges can keep the exact compositor action identity without re-decoding or projecting it to lower row-tile values.
+
+The report kind is `Succeeded` or `Failed GuiError`. Construction returns the report directly, not `Result`, because it only wraps the caller-supplied outcome and action. This is a metadata-preserving boundary: F5mz action payloads already carry `GuiRgba8888CompositorTileRlePresentFrameDescriptor` or `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord`, and F5na stores the action unchanged. The request bridge accepts `&GuiRgba8888CompositorTileRlePresentHostImportRequest`, calls F5mz action decoding exactly once, and then constructs the same report.
+
+F5na is not actual execution and not pending completion. It does not execute host imports, validate host capabilities, construct host requests, advance schedule or dispatch state, synthesize queue/timer/scheduler decisions, or depend on F5my, F5mw, or F5mv. `report_outcome` is the only roundtrip helper: it converts `Succeeded` / `Failed` back to the original `Result unit GuiError` for later completion boundaries. F5na must not reuse lower F5cx/F5cw/F5cr/F5cq, call lower row-tile reports/actions/imports/commands, raw memory, `Vec`, platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

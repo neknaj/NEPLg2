@@ -193,6 +193,8 @@ const stdGuiCompositorTilePresentDispatch = read("stdlib/std/gui/compositor_tile
 const stdGuiCompositorTilePresentDispatchImpl = withoutComments(stdGuiCompositorTilePresentDispatch);
 const stdGuiCompositorTilePresentHostExecution = read("stdlib/std/gui/compositor_tile_present_host_execution.nepl");
 const stdGuiCompositorTilePresentHostExecutionImpl = withoutComments(stdGuiCompositorTilePresentHostExecution);
+const stdGuiCompositorTilePresentHostExecutionReport = read("stdlib/std/gui/compositor_tile_present_host_execution_report.nepl");
+const stdGuiCompositorTilePresentHostExecutionReportImpl = withoutComments(stdGuiCompositorTilePresentHostExecutionReport);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -444,6 +446,7 @@ const guiStdCompositorTilePresentScheduleTests = read("tests/stdlib/gui_std_comp
 const guiStdCompositorTilePresentHostImportTests = read("tests/stdlib/gui_std_compositor_tile_present_host_import.n.md");
 const guiStdCompositorTilePresentDispatchTests = read("tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md");
 const guiStdCompositorTilePresentHostExecutionTests = read("tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md");
+const guiStdCompositorTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -30320,6 +30323,91 @@ assert(
         guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_flat_target_record_mapping_ok") &&
         guiStdCompositorTilePresentHostExecutionTests.includes("std_compositor_tile_rle_present_host_execution_no_f5my_f5mw_f5mv_no_lower_no_platform_no_fallback"),
     "F5mz std compositor tile present host execution focused doctest must cover host-execution source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5na") &&
+            doc.includes("std layer compositor tile RLE present host execution report boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentHostExecutionReport") &&
+            doc.includes("action context and executor outcome") &&
+            doc.includes("metadata-preserving") &&
+            doc.includes("not actual execution and not pending completion") &&
+            doc.includes("does not depend on F5my") &&
+            doc.includes("report_outcome") &&
+            doc.includes("fallback"),
+        `F5na ${name} must document compositor host execution report, metadata-preserving action context, no execution/completion policy, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5na") &&
+        implementationPlan.includes("Russell design/source-policy review") &&
+        implementationPlan.includes("F5mz action") &&
+        implementationPlan.includes("F5mx request bridge") &&
+        implementationPlan.includes("report_outcome"),
+    "F5na implementation plan must record subagent review, F5mz action input, F5mx bridge, and outcome roundtrip policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_execution_report" as *'), "std/gui facade must export F5na compositor tile present host execution report boundary");
+assert(
+    stdGuiCompositorTilePresentHostExecutionReport.includes("pub enum GuiRgba8888CompositorTileRlePresentHostExecutionReportKind:") &&
+        stdGuiCompositorTilePresentHostExecutionReport.includes("Succeeded") &&
+        stdGuiCompositorTilePresentHostExecutionReport.includes("Failed %GuiError") &&
+        stdGuiCompositorTilePresentHostExecutionReport.includes("pub struct GuiRgba8888CompositorTileRlePresentHostExecutionReport:") &&
+        stdGuiCompositorTilePresentHostExecutionReport.includes("action %GuiRgba8888CompositorTileRlePresentHostExecutionAction") &&
+        stdGuiCompositorTilePresentHostExecutionReport.includes("kind %GuiRgba8888CompositorTileRlePresentHostExecutionReportKind"),
+    "std/gui/compositor_tile_present_host_execution_report F5na must define report kind enum and action-retaining report",
+);
+assertMatch(
+    stdGuiCompositorTilePresentHostExecutionReportImpl,
+    /#import "std\/gui\/compositor_tile_present_host_execution" as \*/,
+    "std/gui/compositor_tile_present_host_execution_report F5na must consume F5mz host execution actions",
+);
+assertMatch(
+    stdGuiCompositorTilePresentHostExecutionReportImpl,
+    /#import "std\/gui\/compositor_tile_present_host_import" as \*/,
+    "std/gui/compositor_tile_present_host_execution_report F5na must consume F5mx host import requests for request report bridge",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostExecutionReportImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bGuiRgba8888RowTileRlePresentHost[A-Za-z0-9_]*\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(dispatch|schedule|virtual_drain)" as \*|\bgui_rgba8888_compositor_tile_rle_present_(dispatch|schedule|virtual_drain)_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(host_command|command_cursor|run_cursor|run_step)" as \*|\bgui_rgba8888_compositor_tile_rle_present_(host_command|command_cursor|run_cursor|run_step)_[a-z0-9_]+|\bgui_rgba8888_compositor_tile_rle_present_host_import_request\b|#import "std\/gui\/host" as \*|\bGuiHost\b|\bcompositor_tile_present_host_executor\b|\bcompositor_tile_present_host_report_loop_bridge\b|\bcompositor_tile_present_host_execution_driver\b|\bcompositor_tile_present_host_action\b|\bcompositor_tile_present_virtual_executor\b|\btile_present_host_execution_report\b|\btile_present_host_execution\b|\btile_present_host_action\b|\btile_present_virtual_executor\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bscheduler\b|\bplatform\b|\bplatforms\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_host_execution_report F5na must not call F5my/F5mw/F5mv, construct requests, reuse lower row-tile reports/actions, complete pending work, execute host imports, use raw/platform APIs, allocate Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutionReportImpl, "gui_rgba8888_compositor_tile_rle_present_host_execution_report_for_request"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_action request",
+        "gui_rgba8888_compositor_tile_rle_present_host_execution_report action outcome",
+    ],
+    "std/gui/compositor_tile_present_host_execution_report F5na request bridge must call F5mz action decoding exactly once before report construction",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentHostExecutionReportImpl, "gui_rgba8888_compositor_tile_rle_present_host_execution_report_outcome"),
+    [
+        "GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Succeeded:",
+        "Result::Ok unit",
+        "GuiRgba8888CompositorTileRlePresentHostExecutionReportKind::Failed error:",
+        "Result::Err error",
+    ],
+    "std/gui/compositor_tile_present_host_execution_report F5na must roundtrip report kind to Result unit GuiError",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentHostExecutionReportImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_host_execution_report F5na implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_facade_ok") &&
+        guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_kind_enum_ok") &&
+        guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_f5mz_action_only_ok") &&
+        guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_f5mx_request_bridge_ok") &&
+        guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_metadata_action_preserved_ok") &&
+        guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_outcome_roundtrip_ok") &&
+        guiStdCompositorTilePresentHostExecutionReportTests.includes("std_compositor_tile_rle_present_host_execution_report_no_f5my_f5mw_f5mv_no_lower_no_platform_no_fallback"),
+    "F5na std compositor tile present host-execution-report focused doctest must cover report mapping and source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

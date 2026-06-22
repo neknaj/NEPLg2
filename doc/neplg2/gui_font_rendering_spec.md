@@ -7169,6 +7169,10 @@ F5mz は std layer compositor tile RLE present host execution action boundary �
 
 F5mz consumes F5mx requests, not F5my ready requests。F5mz does not depend on F5my and does not depend on F5mw/F5mv schedule or drain state。F5mz does not execute host imports。capability validation と request construction は F5mx の責務であり、F5mz は `Result` を作らない。lower F5cw/F5cr/F5cq へ投影すると compositor metadata を失うため、lower row-tile host execution / import / command、F5my dispatch、F5mw schedule、F5mv virtual drain、raw storage、Vec、queue、timer、scheduler、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
 
+F5na は std layer compositor tile RLE present host execution report boundary であり、F5mz action と executor-supplied `Result unit GuiError` を `GuiRgba8888CompositorTileRlePresentHostExecutionReport` に束ねる。report は action context and executor outcome を 1 つの value に保持する metadata-preserving envelope であり、kind は `Succeeded` または `Failed GuiError` である。F5mx request bridge は F5mz action decoding を 1 回だけ呼び、request と outcome から同じ report を作る。
+
+F5na is not actual execution and not pending completion。F5na does not execute host imports and does not depend on F5my / F5mw / F5mv。capability validation、request construction、schedule / dispatch state advance、pending completion は別境界の責務である。`report_outcome` は report kind を original `Result unit GuiError` に戻すための accessor であり、completion boundary へ渡す値を復元する。lower row-tile host execution / import / command / report、F5my dispatch、F5mw schedule、F5mv virtual drain、raw storage、Vec、queue、timer、scheduler、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

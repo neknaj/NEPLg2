@@ -31,6 +31,7 @@ pub #import "./gui/compositor_tile_present_schedule" as *
 pub #import "./gui/compositor_tile_present_host_import" as *
 pub #import "./gui/compositor_tile_present_dispatch" as *
 pub #import "./gui/compositor_tile_present_host_execution" as *
+pub #import "./gui/compositor_tile_present_host_execution_report" as *
 pub #import "./gui/tile_present_run_cursor" as *
 pub #import "./gui/tile_present_command_cursor" as *
 pub #import "./gui/tile_present_host_command" as *
