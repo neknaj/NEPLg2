@@ -234,6 +234,126 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverage(?:CompleteAuthority|HandoffPair)\b/,
+    "actual traversal coverage complete authority and handoff pair must stay backend-private",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority|SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair)\b/m,
+    "public functions must not expose coverage complete authority or backend-private handoff pair types",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority"),
+    [
+        "request_root_expr_id %SelfhostHirExprId",
+        "body_root_expr_id %SelfhostHirExprId",
+        "body_module_fingerprint %i32",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+    ],
+    "coverage complete authority must bind request root, body root, body fingerprint, and graph id before source table can produce explicit absence",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary"),
+    [
+        "complete_absence_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "private_cache_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "private_state_effect_unsupported_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "may_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "mixed_absence_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "empty_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+        "graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind",
+    ],
+    "coverage handoff producer summary must distinguish explicit absence, unsupported private-effect operations, mixed escape, empty source rejection, and all authority mismatch classes",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind"),
+    /SourceRejected\s+%/,
+    "coverage handoff producer SourceRejected must not expose the internal bridge error taxonomy as public payload",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_status_rank"),
+    [
+        "EffectObservedNoEscape:\n            1",
+        "EffectAbsentAfterCompleteTraversal:\n            2",
+        "EffectObservedMayEscape:\n            3",
+        "ResourceGraphMissing:\n            4",
+        "TraversalUnsupported:\n            5",
+    ],
+    "coverage handoff status merge priority must keep escaping / missing / unsupported stronger than complete absence",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_cache_status_from_source_kind"),
+    /EffectObservedNoEscape/,
+    "coverage producer must not infer PrivateCache no-escape directly from traversal source kind",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_state_status_from_source_kind"),
+    /EffectObservedNoEscape/,
+    "coverage producer must not infer PrivateState no-escape directly from traversal source kind",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_cache_status_from_source_kind"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation:",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::TraversalUnsupported",
+    ],
+    "PrivateCache effect operation source must remain TraversalUnsupported until fresh witness / no-escape authority is connected",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_state_status_from_source_kind"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation:",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::TraversalUnsupported",
+    ],
+    "PrivateState effect operation source must remain TraversalUnsupported until no-escape authority is connected",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_from_sources_result"),
+    [
+        "eq authority.body_module_fingerprint 0",
+        "BodyModuleFingerprintPlaceholder",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources",
+        "eq source_count 0",
+        "SourceTableEmpty",
+        "EffectAbsentAfterCompleteTraversal",
+    ],
+    "coverage handoff producer must reject placeholder and empty source tables before explicit complete absence is emitted",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_source_record_validate_result"),
+    [
+        "record.key.body_module_fingerprint",
+        "authority.body_module_fingerprint",
+        "record.key.root_expr_id",
+        "authority.request_root_expr_id",
+        "record.graph_id.index",
+        "authority.graph_id.index",
+    ],
+    "coverage source validation must bind source records to the complete authority body fingerprint, request root, and graph id",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_mixed_absence_escape_table_result"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferencePlace",
+    ],
+    "coverage producer must keep a mixed absence-plus-escape runtime fixture",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq"),
+    [
+        "summary.may_escape_pair_code 23",
+        "summary.mixed_absence_escape_pair_code 23",
+        "summary.fingerprint_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceBodyIdentityMismatch",
+        "summary.identity_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceBodyIdentityMismatch",
+        "summary.graph_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceGraphIdentityMismatch",
+    ],
+    "coverage producer stage0 must prove mixed escape priority and all authority mismatch runtime cases",
+);
+assert.doesNotMatch(
+    code,
     /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheResource(?:GraphId|PlaceId|GraphCompleteness|PlaceKind|EdgeKind|GraphBodyRecord|GraphPlaceRecord|GraphEdgeRecord|GraphInput|GraphFoldSummary)\b/,
     "Resource graph input ids, payload records, owner input, and fold summary must stay private until the real Resource graph walker owns their construction",
 );

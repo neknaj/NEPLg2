@@ -3178,8 +3178,25 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 残件:
 
-- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の actual use、escaping、unsupported、complete absence を public coverage handoff または checker-layer slot coverage record として実 traversal 由来で発行する。
-- actual traversal 由来 fresh witness table と coverage handoff を同じ body identity / traversal authority で束ね、fixture source ではなく production traversal output から bridge へ渡す。
+- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の actual use、escaping、unsupported、complete absence を public coverage handoff または checker-layer slot coverage record として実 traversal 由来で発行する。complete absence は source table 単体から推測せず、complete traversal authority を要求する。
+- actual traversal 由来 fresh witness table と coverage handoff を同じ body identity / traversal authority で束ね、fixture source ではなく production traversal output から bridge へ渡す。`EffectObservedNoEscape` は fresh witness / no-escape authority 接続後だけ発行する。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-22 selfhost actual traversal private-effect coverage handoff producer checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、module-private traversal source table と complete traversal authority から public coverage handoff pair を作る producer boundary を追加した。complete authority は request root、body root、body module fingerprint、graph id を持ち、source record の proof key root / body fingerprint / graph id と照合する。source table owner は producer wrapper が閉じ、外部に出すのは public coverage handoff evidence または stage0 summary の Result code だけである。
+
+empty source table は `SourceTableEmpty` として拒否する。accepted-shaped source だけがある場合でも、complete traversal authority が無ければ complete absence にはしない。complete authority と source table が一致し、private-effect operation、escaping、unsupported、unavailable source が無い場合だけ `PrivateCache` / `PrivateState` の `EffectAbsentAfterCompleteTraversal` pair を作る。
+
+`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` は actual use の source vocabulary ではあるが、それだけでは no-escape proof ではないため `TraversalUnsupported` に写す。escaping source は `PrivateCache` slot の `EffectObservedMayEscape` に写し、accepted-shaped source と escaping source が同じ table に混ざる場合も escape を absence より強く畳む。`ResourceIrTraversalUnavailable` は `ResourceGraphMissing`、unsupported / observation source は `TraversalUnsupported` として fail-closed に残す。`EffectObservedNoEscape` は今回の producer では発行しない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。complete authority / handoff pair の backend-private 化、public API での authority / pair 露出禁止、`SourceRejected` から内部 bridge error payload を公開しないこと、empty source rejection、PrivateCache / PrivateState effect operation から no-escape を推測しないこと、mixed absence+escape が `EffectObservedMayEscape` に畳まれること、source record と complete authority の fingerprint / request root / graph id 照合を固定している。doctest は coverage handoff producer stage0 summary を追加し、18/18 で通る。
+
+残件:
+
+- production HIR / Resource traversal が complete authority を発行する条件を body reader の complete traversal result と結びつけ、stage0 fixture ではなく production output から coverage producer へ渡す。
+- actual traversal 由来 fresh witness table と coverage producer を同じ traversal authority に束ね、`EffectObservedNoEscape` を fresh witness / no-escape authority 接続後だけ発行する。
+- produced public coverage handoff pair を checker-layer coverage bridge へ渡す upper orchestration を production path に接続する。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
