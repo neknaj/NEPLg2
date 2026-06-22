@@ -1,0 +1,232 @@
+//: # std/gui/compositor_tile_present_host_action_attempt_driver
+//: compositor tile RLE present host action attempt driver の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - actual Web / native / bare / headless executor が[試行/しこう]した action と outcome を、F5nf action sink driver へ[渡/わた]す[前/まえ]に[検査/けんさ]します。
+//: - asynchronous presenter や platform wrapper から[戻/もど]った outcome が、F5ne driver pending の action と[違/ちが]う action に[対応/たいおう]している[場合/ばあい]を owner-bearing error として[検出/けんしゅつ]します。
+//:
+//: ### [契約/けいやく]
+//: - driver pending の action と attempt action を F5nb full action equality で[比較/ひかく]します。
+//: - action mismatch では F5nf sink driver を[呼/よ]ばず、original driver pending を error payload に[保持/ほじ]します。
+//: - action match の[場合/ばあい]だけ、executor supplied outcome を F5nf action sink driver へ[委譲/いじょう]します。
+//: - platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、raw storage、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_action_attempt_driver" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_action_sink_driver" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_execution_driver" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostActionAttempt: executor が[返/かえ]す action/outcome attempt
+//:
+//: driver pending は[所有/しょゆう]せず、attempted action と executor supplied outcome だけを Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionAttempt:
+    action %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    outcome %Result unit GuiError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionAttempt:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionAttempt GuiRgba8888CompositorTileRlePresentHostActionAttempt \attempt:
+        *attempt
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionAttempt:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionAttempt GuiRgba8888CompositorTileRlePresentHostActionAttempt \attempt:
+        attempt
+
+//: GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep: accepted attempt と F5nf sink driver step
+//:
+//: action identity [検査/けんさ]を[通/とお]った attempt と、その outcome を[消費/しょうひ]した sink driver step を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep:
+    attempt %GuiRgba8888CompositorTileRlePresentHostActionAttempt
+    sink_driver_step %GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep \step:
+        *step
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep \step:
+        step
+
+//: GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch: attempt action mismatch の owner-bearing payload
+//:
+//: F5nf sink driver を[呼/よ]ばず、expected action、attempted action、category、original driver pending を caller に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch:
+    expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    attempted %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+    category %Option GuiError
+    driver %GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending
+
+//: GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed: matched attempt の lower failure payload
+//:
+//: F5nf sink driver が[返/かえ]した owner-bearing error を lower として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed:
+    lower %GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError
+
+//: GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError: attempt driver failure の[種類/しゅるい]
+//:
+//: action mismatch と matched attempt の lower sink driver failure を[分/わ]け、pending recovery authority を型で[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError:
+    AttemptActionMismatch %GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch
+    SinkDriverFailed %GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_new: attempt value を[作/つく]る
+//:
+//: action と caller-supplied outcome を[同/おな]じ value に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_new %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888CompositorTileRlePresentHostActionAttempt \action\outcome:
+    GuiRgba8888CompositorTileRlePresentHostActionAttempt action outcome
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_new: success step payload を[作/つく]る
+//:
+//: accepted attempt と F5nf sink driver step を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_new %fn GuiRgba8888CompositorTileRlePresentHostActionAttempt fn GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep \attempt\sink_driver_step:
+    GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep attempt sink_driver_step
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_new: mismatch payload を[作/つく]る
+//:
+//: category は invalid action pairing を[示/しめ]す `InvalidCommand` として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_new %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch \expected\attempted\driver:
+    let category %Option GuiError Option::Some GuiError::InvalidCommand
+    GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch expected attempted category driver
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_new: lower failure payload を[作/つく]る
+//:
+//: matched attempt の F5nf sink driver failure を[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_new %fn GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed \lower:
+    GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed lower
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_error: mismatch error enum を[作/つく]る
+//:
+//: F5nf sink driver [前/まえ]の mismatch として driver pending を[保/たも]ちます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_error %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError \expected\attempted\driver:
+    let mismatch %GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_new expected attempted driver
+    GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::AttemptActionMismatch mismatch
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_error: lower failure error enum を[作/つく]る
+//:
+//: action identity [検査/けんさ][後/ご]の failure として lower sink driver error を[残/のこ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_error %fn GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError \lower:
+    let failure %GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_new lower
+    GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError::SinkDriverFailed failure
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt: executor attempt を action と outcome の[値/あたい]として[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - outcome は caller が[渡/わた]した[値/あたい]をそのまま[保持/ほじ]し、この boundary では success / failure を[作/つく]りません。
+//: - attempt は driver pending を[所有/しょゆう]せず、driver step が action identity を[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction fn Result unit GuiError GuiRgba8888CompositorTileRlePresentHostActionAttempt \action\outcome:
+    gui_rgba8888_compositor_tile_rle_present_host_action_attempt_new action outcome
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step: attempt action と pending action の[一致/いっち]を[検査/けんさ]してから F5nf へ[委譲/いじょう]する
+//:
+//: [契約/けいやく]:
+//: - pending action と attempt action は F5nb full action equality で[比較/ひかく]します。
+//: - mismatch では F5nf sink driver を[呼/よ]ばず、driver pending を error payload へ[移/うつ]します。
+//: - match した[場合/ばあい]だけ、attempt outcome を F5nf action sink driver step へ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending fn GuiRgba8888CompositorTileRlePresentHostActionAttempt Result GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError \support\driver\attempt:
+    let expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action &driver
+    let attempted %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_action_attempt_action &attempt
+    if gui_rgba8888_compositor_tile_rle_present_host_executor_action_same &expected &attempted:
+        then:
+            let outcome %Result unit GuiError gui_rgba8888_compositor_tile_rle_present_host_action_attempt_outcome &attempt
+            match gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_step support driver outcome:
+                Result::Ok sink_driver_step:
+                    Result::Ok gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_new attempt sink_driver_step
+                Result::Err lower:
+                    Result::Err gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_error lower
+        else:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_error expected attempted driver
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_action: attempt の action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_action %fn &GuiRgba8888CompositorTileRlePresentHostActionAttempt GuiRgba8888CompositorTileRlePresentHostExecutionAction \attempt:
+    *field::get_ref attempt "action"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_outcome: attempt の outcome を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_outcome %fn &GuiRgba8888CompositorTileRlePresentHostActionAttempt Result unit GuiError \attempt:
+    *field::get_ref attempt "outcome"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_attempt: success step の attempt を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_attempt %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentHostActionAttempt \step:
+    *field::get_ref step "attempt"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_sink_driver_step: success step の sink driver step を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_driver_step_sink_driver_step %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep GuiRgba8888CompositorTileRlePresentHostActionSinkDriverStep \step:
+    *field::get_ref step "sink_driver_step"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_expected: mismatch の expected action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_expected %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch GuiRgba8888CompositorTileRlePresentHostExecutionAction \mismatch:
+    *field::get_ref mismatch "expected"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_attempted: mismatch の attempted action を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_attempted %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch GuiRgba8888CompositorTileRlePresentHostExecutionAction \mismatch:
+    *field::get_ref mismatch "attempted"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_category_value: mismatch の category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_category_value %fn &GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch Option GuiError \mismatch:
+    *field::get_ref mismatch "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_driver: mismatch から driver pending を[取/と]り[出/だ]す
+//:
+//: owner-bearing payload を[消費/しょうひ]して、uncompleted driver pending を caller に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_mismatch_driver %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending \mismatch:
+    field::get mismatch "driver"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower: lower F5nf sink driver error を[取/と]り[出/だ]す
+//:
+//: owner-bearing lower payload を caller に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_action_attempt_sink_driver_failed_lower %fn GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed GuiRgba8888CompositorTileRlePresentHostActionSinkDriverError \failure:
+    field::get failure "lower"
