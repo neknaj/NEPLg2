@@ -3132,6 +3132,24 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_slo
 - checker-layer mask evidence を backend readiness gate の module-private upstream evidence へ写す upper orchestration と、artifact emission 前段の policy hash / Resource summary hash invalidation との照合を追加する。
 - PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost memo_call backend actual traversal private-effect readiness projection checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual traversal source table を backend readiness 用の neutral upstream private-effect status へ写す module-private projection を追加した。これは checker-layer fixed 2 slot coverage や mask evidence producer の代替ではなく、backend module が actual traversal source vocabulary を受け取ったときに `Proven` を推測しないための fail-closed precheck である。
+
+source kind の分類は wildcard fallback を使わない。accepted-shaped source は private effect slot coverage ではないため `UpstreamPrivateEffectMissing`、`PrivateCacheEffectOperation` / `PrivateStateEffectOperation`、cache lookup / insert、unsupported / unavailable source は `UpstreamPrivateEffectUnknown`、return cache reference / public store / external handle / observation source は `UpstreamPrivateEffectRefuted` に写す。空 source table も complete traversal absence ではなく coverage 欠落なので Missing evidence になる。
+
+projection は existing backend readiness gate にだけ接続する。source table owner は readiness count helper 内で閉じ、`SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence` は module-private のまま root / body fingerprint / status だけを持つ。public stage0 summary は Missing / Unknown / Refuted / placeholder の typed readiness `Result` だけを公開し、upstream evidence、checker proof、slot coverage table、effect mask 実体、backend bytes、artifact key は公開しない。
+
+この checkpoint は checker-layer `memo_trait_operation_private_effect_slot_coverage_producer`、`memo_trait_operation_private_effect_resource_no_escape_producer`、`memo_trait_operation_private_effect_mask_evidence` を import / call しない。`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` が見えたことだけでは no-escape proof ではないため、この projection から `UpstreamPrivateEffectProven` は作らない。`EffectAbsentAfterCompleteTraversal` 相当の explicit complete traversal slot coverage は、後続の checker-layer / upper orchestration が同じ body identity で発行して backend readiness へ渡す。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。actual traversal private-effect readiness summary の public surface、source kind から Missing / Unknown / Refuted への分類、Proven 推測禁止、empty source table の Missing 化、source owner cleanup、checker proof / slot coverage / GraphInput / backend bytes / effect mask / artifact 合成禁止を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の actual use、escaping、unsupported、complete absence を checker-layer slot coverage record として明示発行する。
+- checker-layer slot coverage producer / Resource no-escape producer / mask evidence producer から same-body neutral upstream evidence を作り、backend readiness gate へ渡す upper orchestration を追加する。
+- Resource summary hash invalidation、artifact policy hash、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
