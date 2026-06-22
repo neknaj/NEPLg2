@@ -81687,6 +81687,55 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_fresh_witness_input_boundary.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_lowering_fresh_witness_input_boundary.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 
+## 2026-06-23 GUI std compositor present host executor validation checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_host_executor.nepl` を追加し、F5mz action と F5na report を support check / report action read / full action equality の順で照合する F5nb std layer compositor tile RLE present host executor validation boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentHostExecutorSupport` は Window / Offscreen / Device と非空の組み合わせだけを表す。supports-nothing variant は持たない。
+- full action identity は target x record variant、Window id、surface / frame typed id、expected counts、packet descriptor、compositor metadata、run offset / count / RGBA channel を比較する。matching action の failed report は valid association として通す。
+- `std/gui/compositor_tile_present.nepl` に `gui_rgba8888_compositor_tile_rle_present_frame_descriptor_packet` を追加し、F5nb が lower `std/gui/tile_present*` / host path を import せず metadata 付き packet descriptor を読めるようにした。
+- F5nb は actual host import、F5mx request construction、F5my/F5mw/F5mv、lower row-tile host / dispatch / schedule / virtual paths、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Sagan の read-only design/source-policy review は F5nb を承認した。指摘された source-policy risk は lower row-tile host path の ban と alloc-level row tile RLE accessor 許可の切り分けであり、narrow accessor と F5nb source policy で対応した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5nb.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_executor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_module_f5nb.json -j 1`。28/28。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_report_f5nb_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5nb_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5nb_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nb.json`
+- checked JSON: `tmp-playground-editor-tests-f5nb.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- Hooke の implementation review は required fix として note の検証記録不足を指摘した。実装自体は support before report action read、metadata / run / RGBA full equality、failed report preservation、no F5my-F5mv / no lower host / no platform/raw/fallback に blocker なしと確認された。上記検証記録を追記して対応した。
+- merge 後再検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- merge 後再検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5nb_merge.json -j 1`。1/1。
+- merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_executor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_module_f5nb_merge.json -j 1`。28/28。
+- merge 後再検証 pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- merge 後再検証 pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- merge 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- merge 後再検証 pass: `git diff --check`
+- merge 後再検証 pass: `git diff --cached --check`
+- merge 後再検証 pass: `trunk build`
+- merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nb-merge.json`
+- checked JSON: `tmp-playground-editor-tests-f5nb-merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- main merge 後再検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5nb_main.json -j 1`。1/1。
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_executor.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_module_f5nb_main.json -j 1`。28/28。
+- main merge 後再検証 pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- main merge 後再検証 pass: `git diff --check`
+- main merge 後再検証 pass: `trunk build`
+- main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nb-main.json`
+- checked JSON: `tmp-playground-editor-tests-f5nb-main.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
 ## 2026-06-23 selfhost resource-lowering fresh witness bundle boundary checkpoint
 
 - `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、production fresh witness input owner の source owner を same-source candidate 由来の `ActualTraversalFreshWitnessAuthorityBundle` へ move する module-private 境界を追加した。
