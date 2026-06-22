@@ -5916,7 +5916,7 @@ plan review:
 - Web compositor host import actual implementation として、`web/src/runtime/worker.ts` の `nepl_gui_web.compositor_tile_present_begin/run/end` を actual helper に接続する。
 - Web worker 内では full-frame video memory surface backing を正式な pixel backing とし、`begin` が write slot を acquire して caller supplied frame id に紐付け、`run` が contiguous RLE run を RGBA8888 bytes に書き、全 batch / tile の `end` 完了時だけ publish / present ack path に渡す。
 - target は Window target only とし、Offscreen / Device は Unsupported にする。
-- partial dirty unsupported until slot preservation/copy を明示し、現行の slot が前フレーム pixels を保持しない制約を隠さない。
+- partial dirty は F5nk の partial dirty slot preservation/copy で扱うため、F5nj は full-frame actual import と baseline 制約を明示する。
 - compositor ABI には title がないため、Web worker は deterministic title policy として surface handle 由来の固定 title を使う。
 
 plan review:
@@ -5928,15 +5928,40 @@ plan review:
 
 - `web/src/gui-preview/compositor-tile-present-host.ts` を追加し、descriptor validation、slot acquire、contiguous run write、batch/tile completion、full publish、typed host status mapping を実装する。
 - `web/src/runtime/worker.ts` の compositor host import を actual helper へ接続し、raw video memory write / publish / discard は compositor-owned frame を拒否する。
-- `nodesrc/test_web_gui_compositor_tile_present_host_import.js` を追加し、single packet、multi-batch、row-crossing run、lifecycle failure、Offscreen / Device unsupported、partial dirty unsupported、no writable slot を検査する。
+- `nodesrc/test_web_gui_compositor_tile_present_host_import.js` を追加し、single packet、multi-batch、row-crossing run、lifecycle failure、Offscreen / Device unsupported、F5nk partial dirty snapshot、no writable slot を検査する。
 - `nodesrc/run_source_policy_regressions.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5nj source policy を追加する。
 - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
 
 完了条件:
 
-- source policy が docs、Web worker actual import connection、helper begin/run/end、Window target only、full-frame video memory surface backing、partial dirty unsupported until slot preservation/copy、deterministic title policy、run_test fail-closed default、raw/compositor frame mixing rejection、no stdout / DOM / Canvas / fallback を検査する。
+- source policy が docs、Web worker actual import connection、helper begin/run/end、Window target only、full-frame video memory surface backing、partial dirty slot preservation/copy、deterministic title policy、run_test fail-closed default、raw/compositor frame mixing rejection、no stdout / DOM / Canvas / fallback を検査する。
 - F5nj host import regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
-- implementation review で no silent fallback、no direct Canvas / DOM drawing、no Window fallback for Offscreen / Device、partial dirty unsupported reason、title policy が確認済みである。
+- implementation review で no silent fallback、no direct Canvas / DOM drawing、no Window fallback for Offscreen / Device、partial dirty baseline constraint、title policy が確認済みである。
+
+## Phase F5nk: Web compositor partial dirty slot preservation/copy
+
+目的:
+
+- Web compositor host import actual implementation の partial dirty slot preservation/copy として、Web host surface record が committed snapshot を正式な baseline authority として保持する。
+- full publish は write slot 全体を committed snapshot へ copy し、partial begin は committed snapshot を新しい write slot へ copy してから metadata row range の RLE run を書く。
+- partial end は absolute metadata row range を検証し、全 batch / tile 完了後だけ dirty rect publish を行う。
+
+plan review:
+
+- Planck the 2nd read-only design review は、published slot を `acquireGuiVideoMemoryReadSlot` で baseline として読む設計は presenter と競合するため避け、CPU side committed snapshot を surface record の authority にする方針を妥当とした。
+- 指摘に従い、same surface 上の raw/compositor active writer concurrency を拒否し、publish 成功後だけ frame state / committed snapshot / active frame removal を確定する transactional completion にする。
+
+変更:
+
+- `web/src/gui-preview/compositor-tile-present-host.ts` に committed snapshot preparation / commit helper を追加し、snapshot 候補を publish 前に作る。baseline が無い partial begin と raw rect publish は `InvalidCommand` 相当へ fail-closed にし、snapshot allocation failure は publish 前に `ResourceExhausted` とする。
+- `web/src/runtime/worker.ts` の raw video memory publish も committed snapshot を更新し、raw frame と compositor frame の同時 active writer を surface 単位で拒否する。
+- `nodesrc/test_web_gui_compositor_tile_present_host_import.js` に full publish 後 partial dirty が前フレーム行を保持して dirty rect publish される検査、baseline なし partial begin の invalid 検査、multi-batch partial row range validation 検査を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` の F5nj source policy を F5nk snapshot / rect publish / transactional commit 契約へ拡張する。
+
+完了条件:
+
+- source policy が committed snapshot、partial dirty slot preservation/copy、dirty rect publish、absolute metadata row validation、raw publish snapshot update、active writer concurrency rejection、no presenter read-slot baseline、no stdout / DOM / Canvas / fallback を検査する。
+- F5nj/F5nk host import regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 

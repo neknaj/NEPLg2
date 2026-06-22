@@ -31244,10 +31244,12 @@ for (const [name, doc] of [
     assert(
         doc.includes("Web compositor host import actual implementation") &&
             doc.includes("full-frame video memory surface backing") &&
-            doc.includes("partial dirty unsupported until slot preservation/copy") &&
+            doc.includes("partial dirty slot preservation/copy") &&
+            doc.includes("committed snapshot") &&
+            doc.includes("dirty rect publish") &&
             doc.includes("Window target only") &&
             doc.includes("deterministic title policy"),
-        `F5nj ${name} must document Web compositor host import actual implementation scope`,
+        `F5nj/F5nk ${name} must document Web compositor host import actual implementation and partial dirty snapshot scope`,
     );
 }
 assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_action_platform_bridge" as *'), "std/gui facade must export F5ni compositor tile present host action platform bridge boundary");
@@ -31412,39 +31414,53 @@ assert(
 );
 assertNoMatch(
     workerCompositorHostImportPath,
-    /stdout|GuiWebStdoutProtocol|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\.|presentGuiWebRuntimeVideoMemory|fallback|silent no-op/,
+    /stdout|GuiWebStdoutProtocol|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\.|presentGuiWebRuntimeVideoMemory|acquireGuiVideoMemoryReadSlot|fallback|silent no-op/,
     "web runtime worker F5nj compositor host import path must not use stdout, DOM, Canvas, presenter internals, or fallback",
 );
 assert(
     webRuntimeWorkerSource.includes("createGuiWebVideoMemoryHostSurfaceRecord(handle, created.value)") &&
         webRuntimeWorkerSource.includes("compositor: { kind: 'none' }") &&
-        (webRuntimeWorkerSource.match(/guiWebVideoMemoryHostFrameIsPlain\(frame\)/g) || []).length >= 5,
-    "web runtime worker F5nj must separate compositor-managed frames from raw video-memory write/publish/discard frames",
+        (webRuntimeWorkerSource.match(/guiWebVideoMemoryHostFrameIsPlain\(frame\)/g) || []).length >= 5 &&
+        webRuntimeWorkerSource.includes("guiWebVideoMemoryHostSurfaceHasActiveFrame(surface)") &&
+        webRuntimeWorkerSource.includes("prepareGuiWebVideoMemoryHostPublishedFrameSnapshot(surface, frame.slot, dirty)") &&
+        webRuntimeWorkerSource.includes("commitGuiWebVideoMemoryHostPublishedFrameSnapshot(surface, snapshot.snapshot)"),
+    "web runtime worker F5nj/F5nk must separate compositor-managed frames from raw video-memory frames and update committed snapshots transactionally",
 );
 assert(
     webCompositorTilePresentHostSource.includes("export function beginGuiWebCompositorTilePresent") &&
         webCompositorTilePresentHostSource.includes("export function runGuiWebCompositorTilePresent") &&
         webCompositorTilePresentHostSource.includes("export function endGuiWebCompositorTilePresent") &&
         webCompositorTilePresentHostSource.includes("acquireGuiVideoMemoryWriteSlot(surface.surface)") &&
-        webCompositorTilePresentHostSource.includes("publishGuiVideoMemoryWriteSlot(frame.slot, { kind: 'full' })") &&
-        webCompositorTilePresentHostSource.includes("metadataRowStart !== 0 || descriptor.metadataRowCount !== descriptor.height") &&
+        webCompositorTilePresentHostSource.includes("lastPublishedPixels") &&
+        webCompositorTilePresentHostSource.includes("prepareGuiWebVideoMemoryHostPublishedFrameSnapshot") &&
+        webCompositorTilePresentHostSource.includes("commitGuiWebVideoMemoryHostPublishedFrameSnapshot") &&
+        webCompositorTilePresentHostSource.includes("copyGuiWebVideoMemoryHostSnapshotToSlot") &&
+        webCompositorTilePresentHostSource.includes("compositorDirtyRegionForState") &&
+        webCompositorTilePresentHostSource.includes("publishGuiVideoMemoryWriteSlot(frame.slot, dirty)") &&
+        webCompositorTilePresentHostSource.includes("const metadataRowEnd = descriptor.metadataRowStart + descriptor.metadataRowCount") &&
+        webCompositorTilePresentHostSource.includes("descriptor.metadataBatchCount !== expectedTileCount(descriptor.metadataRowCount") &&
+        webCompositorTilePresentHostSource.includes("state.metadataRowStart === descriptor.metadataRowStart") &&
+        webCompositorTilePresentHostSource.includes("guiWebVideoMemoryHostSurfaceHasActiveFrame(surface)") &&
         webCompositorTilePresentHostSource.includes("descriptor.targetKind !== COMPOSITOR_TARGET_WINDOW") &&
         webCompositorTilePresentHostSource.includes("run.pixelOffset !== packetState.seenPixelCount"),
-    "web gui-preview compositor tile present host F5nj must own begin/acquire, contiguous run write, full-frame publish, partial-dirty unsupported, and window-only validation",
+    "web gui-preview compositor tile present host F5nj/F5nk must own begin/acquire, contiguous run write, committed snapshot, dirty rect publish, and window-only validation",
 );
 assertNoMatch(
     webCompositorTilePresentHostSource,
-    /stdout|GuiWebStdoutProtocol|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\.|presentGuiWebRuntimeVideoMemory|postMessage|fallback|silent no-op/,
-    "web gui-preview compositor tile present host F5nj must stay inside video-memory surface state and avoid direct UI/fallback effects",
+    /stdout|GuiWebStdoutProtocol|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\.|presentGuiWebRuntimeVideoMemory|acquireGuiVideoMemoryReadSlot|postMessage|fallback|silent no-op/,
+    "web gui-preview compositor tile present host F5nj/F5nk must stay inside video-memory surface state and avoid direct UI/read-slot-baseline/fallback effects",
 );
 assert(
     webCompositorTilePresentHostTestSource.includes("verifyFullFrameSinglePacket") &&
         webCompositorTilePresentHostTestSource.includes("verifyFullFrameMultiBatch") &&
+        webCompositorTilePresentHostTestSource.includes("verifyPartialDirtyCopiesSnapshot") &&
+        webCompositorTilePresentHostTestSource.includes("verifyPartialDirtyMultiBatchAndValidation") &&
         webCompositorTilePresentHostTestSource.includes("verifyRunOrderAndLifecycleFailures") &&
         webCompositorTilePresentHostTestSource.includes("verifyUnsupportedAndResourceFailures") &&
-        webCompositorTilePresentHostTestSource.includes("partial dirty metadata is unsupported") &&
+        webCompositorTilePresentHostTestSource.includes("partial dirty rows copy the last published snapshot") &&
+        webCompositorTilePresentHostTestSource.includes("partial dirty validates absolute metadata batch and row ranges") &&
         webCompositorTilePresentHostTestSource.includes("Offscreen and Device targets fail closed"),
-    "F5nj Web compositor host import regression must cover success, multi-batch, lifecycle failure, unsupported targets, and partial dirty policy",
+    "F5nj/F5nk Web compositor host import regression must cover success, multi-batch, lifecycle failure, unsupported targets, and partial dirty snapshot policy",
 );
 assert(
     guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_facade_ok") &&

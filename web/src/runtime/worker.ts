@@ -34,9 +34,12 @@ import {
 } from '../gui-preview/video-memory-surface.js';
 import {
     beginGuiWebCompositorTilePresent,
+    commitGuiWebVideoMemoryHostPublishedFrameSnapshot,
     createGuiWebVideoMemoryHostSurfaceRecord,
     endGuiWebCompositorTilePresent,
     guiWebVideoMemoryHostFrameIsPlain,
+    guiWebVideoMemoryHostSurfaceHasActiveFrame,
+    prepareGuiWebVideoMemoryHostPublishedFrameSnapshot,
     runGuiWebCompositorTilePresent,
     type GuiWebCompositorTilePresentDescriptor,
     type GuiWebVideoMemoryHostFrameRecord,
@@ -716,6 +719,9 @@ class WorkerWASI extends WASI {
         if (!surface) {
             return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
         }
+        if (guiWebVideoMemoryHostSurfaceHasActiveFrame(surface)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
         const acquired = acquireGuiVideoMemoryWriteSlot(surface.surface);
         if (acquired.kind === 'err') {
             return guiVideoMemoryHostStatusFromError(acquired.error);
@@ -851,10 +857,15 @@ class WorkerWASI extends WASI {
         if (typeof dirty === 'number') {
             return dirty;
         }
+        const snapshot = prepareGuiWebVideoMemoryHostPublishedFrameSnapshot(surface, frame.slot, dirty);
+        if (snapshot.kind === 'status') {
+            return snapshot.status;
+        }
         const published = publishGuiVideoMemoryWriteSlot(frame.slot, dirty);
         if (published.kind === 'err') {
             return guiVideoMemoryHostStatusFromError(published.error);
         }
+        commitGuiWebVideoMemoryHostPublishedFrameSnapshot(surface, snapshot.snapshot);
         surface.frames = surface.frames.filter((candidate) => candidate.frameId !== frameId);
         return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
     }

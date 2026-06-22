@@ -1,6 +1,8 @@
 import {
     type GuiVideoMemoryError,
+    type GuiVideoMemoryDirtyRegion,
     acquireGuiVideoMemoryWriteSlot,
+    discardGuiVideoMemoryWriteSlot,
     publishGuiVideoMemoryWriteSlot,
     type GuiVideoMemorySurface,
     type GuiVideoMemoryWriteSlot,
@@ -78,6 +80,18 @@ type GuiWebCompositorTilePresentBatchState = {
     completedTileIndices: number[];
 };
 
+type GuiWebCompositorTilePresentCompletion =
+    | { kind: 'status'; status: number }
+    | { kind: 'state'; state: GuiWebCompositorTilePresentFrameState };
+
+export type GuiWebVideoMemoryHostPublishedFrameSnapshot = {
+    pixels: Uint8ClampedArray;
+};
+
+export type GuiWebVideoMemoryHostSnapshotPrepareResult =
+    | { kind: 'status'; status: number }
+    | { kind: 'snapshot'; snapshot: GuiWebVideoMemoryHostPublishedFrameSnapshot };
+
 type GuiWebCompositorTilePresentFrameState = {
     targetKind: typeof COMPOSITOR_TARGET_WINDOW;
     windowId: number;
@@ -86,6 +100,8 @@ type GuiWebCompositorTilePresentFrameState = {
     width: number;
     height: number;
     strideBytes: number;
+    metadataRowStart: number;
+    metadataRowCount: number;
     metadataBatchCount: number;
     metadataMaxRowsPerBatch: number;
     currentPacket: GuiWebCompositorTilePresentCurrentPacket;
@@ -113,6 +129,7 @@ export type GuiWebVideoMemoryHostSurfaceRecord = {
     surface: GuiVideoMemorySurface;
     nextFrameId: number;
     frames: GuiWebVideoMemoryHostFrameRecord[];
+    lastPublishedPixels: Uint8ClampedArray | null;
 };
 
 export type GuiWebCompositorTilePresentEndResult =
@@ -128,11 +145,37 @@ export function createGuiWebVideoMemoryHostSurfaceRecord(
         surface,
         nextFrameId: 1,
         frames: [],
+        lastPublishedPixels: null,
     };
 }
 
 export function guiWebVideoMemoryHostFrameIsPlain(frame: GuiWebVideoMemoryHostFrameRecord): boolean {
     return frame.compositor.kind === 'none';
+}
+
+export function guiWebVideoMemoryHostSurfaceHasActiveFrame(surface: GuiWebVideoMemoryHostSurfaceRecord): boolean {
+    return surface.frames.length > 0;
+}
+
+export function prepareGuiWebVideoMemoryHostPublishedFrameSnapshot(
+    surface: GuiWebVideoMemoryHostSurfaceRecord,
+    slot: GuiVideoMemoryWriteSlot,
+    dirty: GuiVideoMemoryDirtyRegion,
+): GuiWebVideoMemoryHostSnapshotPrepareResult {
+    if (slot.surface !== surface.surface) {
+        return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT };
+    }
+    if (dirty.kind === 'full') {
+        return copyGuiWebVideoMemoryHostSlotSnapshot(surface, slot);
+    }
+    return copyGuiWebVideoMemoryHostDirtyRowsToNewSnapshot(surface, slot, dirty);
+}
+
+export function commitGuiWebVideoMemoryHostPublishedFrameSnapshot(
+    surface: GuiWebVideoMemoryHostSurfaceRecord,
+    snapshot: GuiWebVideoMemoryHostPublishedFrameSnapshot,
+): void {
+    surface.lastPublishedPixels = snapshot.pixels;
 }
 
 export function beginGuiWebCompositorTilePresent(
@@ -145,9 +188,19 @@ export function beginGuiWebCompositorTilePresent(
     }
     let frame = findSurfaceFrame(surface, descriptor.frameId);
     if (!frame) {
+        if (guiWebVideoMemoryHostSurfaceHasActiveFrame(surface)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
         const acquired = acquireGuiVideoMemoryWriteSlot(surface.surface);
         if (acquired.kind === 'err') {
             return guiWebVideoMemoryHostStatusFromError(acquired.error);
+        }
+        if (!compositorDescriptorIsFullFrame(descriptor)) {
+            const copied = copyGuiWebVideoMemoryHostSnapshotToSlot(surface, acquired.value);
+            if (copied !== GUI_VIDEO_MEMORY_HOST_STATUS_OK) {
+                discardGuiVideoMemoryWriteSlot(acquired.value);
+                return copied;
+            }
         }
         frame = {
             frameId: descriptor.frameId,
@@ -249,22 +302,29 @@ export function endGuiWebCompositorTilePresent(
     ) {
         return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT };
     }
-    const completedStatus = completeCompositorPacket(frame.compositor.state, descriptor);
-    if (completedStatus !== GUI_VIDEO_MEMORY_HOST_STATUS_OK) {
-        return { kind: 'status', status: completedStatus };
+    const completed = completeCompositorPacket(frame.compositor.state, descriptor);
+    if (completed.kind === 'status') {
+        return { kind: 'status', status: completed.status };
     }
-    frame.compositor.state.currentPacket = { kind: 'none' };
-    if (!allCompositorPacketsCompleted(frame.compositor.state)) {
+    const nextState = completed.state;
+    if (!allCompositorPacketsCompleted(nextState)) {
+        frame.compositor.state = nextState;
         return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_OK };
     }
-    const published = publishGuiVideoMemoryWriteSlot(frame.slot, { kind: 'full' });
+    const dirty = compositorDirtyRegionForState(nextState);
+    const snapshot = prepareGuiWebVideoMemoryHostPublishedFrameSnapshot(surface, frame.slot, dirty);
+    if (snapshot.kind === 'status') {
+        return { kind: 'status', status: snapshot.status };
+    }
+    const published = publishGuiVideoMemoryWriteSlot(frame.slot, dirty);
     if (published.kind === 'err') {
         return { kind: 'status', status: guiWebVideoMemoryHostStatusFromError(published.error) };
     }
+    commitGuiWebVideoMemoryHostPublishedFrameSnapshot(surface, snapshot.snapshot);
     surface.frames = surface.frames.filter((candidate) => candidate.frameId !== descriptor.frameId);
     return {
         kind: 'present',
-        windowId: frame.compositor.state.windowId,
+        windowId: nextState.windowId,
         title: `NEPL compositor ${surface.handle}`,
         surface,
     };
@@ -281,6 +341,8 @@ function initialCompositorFrameState(
         width: descriptor.width,
         height: descriptor.height,
         strideBytes: descriptor.strideBytes,
+        metadataRowStart: descriptor.metadataRowStart,
+        metadataRowCount: descriptor.metadataRowCount,
         metadataBatchCount: descriptor.metadataBatchCount,
         metadataMaxRowsPerBatch: descriptor.metadataMaxRowsPerBatch,
         currentPacket: { kind: 'none' },
@@ -323,20 +385,24 @@ function validateCompositorDescriptor(
         || !isPositiveInteger(descriptor.pixelCount)
         || !isPositiveInteger(descriptor.totalRunCount)
         || !isPositiveInteger(descriptor.encodedByteCount)
+        || !isNonNegativeInteger(descriptor.metadataRowStart)
+        || !isPositiveInteger(descriptor.metadataRowCount)
         || !isPositiveInteger(descriptor.metadataBatchCount)
         || !isPositiveInteger(descriptor.metadataMaxRowsPerBatch)
     ) {
         return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
     }
-    if (descriptor.metadataRowStart !== 0 || descriptor.metadataRowCount !== descriptor.height) {
-        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
-    }
+    const metadataRowEnd = descriptor.metadataRowStart + descriptor.metadataRowCount;
     if (
         descriptor.batchIndex >= descriptor.metadataBatchCount
         || descriptor.tileIndex >= descriptor.tileCount
-        || descriptor.metadataBatchCount !== expectedTileCount(descriptor.height, descriptor.metadataMaxRowsPerBatch)
+        || !Number.isSafeInteger(metadataRowEnd)
+        || metadataRowEnd > descriptor.height
+        || descriptor.metadataBatchCount !== expectedTileCount(descriptor.metadataRowCount, descriptor.metadataMaxRowsPerBatch)
         || descriptor.planRowStart + descriptor.planRowCount > descriptor.height
         || descriptor.rowStart + descriptor.rowCount > descriptor.height
+        || descriptor.planRowStart < descriptor.metadataRowStart
+        || descriptor.planRowStart + descriptor.planRowCount > metadataRowEnd
         || descriptor.rowStart < descriptor.planRowStart
         || descriptor.rowStart + descriptor.rowCount > descriptor.planRowStart + descriptor.planRowCount
         || descriptor.pixelCount !== descriptor.rowCount * descriptor.width
@@ -344,8 +410,8 @@ function validateCompositorDescriptor(
     ) {
         return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
     }
-    const expectedPlanRowStart = descriptor.batchIndex * descriptor.metadataMaxRowsPerBatch;
-    const remainingRows = descriptor.height - expectedPlanRowStart;
+    const expectedPlanRowStart = descriptor.metadataRowStart + descriptor.batchIndex * descriptor.metadataMaxRowsPerBatch;
+    const remainingRows = metadataRowEnd - expectedPlanRowStart;
     const expectedPlanRowCount = Math.min(descriptor.metadataMaxRowsPerBatch, remainingRows);
     const expectedRowStart = descriptor.planRowStart + descriptor.tileIndex * descriptor.tileRows;
     const remainingTileRows = descriptor.planRowStart + descriptor.planRowCount - expectedRowStart;
@@ -374,6 +440,8 @@ function compositorFrameMatchesDescriptor(
         && state.width === descriptor.width
         && state.height === descriptor.height
         && state.strideBytes === descriptor.strideBytes
+        && state.metadataRowStart === descriptor.metadataRowStart
+        && state.metadataRowCount === descriptor.metadataRowCount
         && state.metadataBatchCount === descriptor.metadataBatchCount
         && state.metadataMaxRowsPerBatch === descriptor.metadataMaxRowsPerBatch;
 }
@@ -416,7 +484,7 @@ function activePacketForDescriptor(
 function completeCompositorPacket(
     state: GuiWebCompositorTilePresentFrameState,
     descriptor: GuiWebCompositorTilePresentDescriptor,
-): number {
+): GuiWebCompositorTilePresentCompletion {
     const existingBatch = findBatchState(state, descriptor.batchIndex);
     const batch = existingBatch || {
         batchIndex: descriptor.batchIndex,
@@ -427,13 +495,24 @@ function completeCompositorPacket(
         batch.tileCount !== descriptor.tileCount
         || batch.completedTileIndices.includes(descriptor.tileIndex)
     ) {
-        return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT };
     }
-    batch.completedTileIndices = [...batch.completedTileIndices, descriptor.tileIndex];
-    if (!existingBatch) {
-        state.batches = [...state.batches, batch];
-    }
-    return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    const completedBatch = {
+        batchIndex: batch.batchIndex,
+        tileCount: batch.tileCount,
+        completedTileIndices: [...batch.completedTileIndices, descriptor.tileIndex],
+    };
+    const batches = existingBatch
+        ? state.batches.map((candidate) => candidate.batchIndex === descriptor.batchIndex ? completedBatch : candidate)
+        : [...state.batches, completedBatch];
+    return {
+        kind: 'state',
+        state: {
+            ...state,
+            currentPacket: { kind: 'none' },
+            batches,
+        },
+    };
 }
 
 function allCompositorPacketsCompleted(state: GuiWebCompositorTilePresentFrameState): boolean {
@@ -508,6 +587,95 @@ function writeCompositorRun(
         slot.pixels[offset + 3] = run.a;
     }
     return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+}
+
+function compositorDescriptorIsFullFrame(descriptor: GuiWebCompositorTilePresentDescriptor): boolean {
+    return descriptor.metadataRowStart === 0 && descriptor.metadataRowCount === descriptor.height;
+}
+
+function compositorDirtyRegionForState(
+    state: GuiWebCompositorTilePresentFrameState,
+): GuiVideoMemoryDirtyRegion {
+    if (state.metadataRowStart === 0 && state.metadataRowCount === state.height) {
+        return { kind: 'full' };
+    }
+    return {
+        kind: 'rect',
+        x: 0,
+        y: state.metadataRowStart,
+        width: state.width,
+        height: state.metadataRowCount,
+    };
+}
+
+function copyGuiWebVideoMemoryHostSnapshotToSlot(
+    surface: GuiWebVideoMemoryHostSurfaceRecord,
+    slot: GuiVideoMemoryWriteSlot,
+): number {
+    const snapshot = surface.lastPublishedPixels;
+    if (!snapshot || snapshot.byteLength !== surface.surface.pixelByteLength) {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+    }
+    slot.pixels.set(snapshot);
+    return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+}
+
+function copyGuiWebVideoMemoryHostSlotSnapshot(
+    surface: GuiWebVideoMemoryHostSurfaceRecord,
+    slot: GuiVideoMemoryWriteSlot,
+): GuiWebVideoMemoryHostSnapshotPrepareResult {
+    if (slot.pixels.byteLength !== surface.surface.pixelByteLength) {
+        return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT };
+    }
+    try {
+        const pixels = new Uint8ClampedArray(surface.surface.pixelByteLength);
+        pixels.set(slot.pixels);
+        return { kind: 'snapshot', snapshot: { pixels } };
+    } catch {
+        return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_RESOURCE_EXHAUSTED };
+    }
+}
+
+function copyGuiWebVideoMemoryHostDirtyRowsToNewSnapshot(
+    surface: GuiWebVideoMemoryHostSurfaceRecord,
+    slot: GuiVideoMemoryWriteSlot,
+    dirty: Extract<GuiVideoMemoryDirtyRegion, { kind: 'rect' }>,
+): GuiWebVideoMemoryHostSnapshotPrepareResult {
+    const snapshot = surface.lastPublishedPixels;
+    if (
+        !snapshot
+        || snapshot.byteLength !== surface.surface.pixelByteLength
+        || slot.pixels.byteLength !== surface.surface.pixelByteLength
+        || !isGuiWebVideoMemoryHostDirtyRegionInBounds(surface, dirty)
+    ) {
+        return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT };
+    }
+    try {
+        const pixels = new Uint8ClampedArray(surface.surface.pixelByteLength);
+        pixels.set(snapshot);
+        for (let row = dirty.y; row < dirty.y + dirty.height; row += 1) {
+            const start = row * surface.surface.strideBytes + dirty.x * BYTES_PER_RGBA8888_PIXEL;
+            const end = start + dirty.width * BYTES_PER_RGBA8888_PIXEL;
+            pixels.set(slot.pixels.subarray(start, end), start);
+        }
+        return { kind: 'snapshot', snapshot: { pixels } };
+    } catch {
+        return { kind: 'status', status: GUI_VIDEO_MEMORY_HOST_STATUS_RESOURCE_EXHAUSTED };
+    }
+}
+
+function isGuiWebVideoMemoryHostDirtyRegionInBounds(
+    surface: GuiWebVideoMemoryHostSurfaceRecord,
+    dirty: Extract<GuiVideoMemoryDirtyRegion, { kind: 'rect' }>,
+): boolean {
+    return isNonNegativeInteger(dirty.x)
+        && isNonNegativeInteger(dirty.y)
+        && isPositiveInteger(dirty.width)
+        && isPositiveInteger(dirty.height)
+        && Number.isSafeInteger(dirty.x + dirty.width)
+        && Number.isSafeInteger(dirty.y + dirty.height)
+        && dirty.x + dirty.width <= surface.surface.width
+        && dirty.y + dirty.height <= surface.surface.height;
 }
 
 function expectedTileCount(rowCount: number, tileRows: number): number {
