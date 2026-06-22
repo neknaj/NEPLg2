@@ -1,3 +1,65 @@
+# 2026-06-22 Agent2 GUI render2d F5mn compositor tile RLE write step bridge boundary
+
+## 目的
+
+- F5mm の `GuiRgba8888CompositorTileRleWriteCursorOwner` から lower `gui_rgba8888_row_tile_rle_write_cursor_step_one` へ進む compositor tile RLE write step bridge を追加する。
+- write step は lower step status と metadata 付き next write cursor owner を返し、encoded seal / packet / present へ進まない boundary として分離する。
+- lower write step error は kind / category を読んだ後で lower write cursor owner を metadata 付き write cursor owner へ戻す。payload recovery や encoded recovery にはしない。
+
+## 実装内容
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_write_step.nepl` を追加した。
+- `GuiRgba8888CompositorTileRleWriteStepErrorKind`、`GuiRgba8888CompositorTileRleWriteStep`、`GuiRgba8888CompositorTileRleWriteStepError` を追加した。
+- `gui_rgba8888_compositor_tile_rle_write_step_one` は metadata を write cursor owner から Copy してから lower write cursor owner を取り出し、lower write step を 1 回だけ呼ぶ。
+- success は lower status と lower next owner を metadata 付き write cursor owner へ戻し、metadata / total run count / encoded byte count / written run count / written byte count / cursor next pixel index / cursor pixel count accessor を追加した。
+- lower error は kind / category を読んでから lower write cursor owner を取り出し、metadata 付き write cursor owner recovery error に正規化した。
+- success / error の finish payload と free は F5mm write cursor owner finish payload / free に委譲する。`finish_entry` は作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mn contract に合わせて更新した。
+
+## plan.md との差異
+
+- F5mn は 2D compositor の formal tile RLE transport を進めるための中間境界であり、plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う。
+- 現時点では encoded seal、packet transport、std present、platform present continuation には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Ramanujan plan review は `PLAN_APPROVED`。
+- lower write-step errors は write cursor owner を保持するため、recovered lower owner を copied metadata で包む recovery shape が正しいと確認された。
+- success / error は direct owner recovery を公開し、error kind/category は lower error finish owner より前に読む必要があると確認された。
+- finish payload / free は F5mm 経由の recovery / abort helper であり、encoded completion や finish_entry は作らない方針が承認された。
+
+## 検証
+
+- pass: `cargo test -p nepl-core --lib i32_return_facts --quiet`（13/13）
+- pass: `cargo test -p nepl-core --lib owner_alias --quiet`（2/2）
+- pass: `cargo test -p nepl-core --lib final_initialized_function_check_pass_snapshot_replays_with_stable_entries_disabled --quiet`（1/1）
+- pass: `cargo test -p nepl-core --lib owner_obligation_check_pass_snapshot_replays_with_stable_entries_disabled --quiet`（1/1）
+- pass: `cargo test -p nepl-core --lib end_scope_clears_non_result_variant_facts --quiet`（1/1）
+- pass: `cargo test -p nepl-core --lib i32_return_facts_do_not_duplicate_plain_alias_as_zero_offset --quiet`（1/1）
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node --check nodesrc/compiler_loader.js`
+- pass: `node --check nodesrc/test_compiler_loader_dist_selection.js`
+- pass: `node nodesrc/test_compiler_loader_dist_selection.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_f5mn_final.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_write_step.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_module_f5mn_final.json -j 1`（31/31）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_cursor_f5mn_regression_final.json -j 1`（2/2）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5mn_regression_final.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i stdlib/core/mem/pointer/bulk.nepl --no-tree -o tmp_core_mem_pointer_bulk_f5mn_final.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_f5mn_final.json -j 1`（2/2）
+- pass: `cargo fmt --check`
+- pass: `trunk build`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_step_f5mn_default_after_split.json --timeout-nonfatal`（3/3）
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5mn_final.json`（13/13、JSON は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`, `errorCount: 0`）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- F5mn の public owner chain fixture は lower row writer / compositor frame / tile RLE owner をすべて通すため、default WASM runner の Resource check で timeout することを確認した。timeout を延ばして通すのではなく、runtime smoke は facade / status / wrapped lower error kind に絞り、lower one-step / progress / metadata / recovery / free / no fallback は source policy と skip fixture で固定する形へ分割した。
+- lower row writer は `cursor_next_run -> write_run_record -> recover/finish` の段階に分け、record writer は 3 word store を typed helper 化した。あわせて compiler 側の same-session pass snapshot replay、scope exit alias cleanup、i32 return fact projection filtering、dist selection を修正し、重い F5mn 検査の根本原因を切り分けた。
+
+## 残り
+
+- F5mn 後続として、compositor write cursor owner から lower encoded seal / packet / std present payload transport / present continuation へ進む boundary を実装する。
+
 # 2026-06-22 Agent2 GUI render2d F5mm compositor tile RLE write cursor start bridge boundary
 
 ## 目的

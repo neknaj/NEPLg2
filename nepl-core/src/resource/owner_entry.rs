@@ -20,7 +20,7 @@ use super::resource_summary_value_cache::{
 use super::summary::compute_owner_return_summaries_with_recomputations;
 use super::summary::OwnerReturnSummaryIndex;
 use super::summary_dependency::ResourceSummaryDependencyGraph;
-use super::timing::ResourceStageTimer;
+use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_owner_obligations(
     module: &ResourceModule,
@@ -60,7 +60,7 @@ fn check_resource_owner_obligations_inner(
         summary_value_cache_context,
     ) {
         (Some(cache), Some(context))
-            if cache.stable_entry_collection_enabled()
+            if cache.same_session_pass_snapshot_collection_enabled()
                 || cache.has_owner_obligation_check_pass_snapshot() =>
         {
             Some(cache.begin_owner_obligation_check_pass_plan(
@@ -219,6 +219,7 @@ fn check_resource_owner_obligations_inner(
 
     for pending in pending_checks {
         let function = &module.functions[pending.function_index];
+        let function_start = ResourceFunctionTimer::start();
         if let Some(cache) = summary_value_cache.as_deref_mut() {
             cache.record_owner_obligation_function_check(pending.function_op_count);
         }
@@ -258,6 +259,7 @@ fn check_resource_owner_obligations_inner(
             }
         }
         function_results[pending.function_index] = Some(function_check);
+        function_start.log("owner_obligation_function_check", function);
     }
     if let (Some(cache), Some(plan)) = (
         summary_value_cache.as_deref_mut(),

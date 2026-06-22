@@ -68,12 +68,15 @@ function pickCompilerPair(distDir) {
 }
 
 function findCompilerDistDir(candidateDirs) {
+    let best = null;
     for (const d of candidateDirs) {
         const pair = pickCompilerPair(d);
         if (!pair) continue;
-        return { distDir: d, pair };
+        if (!best || pair.mtime > best.pair.mtime) {
+            best = { distDir: d, pair };
+        }
     }
-    return null;
+    return best;
 }
 
 async function loadCompilerFromDist(distDir) {

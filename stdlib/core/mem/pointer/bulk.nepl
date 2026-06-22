@@ -115,6 +115,35 @@ pub fn memset_u8 %fn MemPtr u8 fn i32 fn i32 Result unit str \ptr\len\value:
 pub fn fill_u8 %fn MemPtr u8 fn i32 fn i32 Result unit str \ptr\len\value:
     memset_u8 ptr len value
 
+//: store_i32_3_u8: MemPtr u8 へ 3 個の i32 word を連続して書き込む
+//:
+//: 目的:
+//: - caller が 12 byte span を検査済みの場合に、byte record を 4 byte word 3 個としてまとめて書き込みます。
+//: - little-endian target では `i32.store` がそのまま byte 0..3、4..7、8..11 の record layout になります。
+//:
+//: 注意(重要):
+//: - pointer の非ゼロ検査だけを行います。span bounds は caller が所有 context で検査してください。
+//: - 非 i32 aligned な byte pointer に対しても、この raw helper の LLVM backend は align 1 の store を使います。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/mem/pointer/bulk" as *
+//: ```
+pub fn store_i32_3_u8 %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str \ptr\v0\v1\v2:
+    let raw %i32 mem_ptr_addr ptr
+    if:
+        lt raw 1
+        then:
+            Result::Err "mem.store_i32_3_u8 invalid pointer"
+        else:
+            store_i32 raw v0
+            store_i32 add raw 4 v1
+            store_i32 add raw 8 v2
+            Result::Ok unit
+
 //: fill_i32: MemPtr i32 を受け取る安全オーバーロード
 //:
 //: 目的:

@@ -1,6 +1,7 @@
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::cell::Cell;
 
 use crate::types::{EnumVariantInfo, TypeCtx, TypeKind};
 
@@ -191,6 +192,83 @@ fn i32_return_facts_can_skip_parameter_conditions_without_dropping_return_facts(
     );
 }
 
+/// scalar origin で戻り値が引数を指す場合、return alias fact として保存する。
+///
+/// return leaf の fact 収集は、巨大な戻り値型の全 leaf に対する alias graph 探索を
+/// 避けるため、return prefix と parameter prefix を結ぶ候補だけを調べる。この経路で
+/// copy によって作られた安定 origin の alias を落とさないことを確認する。
+#[test]
+fn i32_return_facts_preserve_scalar_origin_return_alias_to_parameter() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let returned_value = Place::local(String::from("out"), i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.copy_scalar_facts_if_tracked(&param.place, &returned_value);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[param.clone()],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+
+    assert!(
+        facts.aliases.iter().any(|alias| {
+            alias.return_projection.is_empty()
+                && alias.parameter_index == 0
+                && alias.parameter_projection.is_empty()
+        }),
+        "scalar origin で引数を指す戻り値 alias は summary に保存される必要がある"
+    );
+}
+
+/// plain alias は alias fact だけで復元できるため、offset 0 fact として重複保存しない。
+///
+/// offset fact は実際の offset graph を呼び出し境界へ運ぶためのものなので、単純な
+/// scalar origin まで offset source 探索に入れると、大きな owner 戻り値で不要な
+/// alias/origin 逆引きが増える。
+#[test]
+fn i32_return_facts_do_not_duplicate_plain_alias_as_zero_offset() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let returned_value = Place::local(String::from("out"), i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.copy_scalar_facts_if_tracked(&param.place, &returned_value);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[param.clone()],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+
+    assert_eq!(
+        facts.aliases.len(),
+        1,
+        "plain scalar origin は alias fact として保存する"
+    );
+    assert!(
+        facts.offsets.is_empty(),
+        "実 offset graph がない plain alias は offset 0 fact に重複保存しない"
+    );
+}
+
 /// literal から offset graph で導ける引数 condition も、直接条件と同じく
 /// parameter condition として保存する。
 ///
@@ -227,6 +305,46 @@ fn i32_return_facts_preserve_offset_constant_parameter_conditions() {
                 && condition.condition == I32ValueCondition::Positive
         }),
         "literal 起点の offset から導ける引数 condition は summary に保存される必要がある"
+    );
+}
+
+/// scale fact を経由して引数 leaf に届く condition も保存する。
+///
+/// parameter condition 収集は巨大な owner 引数の全 leaf 走査を避けるため、i32 proof
+/// source から候補を作る。scale では target 側だけが condition 導出の入口になるため、
+/// target が引数 leaf の場合に候補から漏れないことを固定する。
+#[test]
+fn i32_return_facts_preserve_scaled_parameter_conditions() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let param = ResourceLocal {
+        name: String::from("value"),
+        ty: i32_ty,
+        mutable: false,
+        place: Place::local(String::from("value"), i32_ty),
+    };
+    let returned_value = Place::local(String::from("out"), i32_ty);
+    let source = Place::local(String::from("source"), i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.add_i32_condition(&source, I32ValueCondition::NonNegative);
+    source_aliases.add_i32_scale(&source, &param.place, 4);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[param.clone()],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+
+    assert!(
+        facts.parameter_conditions.iter().any(|condition| {
+            condition.parameter_index == 0
+                && condition.parameter_projection.is_empty()
+                && condition.condition == I32ValueCondition::NonNegative
+        }),
+        "scale target の引数 condition は summary に保存される必要がある"
     );
 }
 
@@ -336,6 +454,86 @@ fn i32_return_facts_projection_filter_skips_impossible_leaf() {
             constant.return_projection == leaves[1].suffix && constant.value == 20
         }),
         "到達不能な leaf の constant fact は収集しない"
+    );
+}
+
+/// sibling variant が不可能だと分かった時点で、その payload の子 leaf 列挙を始めない。
+///
+/// owner を含む Result では Err/Ok の片側だけで巨大な i32 leaf graph になるため、
+/// leaf を全生成してから捨てると return fact 収集が path ごとに膨らむ。
+#[test]
+fn i32_return_facts_projection_filter_prunes_impossible_enum_payload_children() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let pair_ty = types.tuple(vec![i32_ty, i32_ty]);
+    let result_ty = types.register_named(
+        String::from("Result"),
+        TypeKind::Enum {
+            name: String::from("Result"),
+            type_params: Vec::new(),
+            variants: vec![
+                EnumVariantInfo {
+                    name: String::from("Ok"),
+                    payload: Some(pair_ty),
+                },
+                EnumVariantInfo {
+                    name: String::from("Err"),
+                    payload: Some(pair_ty),
+                },
+            ],
+        },
+    );
+    let returned_value = Place::local(String::from("result"), result_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    let mut source_aliases = RawCellAddressAliases::default();
+    let err_child_filter_calls = Cell::new(0);
+
+    for (index, leaf) in leaves.iter().enumerate() {
+        source_aliases.set_i32_value(&leaf.place, index as i32);
+    }
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix_cached_with_projection_filter(
+        &[],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+        &mut leaf_cache,
+        |projection| match projection.first() {
+            Some(PlaceProjection::EnumPayload { variant }) if variant == "Ok" => true,
+            Some(PlaceProjection::EnumPayload { variant }) if variant == "Err" => {
+                if projection.len() > 1 {
+                    err_child_filter_calls.set(err_child_filter_calls.get() + 1);
+                }
+                false
+            }
+            _ => true,
+        },
+    );
+
+    assert_eq!(
+        err_child_filter_calls.get(),
+        0,
+        "不可能な Err payload の子 leaf を filter へ渡す前に traversal を止める必要がある"
+    );
+    assert!(
+        facts.constants.iter().any(|constant| {
+            matches!(
+                constant.return_projection.first(),
+                Some(PlaceProjection::EnumPayload { variant }) if variant == "Ok"
+            )
+        }),
+        "到達可能な Ok payload の fact は保持する必要がある"
+    );
+    assert!(
+        !facts.constants.iter().any(|constant| {
+            matches!(
+                constant.return_projection.first(),
+                Some(PlaceProjection::EnumPayload { variant }) if variant == "Err"
+            )
+        }),
+        "到達不能な Err payload の fact は収集しない"
     );
 }
 

@@ -6,7 +6,7 @@ use super::initialized_scalar_flow::{I32ScalarConcreteVariant, I32ScalarConcrete
 use super::initialized_scalar_flow_return_facts::push_unique_i32_scalar_return_projection;
 use super::model::{AggregateKind, Place, PlaceProjection, ResourceOp};
 use super::place_utils::{
-    construct_aggregate_field_place, projection_result_type, replace_place_prefix,
+    construct_aggregate_field_place, places_overlap, projection_result_type, replace_place_prefix,
 };
 use super::variant_name::normalize_variant_name;
 use crate::types::TypeCtx;
@@ -158,10 +158,17 @@ pub(super) fn propagate_i32_scalar_concrete_variant_op(
         | ResourceOp::RawMemory { output, .. }
         | ResourceOp::Borrow { output, .. } => variants.clear(output),
         ResourceOp::Drop { place, .. } => variants.clear(place),
+        ResourceOp::EndScope { locals, result, .. } => {
+            for local in locals {
+                if end_scope_result_preserves_local(local, result.as_ref()) {
+                    continue;
+                }
+                variants.clear(local);
+            }
+        }
         ResourceOp::Branch { .. }
         | ResourceOp::Match { .. }
         | ResourceOp::CallEffect { .. }
-        | ResourceOp::EndScope { .. }
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
@@ -170,6 +177,10 @@ pub(super) fn propagate_i32_scalar_concrete_variant_op(
         | ResourceOp::CollectionSlotDropTraversal { .. }
         | ResourceOp::CollectionSlotTransformRange { .. } => {}
     }
+}
+
+fn end_scope_result_preserves_local(local: &Place, result: Option<&Place>) -> bool {
+    result.is_some_and(|result| places_overlap(local, result))
 }
 
 pub(super) fn propagate_i32_scalar_concrete_variant_ops(
@@ -198,4 +209,38 @@ pub(super) fn merge_i32_scalar_concrete_variants(
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::span::Span;
+    use crate::types::TypeId;
+    use alloc::string::String;
+    use alloc::vec;
+
+    fn local(name: &str) -> Place {
+        Place::local(String::from(name), TypeId(1))
+    }
+
+    #[test]
+    fn end_scope_clears_non_result_variant_facts() {
+        let returned = local("returned");
+        let temporary = local("temporary");
+        let mut variants = I32ScalarConcreteVariants::default();
+        variants.set(&returned, "Ok");
+        variants.set(&temporary, "Err");
+
+        propagate_i32_scalar_concrete_variant_op(
+            &mut variants,
+            &ResourceOp::EndScope {
+                locals: vec![returned.clone(), temporary.clone()],
+                result: Some(returned.clone()),
+                span: Span::dummy(),
+            },
+        );
+
+        assert_eq!(variants.variant_for(&returned), Some("Ok"));
+        assert_eq!(variants.variant_for(&temporary), None);
+    }
 }

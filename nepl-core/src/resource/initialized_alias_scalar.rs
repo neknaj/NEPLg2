@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use super::initialized_alias_i32::{condition_implication, I32ConditionFact, I32ValueFact};
 use super::model::{I32ValueCondition, Place};
-use super::place_utils::{place_suffix_after_prefix, replace_place_prefix};
+use super::place_utils::{place_suffix_after_prefix, push_unique_place, replace_place_prefix};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32AliasFacts {
@@ -22,6 +22,17 @@ impl I32AliasFacts {
             self.values.iter().any(|fact| fact.place == *alias)
                 || self.conditions.iter().any(|fact| fact.place == *alias)
         })
+    }
+
+    pub(super) fn condition_candidate_places(&self) -> Vec<Place> {
+        let mut out = Vec::new();
+        for fact in &self.values {
+            push_unique_place(&mut out, &fact.place);
+        }
+        for fact in &self.conditions {
+            push_unique_place(&mut out, &fact.place);
+        }
+        out
     }
 
     pub(super) fn set_value(&mut self, place: &Place, value: i32) {

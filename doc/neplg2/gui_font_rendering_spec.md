@@ -7099,6 +7099,14 @@ F5mm は compositor storage owner を lower storage owner へ分解する前に 
 
 success write cursor owner の `owner_finish_payload` は lower write cursor owner から storage deallocation 後の lower cursor を取り出し、lower payload を metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻す。storage deallocation が失敗した場合も lower finish error の cursor を metadata 付き payload owner へ戻し、`GuiRgba8888CompositorTileRleWriteCursorFinishError` がその payload owner を保持する。`owner_free` は lower write cursor owner free に委譲し、lower storage finish kind を compositor write cursor finish kind に包む。start error free は F5ml storage owner free に委譲する。storage finish と payload finish は error domain が異なるため、F5mm は `owner_finish_entry` を作らない。F5mm は write step、encoded seal、packet、packet record reader、tile payload direct byte reader、row byte storage accessor、raw `RegionToken` / `MemPtr`、raw load/store、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
 
+F5mn は F5mm の `GuiRgba8888CompositorTileRleWriteCursorOwner` を、lower `gui_rgba8888_row_tile_rle_write_cursor_step_one` へ 1 回だけ渡す compositor tile RLE write step bridge である。これは encoded storage writer を 1 lower step だけ進める phase であり、encoded seal、packet、std present、host present、platform backend、fallback / silent no-op を作る phase ではない。F5mn は no encoded / packet / present の boundary で止まる。
+
+F5mn の success terminal は `GuiRgba8888CompositorTileRleWriteStep` であり、lower `GuiRgba8888RowTileRleWriteStepStatus` と metadata 付き next write cursor owner を保持する。write step / step error は Clone / Copy を実装しない。error kind は `GuiRgba8888CompositorTileRleWriteStepErrorKind::WriteStepFailed lower_kind` として Copy value で保持する。
+
+F5mn は compositor write cursor owner を lower write cursor owner へ分解する前に metadata を Copy value として読む。lower write step success では lower step status を読み、lower next write cursor owner を metadata 付き write cursor owner へ束ねる。accessor は metadata、total run count、encoded byte count、written run count、written byte count、cursor next pixel index、cursor pixel count を返す。2 run の fixture では最初の 2 step が `WroteRun`、3 step 目が `Completed` で、written count と cursor progress は committed lower step の後だけ進む。
+
+lower write step error では lower kind / category を読んでから lower write cursor owner を取り出し、metadata 付き `GuiRgba8888CompositorTileRleWriteCursorOwner` へ戻す。F5mn error は lower write step error を公開 recovery payload にせず、retry / finish payload / free 可能な write cursor owner recovery に正規化する。success / error の `finish_payload` と `free` は F5mm write cursor owner finish payload / free に委譲する。encoded completion ではなく recovery / abort helper であり、F5mn は `finish_entry` を作らない。F5mn は encoded seal、packet、packet record reader、tile payload direct byte reader、row byte storage accessor、raw `RegionToken` / `MemPtr`、raw load/store、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
@@ -7970,13 +7978,13 @@ byte 10      b
 byte 11      a
 ```
 
-F5ck は consuming `cursor_next_run` を writer step の前半で呼ばない。`row_tile_rle` 下層に borrowed `gui_rgba8888_row_tile_rle_cursor_peek_run` と consuming `gui_rgba8888_row_tile_rle_cursor_advance_by_run` を分けて定義し、writer は `peek_run` で run metadata を得て 12 byte write を完了してからだけ `advance_by_run` を呼ぶ。これにより projection / store failure では original cursor と unchanged written counts を owner-bearing error で返せる。
+F5ck は consuming `gui_rgba8888_row_tile_rle_cursor_next_run` で run metadata と next cursor を一度だけ作る。writer は checked base pointer projection 後に `pixel_offset`、`pixel_count`、packed RGBA word の 3 個の i32 word として 12 byte record を store し、その write が成功した場合だけ next cursor を committed cursor として返す。projection / store failure では `gui_rgba8888_row_tile_rle_step_recover_start_cursor` で run 開始時の cursor を復元する。これにより write failure では original cursor と unchanged written counts を owner-bearing error で返せる。
 
 `written_run_count == total_run_count` では lower cursor status を検査し、`Complete` なら `Completed` を返す。lower cursor がまだ `Ready` なら `RunCountExhaustedBeforeCursorComplete` であり、silent no-op や fallback completion にしない。逆に expected run が残っているのに lower cursor が `CursorComplete` を返す場合は `CursorCompleteBeforeExpectedRun` とする。
 
 store / projection failure では `written_run_count` と `written_byte_count` を進めない。storage の対象 12 byte slot に一部 byte が書かれている可能性はあるが、その slot は uncommitted であり、この phase では public reader を提供しない。caller が retry する場合は同じ 12 byte を全て上書きする。
 
-この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。tile transport ABI と host-visible publish は後続 phase の owner boundary として定義する。
+この layer は encoded byte reader、payload byte reader、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。tile transport ABI と host-visible publish は後続 phase の owner boundary として定義する。
 
 ### Render2d row tile RLE sealed encoded owner boundary
 

@@ -109,6 +109,9 @@ pub(super) fn aliased_owner_descendant_entries(
     raw_aliases: &RawCellAddressAliases,
     source: &Place,
 ) -> Vec<AliasedOwnerDescendant> {
+    if !raw_aliases.has_nontrivial_raw_address_alias_group() {
+        return Vec::new();
+    }
     let mut out = Vec::new();
     for entry in owners.entries() {
         if matches!(

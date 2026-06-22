@@ -8488,6 +8488,16 @@ F5mm intentionally does not provide `owner_finish_entry`. Write cursor finish fa
 
 F5mm must not expose lower write step, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no step / encoded / packet / present compositor tile RLE write cursor bridge; actual run writes, sealed encoded owner, packet transport, and present continuation remain later boundaries.
 
+F5mn is the compositor-side write step bridge after F5mm. It consumes `GuiRgba8888CompositorTileRleWriteCursorOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleWriteCursorOwner`, and calls `gui_rgba8888_row_tile_rle_write_cursor_step_one` exactly once. It returns `GuiRgba8888CompositorTileRleWriteStep`, which stores the lower write step status plus a metadata-wrapped next write cursor owner.
+
+The success step exposes metadata, total run count, encoded byte count, written run count, written byte count, cursor next pixel index, and cursor pixel count through non-consuming accessors. `WroteRun` means one committed 12 byte RLE run record was written by the lower step. `Completed` means the lower writer observed `written_run_count == total_run_count` and the lower cursor is complete. The F5mn boundary itself does not seal encoded bytes or packetize them.
+
+The error path follows Ramanujan's plan review approval. Lower row tile RLE write step errors keep the write cursor owner, so F5mn reads `kind` and `category` before consuming the lower error and wraps the recovered lower owner with the copied metadata. This is write cursor owner recovery, not payload recovery and not encoded recovery. The public error lets callers finish payload or free through F5mm helper functions, and it must not publish the lower error as a recovery payload.
+
+F5mn intentionally does not provide any `finish_entry` helper, including `write_step_finish_entry` or `write_step_error_finish_entry`. Step finish payload and error finish payload delegate to F5mm write cursor owner finish payload, while step free and error free delegate to F5mm write cursor owner free. These are recovery / abort helpers; encoded seal, packet creation, and std present remain later boundaries.
+
+F5mn must not expose lower write cursor start, lower write cursor finish cursor, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no encoded / packet / present compositor tile RLE write step bridge; sealed encoded owner, packet transport, and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
@@ -9590,7 +9600,7 @@ GuiRgba8888RowTileRleWriteStepStatus:
 
 `gui_rgba8888_row_tile_rle_write_cursor_start` revalidates `encoded_byte_count > 0`, `total_run_count > 0`, and `total_run_count * 12 == encoded_byte_count` before moving the cursor and storage into the writer owner. Start does not inspect payload bytes and does not write storage bytes.
 
-F5ck adds two lower cursor helpers to `row_tile_rle`:
+F5ck keeps the borrowed/advance helpers available and uses a recovery helper for the writer path:
 
 ```text
 gui_rgba8888_row_tile_rle_cursor_peek_run
@@ -9598,9 +9608,12 @@ gui_rgba8888_row_tile_rle_cursor_peek_run
 
 gui_rgba8888_row_tile_rle_cursor_advance_by_run
     consumes cursor only after caller-side success
+
+gui_rgba8888_row_tile_rle_step_recover_start_cursor
+    consumes a next_run step and rebuilds the cursor at run.pixel_offset
 ```
 
-`peek_run` returns only `GuiRgba8888RowTileRleStepErrorKind` and does not move the owner. `advance_by_run` validates that the run starts at the current cursor position, has positive `pixel_count`, and ends within the pixel payload. Failure returns owner-bearing `GuiRgba8888RowTileRleStepError` with the original cursor.
+`peek_run` returns only `GuiRgba8888RowTileRleStepErrorKind` and does not move the owner. `advance_by_run` validates that the run starts at the current cursor position, has positive `pixel_count`, and ends within the pixel payload. Failure returns owner-bearing `GuiRgba8888RowTileRleStepError` with the original cursor. The writer path uses `cursor_next_run` plus `step_recover_start_cursor` so the run scan and advance validation are not repeated; write failure still recovers the pre-run cursor from the step. The record write projects one checked base pointer and stores `pixel_offset`, `pixel_count`, and the packed RGBA word through one 3-word bulk store helper.
 
 `gui_rgba8888_row_tile_rle_write_cursor_step_one` must follow this order:
 
@@ -9610,9 +9623,9 @@ if written_run_count == total_run_count:
     require lower cursor Complete
 else:
     check written_byte_count + 12 <= encoded_byte_count
-    peek run by borrow
+    consume one next_run step
     write 12 bytes to current slot
-    advance cursor by run
+    on write failure recover the start cursor from the step
     increment written_run_count and written_byte_count
 ```
 

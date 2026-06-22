@@ -112,6 +112,44 @@ fn final_initialized_function_check_replays_without_rerunning_checker() {
     );
 }
 
+/// stable entry 収集を止めた Web session でも、同一 session の pass snapshot は残す。
+/// これにより `.neplproof` 用の stable mirror 変換を避けつつ、次の compile では未変更関数の
+/// initialized checker 本体を再実行しない。
+#[test]
+fn final_initialized_function_check_pass_snapshot_replays_with_stable_entries_disabled() {
+    let types = TypeCtx::new();
+    let module = single_function_module(local_identity_function(&types, "identity", false));
+    let context = test_context(11);
+    let mut cache = ResourceSummaryValueCache::new();
+    cache.disable_stable_entry_collection();
+
+    let first =
+        check_resource_initialized_moves_with_summary_cache(&module, &types, &mut cache, &context);
+    let second =
+        check_resource_initialized_moves_with_summary_cache(&module, &types, &mut cache, &context);
+
+    assert_eq!(first.diagnostics, second.diagnostics);
+    assert_eq!(first.deferred, second.deferred);
+    assert_eq!(first.functions.len(), second.functions.len());
+    assert!(second.functions[0].final_cells.is_empty());
+    assert!(second.functions[0].final_collection_slots.is_empty());
+    let stats = cache.stats();
+    assert_eq!(stats.resource_initialized_function_checks, 1);
+    assert_eq!(
+        stats.resource_summary_value_initialized_function_check_stores,
+        0
+    );
+    assert_eq!(
+        stats.resource_summary_value_initialized_function_check_plan_skip_functions,
+        1
+    );
+    assert_eq!(stats.resource_summary_value_lazy_pass_hits, 1);
+    assert_eq!(
+        stats.resource_summary_value_initialized_function_check_replay_probe_functions,
+        0
+    );
+}
+
 /// cache key は function body hash を含むため、同じ名前と同じ signature でも本文が
 /// 変わった関数は replay できない。本文編集後は現行 checker を再実行し、その結果を
 /// 新しい entry として保存する。

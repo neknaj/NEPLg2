@@ -262,6 +262,27 @@ pub fn gui_rgba8888_row_tile_rle_step_run %fn &GuiRgba8888RowTileRleStep GuiRgba
 pub fn gui_rgba8888_row_tile_rle_step_finish_cursor %fn GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleCursorOwner \step:
     field::get step "cursor"
 
+//: gui_rgba8888_row_tile_rle_step_recover_start_cursor: step から run 開始時の cursor を[復元/ふくげん]する
+//:
+//: [目的/もくてき]:
+//: - consuming `cursor_next_run` の後続処理が失敗した場合に、run を[読/よ]む前の cursor owner を[回収/かいしゅう]します。
+//:
+//: [仕様/しよう]:
+//: - step 内の next cursor が[持/も]つ payload owner を使い、run の `pixel_offset` を next index とする cursor owner を[再構成/さいこうせい]します。
+//: - payload byte の再読込や RLE 再走査は行いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle" as *
+//: ```
+pub fn gui_rgba8888_row_tile_rle_step_recover_start_cursor %fn GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleCursorOwner \step:
+    let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_step_run &step
+    let start_pixel_index %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+    let next_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_step_finish_cursor step
+    let pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count &next_cursor
+    let payload %GuiRgba8888RowTilePayloadOwner field::get next_cursor "payload"
+    gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count start_pixel_index
+
 pub fn gui_rgba8888_row_tile_rle_step_error_kind %fn &GuiRgba8888RowTileRleStepError GuiRgba8888RowTileRleStepErrorKind \error:
     *field::get_ref error "kind"
 

@@ -129,6 +129,8 @@ const allocRender2dCompositorTileRleStorage = read("stdlib/alloc/gui/render2d/co
 const allocRender2dCompositorTileRleStorageImpl = withoutComments(allocRender2dCompositorTileRleStorage);
 const allocRender2dCompositorTileRleWriteCursor = read("stdlib/alloc/gui/render2d/compositor_tile_rle_write_cursor.nepl");
 const allocRender2dCompositorTileRleWriteCursorImpl = withoutComments(allocRender2dCompositorTileRleWriteCursor);
+const allocRender2dCompositorTileRleWriteStep = read("stdlib/alloc/gui/render2d/compositor_tile_rle_write_step.nepl");
+const allocRender2dCompositorTileRleWriteStepImpl = withoutComments(allocRender2dCompositorTileRleWriteStep);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -386,6 +388,7 @@ const guiRender2dCompositorTileRleEncodeCursorTests = read("tests/stdlib/gui_ren
 const guiRender2dCompositorTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md");
 const guiRender2dCompositorTileRleStorageTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md");
 const guiRender2dCompositorTileRleWriteCursorTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md");
+const guiRender2dCompositorTileRleWriteStepTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -28285,6 +28288,175 @@ for (const [doc, name] of [
     [guiStandardLibrarySpec, "GUI standard library spec"],
 ]) {
     assert(
+        doc.includes("F5mn") &&
+            doc.includes("compositor tile RLE write step") &&
+            doc.includes("GuiRgba8888CompositorTileRleWriteStep") &&
+            doc.includes("gui_rgba8888_row_tile_rle_write_cursor_step_one") &&
+            doc.includes("write cursor owner recovery") &&
+            doc.includes("no encoded / packet / present") &&
+            doc.includes("fallback"),
+        `F5mn ${name} must document compositor tile RLE write step, lower write step, write cursor owner recovery, deferred encoded/packet/present, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mn") &&
+        implementationPlan.includes("Ramanujan plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mm write cursor owner") &&
+        implementationPlan.includes("lower write step error を公開 recovery payload にしない") &&
+        implementationPlan.includes("finish_entry は作らない"),
+    "F5mn implementation plan must retain plan approval, F5mm owner boundary, lower error hiding, and no finish-entry helper",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_rle_write_step" as *'), "alloc/gui/render2d facade must export F5mn compositor tile RLE write step");
+assert(
+    allocRender2dCompositorTileRleWriteStep.includes("pub enum GuiRgba8888CompositorTileRleWriteStepErrorKind:") &&
+        allocRender2dCompositorTileRleWriteStep.includes("WriteStepFailed %GuiRgba8888RowTileRleWriteStepErrorKind") &&
+        allocRender2dCompositorTileRleWriteStep.includes("pub struct GuiRgba8888CompositorTileRleWriteStep:") &&
+        allocRender2dCompositorTileRleWriteStep.includes("status %GuiRgba8888RowTileRleWriteStepStatus") &&
+        allocRender2dCompositorTileRleWriteStep.includes("owner %GuiRgba8888CompositorTileRleWriteCursorOwner") &&
+        allocRender2dCompositorTileRleWriteStep.includes("pub struct GuiRgba8888CompositorTileRleWriteStepError:") &&
+        allocRender2dCompositorTileRleWriteStep.includes("kind %GuiRgba8888CompositorTileRleWriteStepErrorKind") &&
+        allocRender2dCompositorTileRleWriteStep.includes("category %Option GuiError") &&
+        allocRender2dCompositorTileRleWriteStep.includes("owner %GuiRgba8888CompositorTileRleWriteCursorOwner"),
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn must define typed lower write-step error, status+write-cursor success step, and write-cursor owner recovery error",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleWriteStepImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRleWriteStep|GuiRgba8888CompositorTileRleWriteStepError)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorTileRleWriteStepDeclMatch = allocRender2dCompositorTileRleWriteStep.match(/pub struct GuiRgba8888CompositorTileRleWriteStep:\r?\n(?:    .+\r?\n)+/);
+const compositorTileRleWriteStepErrorDeclMatch = allocRender2dCompositorTileRleWriteStep.match(/pub struct GuiRgba8888CompositorTileRleWriteStepError:\r?\n(?:    .+\r?\n)+/);
+assert(
+    compositorTileRleWriteStepDeclMatch !== null && compositorTileRleWriteStepErrorDeclMatch !== null,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn public success and error structs must be present",
+);
+const compositorTileRleWriteStepOne = functionSlice(allocRender2dCompositorTileRleWriteStepImpl, "gui_rgba8888_compositor_tile_rle_write_step_one");
+assertOrderedFragments(
+    compositorTileRleWriteStepOne,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_write_cursor_owner_metadata &owner",
+        'let lower_owner %GuiRgba8888RowTileRleWriteCursorOwner field::get owner "writer"',
+        "match gui_rgba8888_row_tile_rle_write_cursor_step_one lower_owner:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_write_step_error_from_lower lower metadata",
+        "let status %GuiRgba8888RowTileRleWriteStepStatus gui_rgba8888_row_tile_rle_write_step_status &lower_step",
+        "let lower_next %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_write_step_finish_owner lower_step",
+        "let next %GuiRgba8888CompositorTileRleWriteCursorOwner GuiRgba8888CompositorTileRleWriteCursorOwner lower_next metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_write_step_new status next",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn must copy metadata before consuming lower write cursor and wrap lower step status plus next owner",
+);
+assert(
+    (compositorTileRleWriteStepOne.match(/\bgui_rgba8888_row_tile_rle_write_cursor_step_one\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn step helper must call lower write step exactly once",
+);
+assertNoMatch(
+    compositorTileRleWriteStepOne,
+    /\b(?:gui_rgba8888_row_tile_rle_write_cursor_start|gui_rgba8888_row_tile_rle_write_cursor_finish_cursor|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|load_u8|store_u8|region_ptr_at|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn step helper must not start cursors, seal encoded owner, packetize, read raw bytes, present, host/platform, or fallback",
+);
+assertNoMatch(
+    compositorTileRleWriteStepOne,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn step helper must preserve NEPL prefix style without parentheses",
+);
+const compositorTileRleWriteStepErrorFromLower = functionSlice(allocRender2dCompositorTileRleWriteStepImpl, "gui_rgba8888_compositor_tile_rle_write_step_error_from_lower");
+assertOrderedFragments(
+    compositorTileRleWriteStepErrorFromLower,
+    [
+        "let lower_kind %GuiRgba8888RowTileRleWriteStepErrorKind gui_rgba8888_row_tile_rle_write_step_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_write_step_error_category_value &lower",
+        "let lower_owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_write_step_error_finish_owner lower",
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner GuiRgba8888CompositorTileRleWriteCursorOwner lower_owner metadata",
+        "GuiRgba8888CompositorTileRleWriteStepErrorKind::WriteStepFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_write_step_error_new kind category owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn lower error wrapper must read lower kind/category before write cursor owner recovery",
+);
+assertNoMatch(
+    compositorTileRleWriteStepErrorFromLower,
+    /\b(?:GuiRgba8888CompositorTilePayloadOwner|GuiRgba8888RowTileRleEncodedOwner|gui_rgba8888_compositor_tile_rle_write_cursor_owner_finish_payload|gui_rgba8888_row_tile_rle_write_cursor_finish_cursor|gui_rgba8888_row_tile_rle_encoded_seal|gui_rgba8888_row_tile_rle_cursor_finish_payload|finish_payload)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn error wrapper must recover write cursor owner without payload/encoded fallback",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleWriteStepImpl, "gui_rgba8888_compositor_tile_rle_write_step_finish_payload"),
+    [
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_write_step_finish_owner step",
+        "gui_rgba8888_compositor_tile_rle_write_cursor_owner_finish_payload owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn success finish payload must delegate to F5mm write cursor owner finish payload",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleWriteStepImpl, "gui_rgba8888_compositor_tile_rle_write_step_error_finish_payload"),
+    [
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_write_step_error_finish_owner error",
+        "gui_rgba8888_compositor_tile_rle_write_cursor_owner_finish_payload owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn error finish payload must delegate to F5mm write cursor owner finish payload",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleWriteStepImpl, "gui_rgba8888_compositor_tile_rle_write_step_free"),
+    [
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_write_step_finish_owner step",
+        "gui_rgba8888_compositor_tile_rle_write_cursor_owner_free owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn success free must delegate to F5mm write cursor owner free",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleWriteStepImpl, "gui_rgba8888_compositor_tile_rle_write_step_error_free"),
+    [
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_write_step_error_finish_owner error",
+        "gui_rgba8888_compositor_tile_rle_write_cursor_owner_free owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn error free must delegate to F5mm write cursor owner free",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleWriteStepImpl,
+    /\bpub\s+fn\s+gui_rgba8888_compositor_tile_rle_write_step_(?:finish_entry|error_finish_entry)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn must not add finish_entry helpers",
+);
+const f5mnLowerWriteStepFunctions = Array.from(allocRender2dCompositorTileRleWriteStepImpl.matchAll(/\bgui_rgba8888_row_tile_rle_[a-z0-9_]+\b/g), (match) => match[0]);
+const f5mnAllowedLowerWriteStepFunctions = new Set([
+    "gui_rgba8888_row_tile_rle_write_step_error_kind",
+    "gui_rgba8888_row_tile_rle_write_step_error_category_value",
+    "gui_rgba8888_row_tile_rle_write_step_error_finish_owner",
+    "gui_rgba8888_row_tile_rle_write_cursor_step_one",
+    "gui_rgba8888_row_tile_rle_write_step_status",
+    "gui_rgba8888_row_tile_rle_write_step_finish_owner",
+]);
+assert(
+    f5mnLowerWriteStepFunctions.every((name) => f5mnAllowedLowerWriteStepFunctions.has(name)),
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn may only call lower write-step status/finish-owner/error accessors and the single lower step call",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleWriteStepImpl,
+    /\b(?:gui_rgba8888_row_tile_rle_write_cursor_start|gui_rgba8888_row_tile_rle_write_cursor_finish_cursor|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|load_u8|store_u8|region_ptr_at|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn must not expose start, encoded seal, packet, raw byte access, present, host, platform, or fallback APIs",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleWriteStepImpl,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_write_step F5mn implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_facade_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_status_error_kind_runtime_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_one_run_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_completion_status_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_progress_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_metadata_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_finish_payload_recovery_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_error_recovery_source_policy_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_free_delegates_write_cursor_ok") &&
+        guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_no_encoded_packet_present_no_fallback"),
+    "F5mn compositor tile RLE write step focused doctest/source policy must cover facade runtime types, one-run steps, completion status, progress, metadata, payload recovery, source-policy write cursor recovery, free delegation, and no encoded/packet/present/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
         doc.includes("DirtyRegionSet") &&
             doc.includes("dirty_regions_push_region_checked") &&
             doc.includes("fixed-capacity") &&
@@ -30204,10 +30376,21 @@ assertOrderedFragments(
     ],
     "alloc/gui/render2d/row_tile_rle F5ck advance_by_run must consume cursor only after caller-side success and recover owner on validation failure",
 );
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleImpl, "gui_rgba8888_row_tile_rle_step_recover_start_cursor"),
+    [
+        "gui_rgba8888_row_tile_rle_step_run &step",
+        "gui_rgba8888_row_tile_rle_run_pixel_offset &run",
+        "gui_rgba8888_row_tile_rle_step_finish_cursor step",
+        "let payload %GuiRgba8888RowTilePayloadOwner field::get next_cursor \"payload\"",
+        "gui_rgba8888_row_tile_rle_cursor_owner_new payload pixel_count start_pixel_index",
+    ],
+    "alloc/gui/render2d/row_tile_rle F5ck recover_start_cursor must rebuild the pre-run cursor from the step without rereading payload bytes",
+);
 assertNoMatch(
     allocRender2dRowTileRleStorageImpl,
-    /\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bgui_rgba8888_row_tile_payload_byte_at\b|\bload_u8\b/,
-    "alloc/gui/render2d/row_tile_rle_storage F5ck writer must not use consuming next_run, payload byte reader, or encoded byte reader",
+    /\bgui_rgba8888_row_tile_payload_byte_at\b|\bload_u8\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck writer must not directly use the payload byte reader or encoded byte reader",
 );
 const rowTileRleWriteStepOne = functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_cursor_step_one");
 assertOrderedFragments(
@@ -30218,28 +30401,33 @@ assertOrderedFragments(
         "gui_rgba8888_row_tile_rle_write_cursor_step_completed owner",
         "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta written_byte_count 12 GuiRgba8888RowTileRleWriteStepErrorKind::WrittenByteCountOverflow",
         "if gt next_written_byte_count encoded_byte_count:",
-        "gui_rgba8888_row_tile_rle_cursor_peek_run cursor",
-        "gui_rgba8888_row_tile_rle_write_cursor_step_write_run owner run next_written_run_count next_written_byte_count",
+        "let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner \"cursor\"",
+        "let storage %RegionToken u8 field::get owner \"storage\"",
+        "gui_rgba8888_row_tile_rle_cursor_next_run cursor",
+        "gui_rgba8888_row_tile_rle_step_error_cursor step_error",
+        "GuiRgba8888RowTileRleWriteStepErrorKind::CursorNextRunFailed step_kind",
+        "gui_rgba8888_row_tile_rle_write_cursor_step_write_run_step storage total_run_count encoded_byte_count written_run_count written_byte_count step next_written_run_count next_written_byte_count",
     ],
-    "alloc/gui/render2d/row_tile_rle_storage F5ck step_one must validate counts, handle completion explicitly, check 12 byte capacity, peek, and delegate write/advance",
+    "alloc/gui/render2d/row_tile_rle_storage F5ck step_one must validate counts, handle completion explicitly, check 12 byte capacity, consume one next_run, and delegate write/recovery",
 );
 assertNoMatch(
     rowTileRleWriteStepOne,
-    /\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bstore_u8\b|\bregion_ptr_at\b|\bload_u8\b/,
-    "alloc/gui/render2d/row_tile_rle_storage F5ck step_one must not directly consume cursor or touch raw byte storage",
+    /\bstore_u8\b|\bregion_ptr_at\b|\bload_u8\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck step_one must not directly touch raw byte storage",
 );
 assertOrderedFragments(
-    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_cursor_step_write_run"),
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_cursor_step_write_run_step"),
     [
+        "gui_rgba8888_row_tile_rle_step_run &step",
         "gui_rgba8888_row_tile_rle_write_run_record &storage encoded_byte_count written_byte_count &run",
         "Result::Err kind:",
-        "gui_rgba8888_row_tile_rle_write_cursor_owner_new cursor total_run_count encoded_byte_count storage written_run_count written_byte_count",
+        "gui_rgba8888_row_tile_rle_step_recover_start_cursor step",
+        "gui_rgba8888_row_tile_rle_write_cursor_owner_new recovered_cursor total_run_count encoded_byte_count storage written_run_count written_byte_count",
         "Result::Ok _:",
-        "gui_rgba8888_row_tile_rle_cursor_advance_by_run cursor &run",
-        "GuiRgba8888RowTileRleWriteStepErrorKind::CursorAdvanceFailed lower_kind",
+        "gui_rgba8888_row_tile_rle_step_finish_cursor step",
         "gui_rgba8888_row_tile_rle_write_cursor_owner_new next_cursor total_run_count encoded_byte_count storage next_written_run_count next_written_byte_count",
     ],
-    "alloc/gui/render2d/row_tile_rle_storage F5ck write helper must keep counts unchanged on store/advance failure and advance only after write success",
+    "alloc/gui/render2d/row_tile_rle_storage F5ck write helper must keep counts unchanged on store failure and commit the next cursor only after write success",
 );
 assertMatch(
     functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_project_byte"),
@@ -30247,20 +30435,48 @@ assertMatch(
     "alloc/gui/render2d/row_tile_rle_storage F5ck must confine raw storage projection to the byte projection helper",
 );
 assertMatch(
-    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_store_byte"),
-    /\bstore_u8\b/,
-    "alloc/gui/render2d/row_tile_rle_storage F5ck must confine raw storage writes to the byte store helper",
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_store_record_words"),
+    /\bstore_i32_3_u8\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck must confine 12-byte raw storage writes to the 3-word bulk store helper",
 );
 assertOrderedFragments(
     functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_run_record"),
     [
-        "gui_rgba8888_row_tile_rle_write_i32_le storage encoded_byte_count base pixel_offset",
-        "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 4 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow",
-        "gui_rgba8888_row_tile_rle_write_i32_le storage encoded_byte_count count_base pixel_count",
-        "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 8 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow",
-        "gui_rgba8888_row_tile_rle_write_rgba8888_at storage encoded_byte_count color_base color",
+        "gui_rgba8888_row_tile_rle_write_i32_value_valid pixel_offset",
+        "gui_rgba8888_row_tile_rle_write_i32_value_valid pixel_count",
+        "gui_rgba8888_row_tile_rle_write_record_base_ptr storage encoded_byte_count base",
+        "let r8 %u8 rgba8888_r &color",
+        "let g8 %u8 rgba8888_g &color",
+        "let b8 %u8 rgba8888_b &color",
+        "let a8 %u8 rgba8888_a &color",
+        "gui_rgba8888_row_tile_rle_write_record_bytes base_ptr pixel_offset pixel_count r g b a",
     ],
-    "alloc/gui/render2d/row_tile_rle_storage F5ck must pin i32 LE pixel_offset, i32 LE pixel_count, and RGBA byte order",
+    "alloc/gui/render2d/row_tile_rle_storage F5ck must validate i32 fields, project one checked 12-byte record span, and preserve RGBA byte order",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_record_base_ptr"),
+    [
+        "gui_rgba8888_row_tile_rle_write_byte_index base encoded_byte_count",
+        "gui_rgba8888_row_tile_rle_write_checked_add_nonnegative_delta base 11 GuiRgba8888RowTileRleWriteStepErrorKind::ByteOffsetOverflow",
+        "gui_rgba8888_row_tile_rle_write_byte_index end_index encoded_byte_count",
+        "gui_rgba8888_row_tile_rle_write_project_byte storage checked_base",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5ck must validate the whole 12-byte record before projecting one base pointer",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_record_bytes"),
+    [
+        "let rgba_word0 %i32 or r shl g 8",
+        "let rgba_word1 %i32 or rgba_word0 shl b 16",
+        "let rgba_word %i32 or rgba_word1 shl a 24",
+        "gui_rgba8888_row_tile_rle_write_store_record_words base_ptr pixel_offset pixel_count rgba_word",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5ck record byte writer must preserve i32 LE pixel_offset, i32 LE pixel_count, and RGBA byte order before one 3-word bulk store",
+);
+assertNoMatch(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_write_record_bytes"),
+    /\bregion_ptr_at\b|\bgui_rgba8888_row_tile_rle_write_project_byte\b|\bgui_rgba8888_row_tile_rle_write_byte_index\b|\bwhile\b|\bstore_u8\b|\bstore_i32\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5ck byte writer must not re-project, re-check, loop, or directly raw-store after range validation",
 );
 assert(
     guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_facade_ok") &&

@@ -32,12 +32,12 @@ use super::initialized_scalar_flow_variant::{
 };
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::model::{
-    Place, PlaceProjection, ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp,
-    ResourceTerminator,
+    Place, PlaceProjection, ResourceCallTarget, ResourceConditionFact, ResourceFunction,
+    ResourceLocal, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::place_utils::{
-    match_bind_payload_place, place_suffix_after_prefix, reference_target_place,
+    match_bind_payload_place, place_suffix_after_prefix, places_overlap, reference_target_place,
     type_can_seed_raw_address_alias,
 };
 use super::resource_summary_value_cache::{
@@ -250,11 +250,16 @@ fn function_i32_scalar_summary_relevant(
     // i32 scalar summary は call 境界を越えて i32 leaf の alias/offset/condition を
     // 伝播するための要約である。引数にも戻り値にも i32 leaf が存在しない関数は、
     // summary を適用できる場所がないため、再計算 worklist から外す。
-    type_has_i32_scalar_leaf(types, function.result, leaf_cache)
-        || function
-            .params
-            .iter()
-            .any(|param| type_has_i32_scalar_leaf(types, param.place.ty, leaf_cache))
+    if type_has_i32_scalar_leaf(types, function.result, leaf_cache) {
+        return true;
+    }
+    let i32_params = function
+        .params
+        .iter()
+        .filter(|param| type_has_i32_scalar_leaf(types, param.place.ty, leaf_cache))
+        .collect::<Vec<_>>();
+    !i32_params.is_empty()
+        && function_may_emit_i32_scalar_parameter_conditions(function, &i32_params)
 }
 
 fn function_has_i32_scalar_summary_consumer(
@@ -278,6 +283,74 @@ fn type_has_i32_scalar_leaf(
     !leaf_cache
         .leaf_places_for_conditions(types, &Place::unknown(ty))
         .is_empty()
+}
+
+fn function_may_emit_i32_scalar_parameter_conditions(
+    function: &ResourceFunction,
+    i32_params: &[&ResourceLocal],
+) -> bool {
+    function
+        .blocks
+        .iter()
+        .any(|block| ops_may_emit_i32_scalar_parameter_conditions(&block.ops, i32_params))
+}
+
+fn ops_may_emit_i32_scalar_parameter_conditions(
+    ops: &[ResourceOp],
+    i32_params: &[&ResourceLocal],
+) -> bool {
+    ops.iter().any(|op| match op {
+        ResourceOp::Call { args, .. } | ResourceOp::IndirectCall { args, .. } => {
+            args.iter().any(|arg| {
+                i32_params
+                    .iter()
+                    .any(|param| places_overlap(arg, &param.place))
+            })
+        }
+        ResourceOp::Branch {
+            condition_fact,
+            then_ops,
+            else_ops,
+            ..
+        } => {
+            condition_fact
+                .as_ref()
+                .is_some_and(i32_scalar_condition_fact_may_affect_parameter_summary)
+                || ops_may_emit_i32_scalar_parameter_conditions(then_ops, i32_params)
+                || ops_may_emit_i32_scalar_parameter_conditions(else_ops, i32_params)
+        }
+        ResourceOp::Loop {
+            condition_fact,
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            condition_fact
+                .as_ref()
+                .is_some_and(i32_scalar_condition_fact_may_affect_parameter_summary)
+                || ops_may_emit_i32_scalar_parameter_conditions(condition_ops, i32_params)
+                || ops_may_emit_i32_scalar_parameter_conditions(body_ops, i32_params)
+        }
+        ResourceOp::Match { arms, .. } => arms
+            .iter()
+            .any(|arm| ops_may_emit_i32_scalar_parameter_conditions(&arm.ops, i32_params)),
+        _ => false,
+    })
+}
+
+fn i32_scalar_condition_fact_may_affect_parameter_summary(fact: &ResourceConditionFact) -> bool {
+    match fact {
+        ResourceConditionFact::EqZero { .. }
+        | ResourceConditionFact::NeZero { .. }
+        | ResourceConditionFact::Positive { .. }
+        | ResourceConditionFact::NonPositive { .. }
+        | ResourceConditionFact::Negative { .. }
+        | ResourceConditionFact::NonNegative { .. }
+        | ResourceConditionFact::I32Relation { .. } => true,
+        ResourceConditionFact::Any(facts) | ResourceConditionFact::All(facts) => facts
+            .iter()
+            .any(i32_scalar_condition_fact_may_affect_parameter_summary),
+    }
 }
 
 pub(super) fn apply_direct_call_i32_scalar_summary(
@@ -378,6 +451,7 @@ fn function_i32_scalar_return_summary(
                                         .concrete_variants
                                         .projection_is_possible(types, value, projection)
                                 },
+                                Some(&function.name),
                             )
                         } else {
                             collect_i32_scalar_return_fact_collection_cached_with_projection_filter(
@@ -392,6 +466,7 @@ fn function_i32_scalar_return_summary(
                                         .concrete_variants
                                         .projection_is_possible(types, value, projection)
                                 },
+                                Some(&function.name),
                             )
                         }
                     })
