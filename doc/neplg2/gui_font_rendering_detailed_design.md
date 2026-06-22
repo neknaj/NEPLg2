@@ -8456,6 +8456,26 @@ The error path follows Aquinas's plan review approval. Lower F5ci represents cap
 
 F5mk must not expose direct row tile cursor start, count step reruns, direct row tile RLE drain, storage allocation, write step, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no storage / packet / present compositor tile RLE writer plan bridge; encoded storage, encoded transport, and present continuation remain later boundaries.
 
+## Render2d compositor tile RLE storage boundary
+
+F5ml is the compositor-side encoded storage allocation bridge after F5mk. It consumes `GuiRgba8888CompositorTileRleWriterPlanOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleWriterPlanOwner`, and calls `gui_rgba8888_row_tile_rle_storage_prepare` exactly once. It returns `GuiRgba8888CompositorTileRleStorageOwner`, which stores the lower storage owner plus metadata for the later write / encoded / packet boundary.
+
+```text
+metadata = copy compositor writer plan owner metadata
+lower_plan = move lower row tile RLE writer plan owner
+storage_or_error = gui_rgba8888_row_tile_rle_storage_prepare lower_plan
+success = wrap lower storage owner with metadata
+error = copy lower kind/category/total/encoded counts, move lower writer plan owner, wrap it with metadata
+```
+
+The storage owner exposes copied metadata, total run count, encoded byte count, cursor next pixel index, and cursor pixel count as non-consuming accessors. It does not expose raw byte storage, `RegionToken`, or raw pointer access. `owner_finish_payload` is fallible because lower storage deallocation can fail. On success it converts the returned lower cursor to lower payload with `gui_rgba8888_row_tile_rle_cursor_finish_payload`, wraps it as `GuiRgba8888CompositorTilePayloadOwner`, and leaves entry finish to F5me. On lower deallocation failure it reads the lower finish kind, recovers the lower cursor from the lower finish error, converts it to the same compositor payload owner, and stores that payload in `GuiRgba8888CompositorTileRleStorageFinishError`.
+
+The error path follows Pauli's plan review approval. Lower F5cj represents storage allocation failure as a lower storage prepare error that keeps the original writer plan owner. F5ml must not publish that lower storage prepare error as compositor recovery state. It reads `kind`, `category`, `total_run_count`, and `encoded_byte_count` before consuming the lower error, recovers the lower writer plan owner, and normalizes it to metadata-wrapped F5mk writer plan ownership. Error finish and free therefore delegate through F5mk writer plan recovery and then F5me payload finish/free.
+
+F5ml intentionally does not provide `owner_finish_entry`. Storage finish failure and payload finish failure use different recovery owners and error domains, so combining them here would require a mixed-domain error that obscures the storage boundary. Callers that need an entry first call `owner_finish_payload`, then use F5me payload finish. `owner_free` delegates directly to lower storage owner free and wraps lower finish kind.
+
+F5ml must not expose direct row tile write cursor start, write step, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no write / encoded / packet / present compositor tile RLE storage bridge; encoded transport and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

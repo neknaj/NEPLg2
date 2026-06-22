@@ -1,3 +1,56 @@
+# 2026-06-22 Agent2 GUI render2d F5ml compositor tile RLE storage bridge boundary
+
+## 目的
+
+- F5mk の `GuiRgba8888CompositorTileRleWriterPlanOwner` を lower `gui_rgba8888_row_tile_rle_storage_prepare` へ 1 回だけ通す compositor storage bridge を追加する。
+- lower storage owner と compositor metadata を `GuiRgba8888CompositorTileRleStorageOwner` に束ね、後続 write / encoded / packet boundary が exact encoded byte count を失わないようにする。
+- この checkpoint は write cursor start、write step、encoded seal、packet、std present、host / platform API、fallback / silent no-op へ進まない。
+
+## subagent review
+
+- Pauli plan review は `PLAN_APPROVED`。
+- F5mk private constructor を使わず public struct constructor で recovery すること、`owner_finish_entry` を作らないこと、source policy regex を lower storage prepare だけ許可する形にすることを反映した。
+- Hypatia implementation review は Medium / Low の 2 件を指摘した。
+- Medium: focused doctest label が prepare-error recovery を runtime 実行済みに見せていたため、label を source policy coverage と明示する名前に変更し、通常 application code が malformed compositor writer plan owner を直 constructor で作れない compile_fail を追加した。prepare-error recovery の read-before-consume / writer plan recovery 順序は source policy で固定する。
+- Low: note が F5mk のままだったため、本 F5ml section を追加した。
+
+## 実装状況
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_storage.nepl` を追加した。
+- `GuiRgba8888CompositorTileRleStorageOwner` は lower `GuiRgba8888RowTileRleStorageOwner` と copied compositor metadata を保持する。
+- `gui_rgba8888_compositor_tile_rle_storage_prepare` は metadata を writer plan owner から Copy してから lower writer plan owner を取り出し、lower storage prepare を 1 回だけ呼ぶ。
+- lower storage prepare error は lower kind / category / total run count / encoded byte count を読んでから lower writer plan owner を取り出し、metadata 付き `GuiRgba8888CompositorTileRleWriterPlanOwner` へ戻す。
+- `owner_finish_payload` は lower storage finish cursor を通して metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻す。storage deallocation failure でも lower cursor を payload owner に戻して `GuiRgba8888CompositorTileRleStorageFinishError` に保持する。
+- `owner_free` は lower storage owner free に委譲し、lower finish kind を compositor storage finish kind に包む。
+- storage finish と payload finish は error domain が異なるため、F5ml では `owner_finish_entry` を作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade に `compositor_tile_rle_storage` を追加した。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md` を追加し、success finish payload、owner free、source policy label、malformed writer plan owner 直 constructor 禁止 compile_fail を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5ml contract に合わせて更新した。
+
+## plan.mdとの差異
+
+- plan.md は変更していない。
+- F5ml は 2D compositor の formal tile RLE transport を進めるための中間境界であり、plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う。
+- write step、encoded seal、packet、std present への payload transport、present continuation はまだ未接続で、todo.md に残している。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_storage.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_storage_module_f5ml_initial2.json -j 1`（30/30）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_storage_f5ml_reviewfix.json -j 1`（2/2）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_writer_plan_f5ml_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5ml_regression.json -j 1`（1/1）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5ml.json`（13/13、JSON は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`）
+
+## 次
+
+- F5ml 後続として、compositor storage owner から lower write cursor start / write step へ進む boundary を実装する。
+- encoded seal、packet、std present payload transport、present continuation はそれぞれ別 boundary として進める。
+
 # 2026-06-22 Agent2 GUI render2d F5mk compositor tile RLE writer plan bridge boundary
 
 ## 目的
