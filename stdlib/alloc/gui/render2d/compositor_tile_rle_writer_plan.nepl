@@ -1,0 +1,353 @@
+//: # alloc/gui/render2d/compositor_tile_rle_writer_plan
+//: RGBA8888 compositor tile RLE writer capacity plan bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mj の `GuiRgba8888CompositorTileRleEncodeCursorOwner` を lower writer capacity plan へ[渡/わた]します。
+//: - lower writer plan owner と compositor metadata を[束/たば]ね、後続 storage / writer boundary が exact encoded byte count を[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - ready cursor owner を lower ready owner へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_rle_writer_plan_prepare` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower writer plan error では lower kind / category / total run count を[読/よ]んでから lower ready owner を metadata [付/つ]き compositor ready cursor owner へ[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - storage allocation、write step、encoded seal、packet、std present、host / platform API、video memory、Canvas / DOM / minifb、raw byte access、fallback / silent no-op は[含/ふく]めません。
+//: - encoded storage と present continuation は後続 boundary で[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/row_tile_rle_writer_plan" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTileRleWriterPlanErrorKind: writer capacity bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower writer plan error kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRleWriterPlanErrorKind:
+    WriterPlanPrepareFailed %GuiRgba8888RowTileRleWriterPlanErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRleWriterPlanErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRleWriterPlanErrorKind GuiRgba8888CompositorTileRleWriterPlanErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRleWriterPlanErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRleWriterPlanErrorKind GuiRgba8888CompositorTileRleWriterPlanErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRleWriterPlanOwner: lower writer plan owner と compositor metadata の owner
+//:
+//: encoded byte capacity evidence と copied frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleWriterPlanOwner:
+    plan %GuiRgba8888RowTileRleWriterPlanOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTileRleWriterPlanError: ready cursor owner を[回収/かいしゅう]できる writer plan error
+//:
+//: lower writer plan error の kind / category / total run count と、metadata [付/つ]き ready cursor owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleWriterPlanError:
+    kind %GuiRgba8888CompositorTileRleWriterPlanErrorKind
+    category %Option GuiError
+    total_run_count %i32
+    ready %GuiRgba8888CompositorTileRleEncodeCursorOwner
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_new: writer plan owner と metadata を[束/たば]ねる
+//:
+//: lower writer plan prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_new %fn GuiRgba8888RowTileRleWriterPlanOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleWriterPlanOwner \plan\metadata:
+    GuiRgba8888CompositorTileRleWriterPlanOwner plan metadata
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_new: writer plan error payload を[作/つく]る
+//:
+//: lower kind、category、total run count、回収用 ready cursor owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_writer_plan_error_new %fn GuiRgba8888CompositorTileRleWriterPlanErrorKind fn Option GuiError fn i32 fn GuiRgba8888CompositorTileRleEncodeCursorOwner GuiRgba8888CompositorTileRleWriterPlanError \kind\category\total_run_count\ready:
+    GuiRgba8888CompositorTileRleWriterPlanError kind category total_run_count ready
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_from_lower: lower writer plan error を compositor ready cursor error へ[写/うつ]す
+//:
+//: lower kind / category / total run count を[読/よ]んでから lower ready cursor owner を[回収/かいしゅう]し、metadata [付/つ]き ready cursor owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_writer_plan_error_from_lower %fn GuiRgba8888RowTileRleWriterPlanError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleWriterPlanError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRleWriterPlanErrorKind gui_rgba8888_row_tile_rle_writer_plan_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_writer_plan_error_category_value &lower
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_writer_plan_error_total_run_count &lower
+    let lower_ready %GuiRgba8888RowTileRleEncodeCursorOwner gui_rgba8888_row_tile_rle_writer_plan_error_finish_ready_owner lower
+    let ready %GuiRgba8888CompositorTileRleEncodeCursorOwner GuiRgba8888CompositorTileRleEncodeCursorOwner lower_ready metadata
+    let kind %GuiRgba8888CompositorTileRleWriterPlanErrorKind GuiRgba8888CompositorTileRleWriterPlanErrorKind::WriterPlanPrepareFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_writer_plan_error_new kind category total_run_count ready
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_prepare: ready cursor から encoded byte capacity を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower ready cursor owner を[取/と]り[出/だ]します。
+//: - lower writer plan prepare を 1 [回/かい]だけ[呼/よ]び、success では writer plan owner と metadata を[束/たば]ねます。
+//: - error では lower ready cursor owner を metadata [付/つ]き ready cursor owner に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_prepare %fn GuiRgba8888CompositorTileRleEncodeCursorOwner Result GuiRgba8888CompositorTileRleWriterPlanOwner GuiRgba8888CompositorTileRleWriterPlanError \ready:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_cursor_owner_metadata &ready
+    let lower_ready %GuiRgba8888RowTileRleEncodeCursorOwner field::get ready "ready"
+    match gui_rgba8888_row_tile_rle_writer_plan_prepare lower_ready:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_writer_plan_error_from_lower lower metadata
+        Result::Ok plan:
+            Result::Ok gui_rgba8888_compositor_tile_rle_writer_plan_owner_new plan metadata
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_metadata: writer plan owner に[保持/ほじ]した metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので writer plan owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_metadata %fn &GuiRgba8888CompositorTileRleWriterPlanOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_total_run_count: writer plan total run count を[返/かえ]す
+//:
+//: lower writer plan owner が[保持/ほじ]する exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_total_run_count %fn &GuiRgba8888CompositorTileRleWriterPlanOwner i32 \owner:
+    let plan %&GuiRgba8888RowTileRleWriterPlanOwner field::get_ref owner "plan"
+    gui_rgba8888_row_tile_rle_writer_plan_owner_total_run_count plan
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_encoded_byte_count: encoded byte count を[返/かえ]す
+//:
+//: lower writer plan owner が[保持/ほじ]する checked capacity evidence を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_encoded_byte_count %fn &GuiRgba8888CompositorTileRleWriterPlanOwner i32 \owner:
+    let plan %&GuiRgba8888RowTileRleWriterPlanOwner field::get_ref owner "plan"
+    gui_rgba8888_row_tile_rle_writer_plan_owner_encoded_byte_count plan
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_cursor_next_pixel_index: writer plan cursor の next pixel index を[返/かえ]す
+//:
+//: lower writer plan owner が[保持/ほじ]する cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRleWriterPlanOwner i32 \owner:
+    let plan %&GuiRgba8888RowTileRleWriterPlanOwner field::get_ref owner "plan"
+    gui_rgba8888_row_tile_rle_writer_plan_owner_cursor_next_pixel_index plan
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_cursor_pixel_count: writer plan cursor の pixel count を[返/かえ]す
+//:
+//: lower writer plan owner が[保持/ほじ]する cursor pixel count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_cursor_pixel_count %fn &GuiRgba8888CompositorTileRleWriterPlanOwner i32 \owner:
+    let plan %&GuiRgba8888RowTileRleWriterPlanOwner field::get_ref owner "plan"
+    gui_rgba8888_row_tile_rle_writer_plan_owner_cursor_pixel_count plan
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_payload: writer plan owner を tile payload owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower writer plan owner を[消費/しょうひ]し、cursor payload を metadata [付/つ]き payload owner へ[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_payload %fn GuiRgba8888CompositorTileRleWriterPlanOwner GuiRgba8888CompositorTilePayloadOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_writer_plan_owner_metadata &owner
+    let plan %GuiRgba8888RowTileRleWriterPlanOwner field::get owner "plan"
+    let lower_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor plan
+    let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor
+    GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_entry: writer plan owner を entry owner へ[戻/もど]す
+//:
+//: writer plan owner を F5me payload owner へ[戻/もど]してから payload finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_entry %fn GuiRgba8888CompositorTileRleWriterPlanOwner Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePayloadFinishError \owner:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_payload owner
+    gui_rgba8888_compositor_tile_payload_owner_finish_entry payload
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_kind: writer plan error kind を[返/かえ]す
+//:
+//: lower writer plan failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_kind %fn &GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTileRleWriterPlanErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_category_value: writer plan error の category を[返/かえ]す
+//:
+//: lower writer plan error の coarse category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_category_value %fn &GuiRgba8888CompositorTileRleWriterPlanError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_total_run_count: error [発生/はっせい][時/じ]の total run count を[返/かえ]す
+//:
+//: lower writer plan error から owner 消費前に[読/よ]んだ total value です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_total_run_count %fn &GuiRgba8888CompositorTileRleWriterPlanError i32 \error:
+    *field::get_ref error "total_run_count"
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_metadata: error recovery ready cursor の metadata を[返/かえ]す
+//:
+//: error が[保持/ほじ]する metadata [付/つ]き ready cursor owner から metadata を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_metadata %fn &GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorFrameEntryMetadata \error:
+    let ready %&GuiRgba8888CompositorTileRleEncodeCursorOwner field::get_ref error "ready"
+    gui_rgba8888_compositor_tile_rle_encode_cursor_owner_metadata ready
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_cursor_next_pixel_index: error recovery ready cursor の next pixel index を[返/かえ]す
+//:
+//: error が[保持/ほじ]する metadata [付/つ]き ready cursor owner から cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRleWriterPlanError i32 \error:
+    let ready %&GuiRgba8888CompositorTileRleEncodeCursorOwner field::get_ref error "ready"
+    gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_next_pixel_index ready
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_cursor_pixel_count: error recovery ready cursor の pixel count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する metadata [付/つ]き ready cursor owner から pixel count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_cursor_pixel_count %fn &GuiRgba8888CompositorTileRleWriterPlanError i32 \error:
+    let ready %&GuiRgba8888CompositorTileRleEncodeCursorOwner field::get_ref error "ready"
+    gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_pixel_count ready
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_ready_owner: error から ready cursor owner を[取/と]り[出/だ]す
+//:
+//: caller が retry / recovery / free を[選/えら]べるように metadata [付/つ]き ready cursor owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_ready_owner %fn GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTileRleEncodeCursorOwner \error:
+    field::get error "ready"
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_payload: error から tile payload owner を[取/と]り[出/だ]す
+//:
+//: error が[保持/ほじ]する ready cursor owner を F5mj payload recovery に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_payload %fn GuiRgba8888CompositorTileRleWriterPlanError GuiRgba8888CompositorTilePayloadOwner \error:
+    let ready %GuiRgba8888CompositorTileRleEncodeCursorOwner gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_ready_owner error
+    gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_payload ready
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_entry: error recovery payload owner を entry owner へ[戻/もど]す
+//:
+//: error を F5mj ready cursor owner 経由で payload owner へ[戻/もど]し、F5me payload finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_entry %fn GuiRgba8888CompositorTileRleWriterPlanError Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePayloadFinishError \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_payload error
+    gui_rgba8888_compositor_tile_payload_owner_finish_entry payload
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_owner_free: writer plan owner を[閉/と]じて payload owner まで[破棄/はき]する
+//:
+//: F5me payload owner free に[戻/もど]してから[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_owner_free %fn GuiRgba8888CompositorTileRleWriterPlanOwner Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \owner:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_writer_plan_owner_finish_payload owner
+    gui_rgba8888_compositor_tile_payload_owner_free payload
+
+//: gui_rgba8888_compositor_tile_rle_writer_plan_error_free: writer plan error の recovery owner を[破棄/はき]する
+//:
+//: error を F5mj ready cursor owner 経由で payload owner へ[戻/もど]し、F5me payload owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_writer_plan" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_writer_plan_error_free %fn GuiRgba8888CompositorTileRleWriterPlanError Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_writer_plan_error_finish_payload error
+    gui_rgba8888_compositor_tile_payload_owner_free payload

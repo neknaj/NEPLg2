@@ -1,0 +1,307 @@
+//: # alloc/gui/render2d/compositor_tile_rle_encode_cursor
+//: RGBA8888 compositor tile RLE encode cursor bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mi の `GuiRgba8888CompositorTileRleEncodeSeedOwner` を lower ready encode cursor owner へ[渡/わた]します。
+//: - ready cursor と compositor metadata を[束/たば]ね、後続 writer capacity boundary が exact run count と cursor progress を[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - seed owner を lower seed owner へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_rle_encode_cursor_start` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower cursor start error では lower kind / category / total / start kind を[読/よ]んでから lower start error を payload owner へ[戻/もど]し、metadata [付/つ]き payload owner へ[正規化/せいきか]します。
+//:
+//: ### [注意/ちゅうい]
+//: - writer plan、storage allocation、write step、encoded seal、packet、std present、host / platform API、video memory、Canvas / DOM / minifb、raw byte access、fallback / silent no-op は[含/ふく]めません。
+//: - encoded transport と present continuation は後続 boundary で[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_payload" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encode_seed" as *
+#import "alloc/gui/render2d/row_tile_payload" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_encode_cursor" as *
+#import "alloc/gui/render2d/row_tile_rle_encode_seed" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTileRleEncodeCursorErrorKind: encode cursor bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower encode cursor error kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRleEncodeCursorErrorKind:
+    CursorStartFailed %GuiRgba8888RowTileRleEncodeCursorErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRleEncodeCursorErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRleEncodeCursorErrorKind GuiRgba8888CompositorTileRleEncodeCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRleEncodeCursorErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRleEncodeCursorErrorKind GuiRgba8888CompositorTileRleEncodeCursorErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRleEncodeCursorOwner: lower ready cursor owner と compositor metadata の owner
+//:
+//: lower ready cursor owner と copied frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodeCursorOwner:
+    ready %GuiRgba8888RowTileRleEncodeCursorOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTileRleEncodeCursorError: payload owner を[回収/かいしゅう]できる cursor error
+//:
+//: lower kind / category / total / start kind と、metadata [付/つ]き payload owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRleEncodeCursorError:
+    kind %GuiRgba8888CompositorTileRleEncodeCursorErrorKind
+    category %Option GuiError
+    total_run_count %i32
+    start_kind %GuiRgba8888RowTileRleStartErrorKind
+    payload %GuiRgba8888CompositorTilePayloadOwner
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_new: ready cursor owner と metadata を[束/たば]ねる
+//:
+//: lower encode cursor start が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_new %fn GuiRgba8888RowTileRleEncodeCursorOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodeCursorOwner \ready\metadata:
+    GuiRgba8888CompositorTileRleEncodeCursorOwner ready metadata
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_new: cursor error payload を[作/つく]る
+//:
+//: lower kind、category、total、start kind、回収用 payload owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_new %fn GuiRgba8888CompositorTileRleEncodeCursorErrorKind fn Option GuiError fn i32 fn GuiRgba8888RowTileRleStartErrorKind fn GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTileRleEncodeCursorError \kind\category\total_run_count\start_kind\payload:
+    GuiRgba8888CompositorTileRleEncodeCursorError kind category total_run_count start_kind payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_from_lower: lower cursor error を compositor payload error へ[写/うつ]す
+//:
+//: lower kind / category / total / start kind を[読/よ]んでから lower start error の payload owner を[回収/かいしゅう]し、metadata [付/つ]き payload owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_from_lower %fn GuiRgba8888RowTileRleEncodeCursorError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRleEncodeCursorError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRleEncodeCursorErrorKind gui_rgba8888_row_tile_rle_encode_cursor_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_encode_cursor_error_category_value &lower
+    let total_run_count %i32 gui_rgba8888_row_tile_rle_encode_cursor_error_total_run_count &lower
+    let start_kind %GuiRgba8888RowTileRleStartErrorKind gui_rgba8888_row_tile_rle_encode_cursor_error_start_kind &lower
+    let start_error %GuiRgba8888RowTileRleStartError gui_rgba8888_row_tile_rle_encode_cursor_error_finish_start_error lower
+    let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_start_error_payload start_error
+    let payload %GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+    let kind %GuiRgba8888CompositorTileRleEncodeCursorErrorKind GuiRgba8888CompositorTileRleEncodeCursorErrorKind::CursorStartFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_encode_cursor_error_new kind category total_run_count start_kind payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_start: seed owner から ready cursor を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower seed owner を[取/と]り[出/だ]します。
+//: - lower cursor start を 1 [回/かい]だけ[呼/よ]び、success では ready cursor owner と metadata を[束/たば]ねます。
+//: - error では lower start error payload を metadata [付/つ]き payload owner に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_start %fn GuiRgba8888CompositorTileRleEncodeSeedOwner Result GuiRgba8888CompositorTileRleEncodeCursorOwner GuiRgba8888CompositorTileRleEncodeCursorError \seed:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_seed_owner_metadata &seed
+    let lower_seed %GuiRgba8888RowTileRleEncodeSeedOwner field::get seed "seed"
+    match gui_rgba8888_row_tile_rle_encode_cursor_start lower_seed:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_encode_cursor_error_from_lower lower metadata
+        Result::Ok ready:
+            Result::Ok gui_rgba8888_compositor_tile_rle_encode_cursor_owner_new ready metadata
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_metadata: ready cursor owner に[保持/ほじ]した metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので ready cursor owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_metadata %fn &GuiRgba8888CompositorTileRleEncodeCursorOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_total_run_count: ready cursor total run count を[返/かえ]す
+//:
+//: lower ready cursor owner が[保持/ほじ]する exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_total_run_count %fn &GuiRgba8888CompositorTileRleEncodeCursorOwner i32 \owner:
+    let ready %&GuiRgba8888RowTileRleEncodeCursorOwner field::get_ref owner "ready"
+    gui_rgba8888_row_tile_rle_encode_cursor_owner_total_run_count ready
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_next_pixel_index: ready cursor の next pixel index を[返/かえ]す
+//:
+//: lower ready cursor owner が[保持/ほじ]する cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRleEncodeCursorOwner i32 \owner:
+    let ready %&GuiRgba8888RowTileRleEncodeCursorOwner field::get_ref owner "ready"
+    gui_rgba8888_row_tile_rle_encode_cursor_owner_cursor_next_pixel_index ready
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_pixel_count: ready cursor の pixel count を[返/かえ]す
+//:
+//: lower ready cursor owner が[保持/ほじ]する cursor pixel count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_cursor_pixel_count %fn &GuiRgba8888CompositorTileRleEncodeCursorOwner i32 \owner:
+    let ready %&GuiRgba8888RowTileRleEncodeCursorOwner field::get_ref owner "ready"
+    gui_rgba8888_row_tile_rle_encode_cursor_owner_cursor_pixel_count ready
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_payload: ready cursor owner を tile payload owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower ready cursor owner を[消費/しょうひ]し、cursor payload を metadata [付/つ]き payload owner へ[復元/ふくげん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_payload %fn GuiRgba8888CompositorTileRleEncodeCursorOwner GuiRgba8888CompositorTilePayloadOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encode_cursor_owner_metadata &owner
+    let ready %GuiRgba8888RowTileRleEncodeCursorOwner field::get owner "ready"
+    let lower_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_encode_cursor_owner_finish_cursor ready
+    let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor
+    GuiRgba8888CompositorTilePayloadOwner lower_payload metadata
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_entry: ready cursor owner を entry owner へ[戻/もど]す
+//:
+//: ready cursor owner を F5me payload owner へ[戻/もど]してから payload finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_entry %fn GuiRgba8888CompositorTileRleEncodeCursorOwner Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePayloadFinishError \owner:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_payload owner
+    gui_rgba8888_compositor_tile_payload_owner_finish_entry payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_kind: cursor error kind を[返/かえ]す
+//:
+//: lower cursor start failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_kind %fn &GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888CompositorTileRleEncodeCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_category_value: cursor error の category を[返/かえ]す
+//:
+//: lower cursor error の coarse category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_category_value %fn &GuiRgba8888CompositorTileRleEncodeCursorError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_total_run_count: error [発生/はっせい][時/じ]の total run count を[返/かえ]す
+//:
+//: lower cursor error から owner 消費前に[読/よ]んだ total value です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_total_run_count %fn &GuiRgba8888CompositorTileRleEncodeCursorError i32 \error:
+    *field::get_ref error "total_run_count"
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_start_kind: lower start error kind を[返/かえ]す
+//:
+//: payload recovery 前に lower error から[読/よ]んだ start error kind です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_start_kind %fn &GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888RowTileRleStartErrorKind \error:
+    *field::get_ref error "start_kind"
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_finish_payload: error から tile payload owner を[取/と]り[出/だ]す
+//:
+//: caller が recovery / free / retry を[選/えら]べるように metadata [付/つ]き payload owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_finish_payload %fn GuiRgba8888CompositorTileRleEncodeCursorError GuiRgba8888CompositorTilePayloadOwner \error:
+    field::get error "payload"
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_finish_entry: error payload owner を entry owner へ[戻/もど]す
+//:
+//: error が[保持/ほじ]する payload owner を F5me payload owner finish に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_finish_entry %fn GuiRgba8888CompositorTileRleEncodeCursorError Result GuiRgba8888CompositorFrameEntryOwner GuiRgba8888CompositorTilePayloadFinishError \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_cursor_error_finish_payload error
+    gui_rgba8888_compositor_tile_payload_owner_finish_entry payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_owner_free: ready cursor owner を[閉/と]じて payload owner まで[破棄/はき]する
+//:
+//: F5me payload owner free に[戻/もど]してから[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_owner_free %fn GuiRgba8888CompositorTileRleEncodeCursorOwner Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \owner:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_cursor_owner_finish_payload owner
+    gui_rgba8888_compositor_tile_payload_owner_free payload
+
+//: gui_rgba8888_compositor_tile_rle_encode_cursor_error_free: cursor error の payload owner を[破棄/はき]する
+//:
+//: error から payload owner を[取/と]り[出/だ]し、F5me payload owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_encode_cursor" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_encode_cursor_error_free %fn GuiRgba8888CompositorTileRleEncodeCursorError Result unit GuiRgba8888CompositorTilePayloadFreeErrorKind \error:
+    let payload %GuiRgba8888CompositorTilePayloadOwner gui_rgba8888_compositor_tile_rle_encode_cursor_error_finish_payload error
+    gui_rgba8888_compositor_tile_payload_owner_free payload
