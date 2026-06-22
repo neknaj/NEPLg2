@@ -80694,6 +80694,32 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_private_effect_readiness_projection.json`
 - checked JSON: `output/playground_editor_selfhost_actual_private_effect_readiness_projection.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 
+## 2026-06-22 selfhost actual traversal private-effect coverage handoff producer checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、module-private traversal source table と complete traversal authority から public coverage handoff pair を作る producer stage0 を追加した。
+- complete authority は request root / body root / body module fingerprint / graph id を持ち、source record の proof key root / fingerprint / graph id と照合する。source table owner は producer wrapper が閉じ、authority と handoff pair は backend-private のままにした。
+- empty source table は `SourceTableEmpty` として拒否し、source table 単体から `EffectAbsentAfterCompleteTraversal` を推測しない。complete authority と nonempty source table が一致し、private-effect operation / escape / unsupported / unavailable が無い場合だけ absence pair を作る。
+- `PrivateCacheEffectOperation` / `PrivateStateEffectOperation` は no-escape proof ではないため `TraversalUnsupported` に写す。accepted-shaped source と escaping source が混在する場合は escape を absence より強く畳む。`EffectObservedNoEscape` は今回の producer では発行せず、actual traversal 由来 fresh witness / no-escape authority 接続後の残件とした。
+- `SourceRejected` は public error payload から内部 bridge error taxonomy を外し、source table owner だけでなく allocator / normalizer 由来の内部分類も producer public surface に出さない形にした。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、complete authority / handoff pair の非公開、public API 露出禁止、empty source rejection、PrivateCache / PrivateState effect operation から no-escape を推測しないこと、mixed absence+escape が `EffectObservedMayEscape` に畳まれること、source record と authority の fingerprint / request root / graph id 照合を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、coverage handoff producer 接続後の残件を production complete authority 発行、fresh witness と `EffectObservedNoEscape` 接続、coverage bridge への production upper orchestration、artifact / sealed representation 接続へ更新した。plan.md との差異はない。
+- Pascal の design review は、source table 単体から absence を推測しないこと、`EffectObservedNoEscape` は fresh witness / no-escape authority 後だけにすること、GraphInput / direct proof construction / backend artifact を触らないことを指摘した。実装はこの指摘に従い、complete authority を明示し、private-effect operation を `TraversalUnsupported` にした。
+- Carson の implementation review は、mixed source table で `EffectObservedMayEscape` が `EffectAbsentAfterCompleteTraversal` に上書きされ得る blocker、authority mismatch の runtime coverage 不足、`SourceRejected` payload の公開 taxonomy を指摘した。対応として priority rank を status code から分離し、mixed absence+escape stage0 fixture、body fingerprint / request root / graph id mismatch fixture、payload-less `SourceRejected` を追加した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-coverage-handoff-producer-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-coverage-handoff-producer-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- partial pass then timeout補完: `node nodesrc/run_source_policy_regressions.js` は `test_doctest_exit_code_metadata.js` まで pass を確認後、全体 timeout のため残プロセス終了を待った。続けて `test_doctest_exit_code_metadata.js` から登録末尾までを同じ順序で個別実行し pass。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_coverage_handoff_producer.json`
+- checked JSON: `output/playground_editor_selfhost_actual_coverage_handoff_producer.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
 ## 2026-06-22 selfhost private-effect backend readiness handoff orchestration checkpoint
 
 - backend readiness gate に public handoff status / evidence と handoff count helper を追加した。
