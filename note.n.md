@@ -1,3 +1,59 @@
+# 2026-06-22 Agent2 GUI render2d F5mm compositor tile RLE write cursor start bridge boundary
+
+## 目的
+
+- F5ml の `GuiRgba8888CompositorTileRleStorageOwner` を lower `gui_rgba8888_row_tile_rle_write_cursor_start` へ 1 回だけ通す compositor write cursor start bridge を追加する。
+- lower write cursor owner と compositor metadata を `GuiRgba8888CompositorTileRleWriteCursorOwner` に束ね、後続 write step / encoded / packet boundary が writer progress と frame metadata を失わないようにする。
+- この checkpoint は write step、encoded seal、packet、std present、host / platform API、fallback / silent no-op へ進まない。
+
+## subagent review
+
+- Locke plan review は `PLAN_APPROVED`。
+- start error free は recovered owner が storage owner なので `GuiRgba8888CompositorTileRleStorageFinishErrorKind` を返し、F5ml storage owner free に委譲する方針でよいと確認された。
+- `owner_finish_payload` / finish error payload recovery は lower `gui_rgba8888_row_tile_rle_write_cursor_finish_cursor` 契約と一致すると確認された。
+- metadata before consume、lower start error kind/category before finish owner、lower raw error/cursor/storage の公開禁止、`owner_finish_entry` 禁止、write step / encoded / packet / present / host / fallback 禁止を source policy に明記する方針とした。
+- Linnaeus implementation review は、新規 module / focused doctest が未 tracking のままだと tracked facade / source policy が欠落ファイルを参照する High finding を指摘した。code 本体には ownership loss、error-domain mismatch、lower API leakage、boundary crossing の blocker はないと確認された。
+- Linnaeus follow-up review は staged set に新規 module / focused doctest が含まれていることを確認し、前回 High は解消済み、追加 finding なしとした。
+
+## 実装状況
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_write_cursor.nepl` を追加した。
+- `GuiRgba8888CompositorTileRleWriteCursorOwner` は lower `GuiRgba8888RowTileRleWriteCursorOwner` と copied compositor metadata を保持する。
+- `gui_rgba8888_compositor_tile_rle_write_cursor_start` は metadata を storage owner から Copy してから lower storage owner を取り出し、lower write cursor start を 1 回だけ呼ぶ。
+- lower write cursor start error は lower kind / category を読んでから lower storage owner を取り出し、metadata 付き `GuiRgba8888CompositorTileRleStorageOwner` へ戻す。
+- `owner_finish_payload` は lower write cursor finish cursor を通して metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻す。write cursor finish failure でも lower cursor を payload owner に戻して `GuiRgba8888CompositorTileRleWriteCursorFinishError` に保持する。
+- `owner_free` は lower write cursor owner free に委譲し、lower finish kind を compositor write cursor finish kind に包む。
+- start error free は F5ml storage owner free に委譲する。start error から payload へ短絡する helper は作らない。
+- storage finish と payload finish は error domain が異なるため、F5mm では `owner_finish_entry` を作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade に `compositor_tile_rle_write_cursor` を追加した。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md` を追加し、success finish payload、owner free、written counts zero、source policy label、malformed storage owner 直 constructor 禁止 compile_fail を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mm contract に合わせて更新した。
+
+## plan.mdとの差異
+
+- plan.md は変更していない。
+- F5mm は 2D compositor の formal tile RLE transport を進めるための中間境界であり、plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う。
+- write step、encoded seal、packet、std present への payload transport、present continuation はまだ未接続で、todo.md に残している。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_write_cursor.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_cursor_module_f5mm_initial.json -j 1`（31/31）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_write_cursor_f5mm_initial.json -j 1`（2/2）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_storage_f5mm_regression.json -j 1`（2/2）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_writer_plan_f5mm_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5mm_regression.json -j 1`（1/1）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5mm.json`（13/13、JSON は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`）
+
+## 次
+
+- F5mm 後続として、compositor write cursor owner から lower write step へ進む boundary を実装する。
+- encoded seal、packet、std present payload transport、present continuation はそれぞれ別 boundary として進める。
+
 # 2026-06-22 Agent2 GUI render2d F5ml compositor tile RLE storage bridge boundary
 
 ## 目的

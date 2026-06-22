@@ -8476,6 +8476,18 @@ F5ml intentionally does not provide `owner_finish_entry`. Storage finish failure
 
 F5ml must not expose direct row tile write cursor start, write step, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no write / encoded / packet / present compositor tile RLE storage bridge; encoded transport and present continuation remain later boundaries.
 
+## Render2d compositor tile RLE write cursor boundary
+
+F5mm is the compositor-side write cursor start bridge after F5ml. It consumes `GuiRgba8888CompositorTileRleStorageOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleStorageOwner`, and calls `gui_rgba8888_row_tile_rle_write_cursor_start` exactly once. It returns `GuiRgba8888CompositorTileRleWriteCursorOwner`, which stores the lower write cursor owner plus metadata for the later write step / encoded / packet boundary.
+
+The success owner exposes metadata, total run count, encoded byte count, written run count, written byte count, cursor next pixel index, and cursor pixel count through non-consuming accessors. The lower start contract initializes written run count and written byte count to zero, and F5mm preserves that as write cursor start evidence. No write step occurs in this boundary.
+
+The error path follows Locke's plan review approval. Lower row tile RLE storage represents start validation failure as a lower write cursor start error that keeps the original storage owner. F5mm must not publish that lower write cursor start error as compositor recovery state. It reads `kind` and `category` before consuming the lower error, recovers the lower storage owner, and normalizes it to metadata-wrapped F5ml storage ownership. This is storage owner recovery, not payload recovery; `start_error_free` delegates to F5ml storage owner free and returns the storage finish error kind.
+
+F5mm intentionally does not provide `owner_finish_entry`. Write cursor finish failure and payload finish failure use different recovery owners and error domains, so combining them here would require a mixed-domain error. Callers that need an entry first call `owner_finish_payload`, then use F5me payload finish. `owner_finish_payload` and finish-error recovery preserve metadata while converting the lower cursor back into a compositor tile payload owner. `owner_free` delegates directly to lower write cursor owner free and wraps lower finish kind.
+
+F5mm must not expose lower write step, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no step / encoded / packet / present compositor tile RLE write cursor bridge; actual run writes, sealed encoded owner, packet transport, and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
