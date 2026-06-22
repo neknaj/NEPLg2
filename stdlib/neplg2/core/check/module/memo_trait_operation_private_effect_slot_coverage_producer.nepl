@@ -1,0 +1,840 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_slot_coverage_producer
+//: actual traversal が返す PrivateCache / PrivateState slot coverage を、既存 Resource no-escape observation / proof / mask evidence へ[接続/せつぞく]する checker-layer producer です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_private_effect_mask_evidence` は、同じ method body identity について `PrivateCache + NotApplicable` と `PrivateState + NotApplicable` の 2 slot proof record を必ず要求します。
+//: - `memo_trait_operation_private_effect_resource_no_escape_producer` は typed Resource no-escape observation を proof table へ写すだけで、effect 不在を推測しません。
+//: - この module はその間に置き、actual traversal 側が明示した slot coverage だけから fixed 2 slot observation / proof table を作ります。片方の slot が無い場合は effect 不在ではなく coverage 欠落として拒否します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord` の typed payload だけです。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash から absence や no-escape を推測しません。
+//: - record key は `SelfhostTypeId`、operation、body module fingerprint、method body root、effect、escape をすべて含みます。`SelfhostTypeId` だけ、operation だけ、body root だけの coverage reuse は認めません。
+//: - `effect` は `PrivateState` または `PrivateCache`、`escape` は `NotApplicable` だけを受理します。`body_module_fingerprint == 0` は placeholder origin として拒否します。
+//: - `EffectAbsentAfterCompleteTraversal` だけが effect 不在を `NoEscapeProven` observation へ写せます。これは actual traversal が同じ body slot を完全に走査したという typed record であり、この module が absence を探して作るものではありません。
+//: - `ResourceGraphMissing` は `Missing`、`TraversalUnsupported` は `Unknown` へ写し、Missing / Unknown を Proven に丸めません。
+//: - producer は target body identity の `PrivateCache` と `PrivateState` を両方 lookup します。slot 欠落、duplicate、placeholder、wrong effect / escape は typed error として fail-closed にします。
+//: - production API は coverage から Resource observation table または proof table を作るところで止めます。mask evidence 接続は stage0 smoke だけで行い、上位 orchestration が別 boundary として扱います。
+//: - この module は GraphInput、Resource graph walker、operation evidence record、aggregate proof、memo_call backend request evidence、backend readiness private type、proof store、effect mask 実体、backend bytes、prechecked artifact、`.neplobj` / `.neplproof` artifact key を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では coverage table は caller が渡します。actual Resource IR / HIR traversal 本体は、後続 stage でこの coverage record を producer-owned path から発行します。
+//: - facade には re-export しません。full Resource proof orchestration が actual traversal、slot coverage、proof producer、mask evidence、backend readiness handoff をまとめる段階で公開 API を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。Zenn 方針に従い、目的、契約、失敗条件、現状、計算量を明示します。
+//:
+//: [計算量/けいさんりょう]:
+//: - coverage record 数を n とすると、push の重複検査は O(n)、2 slot lookup は O(n) 時間です。
+//: - output observation / proof table は fixed 2 slot なので追加空間は O(1) です。lookup index 化や body bucket 化は exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_slot_coverage_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_mask_evidence" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_slot_coverage_producer_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_private_effect_slot_coverage_mask_result_eq summary.observed_absent_mask SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven 2
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result_eq summary.may_escape_mask_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result_eq summary.missing_mask_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result_eq summary.unknown_mask_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_private_effect_slot_coverage_len_result_eq summary.proof_len 2
+//:             let expected_slot_missing %SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageSlotMissing SelfhostEffectKind::PrivateState
+//:             let expected_duplicate %SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate
+//:             let expected_placeholder %SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder
+//:             let expected_effect %SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate SelfhostEffectKind::InternalAlloc
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_private_effect_slot_coverage_error_result_eq summary.slot_missing_rejected expected_slot_missing
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_private_effect_slot_coverage_error_result_eq summary.duplicate_rejected expected_duplicate
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_private_effect_slot_coverage_error_result_eq summary.placeholder_rejected expected_placeholder
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_private_effect_slot_coverage_error_result_eq summary.effect_rejected expected_effect
+//:             let shown checks_print_report checks9
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "private effect slot coverage producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_private_effect_mask_evidence" as *
+#import "./memo_trait_operation_private_effect_no_escape_gate" as *
+#import "./memo_trait_operation_private_effect_resource_no_escape_producer" as *
+
+//: SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus: actual traversal が private-effect slot ごとに返す coverage 状態
+//:
+//: [目的/もくてき]:
+//: - observed no-escape と complete traversal 後の明示不在を区別したまま、後段 Resource observation status へ写すための enum です。
+pub enum SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus:
+    EffectObservedNoEscape
+    EffectObservedMayEscape
+    EffectAbsentAfterCompleteTraversal
+    ResourceGraphMissing
+    TraversalUnsupported
+
+//: SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord: method body の private-effect 1 slot に対する coverage record
+//:
+//: [契約/けいやく]:
+//: - `type_id`、operation、body module fingerprint、body root、effect、escape は no-escape proof key と同じ identity です。
+//: - `status` は actual traversal 側が発行した coverage 状態であり、この module は HIR や source に戻って status を作り直しません。
+pub struct SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    status %SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus
+
+//: SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable: slot coverage record の session-local owner table
+//:
+//: [契約/けいやく]:
+//: - table は `records` buffer を所有します。caller は producer で使い終えたあと `selfhost_memo_trait_operation_private_effect_slot_coverage_table_free` で閉じます。
+//: - table は永続 proof artifact ではありません。preseed / `.neplproof` からの復元は別 boundary が担当します。
+pub struct SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable:
+    records %Vec SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord
+
+//: SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind: slot coverage producer の typed error
+//:
+//: [目的/もくてき]:
+//: - coverage input の構造的失敗、2 slot completeness 失敗、lower producer / mask evidence rejection を enum として分けます。
+pub enum SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind:
+    CoverageRecordPushFailed %StdErrorKind
+    CoverageRecordReadFailed %i32
+    CoverageRecordDuplicate
+    CoverageSlotMissing %SelfhostEffectKind
+    BodyModuleFingerprintPlaceholder
+    CoverageEffectNotPrivate %SelfhostEffectKind
+    CoverageEscapeNotApplicable %SelfhostEffectEscapeState
+    ObservationTableAllocFailed %StdErrorKind
+    ObservationTableRejected %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+    ProofTableRejected %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeProducerErrorKind
+    MaskEvidenceRejected %SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+
+//: SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary: slot coverage producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - observed + absent success、MayEscape / Missing / Unknown fold、proof table 生成、slot missing、duplicate、placeholder、wrong effect rejection を確認します。
+pub struct SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary:
+    observed_absent_mask %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    may_escape_mask_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    missing_mask_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    unknown_mask_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    proof_len %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    slot_missing_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    duplicate_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    effect_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+    escape_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus: slot coverage status を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus: slot coverage status の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord: slot coverage record を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord: slot coverage record の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind: producer error を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind: producer error の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary: stage0 summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary: stage0 summary の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_record_new: slot coverage record を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_record_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord \type_id\operation\body_module_fingerprint\body_root\effect\escape\status:
+    SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord type_id operation body_module_fingerprint body_root effect escape status
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_table_new: [空/から]の slot coverage table を[作/つく]る
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_table_new %impure fn void Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_table_free: slot coverage table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_table_free %impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_table_len: slot coverage record 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_table_len %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_record_key_eq: 2 coverage record が同じ body slot を指すか[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_record_key_eq %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+            and:
+                eq a.body_module_fingerprint b.body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                    and:
+                        selfhost_effect_kind_eq a.effect b.effect
+                        selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_eq a.escape b.escape
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_key_matches: coverage record が target body slot に一致するか[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_key_matches %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind bool \record\type_id\operation\body_module_fingerprint\body_root\effect:
+    and:
+        selfhost_type_id_eq record.type_id type_id
+        and:
+            selfhost_memo_trait_operation_evidence_kind_eq record.operation operation
+            and:
+                eq record.body_module_fingerprint body_module_fingerprint
+                and:
+                    eq selfhost_hir_expr_id_index record.body_root selfhost_hir_expr_id_index body_root
+                    and:
+                        selfhost_effect_kind_eq record.effect effect
+                        selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_eq record.escape SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_validate_effect: private effect だけを[受/う]け[入/い]れる
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_validate_effect %fn SelfhostEffectKind Result unit SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \effect:
+    match effect:
+        SelfhostEffectKind::PrivateState:
+            Result::Ok unit
+        SelfhostEffectKind::PrivateCache:
+            Result::Ok unit
+        SelfhostEffectKind::Pure:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate effect
+        SelfhostEffectKind::InternalAlloc:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate effect
+        SelfhostEffectKind::UnsafeMemory:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate effect
+        SelfhostEffectKind::ExternalIo:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate effect
+        SelfhostEffectKind::Nondet:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate effect
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_validate_record_result: coverage record の受理条件を[確認/かくにん]する
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_validate_record_result %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord Result unit SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \record:
+    if:
+        eq record.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_validate_effect record.effect:
+                Result::Ok _effect_ok:
+                    match record.escape:
+                        SelfhostEffectEscapeState::NotApplicable:
+                            Result::Ok unit
+                        SelfhostEffectEscapeState::NoEscapeProven:
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEscapeNotApplicable record.escape
+                        SelfhostEffectEscapeState::MayEscape:
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEscapeNotApplicable record.escape
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key_loop: input table 内の既存 key を[探/さが]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key_loop %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord fn i32 bool \table\record\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_private_effect_slot_coverage_table_len table
+        then:
+            false
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_trait_operation_private_effect_slot_coverage_record_key_eq existing record
+                        then:
+                            true
+                        else:
+                            selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key_loop table record add idx 1
+                Option::None:
+                    true
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key: input table に同じ key があるか[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord bool \table\record:
+    selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key_loop table record 0
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_table_push: coverage record を table に[追加/ついか]する
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_table_push %impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \table\record:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_validate_record_result record:
+        Result::Ok _unit:
+            if:
+                selfhost_memo_trait_operation_private_effect_slot_coverage_table_contains_key &table record
+                then:
+                    selfhost_memo_trait_operation_private_effect_slot_coverage_table_free table
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate
+                else:
+                    let records %Vec SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord field::get table "records"
+                    match v::push records record:
+                        Result::Ok next_records:
+                            Result::Ok SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable next_records
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed error
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_table_free table
+            Result::Err error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_status_to_observation_status: coverage status を Resource no-escape observation status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - observed no-escape と complete traversal 後の明示不在だけが `NoEscapeProven` です。
+//: - Missing / Unknown はそのまま fail-closed status として残します。
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_status_to_observation_status %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape:
+            SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedMayEscape:
+            SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::MayEscape
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectAbsentAfterCompleteTraversal:
+            SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::NoEscapeProven
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::ResourceGraphMissing:
+            SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Missing
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::TraversalUnsupported:
+            SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus::Unknown
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_to_observation_record: coverage record を Resource no-escape observation record へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_to_observation_record %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord \record:
+    let status %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeStatus selfhost_memo_trait_operation_private_effect_slot_coverage_status_to_observation_status record.status
+    selfhost_memo_trait_operation_private_effect_resource_no_escape_record_new record.type_id record.operation record.body_module_fingerprint record.body_root record.effect record.escape status
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_finish: lookup の最終状態を[畳/たた]む
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_finish %fn Option SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord fn SelfhostEffectKind Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \found\effect:
+    match found:
+        Option::Some record:
+            Result::Ok record
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageSlotMissing effect
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_loop: target body slot の coverage record を[探/さが]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_loop %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn i32 fn Option SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \table\type_id\operation\body_module_fingerprint\body_root\effect\idx\found:
+    if:
+        ge idx selfhost_memo_trait_operation_private_effect_slot_coverage_table_len table
+        then:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_finish found effect
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_private_effect_slot_coverage_validate_record_result record:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_memo_trait_operation_private_effect_slot_coverage_key_matches record type_id operation body_module_fingerprint body_root effect
+                                then:
+                                    match found:
+                                        Option::Some _already:
+                                            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate
+                                        Option::None:
+                                            selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_loop table type_id operation body_module_fingerprint body_root effect add idx 1 some record
+                                else:
+                                    selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_loop table type_id operation body_module_fingerprint body_root effect add idx 1 found
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_result: target body slot の coverage record を[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_result %fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \table\type_id\operation\body_module_fingerprint\body_root\effect:
+    selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_loop table type_id operation body_module_fingerprint body_root effect 0 none
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_output_push_result: observation record を output table へ[追加/ついか]する
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_output_push_result %impure fn SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \output\coverage:
+    let observation %SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeRecord selfhost_memo_trait_operation_private_effect_slot_coverage_to_observation_record coverage
+    match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_push output observation:
+        Result::Ok next_output:
+            Result::Ok next_output
+        Result::Err producer_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableRejected producer_error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_observation_table_result: fixed 2 slot coverage から Resource observation table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `source` は borrow です。この関数は source table を閉じません。
+//: - target body identity に対して PrivateCache と PrivateState の coverage record を両方要求します。
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_observation_table_result %impure fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \source\type_id\operation\body_module_fingerprint\body_root:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_result source type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateCache:
+                Result::Ok cache_coverage:
+                    match selfhost_memo_trait_operation_private_effect_slot_coverage_lookup_result source type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateState:
+                        Result::Ok state_coverage:
+                            match selfhost_memo_trait_operation_private_effect_resource_no_escape_table_new:
+                                Result::Ok output0:
+                                    match selfhost_memo_trait_operation_private_effect_slot_coverage_output_push_result output0 cache_coverage:
+                                        Result::Ok output1:
+                                            selfhost_memo_trait_operation_private_effect_slot_coverage_output_push_result output1 state_coverage
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err alloc_error:
+                                    Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableAllocFailed alloc_error
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_proof_table_result: fixed 2 slot coverage から private-effect proof table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - coverage を observation table に写したあと、既存 Resource no-escape producer へ委譲します。
+//: - success の場合だけ caller は proof table owner を受け取ります。failure の場合、内部 observation table owner は閉じます。
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_proof_table_result %impure fn &SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \source\type_id\operation\body_module_fingerprint\body_root:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_observation_table_result source type_id operation body_module_fingerprint body_root:
+        Result::Ok observations:
+            let result %Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind:
+                match selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_table_result &observations:
+                    Result::Ok proofs:
+                        Result::Ok proofs
+                    Result::Err producer_error:
+                        Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ProofTableRejected producer_error
+            selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free observations
+            result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_effect_kind_code: effect kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            0
+        SelfhostEffectKind::InternalAlloc:
+            1
+        SelfhostEffectKind::PrivateState:
+            2
+        SelfhostEffectKind::PrivateCache:
+            3
+        SelfhostEffectKind::UnsafeMemory:
+            4
+        SelfhostEffectKind::ExternalIo:
+            5
+        SelfhostEffectKind::Nondet:
+            6
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_code: escape state を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_code %fn SelfhostEffectEscapeState i32 \state:
+    match state:
+        SelfhostEffectEscapeState::NotApplicable:
+            0
+        SelfhostEffectEscapeState::NoEscapeProven:
+            1
+        SelfhostEffectEscapeState::MayEscape:
+            2
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code: producer error variant を比較用 code へ[写/うつ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed _error:
+            1
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordReadFailed _idx:
+            2
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate:
+            3
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageSlotMissing _effect:
+            4
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            5
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate _effect:
+            6
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEscapeNotApplicable _escape:
+            7
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableAllocFailed _error:
+            8
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableRejected _producer_error:
+            9
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ProofTableRejected _producer_error:
+            10
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::MaskEvidenceRejected _mask_error:
+            11
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code: producer error payload を比較用 code へ[写/うつ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed error:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_std_error_kind_code error
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordReadFailed idx:
+            idx
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate:
+            0
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageSlotMissing effect:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_effect_kind_code effect
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            0
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate effect:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_effect_kind_code effect
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEscapeNotApplicable escape:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_escape_state_code escape
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableAllocFailed error:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_std_error_kind_code error
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableRejected producer_error:
+            add:
+                mul selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_code producer_error 100000
+                selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_payload_code producer_error
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ProofTableRejected producer_error:
+            add:
+                mul selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_kind_code producer_error 100000
+                selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_error_payload_code producer_error
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::MaskEvidenceRejected _mask_error:
+            0
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_eq: producer error が同じ分類と payload か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_eq %fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::MaskEvidenceRejected a_mask:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::MaskEvidenceRejected b_mask:
+                    selfhost_memo_trait_operation_private_effect_mask_error_kind_eq a_mask b_mask
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed _b_error:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordReadFailed _b_idx:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageSlotMissing _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate _b_effect:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEscapeNotApplicable _b_escape:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableAllocFailed _b_error:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableRejected _b_producer:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ProofTableRejected _b_producer:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed _a_error:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordReadFailed _a_idx:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordDuplicate:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageSlotMissing _a_effect:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::BodyModuleFingerprintPlaceholder:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEffectNotPrivate _a_effect:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageEscapeNotApplicable _a_escape:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableAllocFailed _a_error:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ObservationTableRejected _a_producer:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+        SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::ProofTableRejected _a_producer:
+            and:
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_code b
+                eq selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code a selfhost_memo_trait_operation_private_effect_slot_coverage_error_payload_code b
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_len_result_eq: i32 Result が期待 length か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_len_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_error_result_eq: i32 Result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_mask_result_eq: mask evidence result の status/count が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_mask_result_eq %fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectMaskStatus fn i32 bool \result\expected_status\expected_count:
+    match result:
+        Result::Ok evidence:
+            and:
+                selfhost_memo_trait_operation_private_effect_mask_status_eq evidence.status expected_status
+                eq evidence.proven_slot_count expected_count
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result_eq: mask status Result が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result_eq %fn Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind fn SelfhostMemoTraitOperationPrivateEffectMaskStatus bool \result\expected:
+    match result:
+        Result::Ok actual:
+            selfhost_memo_trait_operation_private_effect_mask_status_eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result: mask evidence Result から status Result を[取/と]り[出/だ]す
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result %fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \result:
+    match result:
+        Result::Ok evidence:
+            Result::Ok evidence.status
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record: stage0 用 coverage record を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord \type_id\operation\body_module_fingerprint\body_root\effect\status:
+    selfhost_memo_trait_operation_private_effect_slot_coverage_record_new type_id operation body_module_fingerprint body_root effect SelfhostEffectEscapeState::NotApplicable status
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_push_len: 1 coverage record push の length result を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_push_len %impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \record:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_table_push table0 record:
+                Result::Ok table1:
+                    let table_len %i32 selfhost_memo_trait_operation_private_effect_slot_coverage_table_len &table1
+                    selfhost_memo_trait_operation_private_effect_slot_coverage_table_free table1
+                    Result::Ok table_len
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_duplicate_len: duplicate input rejection を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_duplicate_len %impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \record:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_table_push table0 record:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_private_effect_slot_coverage_table_push table1 record:
+                        Result::Ok table2:
+                            let table_len %i32 selfhost_memo_trait_operation_private_effect_slot_coverage_table_len &table2
+                            selfhost_memo_trait_operation_private_effect_slot_coverage_table_free table2
+                            Result::Ok table_len
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result: fixed 2 slot coverage table を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \type_id\operation\body_module_fingerprint\body_root\cache_status\state_status:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_table_new:
+        Result::Ok table0:
+            let cache_record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateCache cache_status
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_table_push table0 cache_record:
+                Result::Ok table1:
+                    let state_record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateState state_status
+                    selfhost_memo_trait_operation_private_effect_slot_coverage_table_push table1 state_record
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_one_slot_source_result: 1 slot coverage table を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_one_slot_source_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostEffectKind impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \type_id\operation\body_module_fingerprint\body_root\effect\status:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_table_new:
+        Result::Ok table0:
+            let record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record type_id operation body_module_fingerprint body_root effect status
+            selfhost_memo_trait_operation_private_effect_slot_coverage_table_push table0 record
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::CoverageRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_mask_result: source owner を mask evidence へ写して[閉/と]じる
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_mask_result %impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \source\type_id\operation\body_module_fingerprint\body_root:
+    let result %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind:
+        match selfhost_memo_trait_operation_private_effect_slot_coverage_proof_table_result &source type_id operation body_module_fingerprint body_root:
+            Result::Ok proofs:
+                let evidence_result %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind:
+                    match selfhost_memo_trait_operation_private_effect_mask_evidence_result &proofs type_id operation body_module_fingerprint body_root:
+                        Result::Ok evidence:
+                            Result::Ok evidence
+                        Result::Err mask_error:
+                            Result::Err SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind::MaskEvidenceRejected mask_error
+                selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+                evidence_result
+            Result::Err e:
+                Result::Err e
+    selfhost_memo_trait_operation_private_effect_slot_coverage_table_free source
+    result
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_proof_len: source owner を proof table len へ写して[閉/と]じる
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_proof_len %impure fn SelfhostMemoTraitOperationPrivateEffectSlotCoverageTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \source\type_id\operation\body_module_fingerprint\body_root:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_proof_table_result &source type_id operation body_module_fingerprint body_root:
+        Result::Ok proofs:
+            let proof_len %i32 selfhost_memo_trait_operation_private_effect_no_escape_proof_table_len &proofs
+            selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+            selfhost_memo_trait_operation_private_effect_slot_coverage_table_free source
+            Result::Ok proof_len
+        Result::Err e:
+            selfhost_memo_trait_operation_private_effect_slot_coverage_table_free source
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_slot_missing_len: fixed 2 slot lookup の欠落拒否を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_slot_missing_len %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind \type_id\operation\body_module_fingerprint\body_root:
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_one_slot_source_result type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_observation_table_result &source type_id operation body_module_fingerprint body_root:
+                Result::Ok observations:
+                    let len %i32 selfhost_memo_trait_operation_private_effect_resource_no_escape_table_len &observations
+                    selfhost_memo_trait_operation_private_effect_resource_no_escape_table_free observations
+                    selfhost_memo_trait_operation_private_effect_slot_coverage_table_free source
+                    Result::Ok len
+                Result::Err e:
+                    selfhost_memo_trait_operation_private_effect_slot_coverage_table_free source
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_slot_coverage_stage0: slot coverage producer の smoke API
+pub fn selfhost_memo_trait_operation_private_effect_slot_coverage_producer_stage0 %impure fn void Result SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 93001
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 93002
+    let fingerprint %i32 93003
+    match selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectAbsentAfterCompleteTraversal:
+        Result::Ok observed_absent_source:
+            let observed_absent_mask %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_mask_result observed_absent_source type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root
+            match selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result type_id SelfhostMemoTraitOperationEvidenceKind::Hash fingerprint root SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedMayEscape SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectAbsentAfterCompleteTraversal:
+                Result::Ok may_escape_source:
+                    let may_escape_mask_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_mask_result may_escape_source type_id SelfhostMemoTraitOperationEvidenceKind::Hash fingerprint root
+                    match selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::ResourceGraphMissing SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectAbsentAfterCompleteTraversal:
+                        Result::Ok missing_source:
+                            let missing_mask_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_mask_result missing_source type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root
+                            match selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result type_id SelfhostMemoTraitOperationEvidenceKind::Hash fingerprint root SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::TraversalUnsupported SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectAbsentAfterCompleteTraversal:
+                                Result::Ok unknown_source:
+                                    let unknown_mask_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_mask_status_result selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_mask_result unknown_source type_id SelfhostMemoTraitOperationEvidenceKind::Hash fingerprint root
+                                    match selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_source_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectAbsentAfterCompleteTraversal:
+                                        Result::Ok proof_source:
+                                            let proof_len %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_proof_len proof_source type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root
+                                            let slot_missing_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_slot_missing_len type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root
+                                            let duplicate_record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape
+                                            let duplicate_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_duplicate_len duplicate_record
+                                            let placeholder_record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq 0 root SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape
+                                            let placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_push_len placeholder_record
+                                            let effect_record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_record type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostEffectKind::InternalAlloc SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape
+                                            let effect_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_push_len effect_record
+                                            let escape_record %SelfhostMemoTraitOperationPrivateEffectSlotCoverageRecord selfhost_memo_trait_operation_private_effect_slot_coverage_record_new type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostEffectKind::PrivateCache SelfhostEffectEscapeState::MayEscape SelfhostMemoTraitOperationPrivateEffectSlotCoverageStatus::EffectObservedNoEscape
+                                            let escape_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectSlotCoverageProducerErrorKind selfhost_memo_trait_operation_private_effect_slot_coverage_stage0_push_len escape_record
+                                            Result::Ok SelfhostMemoTraitOperationPrivateEffectSlotCoverageStage0Summary observed_absent_mask may_escape_mask_status missing_mask_status unknown_mask_status proof_len slot_missing_rejected duplicate_rejected placeholder_rejected effect_rejected escape_rejected
+                                        Result::Err proof_setup:
+                                            Result::Err StdErrorKind::Failure
+                                Result::Err unknown_setup:
+                                    Result::Err StdErrorKind::Failure
+                        Result::Err missing_setup:
+                            Result::Err StdErrorKind::Failure
+                Result::Err may_setup:
+                    Result::Err StdErrorKind::Failure
+        Result::Err setup:
+            Result::Err StdErrorKind::Failure

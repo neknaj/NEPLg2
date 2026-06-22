@@ -3110,7 +3110,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_mas
 
 残件:
 
-- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の実使用と不在 slot を区別した fixed 2 slot proof record を同じ body identity で明示発行する。
+- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の実使用と不在 slot を区別した fixed 2 slot coverage record を同じ body identity で明示発行し、接続済み slot coverage producer 経由で proof table へ渡す。
+- checker-layer mask evidence を backend readiness gate の module-private upstream evidence へ写す upper orchestration と、artifact emission 前段の policy hash / Resource summary hash invalidation との照合を追加する。
+- PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
+## 2026-06-22 selfhost private-effect slot coverage producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_slot_coverage_producer.nepl` を追加し、actual traversal が将来返す `PrivateCache` / `PrivateState` の fixed 2 slot coverage を既存 Resource no-escape observation / proof table へ渡す boundary を接続した。coverage record は `SelfhostTypeId`、operation、body module fingerprint、body root、effect、escape、coverage status を持ち、受理する effect は `PrivateCache` / `PrivateState`、escape は `NotApplicable` だけである。
+
+coverage status は `EffectObservedNoEscape`、`EffectObservedMayEscape`、`EffectAbsentAfterCompleteTraversal`、`ResourceGraphMissing`、`TraversalUnsupported` を分ける。`EffectAbsentAfterCompleteTraversal` だけが effect 不在を `NoEscapeProven` observation へ写せる。これは actual traversal が同じ body slot を完全に走査した typed record であり、この module が proof table 欠落や effect summary から absence を推測するものではない。片方 slot が無い場合は `CoverageSlotMissing` として拒否し、`ResourceGraphMissing` とは別に扱う。
+
+production API は coverage table から `SelfhostMemoTraitOperationPrivateEffectResourceNoEscapeTable` または `SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable` を作るところで止める。proof table 生成は必ず `memo_trait_operation_private_effect_resource_no_escape_producer` へ委譲し、この module では proof key / proof record / proof table push を直接行わない。stage0 smoke だけは proof table を `memo_trait_operation_private_effect_mask_evidence` へ渡し、coverage -> proof -> mask evidence の代表 path を確認する。
+
+この checkpoint は GraphInput、Resource graph walker / collector / materializer internals、operation evidence record、aggregate proof、memo_call backend request evidence、backend readiness private type、proof store、effect mask 実体、sealed backend representation、Wasm / LLVM bytes、prechecked artifact、`.neplobj` / `.neplproof` artifact key を作らない。facade には re-export しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / graph scanner / traversal / materializer / proof store / artifact / public surface / impl table / purity gate / Drop proof layer の import 禁止、proof key / proof record / proof table direct construction 禁止、fixed 2 slot lookup、absence と missing の分離、production helper が mask evidence を作らないこと、stage0 の observed + absent / may escape / missing / unknown / proof len / slot missing / duplicate / placeholder / effect / escape rejection coverage を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、実使用 / escaping / observation / unsupported / complete absence を coverage record と fresh witness table として発行する。
 - checker-layer mask evidence を backend readiness gate の module-private upstream evidence へ写す upper orchestration と、artifact emission 前段の policy hash / Resource summary hash invalidation との照合を追加する。
 - PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 

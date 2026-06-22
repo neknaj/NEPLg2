@@ -80430,3 +80430,34 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o html=output/playground_editor_selfhost_upstream_mask_handoff_html -o json=output/playground_editor_selfhost_upstream_mask_handoff.json`
 - checked JSON: `caseCount=13`, `passedCount=13`, `failedCount=0`
+
+## 2026-06-22 selfhost private-effect slot coverage producer checkpoint
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_slot_coverage_producer.nepl` を追加した。
+- actual traversal が将来返す `PrivateCache` / `PrivateState` の fixed 2 slot coverage を受け、既存 `memo_trait_operation_private_effect_resource_no_escape_producer` へ渡せる Resource no-escape observation table / proof table を作る checker-layer boundary とした。
+- coverage status は `EffectObservedNoEscape` / `EffectObservedMayEscape` / `EffectAbsentAfterCompleteTraversal` / `ResourceGraphMissing` / `TraversalUnsupported` に分けた。`EffectAbsentAfterCompleteTraversal` だけを effect 不在の明示 proof source とし、slot 欠落は `CoverageSlotMissing` として `ResourceGraphMissing` とは別に fail-closed にする。
+- production API は observation table / proof table 生成までで止めた。mask evidence への接続は stage0 smoke helper だけで行い、公開 `slot_coverage_mask_evidence_result` は作らない。
+- proof key / proof record / proof table push はこの module で直接行わず、proof table 生成は既存 Resource no-escape producer へ委譲する。
+- `nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ登録した。facade 非公開、ty source 非登録、backend / memo_call / graph scanner / traversal / materializer / artifact / proof store / public surface / impl table / purity gate / Drop proof layer import 禁止、direct proof construction 禁止、raw proof struct constructor 禁止、full key comparison、production helper の mask evidence 非生成、stage0 coverage を固定している。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を、slot coverage producer 接続後の残件へ更新した。plan.md との差異はない。
+- Heisenberg の design review は `PLAN_APPROVED`。status 名は `EffectObservedNoEscape` / `EffectObservedMayEscape` / `EffectAbsentAfterCompleteTraversal` にする、slot 欠落を ResourceGraphMissing と分ける、public production helper は observation/proof table までに留める、graph scanner / materializer import と direct proof construction を禁止する、という指摘を反映した。
+- Pasteur の implementation review は `REVIEW_APPROVED`。status 名、explicit absent の Proven 化、slot 欠落と `ResourceGraphMissing` の分離、production API の observation/proof table 境界、direct proof construction 回避に blocker は無い。non-blocking 指摘を受け、source policy は raw proof struct constructor 禁止と full key comparison 検査を追加した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_mask_evidence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_slot_coverage_producer.nepl --dist web/dist -o tmp/selfhost-private-effect-slot-coverage.json`。JSON は `total=1`, `passed=1`, `failed=0`, `errored=0`。
+- pass: review 後 strengthened contract `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js`
+- pass: review 後 strengthened contract `node nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_slot_coverage.json`
+- checked JSON: `output/playground_editor_selfhost_private_effect_slot_coverage.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
