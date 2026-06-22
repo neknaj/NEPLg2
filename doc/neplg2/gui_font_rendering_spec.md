@@ -7059,6 +7059,16 @@ F5mi は compositor completed owner を lower completed owner へ分解する前
 
 success seed owner の finish / free は metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻してから F5me の payload finish / free へ委譲する。seed error の finish / free は metadata 付き completed owner へ戻してから F5mh の completed owner finish / free へ委譲する。F5mi は cursor restart、count step、direct drain、encode cursor / writer / storage / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
 
+### Render2d compositor tile RLE encode cursor boundary
+
+F5mj は F5mi の `GuiRgba8888CompositorTileRleEncodeSeedOwner` を、lower `gui_rgba8888_row_tile_rle_encode_cursor_start` へ 1 回だけ渡す compositor tile RLE encode cursor bridge である。これは ready cursor ownership を compositor metadata 付きで保持する phase であり、writer、storage、packet、std present、host present、platform backend、fallback / silent no-op を作る phase ではない。F5mj は no writer / storage / packet / present の boundary で止まる。
+
+F5mj の success owner は `GuiRgba8888CompositorTileRleEncodeCursorOwner` であり、lower `GuiRgba8888RowTileRleEncodeCursorOwner` と copied compositor metadata を保持する。cursor owner / cursor error は Clone / Copy を実装しない。error kind は `GuiRgba8888CompositorTileRleEncodeCursorErrorKind::CursorStartFailed lower_kind` として Copy value で保持する。
+
+F5mj は compositor seed owner を lower seed owner へ分解する前に metadata を Copy value として読む。lower cursor start success では lower ready cursor owner を metadata 付き ready cursor owner へ束ねる。lower cursor start error では lower kind / category / total run count / start kind を読んでから lower error の start error payload を取り出し、metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻す。F5mj error は lower cursor / lower error を公開 recovery payload にせず、payload owner recovery に正規化する。
+
+success ready cursor owner の finish / free は metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻してから F5me の payload finish / free へ委譲する。cursor error の finish / free も metadata 付き payload owner へ戻してから F5me の payload finish / free へ委譲する。F5mj は direct cursor start、count step、direct drain、writer / storage / encoded / packet、tile payload direct byte reader、row byte storage、raw `RegionToken` / `MemPtr`、std present、host import、host present、video memory、Canvas / DOM / minifb、platform API、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

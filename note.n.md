@@ -1,3 +1,42 @@
+# 2026-06-22 Agent2 GUI render2d F5mj compositor tile RLE encode cursor bridge boundary
+
+## 目的
+
+- F5mi の `GuiRgba8888CompositorTileRleEncodeSeedOwner` を lower `gui_rgba8888_row_tile_rle_encode_cursor_start` へ 1 回だけ通す compositor bridge を追加した。
+- lower ready cursor owner と compositor metadata を `GuiRgba8888CompositorTileRleEncodeCursorOwner` に束ね、後続 writer capacity boundary が exact run count と cursor progress を失わないようにした。
+- この checkpoint は writer plan、storage allocation、write step、encoded seal、packet、std present、host / platform API、fallback / silent no-op へ進まない。
+
+## subagent review
+
+- Zeno plan review は `PLAN_CHANGES_REQUESTED`。
+- 境界自体は正しいが、raw lower cursor や lower encode-cursor error を公開 recovery payload にすると metadata preservation が caller 依存になるため、metadata 付き compositor payload owner へ正規化するよう指摘された。
+- 指摘に従い、success finish / free は lower ready cursor から lower cursor / lower payload を回収して F5me payload finish / free に委譲し、error finish / free は lower start error payload を metadata 付き payload owner へ戻して F5me payload finish / free に委譲する形にした。
+- Confucius implementation review は blocker なし。`note.n.md` の検証欄が stale だった P3 指摘だけを受け、source policy / doctest / regression / documentation contract の実行結果を反映した。
+
+## 実装
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_encode_cursor.nepl` を追加し、ready cursor owner、cursor error、typed error kind、metadata / total / cursor progress accessors、payload recovery、finish entry、free helper を実装した。
+- `gui_rgba8888_compositor_tile_rle_encode_cursor_start` は seed owner から metadata を Copy してから lower seed owner を取り出し、lower encode cursor start を 1 回だけ呼ぶ。
+- lower cursor error では kind / category / total run count / start kind を lower error 消費前に読み、lower start error payload を metadata 付き `GuiRgba8888CompositorTilePayloadOwner` へ戻す。
+- `stdlib/alloc/gui/render2d.nepl` facade に `compositor_tile_rle_encode_cursor` を追加した。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_encode_cursor.n.md` を追加し、success total/cursor progress/metadata、finish payload delegation、error payload owner recovery、no writer / storage / packet / present / fallback label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mj contract に合わせて更新した。
+- `plan.md` との差異はない。plan.md と Zenn 方針に沿って、fallback ではなく typed Result / enum kind / owner-bearing recovery / source policy / doctest で境界を固定した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_encode_cursor.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_cursor_module_f5mj.json -j 1`（22/22）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encode_cursor.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_cursor_f5mj.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encode_seed_f5mj_regression.json -j 1`（1/1）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_cursor_f5mj_regression.json -j 1`（2/2）
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5mj.json`（13/13）
+- F5mj 後続は writer / storage / packet と std present への payload transport / present continuation に分ける。
+
 # 2026-06-22 selfhost memo_call backend private-effect readiness gate checkpoint
 
 ## 目的
