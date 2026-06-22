@@ -8402,6 +8402,24 @@ Success finish and free helpers first recover the compositor count owner through
 
 F5mh must not expose count step reruns, direct row tile RLE drain, encode cursor, writer plan, encoded storage, packet, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no count step / encode / present compositor tile RLE completed count bridge; encoded transport and present continuation remain later boundaries.
 
+## Render2d compositor tile RLE encode seed boundary
+
+F5mi is the compositor-side payload seed bridge after F5mh. It consumes `GuiRgba8888CompositorTileRleCountCompletedOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleCountCompletedOwner`, and calls `gui_rgba8888_row_tile_rle_encode_seed_prepare` exactly once. It returns `GuiRgba8888CompositorTileRleEncodeSeedOwner`, which stores the lower seed owner plus metadata for the later cursor restart boundary.
+
+```text
+metadata = copy compositor completed owner metadata
+lower_completed = move lower row tile RLE completed owner
+seed_or_error = gui_rgba8888_row_tile_rle_encode_seed_prepare lower_completed
+success = wrap lower seed owner with metadata
+error = copy lower kind/category/total, move lower completed owner, wrap it with metadata
+```
+
+The boundary deliberately does not restart the cursor. Lower F5cg and F5ch are split because invalid completed evidence recovers a completed owner, while cursor restart failure recovers a payload/start-error owner. F5mi keeps the same split on the compositor side: success owns payload seed authority, and error owns completed evidence authority.
+
+Success finish and free helpers first recover `GuiRgba8888CompositorTilePayloadOwner` and then delegate to F5me `gui_rgba8888_compositor_tile_payload_owner_finish_entry` / `gui_rgba8888_compositor_tile_payload_owner_free`. Error finish and free helpers recover `GuiRgba8888CompositorTileRleCountCompletedOwner` and delegate to F5mh completed owner finish/free. This keeps success payload recovery and error completed-evidence recovery separate.
+
+F5mi must not expose cursor restart, count step reruns, direct row tile RLE drain, encode cursor, writer plan, encoded storage, packet, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no cursor restart / encode / present compositor tile RLE encode seed bridge; cursor restart, encoded transport, and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
