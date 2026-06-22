@@ -81292,3 +81292,29 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mr.json`
 - checked JSON: `tmp-playground-editor-tests-f5mr.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present run step checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_run_step.nepl` を追加し、F5mr run cursor owner を lower F5co `gui_rgba8888_row_tile_rle_present_run_cursor_step` へ 1 回だけ渡す F5ms bridge を接続した。
+- `GuiRgba8888CompositorTileRlePresentRunStep` は lower `GuiRgba8888RowTileRlePresentRunCursorStepResult` と metadata 付き next `GuiRgba8888CompositorTileRlePresentRunCursorOwner` を保持する。owner-bearing success / error は Clone / Copy を実装しない。
+- step は metadata-before-owner-move を守り、success では lower result を Copy value として読んでから lower next owner を回収し、metadata 付き run cursor owner へ戻す。
+- lower F5co step error では lower kind / category を読んでから lower run cursor owner を回収し、metadata 付き run cursor owner を保持する F5ms error に正規化する。lower step error は公開 recovery payload にしない。
+- success / error の finish present-frame は F5mr `owner_finish_present_frame` に委譲し、F5mq rewrap `Result` を潰さない。success / error free は F5mr `owner_free` に委譲する。
+- F5ms は command cursor、packet record reader、raw byte access、host / platform、finish_encoded / finish_payload / finish_entry、fallback / silent no-op へ進まない。command cursor / host continuation は次の boundary として残る。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Chandrasekhar の design review は `PLAN_APPROVED`。F5mr は start bridge、F5co は run cursor step と packet record read、F5cp は command cursor 化を所有するため、F5ms は lower F5co step を 1 回だけ包む metadata wrapper bridge とする方針で問題ないと確認された。
+- Noether の implementation review は初回 `PLAN_BLOCKED`。blocker は `note.n.md` 未更新と新規 F5ms module / focused doctest が未追跡だった点で、実装本体については metadata-before-owner-move、lower step exact once、result-before-next-owner recovery、kind/category-before-error-owner recovery、F5mr delegation、command / record / raw / host / platform / fallback 非進出に blocker はないと確認された。指摘に従い、この checkpoint 記録を追記し、新規ファイルは commit 対象に含める。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_step.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_step_f5ms.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_run_step.nepl --no-tree -o tmp_gui_std_compositor_tile_present_run_step_module_f5ms.json -j 1`。23/23。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_run_cursor_f5ms_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_run_cursor.n.md --no-tree -o tmp_gui_std_tile_present_run_cursor_f5ms_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5ms.json`
+- checked JSON: `tmp-playground-editor-tests-f5ms.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
