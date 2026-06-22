@@ -81910,3 +81910,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_no_escape_authority_bundle.json`
 - checked JSON: `tmp/playground_editor_selfhost_production_no_escape_authority_bundle.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering producer output owner checkpoint
+
+- 2026-06-23 に Zenn の開発方針を再確認した。今回の slice では、文字列 tag や外側 helper の慣習ではなく、module-private owner struct、enum origin、`Result` 境界、contract test で責務を固定する方針に従った。
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、`SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput` を追加した。
+- 新 owner は recheck 済み request context、same-body coverage authority、resolver body root、producer-owned source table を保持する。fresh witness table、no-escape pair、request-evidence、GraphInput、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、artifact key は保持しない。
+- `actual_traversal_resource_lowering_producer_output_from_body_root_result` は resolver 済み body root を受け取り、coverage authority と producer-owned sources を同じ body root から作って producer output owner に束ねる。body root lookup はやり直さず、source output envelope も作らない。
+- `actual_traversal_resource_lowering_source_output_from_request_context_result` は resolver lookup を 1 回だけ行い、producer output owner helper へ渡してから、`actual_traversal_resource_lowering_producer_output_into_source_output` で `ResourceLoweringTraversalProduced` source output へ move する。request-context helper が source table や origin enum を直接 mint する経路は閉じた。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、producer output owner shape / module-private / no Clone-Copy、producer output body-root helperの coverage/source 順序、conversion helper が coverage authority や source を再生成しないこと、producer output constructor / conversion の使用回数、request-context helper が direct source output mint / producer sources direct call / request-evidence / GraphInput / effect mask / backend / artifact へ進まないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint は full Resource IR graph walker 完了ではなく、underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。残件は actual Resource IR graph walker 本体の source / fresh-witness 発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
+- Hypatia の read-only review は blocker なし。non-blocker として conversion helper の coverage authority 再生成禁止と producer output helper 使用回数固定を提案し、contract に反映した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-traversal-producer-output-owner-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resource-traversal-producer-output-owner-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_producer_output_owner.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_traversal_producer_output_owner.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
