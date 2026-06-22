@@ -131,6 +131,8 @@ const allocRender2dCompositorTileRleWriteCursor = read("stdlib/alloc/gui/render2
 const allocRender2dCompositorTileRleWriteCursorImpl = withoutComments(allocRender2dCompositorTileRleWriteCursor);
 const allocRender2dCompositorTileRleWriteStep = read("stdlib/alloc/gui/render2d/compositor_tile_rle_write_step.nepl");
 const allocRender2dCompositorTileRleWriteStepImpl = withoutComments(allocRender2dCompositorTileRleWriteStep);
+const allocRender2dCompositorTileRleEncoded = read("stdlib/alloc/gui/render2d/compositor_tile_rle_encoded.nepl");
+const allocRender2dCompositorTileRleEncodedImpl = withoutComments(allocRender2dCompositorTileRleEncoded);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -389,6 +391,7 @@ const guiRender2dCompositorTileRleWriterPlanTests = read("tests/stdlib/gui_rende
 const guiRender2dCompositorTileRleStorageTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_storage.n.md");
 const guiRender2dCompositorTileRleWriteCursorTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md");
 const guiRender2dCompositorTileRleWriteStepTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md");
+const guiRender2dCompositorTileRleEncodedTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -28449,6 +28452,209 @@ assert(
         guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_free_delegates_write_cursor_ok") &&
         guiRender2dCompositorTileRleWriteStepTests.includes("render2d_compositor_tile_rle_write_step_no_encoded_packet_present_no_fallback"),
     "F5mn compositor tile RLE write step focused doctest/source policy must cover facade runtime types, one-run steps, completion status, progress, metadata, payload recovery, source-policy write cursor recovery, free delegation, and no encoded/packet/present/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5mo") &&
+            doc.includes("compositor tile RLE encoded seal") &&
+            doc.includes("GuiRgba8888CompositorTileRleEncodedOwner") &&
+            doc.includes("gui_rgba8888_row_tile_rle_encoded_seal") &&
+            doc.includes("write cursor owner recovery") &&
+            doc.includes("no packet / present / raw byte") &&
+            doc.includes("fallback"),
+        `F5mo ${name} must document compositor tile RLE encoded seal, lower encoded seal, write cursor owner recovery, deferred packet/present/raw byte access, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mo") &&
+        implementationPlan.includes("Kepler plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mn write cursor owner") &&
+        implementationPlan.includes("lower encoded seal error を公開 recovery payload にしない") &&
+        implementationPlan.includes("tile_descriptor_checked"),
+    "F5mo implementation plan must retain plan approval, F5mn owner boundary, lower error hiding, and packet-only descriptor metadata policy",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_rle_encoded" as *'), "alloc/gui/render2d facade must export F5mo compositor tile RLE encoded seal");
+assert(
+    allocRender2dCompositorTileRleEncoded.includes("pub enum GuiRgba8888CompositorTileRleEncodedSealErrorKind:") &&
+        allocRender2dCompositorTileRleEncoded.includes("EncodedSealFailed %GuiRgba8888RowTileRleEncodedSealErrorKind") &&
+        allocRender2dCompositorTileRleEncoded.includes("pub enum GuiRgba8888CompositorTileRleEncodedFinishErrorKind:") &&
+        allocRender2dCompositorTileRleEncoded.includes("EncodedFinishFailed %GuiRgba8888RowTileRleEncodedFinishErrorKind") &&
+        allocRender2dCompositorTileRleEncoded.includes("pub struct GuiRgba8888CompositorTileRleEncodedOwner:") &&
+        allocRender2dCompositorTileRleEncoded.includes("encoded %GuiRgba8888RowTileRleEncodedOwner") &&
+        allocRender2dCompositorTileRleEncoded.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorTileRleEncoded.includes("pub struct GuiRgba8888CompositorTileRleEncodedSealError:") &&
+        allocRender2dCompositorTileRleEncoded.includes("owner %GuiRgba8888CompositorTileRleWriteCursorOwner") &&
+        allocRender2dCompositorTileRleEncoded.includes("pub struct GuiRgba8888CompositorTileRleEncodedFinishError:") &&
+        allocRender2dCompositorTileRleEncoded.includes("payload %GuiRgba8888CompositorTilePayloadOwner"),
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo must define typed lower encoded seal/finish errors, encoded success owner, write-cursor recovery error, and payload-recovery finish error",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleEncodedImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRleEncodedOwner|GuiRgba8888CompositorTileRleEncodedSealError|GuiRgba8888CompositorTileRleEncodedFinishError)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorTileRleEncodedOwnerDeclMatch = allocRender2dCompositorTileRleEncoded.match(/pub struct GuiRgba8888CompositorTileRleEncodedOwner:\r?\n(?:    .+\r?\n)+/);
+const compositorTileRleEncodedSealErrorDeclMatch = allocRender2dCompositorTileRleEncoded.match(/pub struct GuiRgba8888CompositorTileRleEncodedSealError:\r?\n(?:    .+\r?\n)+/);
+const compositorTileRleEncodedFinishErrorDeclMatch = allocRender2dCompositorTileRleEncoded.match(/pub struct GuiRgba8888CompositorTileRleEncodedFinishError:\r?\n(?:    .+\r?\n)+/);
+assert(
+    compositorTileRleEncodedOwnerDeclMatch !== null &&
+        compositorTileRleEncodedSealErrorDeclMatch !== null &&
+        compositorTileRleEncodedFinishErrorDeclMatch !== null,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo public success and error structs must be present",
+);
+const compositorTileRleEncodedSeal = functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_seal");
+assertOrderedFragments(
+    compositorTileRleEncodedSeal,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_write_cursor_owner_metadata &owner",
+        'let lower_owner %GuiRgba8888RowTileRleWriteCursorOwner field::get owner "writer"',
+        "match gui_rgba8888_row_tile_rle_encoded_seal lower_owner:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_encoded_seal_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_encoded_owner_new encoded metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo must copy metadata before consuming lower write cursor and wrap lower sealed encoded owner",
+);
+assert(
+    (compositorTileRleEncodedSeal.match(/\bgui_rgba8888_row_tile_rle_encoded_seal\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo seal helper must call lower encoded seal exactly once",
+);
+assertNoMatch(
+    compositorTileRleEncodedSeal,
+    /\b(?:gui_rgba8888_row_tile_rle_write_cursor_start|gui_rgba8888_row_tile_rle_write_cursor_step|gui_rgba8888_row_tile_rle_write_step|gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked|gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|load_u8|store_u8|region_ptr_at|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo seal helper must not start/step cursors, packetize, expose descriptor metadata, read raw bytes, present, host/platform, or fallback",
+);
+assertNoMatch(
+    compositorTileRleEncodedSeal,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo seal helper must preserve NEPL prefix style without parentheses",
+);
+const compositorTileRleEncodedSealErrorFromLower = functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_seal_error_from_lower");
+assertOrderedFragments(
+    compositorTileRleEncodedSealErrorFromLower,
+    [
+        "let lower_kind %GuiRgba8888RowTileRleEncodedSealErrorKind gui_rgba8888_row_tile_rle_encoded_seal_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_encoded_seal_error_category_value &lower",
+        "let lower_owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_encoded_seal_error_finish_owner lower",
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner GuiRgba8888CompositorTileRleWriteCursorOwner lower_owner metadata",
+        "GuiRgba8888CompositorTileRleEncodedSealErrorKind::EncodedSealFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_encoded_seal_error_new kind category owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo lower seal error wrapper must read lower kind/category before write cursor owner recovery",
+);
+assertNoMatch(
+    compositorTileRleEncodedSealErrorFromLower,
+    /\b(?:GuiRgba8888CompositorTilePayloadOwner|GuiRgba8888RowTileRleEncodedOwner|gui_rgba8888_compositor_tile_rle_write_cursor_owner_finish_payload|gui_rgba8888_row_tile_rle_encoded_finish_cursor|gui_rgba8888_row_tile_rle_cursor_finish_payload|finish_payload)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo seal error wrapper must recover write cursor owner without payload/encoded fallback",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_owner_finish_payload"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encoded_owner_metadata &owner",
+        'let encoded %GuiRgba8888RowTileRleEncodedOwner field::get owner "encoded"',
+        "match gui_rgba8888_row_tile_rle_encoded_finish_cursor encoded:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_encoded_finish_error_from_lower lower metadata",
+        "let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor",
+        "Result::Ok GuiRgba8888CompositorTilePayloadOwner lower_payload metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo success finish payload must preserve metadata and normalize lower encoded owner to compositor payload",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_finish_error_from_lower"),
+    [
+        "let lower_kind %GuiRgba8888RowTileRleEncodedFinishErrorKind gui_rgba8888_row_tile_rle_encoded_finish_error_kind &lower",
+        "let lower_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_encoded_finish_error_cursor lower",
+        "let lower_payload %GuiRgba8888RowTilePayloadOwner gui_rgba8888_row_tile_rle_cursor_finish_payload lower_cursor",
+        "let payload %GuiRgba8888CompositorTilePayloadOwner GuiRgba8888CompositorTilePayloadOwner lower_payload metadata",
+        "GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_encoded_finish_error_new kind payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo finish error wrapper must recover compositor payload after lower encoded finish failure",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_payload"),
+    [
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_owner error",
+        "gui_rgba8888_compositor_tile_rle_write_cursor_owner_finish_payload owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo seal error finish payload must delegate to F5mm write cursor owner finish payload",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_seal_error_free"),
+    [
+        "let owner %GuiRgba8888CompositorTileRleWriteCursorOwner gui_rgba8888_compositor_tile_rle_encoded_seal_error_finish_owner error",
+        "gui_rgba8888_compositor_tile_rle_write_cursor_owner_free owner",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo seal error free must delegate to F5mm write cursor owner free",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_owner_free"),
+    [
+        'let encoded %GuiRgba8888RowTileRleEncodedOwner field::get owner "encoded"',
+        "match gui_rgba8888_row_tile_rle_encoded_owner_free encoded:",
+        "Result::Err GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo owner free must delegate to lower encoded owner free and wrap lower finish kind",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleEncodedImpl, "gui_rgba8888_compositor_tile_rle_encoded_finish_error_free"),
+    [
+        "let payload %GuiRgba8888CompositorTilePayloadOwner",
+        "gui_rgba8888_compositor_tile_payload_owner_free payload",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo finish error free must delegate to F5me payload free",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleEncodedImpl,
+    /\bpub\s+fn\s+gui_rgba8888_compositor_tile_rle_encoded_(?:owner_finish_entry|seal_error_finish_entry)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo must not add finish_entry helpers",
+);
+const f5moLowerEncodedFunctions = Array.from(allocRender2dCompositorTileRleEncodedImpl.matchAll(/\bgui_rgba8888_row_tile_rle_[a-z0-9_]+\b/g), (match) => match[0]);
+const f5moAllowedLowerEncodedFunctions = new Set([
+    "gui_rgba8888_row_tile_rle_encoded_seal_error_kind",
+    "gui_rgba8888_row_tile_rle_encoded_seal_error_category_value",
+    "gui_rgba8888_row_tile_rle_encoded_seal_error_finish_owner",
+    "gui_rgba8888_row_tile_rle_encoded_finish_error_kind",
+    "gui_rgba8888_row_tile_rle_encoded_finish_error_cursor",
+    "gui_rgba8888_row_tile_rle_encoded_seal",
+    "gui_rgba8888_row_tile_rle_encoded_total_run_count",
+    "gui_rgba8888_row_tile_rle_encoded_byte_count",
+    "gui_rgba8888_row_tile_rle_encoded_cursor_next_pixel_index",
+    "gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count",
+    "gui_rgba8888_row_tile_rle_encoded_finish_cursor",
+    "gui_rgba8888_row_tile_rle_cursor_finish_payload",
+    "gui_rgba8888_row_tile_rle_encoded_owner_free",
+]);
+assert(
+    f5moLowerEncodedFunctions.every((name) => f5moAllowedLowerEncodedFunctions.has(name)),
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo may only call lower encoded seal/accessors/finish/free and cursor payload recovery helpers",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleEncodedImpl,
+    /\b(?:gui_rgba8888_row_tile_rle_write_cursor_start|gui_rgba8888_row_tile_rle_write_cursor_step|gui_rgba8888_row_tile_rle_write_step|gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked|gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|load_u8|store_u8|region_ptr_at|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo must not expose start/step, packet, packet-only descriptor metadata, raw byte access, present, host, platform, or fallback APIs",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleEncodedImpl,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_encoded F5mo implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_facade_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_seal_error_kind_runtime_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_seal_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_counts_progress_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_metadata_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_finish_payload_recovery_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_seal_error_recovery_source_policy_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_free_delegates_lower_encoded_ok") &&
+        guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_no_packet_present_raw_fallback"),
+    "F5mo compositor tile RLE encoded focused doctest/source policy must cover facade runtime types, seal, counts/progress, metadata, payload recovery, source-policy write cursor recovery, lower free delegation, and no packet/present/raw/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

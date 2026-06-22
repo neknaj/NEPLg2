@@ -8498,6 +8498,18 @@ F5mn intentionally does not provide any `finish_entry` helper, including `write_
 
 F5mn must not expose lower write cursor start, lower write cursor finish cursor, encoded seal, packet, packet record reader, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no encoded / packet / present compositor tile RLE write step bridge; sealed encoded owner, packet transport, and present continuation remain later boundaries.
 
+## Render2d compositor tile RLE encoded seal boundary
+
+F5mo is the compositor-side encoded seal bridge after F5mn. It consumes `GuiRgba8888CompositorTileRleWriteCursorOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleWriteCursorOwner`, and calls `gui_rgba8888_row_tile_rle_encoded_seal` exactly once. It returns `GuiRgba8888CompositorTileRleEncodedOwner`, which stores the lower sealed encoded owner plus metadata for the later packet boundary.
+
+The success owner exposes metadata, total run count, encoded byte count, cursor next pixel index, and cursor pixel count through non-consuming accessors. The lower encoded owner remains private; F5mo does not return a lower encoded owner directly and does not call packet-side helpers such as `gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked` or `gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked`.
+
+The error path follows Kepler's plan review approval. Lower row tile RLE encoded seal errors keep the write cursor owner, so F5mo reads `kind` and `category` before consuming the lower error and wraps the recovered lower owner with the copied metadata. This is write cursor owner recovery, not payload recovery and not encoded recovery. The public error lets callers retry, finish payload, or free through F5mm helper functions, and it must not publish the lower error as a recovery payload.
+
+F5mo intentionally does not provide any `finish_entry` helper. Encoded owner finish payload and finish-error recovery convert the lower cursor back into a compositor tile payload owner. Seal-error finish payload and seal-error free delegate to F5mm write cursor owner finish payload / free. Encoded owner free delegates directly to lower encoded owner free and wraps lower finish kind. These are recovery / abort helpers; packet creation and std present remain later boundaries.
+
+F5mo must not expose packet, packet record reader, `gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked`, `gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked`, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no packet / present / raw byte compositor tile RLE encoded seal bridge; packet transport and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
