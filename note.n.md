@@ -82324,3 +82324,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_producer_traversal_entry.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_traversal_producer_traversal_entry.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering traversal authority entry checkpoint
+
+- 2026-06-23 に Zenn の開発方針を再確認した。今回の slice では、producer authority body-root helper が traversal output owner を source table に直接戻していた責務を残さず、traversal output owner から fresh witness authority / producer authority output へ進む module-private 境界を固定した。
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に `actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result` を追加した。
+- 新 helper は producer traversal output の walker input / observation owner を collector-owned source table へ戻す処理を内部に閉じ、producer 専用 source-to-witness helper で same-source fresh witness authority bundle へ move する。source collection failure は `Stage0SourceRejected` に写し、caller へ source owner を返さない。
+- `actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result` は traversal output が保持する context / body root と coverage authority を照合し、成功時だけ traversal-output 由来 fresh witness authority bundle を `ActualTraversalResourceLoweringProducerAuthorityOutput` に束ねる。coverage validation failure では traversal output の walker input / observation owner を閉じる。
+- `actual_traversal_resource_lowering_producer_authority_output_from_body_root_result` は source table を直接取り出さず、body-root traversal output owner を traversal-output authority helper へ渡すだけにした。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、traversal-output fresh-witness helper / authority helper の owner move、source collection failure mapping、coverage validation failure cleanup、body-root authority helper が direct source collection / source-only output / source output / request-evidence / GraphInput / effect mask / backend / artifact へ戻らないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` を更新した。`todo.md` への完了報告追記は Sartre の review 指摘に従って削除し、完了報告はこの note に移した。この checkpoint は full Resource IR graph walker 完了ではなく、underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。残件は actual Resource IR graph walker 本体の source / fresh-witness / coverage authority 実発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionである。plan.md との差異はない。
+- Sartre の read-only review は、初回 blocker として `todo.md` に完了報告を書いていた点を指摘したため修正した。owner lifecycle、body-root authority path の traversal-output authority helper 委譲、contract の direct source collection ban、docs の未完了範囲明示については blocker なし。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost_resource_lowering_traversal_authority_entry_doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost_resource_lowering_traversal_authority_entry_doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_traversal_authority_entry.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_traversal_authority_entry.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
