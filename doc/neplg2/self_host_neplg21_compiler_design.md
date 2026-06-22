@@ -3471,6 +3471,14 @@ body-reader source output 用の `actual_traversal_source_output_into_no_escape_
 
 この checkpoint は、full Resource IR walker 本体を差し替える producer-owned output 境界を作るものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source と fresh witness / coverage authority を同じ resolver-bound body identity へ実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-06-23 selfhost resource-lowering producer traversal entry checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、resolver 済み body root から producer traversal output owner を発行する `actual_traversal_resource_lowering_producer_traversal_output_from_body_root_result` を追加した。reader source merge、operation projection、unified event split はこの body-root traversal output helper に集約し、source-only output helper と producer authority output helper は source table helper ではなくこの traversal output owner を入口にする。
+
+`actual_traversal_resource_lowering_producer_sources_from_body_root_result` は互換 smoke 用の source table helperとして残すが、実体は body-root traversal output owner から collector-owned source table を取り出す thin wrapper になった。`actual_traversal_resource_lowering_producer_output_from_body_root_result` と `actual_traversal_resource_lowering_producer_authority_output_from_body_root_result` も同じ traversal output owner から source owner を得て、前者は source-only producer output、後者は coverage identity validation と producer 専用 source-to-witness helper 経由の producer authority output へ進む。
+
+この checkpoint は production body-root entry を producer traversal output owner に寄せるものであり、full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来である。request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source と fresh witness / coverage authority を同じ resolver-bound body identity へ実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
