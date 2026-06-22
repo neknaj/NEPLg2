@@ -19,7 +19,7 @@
 //:
 //: [現状/げんじょう]:
 //: - proof table は session-local owner table です。永続 `.neplproof` / `.neplobj` artifact ではありません。永続 artifact key へ投影するには、module source identity、typed public surface hash、policy hash、stable type argument identity を別 boundary で合成する必要があります。
-//: - PrivateCache / PrivateState internal effect の fold、actual Resource IR walker による graph input 生成、cache hit / miss observation ban、function identity observation ban、sealed cache backend representation は未接続です。この module は、それらが存在しない状態で backend bytes を作らないための request-evidence gate だけを担当します。
+//: - PrivateCache / PrivateState internal effect の fold、actual Resource IR walker による graph input 生成、cache hit / miss observation ban、function identity observation ban、sealed cache backend representation は未接続です。この module は、それらが存在しない状態で backend bytes を作らないための request-evidence gate と backend readiness gate だけを担当します。
 //: - Phase 1 では proof record / proof table / proof table writer / gate 本体は module-private です。後続の Resource proof producer が接続されるまでは、外部 module が arbitrary `RequestEvidenceProven` record を table に注入したり、その table を accepted gate に渡したりできないようにします。
 //: - Resource observation producer も同じ module-private proof table writer を使います。現 checkpoint では public accepted path を追加せず、stage0 smoke だけで Resource observation から request-evidence gate へ流す境界を確認します。
 //: - Resource graph producer は body / place / edge の typed graph input を module-private Resource observation table へ畳む境界まで接続済みです。現 checkpoint では actual Resource IR walker 本体ではなく、walker が返すべき graph input contract と typed graph input fold を固定します。
@@ -45,6 +45,7 @@
 //: - Producer-owned unavailable traversal bundle stage0 は、HIR-root request authority から明示的な `ResourceIrTraversalUnavailable` source table を作り bundle lifecycle に載せます。well-formed な witness 形式を与えても source が unavailable であるため accepted proof にはなりません。
 //: - Operation-classified traversal bundle stage0 は、module-private operation descriptor を HIR-root request authority と classifier で unified event stream へ写し、split / collector を通して traversal source bundle へ接続します。これは actual Resource IR body traversal ではなく、将来 actual traversal が operation table または unified event stream を返す場合の owner lifecycle と fail-closed taxonomy を固定する smoke です。
 //: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
+//: - Backend readiness stage0 は、request-evidence gate の `Result` と、同じ body identity を持つ private-effect mask evidence を module-private に照合します。これは effect mask 実体や backend artifact ではなく、`RequestEvidenceProven` だけを backend 完了として扱わないための non-executable boundary です。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -69,6 +70,7 @@
 //: - collector-owned traversal bundle stage0 は collector input の body / place / edge / unsupported / observation 数を `g`、source 数を `s`、witness 数を `w` とすると O(g + s + w + n + p) です。actual Resource IR body traversal を読む計算量ではなく、collector output owner と fresh witness owner を同じ bundle boundary で閉じるための stage0 計算量です。
 //: - producer-owned unavailable traversal bundle stage0 は HIR root からの request 再収集 O(n)、unavailable source table 生成 O(n)、source / witness gate O(s + w)、既存 request-evidence 再照合 O(n + p) に従います。ここで固定するのは production authority と owner cleanup であり、actual Resource IR traversal の探索範囲や accepted source 生成の計算量ではありません。
 //: - operation-classified traversal bundle stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w` に対して O(o + a + g + s + w + n + p) です。operation table は module-private stage0 descriptor であり、actual Resource IR body traversal の探索範囲ではありません。
+//: - backend readiness gate は owner を持たない request evidence と mask evidence の identity / status を O(1) で照合します。actual PrivateCache / PrivateState effect fold や mask policy の計算量は後続 stage の責務です。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -1135,6 +1137,74 @@ pub struct SelfhostMemoCallBackendPrivateCacheProofGateSummary:
     request_count %i32
     proven_request_count %i32
 
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus: private effect mask proof の[接続/せつぞく][状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - request-evidence gate の `RequestEvidenceProven` と、PrivateCache / PrivateState の no-escape mask proof を別 authority として合成します。
+//:
+//: [契約/けいやく]:
+//: - `PrivateEffectMaskProven` だけが backend readiness へ進めます。
+//: - missing / unknown / refuted は accepted backend path へ進めません。request occurrence evidence が揃っていても、private effect mask が未証明なら fail-closed にします。
+//: - この status は module-private です。checker-layer private effect proof table や backend artifact をこの module で偽造しません。
+enum SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus:
+    PrivateEffectMaskProven
+    PrivateEffectMaskRefuted
+    PrivateEffectMaskMissing
+    PrivateEffectMaskUnknown
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence: backend readiness が[受/う]ける request-evidence 側の identity-bearing summary
+//:
+//: [契約/けいやく]:
+//: - proof gate summary は count だけなので、この record で root と body fingerprint を束ねてから mask evidence と照合します。
+//: - module-private のままにします。public caller が別 body の summary と mask を混ぜる入口は作りません。
+struct SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence:
+    root_expr_id %SelfhostHirExprId
+    body_module_fingerprint %i32
+    request_count %i32
+    proven_request_count %i32
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence: backend readiness が[受/う]ける private-effect mask 側の identity-bearing evidence
+//:
+//: [契約/けいやく]:
+//: - status だけでは request evidence と同じ body 由来か分からないため、root と body fingerprint を必ず保持します。
+//: - `PrivateEffectMaskProven` でも identity が request evidence と一致しなければ readiness へ進めません。
+struct SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence:
+    root_expr_id %SelfhostHirExprId
+    body_module_fingerprint %i32
+    status %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary: memo_call backend へ[進/すす]む[直前/ちょくぜん]の non-executable readiness
+//:
+//: [契約/けいやく]:
+//: - request evidence と private effect mask evidence がどちらも揃ったことだけを表します。
+//: - backend bytes、cache allocation、effect mask 実体、sealed representation、artifact key は保持しません。
+struct SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary:
+    root_expr_id %SelfhostHirExprId
+    body_module_fingerprint %i32
+    request_count %i32
+    proven_request_count %i32
+    mask_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus: request-evidence 側 readiness 入力の module-private status
+//:
+//: [契約/けいやく]:
+//: - `RequestEvidenceReady` だけが request evidence payload を持ちます。proof gate `Err` や count 不足はこの段階で分類し、backend readiness summary には進めません。
+enum SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus:
+    RequestEvidenceReady %SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence
+    RequestEvidenceRejected
+    RequestEvidenceEmpty
+    RequestEvidenceIncomplete
+    RequestEvidenceInconsistent
+    RequestEvidenceBodyModuleFingerprintPlaceholder
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus: mask 側 readiness 入力の module-private status
+//:
+//: [契約/けいやく]:
+//: - `MaskEvidenceReady` は identity-bearing mask evidence を持ちます。placeholder origin は mask status へ進めず readiness error に写します。
+enum SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus:
+    MaskEvidenceReady %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence
+    MaskEvidenceBodyModuleFingerprintPlaceholder
+
 //: SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -1197,6 +1267,45 @@ pub enum SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
     ProofDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
     ProofOrphan %SelfhostMemoCallBackendPrivateCacheProofKey
     Stage0FixtureAllocFailed %StdErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind: request evidence と private effect mask の[合成/ごうせい][拒否/きょひ]
+//:
+//: [目的/もくてき]:
+//: - request-evidence gate の成功と private effect mask の成功を混同しないよう、backend readiness 直前の不足を typed error として分けます。
+//:
+//: [契約/けいやく]:
+//: - `RequestEvidenceEmpty` は memo_call backend accepted path に進める request が無いことを表します。
+//: - `RequestEvidenceIncomplete` は request count と proven count が一致しないことを表します。
+//: - private effect mask 系 error は、request evidence が揃っていても mask proof が揃っていない場合に返します。
+pub enum SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind:
+    RequestEvidenceRejected
+    RequestEvidenceEmpty
+    RequestEvidenceIncomplete
+    RequestEvidenceInconsistent
+    BodyModuleFingerprintPlaceholder
+    PrivateEffectMaskMissing
+    PrivateEffectMaskUnknown
+    PrivateEffectMaskRefuted
+    PrivateEffectMaskIdentityMismatch
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary: backend readiness gate smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - request evidence と private effect mask evidence が両方揃った場合だけ readiness summary になり、各不足は fail-closed になることを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は count と typed Result だけを公開します。private mask status、backend readiness summary、proof table、backend bytes、effect mask、artifact key は公開しません。
+pub struct SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
+    accepted_request_count %i32
+    accepted_proof_count %i32
+    request_evidence_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    empty_request_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    partial_request_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    inconsistent_request_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    mask_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    mask_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer の失敗分類
 //:
@@ -2639,6 +2748,29 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
 //: - smoke test が複数 field を検査できるようにするための marker であり、proof table owner の copy は許可しません。
 impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind: readiness error を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind: readiness error の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary: backend readiness smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は owner を含まない count と Result payload だけを保持します。mask proof table や backend artifact は保持しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary: backend readiness smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer error を値として[複製/ふくせい]する
@@ -7351,6 +7483,190 @@ pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0 %impure fn voi
             let missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_empty_result
             let refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted
             Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary accepted.request_count accepted.proven_request_count missing_rejected refuted_rejected
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result: request-evidence gate result を readiness 用 status へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - 既存 request-evidence gate の `Err` と、count 不足 / count 矛盾を module-private status として分けます。
+//:
+//: [契約/けいやく]:
+//: - `RequestEvidenceReady` になっても、private effect mask evidence と照合するまでは backend readiness ではありません。
+//: - `body_module_fingerprint == 0` は placeholder origin なので、request evidence 側でも拒否します。
+fn selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus \root_expr_id\body_module_fingerprint\gate_result:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceBodyModuleFingerprintPlaceholder
+        else:
+            match gate_result:
+                Result::Ok summary:
+                    if:
+                        eq summary.request_count 0
+                        then:
+                            SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceEmpty
+                        else:
+                            if:
+                                gt summary.proven_request_count summary.request_count
+                                then:
+                                    SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceInconsistent
+                                else:
+                                    if:
+                                        not eq summary.proven_request_count summary.request_count
+                                        then:
+                                            SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceIncomplete
+                                        else:
+                                            SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceReady SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence root_expr_id body_module_fingerprint summary.request_count summary.proven_request_count
+                Result::Err _e:
+                    SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceRejected
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_mask_result: private-effect mask status を readiness 用 status へ[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - status だけを readiness gate へ渡しません。request evidence と同じ root / body fingerprint を指すことを後段で照合します。
+fn selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_mask_result %fn SelfhostHirExprId fn i32 fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus \root_expr_id\body_module_fingerprint\status:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus::MaskEvidenceBodyModuleFingerprintPlaceholder
+        else:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus::MaskEvidenceReady SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence root_expr_id body_module_fingerprint status
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_identity_matches: request evidence と mask evidence が同じ body を[指/さ]すか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_backend_readiness_identity_matches %fn &SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence fn &SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence bool \request\mask:
+    and:
+        eq selfhost_hir_expr_id_index request.root_expr_id selfhost_hir_expr_id_index mask.root_expr_id
+        eq request.body_module_fingerprint mask.body_module_fingerprint
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_gate_result: request evidence と private effect mask evidence を[合成/ごうせい]する
+//:
+//: [目的/もくてき]:
+//: - request occurrence evidence と private effect mask evidence が同じ body に対して揃った場合だけ、non-executable readiness summary を返します。
+//:
+//: [契約/けいやく]:
+//: - `PrivateEffectMaskProven` だけを受け入れます。missing / unknown / refuted は wildcard で丸めず、個別 error として返します。
+//: - この gate は backend bytes、effect mask 実体、sealed representation、artifact key、proof table record を生成しません。
+fn selfhost_memo_call_backend_private_cache_backend_readiness_gate_result %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence Result SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \request\mask:
+    if:
+        not selfhost_memo_call_backend_private_cache_backend_readiness_identity_matches &request &mask
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskIdentityMismatch
+        else:
+            match mask.status:
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary request.root_expr_id request.body_module_fingerprint request.request_count request.proven_request_count SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskRefuted:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskRefuted
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskMissing:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskMissing
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskUnknown:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskUnknown
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_status_result: readiness status 同士を public Result へ[畳/たた]む
+fn selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_status_result %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus Result SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \request_status\mask_status:
+    match request_status:
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceReady request:
+            match mask_status:
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus::MaskEvidenceReady mask:
+                    selfhost_memo_call_backend_private_cache_backend_readiness_gate_result request mask
+                SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus::MaskEvidenceBodyModuleFingerprintPlaceholder:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::BodyModuleFingerprintPlaceholder
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceRejected:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceRejected
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceEmpty:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceEmpty
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceIncomplete:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceIncomplete
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceInconsistent:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceInconsistent
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus::RequestEvidenceBodyModuleFingerprintPlaceholder:
+            Result::Err SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::BodyModuleFingerprintPlaceholder
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result: gate result と mask status から readiness summary を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus Result SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\gate_result\mask_status:
+    let request_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result root_expr_id body_module_fingerprint gate_result
+    let mask_ready_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_mask_result root_expr_id body_module_fingerprint mask_status
+    selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_status_result request_status mask_ready_status
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result: stage0 用に readiness summary を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \request\mask:
+    match selfhost_memo_call_backend_private_cache_backend_readiness_gate_result request mask:
+        Result::Ok summary:
+            Result::Ok summary.request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result: gate result と mask status から代表 count を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\gate_result\mask_status:
+    match selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result root_expr_id body_module_fingerprint gate_result mask_status:
+        Result::Ok summary:
+            Result::Ok summary.request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_error_code: readiness error kind の比較用 code を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_backend_readiness_error_code %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceRejected:
+            1
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceEmpty:
+            2
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceIncomplete:
+            3
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::RequestEvidenceInconsistent:
+            4
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::BodyModuleFingerprintPlaceholder:
+            5
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskMissing:
+            6
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskUnknown:
+            7
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskRefuted:
+            8
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskIdentityMismatch:
+            9
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_error_kind_eq: readiness error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_backend_readiness_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_backend_readiness_error_code a selfhost_memo_call_backend_private_cache_backend_readiness_error_code b
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_error_result_eq: i32 Result が期待 readiness error 分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_backend_readiness_error_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            selfhost_memo_call_backend_private_cache_backend_readiness_error_kind_eq actual expected
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_stage0: request evidence と private effect mask の readiness 境界 smoke
+//:
+//: [目的/もくてき]:
+//: - request-evidence gate の `Ok` だけで backend readiness としないこと、identity-bearing private effect mask evidence と照合してから進めることを確認します。
+//:
+//: [現状/げんじょう]:
+//: - mask evidence は module-private stage0 status です。checker-layer private effect proof table、actual effect mask、backend artifact には接続していません。
+pub fn selfhost_memo_call_backend_private_cache_backend_readiness_stage0 %fn void Result SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \void:
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let accepted_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 1 1
+    match selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result root 77 accepted_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven:
+        Result::Ok accepted:
+            let request_rejected_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing key
+            let empty_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 0 0
+            let partial_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 2 1
+            let inconsistent_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 1 2
+            let request_evidence_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 request_rejected_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+            let empty_request_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 empty_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+            let partial_request_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 partial_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+            let inconsistent_request_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 inconsistent_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+            let mask_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 accepted_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskMissing
+            let mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 accepted_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskUnknown
+            let mask_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result root 77 accepted_gate_result SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskRefuted
+            let accepted_request_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence root 77 1 1
+            let mismatched_mask_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence root 78 SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+            let mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result accepted_request_evidence mismatched_mask_evidence
+            Result::Ok SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary accepted.request_count accepted.proven_request_count request_evidence_rejected empty_request_rejected partial_request_rejected inconsistent_request_rejected mask_missing_rejected mask_unknown_rejected mask_refuted_rejected mask_identity_mismatch_rejected
         Result::Err e:
             Result::Err e
 

@@ -3068,6 +3068,22 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - event producer convergence で揃えた source / operation authority を、private-effect graph scanner / collector / materializer / proof producer と request-evidence bridge の両方へ同じ body identity で渡す。
 - PrivateCache / PrivateState effect masking、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost memo_call backend private-effect readiness gate checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、request-evidence gate の `Result` と private-effect mask evidence を backend 直前で照合する non-executable readiness gate を追加した。request-evidence 側は `Result<SelfhostMemoCallBackendPrivateCacheProofGateSummary, SelfhostMemoCallBackendPrivateCacheProofGateErrorKind>` を module-private status に写し、`Err`、request 0 件、proven count 不足、proven count 過剰、placeholder fingerprint をそれぞれ fail-closed に分類する。
+
+mask 側は `PrivateEffectMaskProven` / `PrivateEffectMaskRefuted` / `PrivateEffectMaskMissing` / `PrivateEffectMaskUnknown` の module-private status とし、`PrivateEffectMaskProven` だけを accepted readiness summary へ進める。request evidence と mask evidence はどちらも `root_expr_id` と `body_module_fingerprint` を持ち、同じ HIR body root / body module fingerprint を指す場合だけ合成する。identity mismatch、Missing、Unknown、Refuted は public readiness error として分け、`RequestEvidenceProven` だけを backend 完了や effect mask 完了として扱わない。
+
+この checkpoint は checker-layer `memo_trait_operation_private_effect_no_escape_gate` を呼ばず、GraphInput、Resource proof table、request proof table record、`RequestEvidenceProven` / `PrivateCacheNoEscapeProven` record、effect mask 実体、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact key を作らない。公開 API は stage0 summary と readiness error 比較 helper に限定し、private evidence / mask status / readiness summary は module-private のままにする。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で固定した。request gate Result の消費、same-body identity 照合、mask status の wildcard なし fold、public surface 制限、checker-layer gate / proof / GraphInput / backend / effect / artifact 合成禁止を検査する。
+
+残件:
+
+- actual Resource IR / HIR lowering traversal と checker-layer private-effect no-escape proof producer から、同じ body identity を持つ mask evidence を upper orchestration へ渡す。
+- PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+- backend readiness summary を実 backend artifact emission の前段 policy hash / Resource summary hash invalidation と照合する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。

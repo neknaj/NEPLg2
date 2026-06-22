@@ -1,3 +1,48 @@
+# 2026-06-22 selfhost memo_call backend private-effect readiness gate checkpoint
+
+## 目的
+
+- request-evidence gate の `Ok` を backend 完了や private-effect mask 完了として扱わない。
+- request evidence と private-effect mask evidence が同じ HIR body root / body module fingerprint を指すことを backend 直前の non-executable gate で確認する。
+- checker-layer private-effect proof、effect mask 実体、sealed backend representation、backend bytes、artifact key はこの checkpoint では作らない。
+
+## subagent review
+
+- Carver の plan review は `PLAN_CHANGES_REQUESTED`。
+- 指摘を受け、readiness は proof-gate summary だけではなく `Result<SelfhostMemoCallBackendPrivateCacheProofGateSummary, SelfhostMemoCallBackendPrivateCacheProofGateErrorKind>` を入力にした。
+- request evidence と mask evidence の両方に `root_expr_id` と `body_module_fingerprint` を持たせ、identity mismatch を fail-closed にする方針へ修正した。
+- `request_count > 0`、`proven_request_count == request_count`、`proven_request_count > request_count` は inconsistent、proof gate `Err` は rejection として扱う方針にした。
+- mask は `PrivateEffectMaskProven` だけを accepted とし、Missing / Unknown / Refuted は typed error に分ける。
+
+## 実装
+
+- `SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus`、request / mask evidence、readiness summary、request / mask status を module-private に追加した。
+- public には `SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind` と stage0 summary、error comparison helper だけを追加した。private evidence、mask status、readiness summary は public signature に出していない。
+- request side は proof gate `Result` を placeholder fingerprint、Err、empty、incomplete、inconsistent、ready evidence に分類する。
+- mask side は identity-bearing mask evidence に包み、gate は root expr id index と body module fingerprint を照合してから `PrivateEffectMaskProven` だけを受け入れる。
+- stage0 は accepted、request Err、empty、partial、inconsistent、mask Missing / Unknown / Refuted、identity mismatch を代表 path として固定した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は public surface 制限、checker-layer gate import/call 禁止、GraphInput / proof record / backend / effect / artifact 合成禁止、same-body identity gate、mask status wildcard 禁止を検査する。
+- standalone readiness doctest は追加しない。既存 17 doctest の focused check は通るが、18 件目を足すと default batch harness 側の stack 制限に当たるため、今回の readiness は source policy test と stage0 compile check で固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を readiness boundary と残件に合わせて更新した。plan.md との差異はない。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-readiness-gate.json`。17/17。
+- checked JSON: `tmp/selfhost-memo-call-backend-readiness-gate.json` は `total: 17`, `passed: 17`, `failed: 0`, `errored: 0`。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o html=tmp/playground-editor-readiness-html -o json=tmp/playground-editor-readiness.json`
+- checked JSON: `tmp/playground-editor-readiness.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- actual Resource IR / HIR lowering traversal と checker-layer private-effect no-escape proof producer から、同じ body identity を持つ mask evidence を upper orchestration へ渡す。
+- PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+- backend readiness summary を実 artifact emission 前の policy hash / Resource summary hash invalidation と照合する。
+
 # 2026-06-22 selfhost memo_call backend body reader explicit accepted source checkpoint
 
 ## 目的
