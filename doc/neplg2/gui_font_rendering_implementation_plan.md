@@ -5361,6 +5361,59 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mv.json
 ```
 
+## Phase F5mw: std compositor tile RLE present schedule boundary
+
+目的:
+
+- F5mu compositor host-command record stream を host continuation / scheduler の前で deterministic slice budget に区切る std layer compositor tile RLE present schedule boundary を追加する。
+- `GuiRgba8888CompositorTileRlePresentScheduleState` は F5mv virtual drain と slice-local command / pixel counters だけを保持する。
+- stream validation is delegated to F5mv virtual drain。Begin / Run / End ordering、metadata equality、run offset continuity、expected count completion は F5mw で再実装しない。
+- metadata is part of the F5mv drain authority とし、schedule layer は metadata copy や別 authority を持たない。
+- `Yield means exact slice budget` とし、valid record 消費後に command / pixel budget へちょうど到達した場合だけ `Yield` を返す。over-budget is a typed error。
+- F5mw does not bypass F5mv and does not reuse lower F5cq/F5cs。lower F5ct / F5cs / F5cq、host import、dispatch、scheduler、timer、queue、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Beauvoir design review は `PLAN_APPROVED`。
+- F5mw は F5ct の compositor 版として妥当であり、authority は F5mv に置き、F5mw は slice counter と yield decision だけを担当する。
+- F5mv の Begin / Run / End order、metadata consistency、run offset continuity を再実装せず、F5mv drain state を single authority として schedule state に保持する。
+- budget 超過時は next drain を公開せず previous schedule state を error に保持する。`resume_slice` は drain を保持して counters だけ reset する。
+- Completed と budget 判定の優先順位は F5ct 互換とし、F5mv が Ended に進んだ terminal record では `Completed` を返す。
+- Mill source-policy review は `PLAN_APPROVED`。
+- source policy は docs、facade export、policy / phase / state / error shape、F5mu record-only input、F5mv virtual drain dependency、record pixel cost、F5mv error wrapping、exact-budget yield、lower F5ct/F5cs/F5cq / cursor / host / platform / fallback 禁止を固定する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_schedule.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentSchedulePolicy`、`GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind`、`GuiRgba8888CompositorTileRlePresentSchedulePhase`、`GuiRgba8888CompositorTileRlePresentScheduleState`、`GuiRgba8888CompositorTileRlePresentScheduleStep`、`GuiRgba8888CompositorTileRlePresentScheduleStepError` を追加する。
+- `policy`、policy accessors、initial / resume state、state / step / error accessors、`step_record` を追加する。
+- `step_record` は policy validation、F5mu record pixel cost、single-run budget rejection、F5mv `virtual_drain_step`、lower error category preservation、checked counter add、Completed / Yield / Continue decision の順に進める。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present schedule boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_schedule.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mw source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Beauvoir / Mill plan review、facade export、policy / phase / state / error shape、F5mu record-only input、F5mv dependency、record pixel cost、single-run budget rejection、F5mv error wrapping、Completed / exact-budget Yield、resume counter reset、lower F5ct/F5cs/F5cq / cursor / host / scheduler / platform / raw / Vec / fallback 禁止、runtime smoke label を検査する。
+- focused doctest、module doctest、F5mv compositor virtual drain regression、F5ct lower schedule regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で F5mv authority、F5mu record-only、metadata authority の二重化なし、previous state error preservation、lower F5ct/F5cs/F5cq / host / platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_schedule.n.md --no-tree -o tmp_gui_std_compositor_tile_present_schedule_f5mw.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_schedule.nepl --no-tree -o tmp_gui_std_compositor_tile_present_schedule_module_f5mw.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_compositor_tile_present_virtual_drain_f5mw_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5mw_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mw.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

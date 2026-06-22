@@ -185,6 +185,8 @@ const stdGuiCompositorTilePresentHostCommand = read("stdlib/std/gui/compositor_t
 const stdGuiCompositorTilePresentHostCommandImpl = withoutComments(stdGuiCompositorTilePresentHostCommand);
 const stdGuiCompositorTilePresentVirtualDrain = read("stdlib/std/gui/compositor_tile_present_virtual_drain.nepl");
 const stdGuiCompositorTilePresentVirtualDrainImpl = withoutComments(stdGuiCompositorTilePresentVirtualDrain);
+const stdGuiCompositorTilePresentSchedule = read("stdlib/std/gui/compositor_tile_present_schedule.nepl");
+const stdGuiCompositorTilePresentScheduleImpl = withoutComments(stdGuiCompositorTilePresentSchedule);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -432,6 +434,7 @@ const guiStdCompositorTilePresentRunStepTests = read("tests/stdlib/gui_std_compo
 const guiStdCompositorTilePresentCommandCursorTests = read("tests/stdlib/gui_std_compositor_tile_present_command_cursor.n.md");
 const guiStdCompositorTilePresentHostCommandTests = read("tests/stdlib/gui_std_compositor_tile_present_host_command.n.md");
 const guiStdCompositorTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md");
+const guiStdCompositorTilePresentScheduleTests = read("tests/stdlib/gui_std_compositor_tile_present_schedule.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -29812,6 +29815,160 @@ assert(
         guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_run_offset_continuity_ok") &&
         guiStdCompositorTilePresentVirtualDrainTests.includes("std_compositor_tile_rle_present_virtual_drain_no_lower_cursor_host_platform_fallback"),
     "F5mv std compositor tile present virtual-drain focused doctest must cover virtual-drain source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mw") &&
+            doc.includes("std layer compositor tile RLE present schedule boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentScheduleState") &&
+            doc.includes("F5mv virtual drain") &&
+            doc.includes("F5mu compositor host-command record stream") &&
+            doc.includes("Yield means exact slice budget") &&
+            doc.includes("over-budget is a typed error") &&
+            doc.includes("metadata is part of the F5mv drain authority") &&
+            doc.includes("does not reuse lower F5cq/F5cs") &&
+            doc.includes("fallback"),
+        `F5mw ${name} must document compositor schedule boundary, F5mv authority, F5mu input, exact-budget yield semantics, lower F5cq/F5cs non-reuse, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mw") &&
+        implementationPlan.includes("Beauvoir design review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Mill source-policy review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mv virtual drain") &&
+        implementationPlan.includes("F5mu compositor host-command record stream"),
+    "F5mw implementation plan must record subagent reviews, F5mv authority, and F5mu record stream policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_schedule" as *'), "std/gui facade must export F5mw compositor tile present schedule boundary");
+assert(
+    stdGuiCompositorTilePresentSchedule.includes("pub struct GuiRgba8888CompositorTileRlePresentSchedulePolicy:") &&
+        stdGuiCompositorTilePresentSchedule.includes("max_commands_per_slice %i32") &&
+        stdGuiCompositorTilePresentSchedule.includes("max_pixels_per_slice %i32") &&
+        stdGuiCompositorTilePresentSchedule.includes("pub enum GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind:") &&
+        stdGuiCompositorTilePresentSchedule.includes("MaxCommandsPerSliceInvalid") &&
+        stdGuiCompositorTilePresentSchedule.includes("MaxPixelsPerSliceInvalid"),
+    "std/gui/compositor_tile_present_schedule F5mw must define explicit policy value and validation errors",
+);
+assert(
+    stdGuiCompositorTilePresentSchedule.includes("pub struct GuiRgba8888CompositorTileRlePresentScheduleState:") &&
+        stdGuiCompositorTilePresentSchedule.includes("drain %GuiRgba8888CompositorTileRlePresentVirtualDrain") &&
+        stdGuiCompositorTilePresentSchedule.includes("slice_command_count %i32") &&
+        stdGuiCompositorTilePresentSchedule.includes("slice_pixel_count %i32") &&
+        stdGuiCompositorTilePresentSchedule.includes("pub enum GuiRgba8888CompositorTileRlePresentSchedulePhase:") &&
+        stdGuiCompositorTilePresentSchedule.includes("Continue") &&
+        stdGuiCompositorTilePresentSchedule.includes("Yield") &&
+        stdGuiCompositorTilePresentSchedule.includes("Completed"),
+    "std/gui/compositor_tile_present_schedule F5mw must wrap F5mv state and expose explicit schedule phases",
+);
+assert(
+    stdGuiCompositorTilePresentSchedule.includes("pub enum GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind:") &&
+        stdGuiCompositorTilePresentSchedule.includes("RunPixelBudgetExceeded") &&
+        stdGuiCompositorTilePresentSchedule.includes("CommandBudgetExceeded") &&
+        stdGuiCompositorTilePresentSchedule.includes("PixelBudgetExceeded") &&
+        stdGuiCompositorTilePresentSchedule.includes("VirtualDrainFailed %GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind") &&
+        stdGuiCompositorTilePresentSchedule.includes("pub struct GuiRgba8888CompositorTileRlePresentScheduleStepError:") &&
+        stdGuiCompositorTilePresentSchedule.includes("category %Option GuiError") &&
+        stdGuiCompositorTilePresentSchedule.includes("state %GuiRgba8888CompositorTileRlePresentScheduleState"),
+    "std/gui/compositor_tile_present_schedule F5mw must define typed over-budget and lower-drain errors with previous state",
+);
+assertMatch(
+    stdGuiCompositorTilePresentScheduleImpl,
+    /#import "std\/gui\/compositor_tile_present_host_command" as \*/,
+    "std/gui/compositor_tile_present_schedule F5mw must consume F5mu compositor host-command records",
+);
+assertMatch(
+    stdGuiCompositorTilePresentScheduleImpl,
+    /#import "std\/gui\/compositor_tile_present_virtual_drain" as \*/,
+    "std/gui/compositor_tile_present_schedule F5mw must depend on F5mv virtual drain authority",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentScheduleImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|GuiRgba8888RowTileRlePresent|gui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(command_cursor|run_cursor|run_step)" as \*|gui_rgba8888_compositor_tile_rle_present_(command_cursor|run_cursor|run_step)_[a-z0-9_]+|\btile_present_host_import\b|\btile_present_dispatch\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bscheduler\b|\bplatform\b|\bplatforms\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_schedule F5mw must not reuse lower F5cq/F5cs/F5ct, bypass F5mv/F5mu, use cursor/run-step/scheduler/host/platform/raw APIs, allocate Vec, or fallback",
+);
+assert(
+    stdGuiCompositorTilePresentSchedule.includes("pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_record %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentScheduleState fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleStepError"),
+    "std/gui/compositor_tile_present_schedule F5mw public step must accept F5mu compositor host-command records only",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentScheduleImpl, "gui_rgba8888_compositor_tile_rle_present_schedule_record_pixel_cost"),
+    [
+        "match *record:",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _descriptor:",
+        "Result::Ok 0",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:",
+        "gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run &run_record",
+        "gui_rgba8888_row_tile_rle_run_pixel_count &run",
+        "if le pixel_count 0:",
+        "GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::RunPixelCountInvalid",
+        "GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _descriptor:",
+        "Result::Ok 0",
+    ],
+    "std/gui/compositor_tile_present_schedule F5mw must compute cost directly from F5mu Begin/Run/End records",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentScheduleImpl, "gui_rgba8888_compositor_tile_rle_present_schedule_step_record"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_schedule_validate_policy_for_step policy",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_record_pixel_cost &record",
+        "if gt pixel_cost max_pixels:",
+        "GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::RunPixelBudgetExceeded",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &state",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_step previous_drain record",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_kind &lower_error",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category_value &lower_error",
+        "GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::VirtualDrainFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_step_error_with_category kind lower_category state",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_count_result policy state next_drain pixel_cost",
+    ],
+    "std/gui/compositor_tile_present_schedule F5mw must reject single-run over budget before F5mv and wrap lower F5mv errors",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentScheduleImpl, "gui_rgba8888_compositor_tile_rle_present_schedule_count_result"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_schedule_checked_add slice_command_count 1",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_checked_add slice_pixel_count pixel_cost",
+        "gui_rgba8888_compositor_tile_rle_present_virtual_drain_is_ended &next_drain",
+        "GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed",
+        "if gt next_command_count max_commands:",
+        "GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::CommandBudgetExceeded",
+        "if gt next_pixel_count max_pixels:",
+        "GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PixelBudgetExceeded",
+        "if or eq next_command_count max_commands eq next_pixel_count max_pixels:",
+        "GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield",
+        "GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue",
+    ],
+    "std/gui/compositor_tile_present_schedule F5mw must treat Completed before over-budget and Yield only on exact budget",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentScheduleImpl, "gui_rgba8888_compositor_tile_rle_present_schedule_state_resume_slice"),
+    [
+        "let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_state_new drain 0 0",
+    ],
+    "std/gui/compositor_tile_present_schedule F5mw resume must reset only slice counters",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentScheduleImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_schedule F5mw implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_facade_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_policy_result_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_state_wraps_f5mv_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_f5mu_record_only_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_yield_exact_budget_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_over_budget_error_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_resume_slice_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_preserves_f5mv_metadata_authority_ok") &&
+        guiStdCompositorTilePresentScheduleTests.includes("std_compositor_tile_rle_present_schedule_no_lower_cursor_host_platform_fallback"),
+    "F5mw std compositor tile present schedule focused doctest must cover schedule source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

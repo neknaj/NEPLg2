@@ -8619,6 +8619,18 @@ RunRecord validation mirrors the lower F5cs continuity rule but stays at the com
 
 F5mv does not reuse lower F5cq/F5cs. Lower record projection would remove compositor metadata from the validation surface, so the drain consumes `GuiRgba8888CompositorTileRlePresentHostCommandRecord` directly. F5mv must not expose lower `std/gui/tile_present_host_command`, lower `std/gui/tile_present_virtual_drain`, lower command cursor / run cursor / run-span / schedule / dispatch / host import APIs, host import execution, scheduler, platform backend, raw storage, `RegionToken`, `MemPtr`, raw byte load/store, `Vec`, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior.
 
+## Std compositor tile RLE present schedule boundary
+
+F5mw is the std layer compositor tile RLE present schedule boundary after F5mv. It applies deterministic slice budgets to the F5mu compositor host-command record stream before host continuation or scheduler layers consume the records. The schedule layer is still pure: it does not execute host imports, enqueue records, call timers, or select a platform presenter.
+
+`GuiRgba8888CompositorTileRlePresentScheduleState` contains only the F5mv virtual drain state plus slice-local command and pixel counters. stream validation is delegated to F5mv virtual drain. Begin / Run / End ordering, metadata equality, expected count completion, and `run_pixel_offset == seen_pixel_count` are not reimplemented in F5mw. This keeps metadata is part of the F5mv drain authority and prevents a second, weaker compositor validator from diverging.
+
+Each accepted record costs one command. BeginFrame and EndFrame have zero pixel cost. RunRecord pixel cost is the run pixel count read through the F5mu run-record accessor; non-positive pixel count is a typed error before F5mv is advanced. A single RunRecord whose pixel cost is greater than the policy pixel budget is rejected before the drain step, so a caller never receives an advanced drain for a record that cannot fit in one slice.
+
+Yield means exact slice budget: after a valid record advances F5mv and the schedule counters, `Yield` is returned only when command count or pixel count exactly reaches its budget. over-budget is a typed error and returns the previous schedule state. F5mv drain failure is wrapped as `VirtualDrainFailed` and preserves the lower error category. When F5mv reaches Ended, the step returns `Completed`; `resume_slice` keeps the F5mv drain and resets only slice counters.
+
+F5mw does not bypass F5mv and does not reuse lower F5cq/F5cs. It must not import lower F5ct/F5cs/F5cq modules, call compositor command cursor / run cursor / run step internals, construct host import requests, dispatch to host execution, allocate queues, call real schedulers or timers, read raw packet storage, expose platform APIs, use `Vec`, touch video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
