@@ -80628,3 +80628,43 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_actual_private_effect_readiness_projection.json`
 - checked JSON: `output/playground_editor_selfhost_actual_private_effect_readiness_projection.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost private-effect backend readiness handoff orchestration checkpoint
+
+- backend readiness gate に public handoff status / evidence と handoff count helper を追加した。
+- public handoff evidence は root expr id / body module fingerprint / status だけを持つ。backend module は checker-layer module を import せず、public handoff evidence を module-private upstream private-effect evidence へ写して既存 readiness gate に渡す。
+- `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_backend_readiness_orchestrator.nepl` を追加した。facade には re-export せず、`nodesrc/selfhost_ty_sources.js` にも登録しない checker-layer upper orchestration とした。
+- orchestrator は `memo_trait_operation_private_effect_mask_evidence` の `Result` を受け、mask success の場合だけ backend public handoff evidence へ変換する。mask error は `MaskEvidenceRejected`、backend readiness error は `BackendReadinessRejected` として分ける。
+- `Refuted` / `Missing` / `Unknown` は `Proven` に丸めず、request root / fingerprint と mask evidence root / fingerprint の一致は backend readiness gate で検査する。placeholder fingerprint や identity mismatch は accepted count にならない。
+- production helper は GraphInput、Resource proof table、direct proof construction、slot coverage table、backend bytes、effect mask 実体、sealed representation、`.neplobj` / `.neplproof` artifact key を作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を更新し、backend public handoff 型の public surface、private upstream evidence への変換、public handoff count helper の接続、artifact / checker proof / GraphInput payload 禁止を固定した。
+- `nodesrc/test_selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_contract.js` を追加し、facade 非公開、ty source 非登録、backend-private upstream type 参照禁止、mask status から public handoff status への wildcard なし mapping、mask success / mask error / backend readiness error の分離を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、backend readiness handoff orchestration 接続後の残件を actual traversal 由来 explicit coverage record、Resource summary hash invalidation、artifact policy hash、effect mask 実体、sealed backend representation、`.neplobj` / `.neplproof` stable key projectionへ更新した。plan.md との差異はない。
+- Cicero の design review は `PLAN_APPROVED`。backend-private upstream types は private のままにし、public handoff は status / root / fingerprint に限定すること、orchestrator は facade-private かつ artifact / proof / GraphInput を作らないこと、count helper は non-executable readiness probe に留めることを確認した。
+- Cicero の implementation review は `REVIEW_APPROVED`。backend が checker-layer private type / module / GraphInput / Resource proof / effect mask / artifact を import / construct していないこと、public handoff が narrow surface に留まること、orchestrator が mask evidence `Result` から public handoff evidence を経由して backend readiness gate へ渡すだけで slot count 再解釈や artifact 構築をしないこと、docs / todo / note が実装状態と残件に整合していることを確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_contract.js`
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_backend_readiness_orchestrator.nepl --dist web/dist -o tmp/selfhost-private-effect-backend-readiness-orchestrator.json`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-private-effect-backend-readiness-orchestrator.json`。1 passed / 0 failed。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-private-effect-handoff.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-private-effect-handoff.json`。17 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator.json`
+- checked JSON: `output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- post-merge pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_contract.js`
+- post-merge pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- post-merge pass: `node nodesrc/issues.js check --dir issues`
+- post-merge pass: `git diff --check`
+- post-merge pass: `node nodesrc/run_source_policy_regressions.js`
+- post-merge pass: `trunk build`
+- post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator_postmerge.json`
+- post-merge checked JSON: `output/playground_editor_selfhost_private_effect_backend_readiness_orchestrator_postmerge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

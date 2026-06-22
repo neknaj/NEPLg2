@@ -88,6 +88,7 @@ assert.ok(
         source.includes("Operation-classified traversal bundle stage0") &&
         source.includes("Context-bound reader traversal bundle stage0") &&
         source.includes("Backend readiness stage0") &&
+        source.includes("Private-effect readiness handoff API") &&
         source.includes("Actual traversal private-effect readiness projection stage0") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
@@ -185,6 +186,25 @@ assert.doesNotMatch(
     /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus|SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence)\b/m,
     "public functions must not expose backend readiness upstream private-effect status or evidence types in their signatures",
 );
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus"),
+    ["Proven", "Refuted", "Missing", "Unknown"],
+    "private-effect readiness handoff status must expose only the neutral public transport states",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence"),
+    [
+        "root_expr_id %SelfhostHirExprId",
+        "body_module_fingerprint %i32",
+        "status %SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus",
+    ],
+    "private-effect readiness handoff evidence must carry only same-body identity and neutral status",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence")),
+    /Proof|MaskEvidence|SlotCoverage|GraphInput|Wasm|LLVM|neplobj|neplproof|artifact|sealed/i,
+    "private-effect readiness handoff evidence must not expose checker evidence, proof, graph, backend, or artifact payloads",
+);
 assert.doesNotMatch(
     code,
     /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheResource(?:GraphId|PlaceId|GraphCompleteness|PlaceKind|EdgeKind|GraphBodyRecord|GraphPlaceRecord|GraphEdgeRecord|GraphInput|GraphFoldSummary)\b/,
@@ -267,8 +287,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_backend_readiness_(?!stage0\b|error_kind_eq\b|error_result_eq\b)/m,
-    "backend readiness public surface must be limited to stage0 summary and public error comparison helpers",
+    /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_backend_readiness_(?!stage0\b|error_kind_eq\b|error_result_eq\b|count_from_gate_result_and_private_effect_handoff_evidence\b)/m,
+    "backend readiness public surface must be limited to stage0 summary, public error comparison helpers, and the narrow private-effect handoff count helper",
 );
 assert.doesNotMatch(
     code,
@@ -806,12 +826,50 @@ const upstreamMaskReadinessImplementation = [
     "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence",
     "selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence",
     "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence",
+    "selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status",
+    "selfhost_memo_call_backend_private_cache_upstream_evidence_from_private_effect_handoff_evidence",
+    "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_private_effect_handoff_evidence",
     "selfhost_memo_call_backend_private_cache_backend_readiness_stage0",
 ].map((name) => stripDocComments(topLevelBlock(source, "fn", name))).join("\n");
 assert.doesNotMatch(
     upstreamMaskReadinessImplementation,
     /memo_trait_operation_private_effect_(?:no_escape_gate|resource_no_escape_producer)|ResourceProof|GraphInput|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "upstream private-effect readiness conversion must not call checker gates, read Resource proof records, push proof tables, build GraphInput, backend bytes, effect masks, or artifact keys",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status"),
+    [
+        "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Proven:",
+        "UpstreamPrivateEffectProven",
+        "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Refuted:",
+        "UpstreamPrivateEffectRefuted",
+        "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Missing:",
+        "UpstreamPrivateEffectMissing",
+        "SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Unknown:",
+        "UpstreamPrivateEffectUnknown",
+    ],
+    "private-effect readiness handoff status conversion must preserve Proven, Refuted, Missing, and Unknown exactly",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status"),
+    /_:/,
+    "private-effect readiness handoff status conversion must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_upstream_evidence_from_private_effect_handoff_evidence"),
+    [
+        "selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status evidence.status",
+        "SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence evidence.root_expr_id evidence.body_module_fingerprint status",
+    ],
+    "private-effect readiness handoff evidence conversion must carry handoff identity into private upstream evidence",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_private_effect_handoff_evidence"),
+    [
+        "selfhost_memo_call_backend_private_cache_upstream_evidence_from_private_effect_handoff_evidence handoff_evidence",
+        "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root_expr_id body_module_fingerprint gate_result upstream_evidence",
+    ],
+    "public handoff count helper must convert public handoff evidence to private upstream evidence and reuse the existing readiness gate",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectReadinessStage0Summary"),

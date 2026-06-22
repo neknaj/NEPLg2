@@ -274,6 +274,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_mask_evidence_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_slot_coverage_producer_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_materializer_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_no_escape_traversal_collector_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_private_effect_resource_graph_input_scanner_contract.js",
