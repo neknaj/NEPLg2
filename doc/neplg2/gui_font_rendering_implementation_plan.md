@@ -5465,6 +5465,57 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mx.json
 ```
 
+## Phase F5my: std compositor tile RLE present scheduled dispatch boundary
+
+目的:
+
+- F5mw schedule state と F5mx request construction を接続する std layer compositor tile RLE present scheduled dispatch boundary を追加する。
+- `GuiRgba8888CompositorTileRlePresentDispatchState` は `GuiRgba8888CompositorTileRlePresentScheduleState` だけを保持する。
+- F5mw before F5mx を固定し、schedule validation / budget decision が成功した F5mu record だけを host continuation request に包む。
+- success output は `GuiRgba8888CompositorTileRlePresentDispatchReadyRequest` を含む `RequestReady request plus post phase` とし、exact-budget `Yield` と terminal `Completed` でも request を失わない。
+- error は previous dispatch state を返す。F5mx request construction failure では updated schedule state を採用しない。
+- F5my does not execute host imports and does not call F5mv directly。F5mv authority は F5mw schedule state に閉じる。
+- lower F5cu / F5ct / F5cs / F5cr / F5cq、compositor cursor / run step、host execution action、dispatch loop、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Lagrange design/source-policy review は blocker なし。
+- F5my は lower F5cu の compositor 版として妥当であり、F5mw before F5mx、RequestReady request plus post phase、previous dispatch state、no direct F5mv、no lower row-tile leakage を固定する。
+- source policy では `std/gui/host` と `GuiHost` を許可する。F5mx request construction に必要なためである。その一方で lower row-tile modules、F5mv direct call、host execution / platform / raw / fallback leakage は禁止する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_dispatch.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentDispatchState`、`GuiRgba8888CompositorTileRlePresentDispatchPostPhase`、`GuiRgba8888CompositorTileRlePresentDispatchReadyRequest`、`GuiRgba8888CompositorTileRlePresentDispatchOutput`、`GuiRgba8888CompositorTileRlePresentDispatchStep`、`GuiRgba8888CompositorTileRlePresentDispatchStepError` を追加する。
+- initial / resume state、state / ready request / step / error accessors、`step_record` を追加する。
+- `step_record` は F5mw schedule step、post phase mapping、F5mx host import request construction、RequestReady construction の順に進める。
+- `stdlib/std/gui.nepl` facade から compositor tile RLE present scheduled dispatch boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5my source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Lagrange review、facade export、state / post phase / ready request / output / error shape、F5mw/F5mx/F5mu/F5host imports、F5mw before F5mx、request plus post phase preservation、schedule error category preservation、host import request error previous-state preservation、resume delegation、no direct F5mv、lower row-tile / raw / host execution / platform / Vec / fallback 禁止、runtime smoke label を検査する。
+- focused doctest、module doctest、F5mw compositor schedule regression、F5mx compositor host-import regression、F5cu lower dispatch regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で F5mw before F5mx、updated schedule state 非公開、RequestReady request plus post phase、no direct F5mv、lower F5cu/F5ct/F5cs/F5cr/F5cq / host execution / platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_f5my.json -j 1
+node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_dispatch.nepl --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_module_f5my.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_schedule.n.md --no-tree -o tmp_gui_std_compositor_tile_present_schedule_f5my_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5my_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5my_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5my.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

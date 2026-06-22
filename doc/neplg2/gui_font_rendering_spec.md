@@ -7161,6 +7161,10 @@ F5mx は std layer compositor tile RLE present host continuation request boundar
 
 F5mx does not execute host imports。unsupported target から別 target への fallback や silent no-op は行わず、`GuiError::Unsupported` を返す。F5mx consumes F5mu compositor host-command record only であり、F5mx does not depend on F5mw。F5mw schedule state にはまだ接続しない。F5mx does not reuse lower F5cr/F5cq。lower row-tile request / record へ投影すると compositor metadata が request surface から外れるためである。F5mx は lower F5cr / F5cq / F5ct / F5cs、compositor cursor、virtual drain、schedule、dispatch、host execution action、raw storage、Vec、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
 
+F5my は std layer compositor tile RLE present scheduled dispatch boundary であり、`GuiRgba8888CompositorTileRlePresentDispatchState` に F5mw schedule state だけを保持し、F5mw before F5mx の順序で schedule validation / budget decision と host import request construction を接続する。success output は `GuiRgba8888CompositorTileRlePresentDispatchReadyRequest` を含む `RequestReady request plus post phase` であり、exact-budget `Yield` でも EndFrame `Completed` でも、消費した F5mu record の request を落とさない。
+
+F5my の error は previous dispatch state を返す。F5mw failure は lower kind / category を `ScheduleFailed` として包み、F5mx request construction failure は `HostImportRequestFailed` と `Option::Some host_error` を返す。F5mx failure では同じ step で得た updated schedule state を公開せず、caller は previous dispatch state から retry / unsupported handling を選ぶ。F5my does not execute host imports and does not call F5mv directly。F5mv authority は F5mw に閉じ、lower F5cu/F5ct/F5cs/F5cr/F5cq、raw storage、Vec、queue、timer、scheduler、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

@@ -8643,6 +8643,16 @@ F5mx does not execute host imports and does not validate record stream ordering.
 
 F5mx consumes F5mu compositor host-command record only and does not reuse lower F5cr/F5cq. F5mx does not depend on F5mw. It must not depend on F5mw schedule state, lower row-tile host import / host-command modules, lower virtual drain / scheduler, compositor command cursor / run cursor / run step internals, host execution action conversion, dispatch, queues, timers, raw packet storage, platform APIs, `Vec`, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
 
+## Std compositor tile RLE present scheduled dispatch boundary
+
+F5my is the std layer compositor tile RLE present scheduled dispatch boundary after F5mw and F5mx. It connects deterministic schedule state with host continuation request construction without executing host imports. `GuiRgba8888CompositorTileRlePresentDispatchState` contains only `GuiRgba8888CompositorTileRlePresentScheduleState`; the dispatch layer does not duplicate F5mv drain authority or store a second metadata validator.
+
+The dispatch step order is F5mw before F5mx. It first calls F5mw schedule validation and budget decision for the F5mu record. Only after schedule success does it call F5mx host import request construction. Success always produces `RequestReady request plus post phase` through `GuiRgba8888CompositorTileRlePresentDispatchReadyRequest`, so exact-budget `Yield` and terminal `Completed` still retain the request for the just-consumed record.
+
+Error recovery always uses previous dispatch state. A schedule failure wraps the lower F5mw kind as `ScheduleFailed` and preserves the lower category. A host-import request failure wraps `HostImportRequestFailed` with `Option::Some host_error`, but does not expose the updated schedule state computed earlier in that step. This prevents unsupported host targets from advancing the compositor schedule stream.
+
+F5my does not execute host imports and does not call F5mv directly. F5mv remains reachable only through F5mw schedule state. F5my must not reuse lower F5cu/F5ct/F5cs/F5cr/F5cq, project compositor records to lower row-tile records, call dispatch loops, host execution actions, queues, timers, schedulers, platform APIs, raw packet storage, `Vec`, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

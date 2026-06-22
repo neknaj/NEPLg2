@@ -81484,3 +81484,29 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mx.json`
 - checked JSON: `tmp-playground-editor-tests-f5mx.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - Godel の implementation review は `PLAN_APPROVED`。F5mu record 直接消費、metadata-preserving request、F5cr 同等 capability/target validation、no host import execution、no F5mw/F5mv dependency、no lower F5cr/F5cq/raw/platform/fallback に blocker はないと確認された。
+
+## 2026-06-23 GUI std compositor present scheduled dispatch checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_dispatch.nepl` を追加し、F5mw schedule state と F5mx host import request construction を接続する F5my scheduled dispatch boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentDispatchState` は `GuiRgba8888CompositorTileRlePresentScheduleState` だけを保持する。F5mv drain authority と metadata validation は F5mw/F5mv に閉じ、dispatch layer は F5mv を直接呼ばない。
+- `gui_rgba8888_compositor_tile_rle_present_dispatch_step_record` は F5mw schedule step を先に通し、成功後だけ F5mx request construction を呼ぶ。success は常に `RequestReady` で、request と Continue / Yield / Completed の post phase を同じ value に保持する。
+- F5mw failure は lower kind / category を `ScheduleFailed` として包み、previous dispatch state を返す。F5mx request construction failure は `HostImportRequestFailed` と `Option::Some host_error` を返し、同じ step で得た updated schedule state は公開しない。
+- F5my は lower F5cu/F5ct/F5cs/F5cr/F5cq、compositor cursor / run step、host execution action、dispatch loop、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Lagrange の design/source-policy review は blocker なし。F5mw before F5mx、RequestReady request plus post phase、previous dispatch state、no direct F5mv、no lower row-tile leakage を固定する方針で問題ないと確認された。
+- Nash の implementation review は `PLAN_APPROVED`。F5mw-before-F5mx order、F5mx error 時の updated schedule state 非公開、RequestReady request plus post phase、no direct F5mv、no lower F5cu-F5cq / host execution / platform / raw / fallback leakage に blocker はないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_f5my.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_dispatch.nepl --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_module_f5my.json -j 1`。24/24。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_schedule.n.md --no-tree -o tmp_gui_std_compositor_tile_present_schedule_f5my_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5my_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5my_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5my.json`
+- checked JSON: `tmp-playground-editor-tests-f5my.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

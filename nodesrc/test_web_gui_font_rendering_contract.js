@@ -189,6 +189,8 @@ const stdGuiCompositorTilePresentSchedule = read("stdlib/std/gui/compositor_tile
 const stdGuiCompositorTilePresentScheduleImpl = withoutComments(stdGuiCompositorTilePresentSchedule);
 const stdGuiCompositorTilePresentHostImport = read("stdlib/std/gui/compositor_tile_present_host_import.nepl");
 const stdGuiCompositorTilePresentHostImportImpl = withoutComments(stdGuiCompositorTilePresentHostImport);
+const stdGuiCompositorTilePresentDispatch = read("stdlib/std/gui/compositor_tile_present_dispatch.nepl");
+const stdGuiCompositorTilePresentDispatchImpl = withoutComments(stdGuiCompositorTilePresentDispatch);
 const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.nepl");
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
@@ -438,6 +440,7 @@ const guiStdCompositorTilePresentHostCommandTests = read("tests/stdlib/gui_std_c
 const guiStdCompositorTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md");
 const guiStdCompositorTilePresentScheduleTests = read("tests/stdlib/gui_std_compositor_tile_present_schedule.n.md");
 const guiStdCompositorTilePresentHostImportTests = read("tests/stdlib/gui_std_compositor_tile_present_host_import.n.md");
+const guiStdCompositorTilePresentDispatchTests = read("tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
@@ -30063,6 +30066,147 @@ assert(
         guiStdCompositorTilePresentHostImportTests.includes("std_compositor_tile_rle_present_host_import_consumes_f5mu_only_ok") &&
         guiStdCompositorTilePresentHostImportTests.includes("std_compositor_tile_rle_present_host_import_no_schedule_no_lower_raw_no_host_call_no_platform_no_fallback"),
     "F5mx std compositor tile present host import focused doctest must cover host-import source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5my") &&
+            doc.includes("std layer compositor tile RLE present scheduled dispatch boundary") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentDispatchState") &&
+            doc.includes("GuiRgba8888CompositorTileRlePresentDispatchReadyRequest") &&
+            doc.includes("F5mw before F5mx") &&
+            doc.includes("RequestReady request plus post phase") &&
+            doc.includes("previous dispatch state") &&
+            doc.includes("does not execute host imports") &&
+            doc.includes("does not call F5mv directly") &&
+            doc.includes("fallback"),
+        `F5my ${name} must document compositor scheduled dispatch, F5mw-before-F5mx order, request/post phase preservation, previous-state errors, no direct F5mv, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5my") &&
+        implementationPlan.includes("Lagrange design/source-policy review は blocker なし") &&
+        implementationPlan.includes("F5mw before F5mx") &&
+        implementationPlan.includes("RequestReady request plus post phase"),
+    "F5my implementation plan must record subagent review, F5mw-before-F5mx order, and request/post phase policy",
+);
+assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_dispatch" as *'), "std/gui facade must export F5my compositor tile present scheduled dispatch boundary");
+assert(
+    stdGuiCompositorTilePresentDispatch.includes("pub struct GuiRgba8888CompositorTileRlePresentDispatchState:") &&
+        stdGuiCompositorTilePresentDispatch.includes("schedule %GuiRgba8888CompositorTileRlePresentScheduleState") &&
+        stdGuiCompositorTilePresentDispatch.includes("pub enum GuiRgba8888CompositorTileRlePresentDispatchPostPhase:") &&
+        stdGuiCompositorTilePresentDispatch.includes("Continue") &&
+        stdGuiCompositorTilePresentDispatch.includes("Yield") &&
+        stdGuiCompositorTilePresentDispatch.includes("Completed") &&
+        stdGuiCompositorTilePresentDispatch.includes("pub struct GuiRgba8888CompositorTileRlePresentDispatchReadyRequest:") &&
+        stdGuiCompositorTilePresentDispatch.includes("request %GuiRgba8888CompositorTileRlePresentHostImportRequest") &&
+        stdGuiCompositorTilePresentDispatch.includes("post_phase %GuiRgba8888CompositorTileRlePresentDispatchPostPhase"),
+    "std/gui/compositor_tile_present_dispatch F5my must wrap F5mw schedule state and preserve request plus post phase",
+);
+assert(
+    stdGuiCompositorTilePresentDispatch.includes("pub enum GuiRgba8888CompositorTileRlePresentDispatchOutput:") &&
+        stdGuiCompositorTilePresentDispatch.includes("RequestReady %GuiRgba8888CompositorTileRlePresentDispatchReadyRequest") &&
+        stdGuiCompositorTilePresentDispatch.includes("pub enum GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind:") &&
+        stdGuiCompositorTilePresentDispatch.includes("ScheduleFailed %GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind") &&
+        stdGuiCompositorTilePresentDispatch.includes("HostImportRequestFailed %GuiError") &&
+        stdGuiCompositorTilePresentDispatch.includes("pub struct GuiRgba8888CompositorTileRlePresentDispatchStepError:") &&
+        stdGuiCompositorTilePresentDispatch.includes("category %Option GuiError") &&
+        stdGuiCompositorTilePresentDispatch.includes("state %GuiRgba8888CompositorTileRlePresentDispatchState"),
+    "std/gui/compositor_tile_present_dispatch F5my must expose request-ready output and typed previous-state errors",
+);
+assertMatch(
+    stdGuiCompositorTilePresentDispatchImpl,
+    /#import "std\/gui\/compositor_tile_present_schedule" as \*/,
+    "std/gui/compositor_tile_present_dispatch F5my must depend on F5mw schedule boundary",
+);
+assertMatch(
+    stdGuiCompositorTilePresentDispatchImpl,
+    /#import "std\/gui\/compositor_tile_present_host_import" as \*/,
+    "std/gui/compositor_tile_present_dispatch F5my must depend on F5mx host import request boundary",
+);
+assertMatch(
+    stdGuiCompositorTilePresentDispatchImpl,
+    /#import "std\/gui\/compositor_tile_present_host_command" as \*/,
+    "std/gui/compositor_tile_present_dispatch F5my must consume F5mu compositor host-command records",
+);
+assertMatch(
+    stdGuiCompositorTilePresentDispatchImpl,
+    /#import "std\/gui\/host" as \*/,
+    "std/gui/compositor_tile_present_dispatch F5my must accept GuiHost for F5mx request construction",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentDispatchImpl,
+    /#import "std\/gui\/tile_present(?:_[^"]*)?" as \*|\bGuiRgba8888RowTileRlePresent\b|\bgui_rgba8888_row_tile_rle_present_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_virtual_drain" as \*|\bgui_rgba8888_compositor_tile_rle_present_virtual_drain_[a-z0-9_]+|#import "std\/gui\/compositor_tile_present_(command_cursor|run_cursor|run_step)" as \*|\bgui_rgba8888_compositor_tile_rle_present_(command_cursor|run_cursor|run_step)_[a-z0-9_]+|\bcompositor_tile_present_host_execution\b|\bcompositor_tile_present_host_action\b|\bcompositor_tile_present_virtual_executor\b|\btile_present_host_execution\b|\btile_present_host_action\b|\btile_present_virtual_executor\b|\btile_present_dispatch_loop\b|\btile_present_dispatch\b|\btile_present_schedule\b|\btile_present_virtual_drain\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bVec\b|\bqueue\b|\bscheduler\b|\bplatform\b|\bplatforms\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/compositor_tile_present_dispatch F5my must not call F5mv directly, reuse lower row-tile dispatch/schedule/drain, execute host imports, use raw/platform APIs, allocate Vec, or fallback",
+);
+assert(
+    stdGuiCompositorTilePresentDispatch.includes("pub fn gui_rgba8888_compositor_tile_rle_present_dispatch_step_record %fn &GuiHost fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentDispatchState fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentDispatchStep GuiRgba8888CompositorTileRlePresentDispatchStepError"),
+    "std/gui/compositor_tile_present_dispatch F5my public step must accept host, F5mw policy, dispatch state, and F5mu record",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentDispatchImpl, "gui_rgba8888_compositor_tile_rle_present_dispatch_post_phase_from_schedule"),
+    [
+        "GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue:",
+        "GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Continue",
+        "GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield:",
+        "GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Yield",
+        "GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed:",
+        "GuiRgba8888CompositorTileRlePresentDispatchPostPhase::Completed",
+    ],
+    "std/gui/compositor_tile_present_dispatch F5my must map F5mw phase to dispatch post phase without dropping requests",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentDispatchImpl, "gui_rgba8888_compositor_tile_rle_present_dispatch_step_record"),
+    [
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_state_schedule &state",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_step_record policy schedule_state record",
+        "Result::Err lower_error:",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_step_error_kind &lower_error",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category_value &lower_error",
+        "GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind::ScheduleFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_error kind lower_category state",
+        "Result::Ok schedule_step:",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_step_phase &schedule_step",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_post_phase_from_schedule schedule_phase",
+        "gui_rgba8888_compositor_tile_rle_present_host_import_request host record",
+        "Result::Err host_error:",
+        "GuiRgba8888CompositorTileRlePresentDispatchStepErrorKind::HostImportRequestFailed host_error",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_step_error kind Option::Some host_error state",
+        "Result::Ok request:",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_step_state &schedule_step",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_state_new next_schedule",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_ready_request_new request post_phase",
+        "GuiRgba8888CompositorTileRlePresentDispatchOutput::RequestReady ready",
+    ],
+    "std/gui/compositor_tile_present_dispatch F5my must run F5mw before F5mx, preserve previous state on both errors, and preserve request plus post phase on success",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiCompositorTilePresentDispatchImpl, "gui_rgba8888_compositor_tile_rle_present_dispatch_state_resume_slice"),
+    [
+        "let schedule %GuiRgba8888CompositorTileRlePresentScheduleState",
+        "gui_rgba8888_compositor_tile_rle_present_schedule_state_resume_slice schedule",
+        "gui_rgba8888_compositor_tile_rle_present_dispatch_state_new resumed",
+    ],
+    "std/gui/compositor_tile_present_dispatch F5my resume must delegate to F5mw schedule resume",
+);
+assertNoMatch(
+    stdGuiCompositorTilePresentDispatchImpl,
+    /[()]/,
+    "std/gui/compositor_tile_present_dispatch F5my implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_facade_ok") &&
+        guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_state_wraps_f5mw_ok") &&
+        guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_ready_request_post_phase_ok") &&
+        guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_f5mw_before_f5mx_ok") &&
+        guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_preserves_request_and_post_phase_ok") &&
+        guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_error_preserves_previous_state_ok") &&
+        guiStdCompositorTilePresentDispatchTests.includes("std_compositor_tile_rle_present_dispatch_no_f5mv_no_lower_raw_no_platform_no_fallback"),
+    "F5my std compositor tile present dispatch focused doctest must cover dispatch source-policy labels",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
