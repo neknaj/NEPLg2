@@ -2873,7 +2873,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_bui
 - actual Resource IR proof producer が `PrivateState` / `PrivateCache` の fresh region / non-escape proof table を発行し、public impl materializer / candidate builder へ渡す。
 - scanner / upper orchestrator が actual proof source と同じ body module fingerprint を proof-aware public impl materializer へ渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
-- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- actual proof source から same-body neutral private-effect mask evidence を作り、backend readiness gate と artifact emission 前段の policy へ渡す上位 orchestration を追加する。
 
 ## 2026-06-21 selfhost public impl materializer / orchestrator private effect proof transport checkpoint
 
@@ -2891,7 +2891,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materi
 
 - actual Resource IR traversal が `PrivateState` / `PrivateCache` の fresh region / non-escape traversal summary table を発行し、private-effect Resource materializer / producer で proof table へ変換してから、scanner / upper orchestrator が同じ body module fingerprint と一緒に渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
-- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- actual proof source から same-body neutral private-effect mask evidence を作り、backend readiness gate と artifact emission 前段の policy へ渡す上位 orchestration を追加する。
 
 ## 2026-06-21 selfhost private effect Resource no-escape producer checkpoint
 
@@ -2947,7 +2947,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_res
 - actual Resource IR / HIR body walker が `PrivateState` / `PrivateCache` の typed walker event と fresh region witness を実 traversal から発行する。
 - upper orchestrator が collector / scanner / materializer / producer で作った proof table owner を、actual proof source と同じ body module fingerprint で proof-aware public impl materializer へ渡す。
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を投影する。
-- memo_call backend request-evidence proof と private effect mask を接続し、`RequestEvidenceProven` を backend / effect mask 完了と誤認しない上位 orchestration を追加する。
+- actual proof source から same-body neutral private-effect mask evidence を作り、backend readiness gate と artifact emission 前段の policy へ渡す上位 orchestration を追加する。
 
 ## 2026-06-22 selfhost private effect Resource traversal collector / graph input scanner checkpoint
 
@@ -3080,9 +3080,23 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 残件:
 
-- actual Resource IR / HIR lowering traversal と checker-layer private-effect no-escape proof producer から、同じ body identity を持つ mask evidence を upper orchestration へ渡す。
+- actual Resource IR / HIR lowering traversal と checker-layer private-effect no-escape proof producer から、同じ body identity を持つ neutral upstream mask evidence を upper orchestration へ渡す。
 - PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 - backend readiness summary を実 backend artifact emission の前段 policy hash / Resource summary hash invalidation と照合する。
+
+## 2026-06-22 selfhost memo_call backend upstream private-effect mask handoff checkpoint
+
+backend readiness gate の mask 側入力を、Resource proof record ではなく neutral upstream private-effect status / evidence として固定した。`UpstreamPrivateEffectProven` だけを `PrivateEffectMaskProven` へ写し、`Refuted` / `Missing` / `Unknown` は readiness gate の typed error として fail-closed に残す。evidence は `root_expr_id` と `body_module_fingerprint` だけを identity authority とし、request evidence 側の root / fingerprint と別に作ってから gate で照合する。
+
+この handoff は checker-layer `memo_trait_operation_private_effect_no_escape_gate` や `memo_trait_operation_private_effect_resource_no_escape_producer` を import / call しない。Resource proof table / record、request proof record、GraphInput、backend bytes、effect mask 実体、sealed backend representation、`.neplobj` / `.neplproof` artifact key は作らない。上位 orchestration が checker-layer proof table を読んで同じ body identity の neutral evidence を作るまでは、backend module は status / identity の照合だけを担当する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` で更新した。upstream status / evidence の private surface、Proven / Refuted / Missing / Unknown の wildcard なし mapping、identity mismatch / placeholder rejection、checker-layer proof producer / ResourceProof / RequestEvidenceProven / PrivateCacheNoEscapeProven / GraphInput / backend / effect / artifact 合成禁止を固定している。
+
+残件:
+
+- actual Resource IR / HIR lowering traversal 由来の checker-layer proof table から same-body neutral upstream mask evidence を作る upper orchestrator を追加する。
+- neutral upstream mask evidence を artifact emission 前段の policy hash / Resource summary hash invalidation / sealed backend representation と照合する。
+- PrivateCache / PrivateState effect mask 実体、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 

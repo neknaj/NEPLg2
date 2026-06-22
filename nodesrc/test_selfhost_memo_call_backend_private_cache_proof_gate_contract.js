@@ -127,8 +127,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     code,
-    /memo_trait_operation_private_effect_no_escape_gate/,
-    "backend private-cache proof gate must not call or import the checker-layer private effect no-escape gate",
+    /memo_trait_operation_private_effect_(?:no_escape_gate|resource_no_escape_producer)/,
+    "backend private-cache proof gate must not call or import checker-layer private effect proof producers",
 );
 assert.doesNotMatch(
     code,
@@ -173,6 +173,16 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheResourceProofStatus|SelfhostMemoCallBackendPrivateCacheResourceProofRecord|SelfhostMemoCallBackendPrivateCacheResourceProofTable)\b/m,
     "public functions must not expose private Resource proof status, record, or table types in their signatures",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffect(?:Status|Evidence)\b/,
+    "backend readiness upstream private-effect status and evidence must stay private to this backend module",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus|SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence)\b/m,
+    "public functions must not expose backend readiness upstream private-effect status or evidence types in their signatures",
 );
 assert.doesNotMatch(
     code,
@@ -581,6 +591,37 @@ assert.doesNotMatch(
     "backend readiness public stage0 summary must expose only counts and typed Result payloads, not private evidence, proof, graph, backend, or artifact payloads",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary"),
+    [
+        "upstream_mask_accepted_count %i32",
+        "upstream_mask_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "upstream_mask_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "upstream_mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "upstream_mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+        "upstream_mask_placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind",
+    ],
+    "backend readiness stage0 summary must include upstream private-effect mask conversion results as public counts/errors only",
+);
+assertOrdered(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus"),
+    [
+        "UpstreamPrivateEffectProven",
+        "UpstreamPrivateEffectRefuted",
+        "UpstreamPrivateEffectMissing",
+        "UpstreamPrivateEffectUnknown",
+    ],
+    "backend readiness upstream private-effect status must distinguish proven, refuted, missing, and unknown without importing checker proof types",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence"),
+    [
+        "root_expr_id %SelfhostHirExprId",
+        "body_module_fingerprint %i32",
+        "status %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus",
+    ],
+    "backend readiness upstream private-effect evidence must carry only body identity and neutral status",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result"),
     [
         "Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind",
@@ -598,6 +639,28 @@ assertOrdered(
         "RequestEvidenceRejected",
     ],
     "backend readiness request side must consume the proof-gate Result, classify Err/empty/incomplete/inconsistent counts, and attach identity only to the ready status",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_status"),
+    [
+        "UpstreamPrivateEffectProven:",
+        "PrivateEffectMaskProven",
+        "UpstreamPrivateEffectRefuted:",
+        "PrivateEffectMaskRefuted",
+        "UpstreamPrivateEffectMissing:",
+        "PrivateEffectMaskMissing",
+        "UpstreamPrivateEffectUnknown:",
+        "PrivateEffectMaskUnknown",
+    ],
+    "upstream private-effect status must map to private-effect mask status without treating missing/unknown as success",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence"),
+    [
+        "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_status evidence.status",
+        "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_mask_result evidence.root_expr_id evidence.body_module_fingerprint mask_status",
+    ],
+    "upstream private-effect evidence conversion must carry evidence root/fingerprint into identity-bearing mask evidence",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_identity_matches"),
@@ -660,6 +723,26 @@ assertOrdered(
     "backend readiness wrapper must classify proof-gate Result and create identity-bearing mask status before calling the readiness gate",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence"),
+    [
+        "selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result root_expr_id body_module_fingerprint gate_result",
+        "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence upstream_evidence",
+        "selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_status_result request_status mask_ready_status",
+    ],
+    "upstream private-effect readiness wrapper must keep request identity and mask evidence identity separate until the readiness gate checks them",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence"),
+    [
+        "selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence root_expr_id body_module_fingerprint gate_result upstream_evidence",
+        "Result::Ok summary:",
+        "Result::Ok summary.request_count",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "upstream private-effect readiness count helper must only project accepted readiness summaries and preserve typed errors",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_backend_readiness_stage0"),
     [
         "accepted_gate_result",
@@ -682,8 +765,26 @@ assertOrdered(
         "mismatched_mask_evidence",
         "SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence root 78 SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven",
         "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result accepted_request_evidence mismatched_mask_evidence",
+        "upstream_accepted_evidence",
+        "UpstreamPrivateEffectProven",
+        "upstream_refuted_evidence",
+        "UpstreamPrivateEffectRefuted",
+        "upstream_missing_evidence",
+        "UpstreamPrivateEffectMissing",
+        "upstream_unknown_evidence",
+        "UpstreamPrivateEffectUnknown",
+        "upstream_mismatch_evidence",
+        "root 78",
+        "upstream_placeholder_evidence",
+        "root 0",
+        "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_accepted_evidence",
+        "upstream_mask_refuted_rejected",
+        "upstream_mask_missing_rejected",
+        "upstream_mask_unknown_rejected",
+        "upstream_mask_identity_mismatch_rejected",
+        "upstream_mask_placeholder_rejected",
     ],
-    "backend readiness stage0 must cover accepted, request rejected, empty, partial, inconsistent, missing/unknown/refuted mask, and identity mismatch paths",
+    "backend readiness stage0 must cover accepted, request rejected, empty, partial, inconsistent, direct mask failures, and upstream private-effect mask failures",
 );
 const readinessImplementation = [
     "selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result",
@@ -693,12 +794,23 @@ const readinessImplementation = [
     "selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result",
     "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result",
     "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result",
-    "selfhost_memo_call_backend_private_cache_backend_readiness_stage0",
 ].map((name) => stripDocComments(topLevelBlock(source, "fn", name))).join("\n");
 assert.doesNotMatch(
     readinessImplementation,
-    /memo_trait_operation_private_effect_no_escape_gate|ResourceProof|GraphInput|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    /memo_trait_operation_private_effect_(?:no_escape_gate|resource_no_escape_producer)|ResourceProof|GraphInput|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "backend readiness implementation must not call checker private-effect gates, synthesize proof records, GraphInput, backend bytes, effect masks, or artifact keys",
+);
+const upstreamMaskReadinessImplementation = [
+    "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_status",
+    "selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence",
+    "selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence",
+    "selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence",
+    "selfhost_memo_call_backend_private_cache_backend_readiness_stage0",
+].map((name) => stripDocComments(topLevelBlock(source, "fn", name))).join("\n");
+assert.doesNotMatch(
+    upstreamMaskReadinessImplementation,
+    /memo_trait_operation_private_effect_(?:no_escape_gate|resource_no_escape_producer)|ResourceProof|GraphInput|resource_graph_input_push|proof_table_push|RequestEvidenceProven|PrivateCacheNoEscapeProven|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "upstream private-effect readiness conversion must not call checker gates, read Resource proof records, push proof tables, build GraphInput, backend bytes, effect masks, or artifact keys",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceProofStatus"),
