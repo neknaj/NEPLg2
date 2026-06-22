@@ -88,13 +88,14 @@ assert.ok(
         source.includes("Operation-classified traversal bundle stage0") &&
         source.includes("Context-bound reader traversal bundle stage0") &&
         source.includes("Context-bound coverage witness bundle stage0") &&
+        source.includes("Actual no-escape coverage authority stage0") &&
         source.includes("Backend readiness stage0") &&
         source.includes("Private-effect readiness handoff API") &&
         source.includes("Actual traversal private-effect readiness projection stage0") &&
         source.includes("Actual traversal private-effect coverage handoff API") &&
         source.includes("public accepted path を追加せず") &&
         source.includes("stable artifact sidecar index"),
-    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, request-evidence bridge, backend readiness stage, and actual traversal private-effect readiness projection are present, no public accepted path is added, and index optimization is later contract-preserving work",
+    "docs must state that caller proof tables are not direct authority, success is not executable backend output, table writes are private in phase 1, Resource observation uses the private writer, walker input scanner only normalizes typed events, observation-ban stage0, unified stream normalizer, HIR-root unified event producer bridge, operation classifier, traversal source, operation producer bridge, region proof, no-escape candidate checker, fresh witness bridge, request-evidence bridge, actual no-escape coverage authority, backend readiness stage, and actual traversal private-effect readiness projection are present, no public accepted path is added, and index optimization is later contract-preserving work",
 );
 assert.doesNotMatch(
     source,
@@ -381,6 +382,175 @@ assertOrdered(
         "summary.graph_mismatch_rejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceGraphIdentityMismatch",
     ],
     "coverage producer stage0 must prove production reader-context absence, pre-witness private effect mapping, mixed escape priority, and all authority mismatch runtime cases",
+);
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind"),
+    [
+        "CoverageRejected",
+        "WitnessMissing",
+        "WitnessRejected",
+        "WitnessUnavailable",
+        "WitnessUnsupportedSource",
+        "WitnessEscapingSource",
+        "WitnessAuthorityMismatch",
+        "WitnessInternalRejected",
+    ],
+    "no-escape coverage error must distinguish coverage authority rejection from compact witness/source rejection classes",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind"),
+    /SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind/,
+    "no-escape coverage public error must not carry the internal region proof error enum as payload",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageStage0Summary"),
+    [
+        "accepted_no_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+        "missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+        "rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+        "unsupported_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+        "escaping_source_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+        "fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+        "graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind",
+    ],
+    "no-escape coverage summary must expose only pair code and typed rejection payloads",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle\b/,
+    "actual traversal-owned fresh witness authority bundle must stay backend-private",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*(?:SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle|SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable|SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable|SelfhostMemoCallBackendPrivateCacheRegionNoEscapeCandidateRecord|SelfhostMemoCallBackendPrivateCacheResourceProofTable|SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority|SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair)\b/m,
+    "public functions must not expose no-escape coverage authority bundle, source table, witness table, candidate, proof table, coverage authority, or handoff pair types",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle\b/,
+    "actual traversal-owned fresh witness authority bundle must not implement Clone or Copy",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle"),
+    [
+        "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
+        "witnesses %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable",
+    ],
+    "actual traversal-owned fresh witness authority bundle must own exactly source and witness tables",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_bundle_source_derived_witness_result")),
+    /FreshWitnessAuthorityBundle|fresh_witness_authority_bundle|no_escape_coverage/i,
+    "source-derived witness helper must not create or feed the no-escape coverage authority wrapper",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_context_bound_reader_coverage_witness_bundle_from_sources_result")),
+    /FreshWitnessAuthorityBundle|fresh_witness_authority_bundle|no_escape_coverage/i,
+    "context-bound source-derived coverage/witness helper must not feed the no-escape coverage authority wrapper",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_candidate_validate_result"),
+    [
+        "candidate.key.body_module_fingerprint",
+        "authority.body_module_fingerprint",
+        "candidate.key.root_expr_id",
+        "authority.request_root_expr_id",
+        "candidate.graph_id.index",
+        "authority.graph_id.index",
+    ],
+    "no-escape coverage candidate validation must directly bind candidate root, fingerprint, and graph to the complete authority at the emission boundary",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_pair_from_base"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffStatus::EffectObservedNoEscape",
+        "base_pair.state_handoff.status",
+    ],
+    "no-escape coverage pair construction must update only PrivateCache slot and preserve base PrivateState status",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result"),
+    [
+        'let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get bundle "sources"',
+        'let witnesses %SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessTable field::get bundle "witnesses"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_from_sources_result authority &sources",
+        "Result::Ok base_pair:",
+        "selfhost_memo_call_backend_private_cache_region_proof_table_from_sources_result &sources",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_region_no_escape_candidate_from_table_result &table",
+        "selfhost_memo_call_backend_private_cache_region_proof_table_free table",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_candidate_validate_result authority candidate",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_resource_table_result candidate &witnesses",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+        "selfhost_memo_call_backend_private_cache_resource_proof_table_free resource_proofs",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_pair_from_base authority base_pair",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "selfhost_memo_call_backend_private_cache_region_fresh_witness_table_free witnesses",
+        "CoverageRejected e",
+    ],
+    "no-escape coverage authority helper must compute base coverage first, reuse the same source owner for region proof, validate candidate authority, consume fresh witness, free Resource proof table, and clean up owners on coverage rejection",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result")),
+    /actual_traversal_bundle_source_derived_witness_result|context_bound_reader_traversal_bundle_from_context_result|actual_traversal_bundle_request_evidence_gate_result|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "no-escape coverage authority helper must not consume source-derived bundles or synthesize request evidence, GraphInput, effect mask, backend bytes, or artifact keys",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result")),
+    /region_fresh_witness_stage0_table_result|region_fresh_witness_table_from_candidate_result/,
+    "no-escape coverage authority helper must not generate or regenerate witness tables",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error"),
+    [
+        "RegionFreshWitnessMissing",
+        "WitnessMissing",
+        "RegionFreshWitnessRejected",
+        "WitnessRejected",
+        "RegionProofUnsupported",
+        "WitnessUnsupportedSource",
+        "RegionProofMayEscape",
+        "WitnessEscapingSource",
+        "RegionFreshWitnessKeyMismatch",
+        "WitnessAuthorityMismatch",
+        "WitnessInternalRejected",
+    ],
+    "no-escape coverage helper must normalize internal region proof errors into compact public error classes",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_summary_eq"),
+    [
+        "summary.accepted_no_escape_pair_code 13",
+        "summary.missing_witness_rejected missing_expected",
+        "summary.rejected_witness_rejected rejected_expected",
+        "summary.unsupported_source_rejected unsupported_expected",
+        "summary.escaping_source_rejected escape_expected",
+        "summary.fingerprint_mismatch_rejected fingerprint_expected",
+        "summary.graph_mismatch_rejected graph_expected",
+    ],
+    "no-escape coverage stage0 must prove accepted cache no-escape code, witness rejection, unsupported/escape rejection, and authority mismatch cases",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_stage0_authority 77 0",
+        "accepted_no_escape_pair_code",
+        "PrivateCacheRegionFreshWitnessCandidateAccepted",
+        "missing_witness_rejected",
+        "PrivateCacheRegionFreshWitnessMissing",
+        "rejected_witness_rejected",
+        "PrivateCacheRegionFreshWitnessRejected",
+        "unsupported_source_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_unsupported_authority_bundle_result 77",
+        "escaping_source_rejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_escape_authority_bundle_result 77",
+        "fingerprint_authority",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_stage0_authority 78 0",
+        "graph_authority",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_stage0_authority 77 1",
+    ],
+    "no-escape coverage stage0 must cover accepted, missing/rejected witness, unsupported/escaping source, and fingerprint/graph authority mismatch",
 );
 assert.doesNotMatch(
     code,

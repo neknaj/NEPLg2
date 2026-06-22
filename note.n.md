@@ -80866,3 +80866,33 @@ MERGE_APPROVED
 - pass with LF/CRLF warnings only: `git diff --check`
 - pass: `node nodesrc/run_source_policy_regressions.js`
 - Hubble の implementation review は blocker / non-blocking ともになし。coverage failure の source owner cleanup、witness / request-evidence 側 cleanup 委譲、coverage-before-witness、resolver-bound same-context authority、combined owner / gate summary / private handoff pair / traversal bundle / source table / witness table / request context / resolution table の public API 非露出、forbidden proof / backend / artifact 非生成、docs / todo / note の整合を確認した。
+
+## 2026-06-22 selfhost actual no-escape coverage authority checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、actual traversal-owned fresh witness authority bundle と coverage complete authority から PrivateCache slot だけを `EffectObservedNoEscape` に昇格する backend-private boundary を追加した。
+- `ActualTraversalBundle` は source-derived witness helper でも作れるため、no-escape coverage の入力には使わない。新しい module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle` を追加し、source-derived witness helper / context-bound source-derived bundle からこの wrapper へ入る経路を source policy で禁止した。
+- 発行 helper は `coverage_handoff_pair_from_sources_result authority &sources` を最初に呼び、同じ source owner から region proof table、candidate、fresh witness Resource proof table の順に進む。coverage failure でも source / witness owner を両方閉じる。region proof table と成功時 Resource proof table も必ず閉じる。
+- candidate の root expr id / body module fingerprint / graph id は発行直前に complete authority と直接照合する。
+- `EffectObservedNoEscape` は PrivateCache slot だけに入れ、PrivateState slot は base pair の `state_handoff.status` を保持する。PrivateState no-escape proof domain はまだ未接続である。
+- public no-escape coverage error は internal region proof error enum をそのまま payload にせず、`WitnessMissing` / `WitnessRejected` / `WitnessUnavailable` / `WitnessUnsupportedSource` / `WitnessEscapingSource` / `WitnessAuthorityMismatch` / `WitnessInternalRejected` へ正規化した。これは public boundary を小さく保ち、selfhost compiler の巨大 nested Result payload 化を避けるためでもある。
+- helper は request-evidence gate、request proof table、GraphInput、checker proof table、effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key を作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、wrapper public exposure 禁止、Clone / Copy 禁止、source-derived helper から wrapper への接続禁止、coverage-first order、same-source region proof、candidate direct authority check、witness table 非再生成、lower proof / backend / artifact 非生成、stage0 summary の `13` / rejection taxonomy を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、no-escape coverage authority 接続後の残件を full Resource IR traversal が actual traversal-owned fresh witness authority bundle を production で返す接続、effect mask 実体、sealed representation、artifact stable key projectionへ更新した。plan.md との差異はない。
+- Kant の design review は `PLAN_CHANGES_REQUESTED`。`ActualTraversalBundle` 直接入力だと source-derived witness から `EffectObservedNoEscape` を発行できる余地があるため、actual traversal-owned wrapper にすること、source-derived bundle からの経路を禁止すること、candidate root/fingerprint/graph を発行直前に直接検査すること、coverage failure でも source / witness owner を閉じることを指摘した。実装はこの指摘に従って修正した。
+- 新しい stage0 を module-level doctest に追加すると selfhost doctest harness が `RangeError: Maximum call stack size exceeded` になった。compact error enum 化後も直接参照では再現したため、doctest 追加は取り下げた。既存 module doctest は 18/18 pass のまま維持し、stage0 直接参照の selfhost stack 問題は focused selfhost test / harness 分割の後続残件として扱う。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-noescape-coverage-authority-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-noescape-coverage-authority-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_noescape_coverage_authority.json`
+- checked JSON: `output/playground_editor_selfhost_noescape_coverage_authority.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- first `node nodesrc/run_source_policy_regressions.js` timed out at 15 min; rerun with 30 min timeout passed.
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- Noether の implementation review は `PLAN_APPROVED`。source-derived helper から wrapper へ入れないこと、coverage-first / same-source reuse / cleanup、candidate authority direct check、PrivateCache-only no-escape、public API 非露出、lower proof / backend / artifact 非生成、docs / todo / note の整合を確認した。
