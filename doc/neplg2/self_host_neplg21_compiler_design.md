@@ -3375,6 +3375,16 @@ GraphInput、Resource proof table push、request-evidence gate、PrivateCache / 
 
 GraphInput、Resource proof table push、request-evidence gate、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、real full Resource IR / HIR lowering traversal producer をこの output origin へ接続し、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、artifact stable key projectionへ進めることである。
 
+## 2026-06-23 selfhost resource-lowering source output producer boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ResourceLoweringTraversalProduced` origin を生成する module-private production helper を追加した。direct HIR reader source output は引き続き `HirReaderSourceDerived` のまま production gate で拒否し、production origin は resolver-bound body root から作った HIR reader source owner を operation projection、context-owned unified event、event split、collector-owned source table の順に通した場合だけ付与する。
+
+新しい helper は resolver lookup を request-context helper で 1 回だけ行い、その body root から coverage authority と reader source owner を作る。reader source owner は `actual_traversal_body_reader_output_from_context_sources_result` が消費し、split output は `actual_traversal_body_adapter_sources_from_request_context_output_result` が collector-owned source table へ変換してから output envelope に入る。これにより、source-derived output helper、request-evidence bundle、`ActualTraversalBundle`、直接 GraphInput / proof table 合成を competing authority として使わない。
+
+stage0 summary は source-derived output の count / pair smoke と production rejectionに加え、resource-lowering origin output の source count と production gate rejectionを公開する。neutral body は `ResourceLoweringTraversalProduced` origin の source output までは到達するが、production gate では `ResourceLoweringNoEscapeAuthorityNotConnected` として source owner を閉じて拒否する。`PrivateCacheEffectOperation` は source vocabulary として届いても no-escape proof には昇格せず、resource-lowering path でも source count の代表値としてだけ観測する。
+
+この checkpoint は actual full Resource IR traversal 完了ではない。現時点の入力は resolver-bound HIR reader source plan であり、fresh witness / no-escape authority、full Resource IR graph walker 本体、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。残件は、actual Resource IR graph walker が source / fresh-witness / coverage を実発行する boundary、production no-escape authority、effect mask / sealed backend / artifact projection の接続である。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

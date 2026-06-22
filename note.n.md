@@ -81568,3 +81568,39 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mz.json`
 - checked JSON: `tmp-playground-editor-tests-f5mz.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 selfhost resource-lowering source output producer boundary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、`ResourceLoweringTraversalProduced` origin の source output を作る module-private production helper を追加した。
+- direct HIR reader source output は `HirReaderSourceDerived` のまま production gate で拒否する。production origin は resolver-bound body root から作った reader source owner を operation projection、context-owned unified event、event split、collector-owned source table の順に通した場合だけ付与する。
+- `actual_traversal_resource_lowering_source_output_from_request_context_result` は resolver lookup を 1 回だけ行い、body-root helper へ渡す。body-root helper は同じ body root から coverage authority を作り、collector-owned source owner を output envelope に入れる。
+- stage0 summary は source-derived rejection に加え、resource-lowering origin の source count と production gate rejectionを公開する。neutral body は `ResourceLoweringTraversalProduced` origin の source output までは到達するが、production gate では `ResourceLoweringNoEscapeAuthorityNotConnected` として source owner を閉じて拒否する。PrivateCache effect body は no-escape に進めず、source count の代表値としてだけ観測する。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、`ResourceLoweringTraversalProduced` の生成箇所、production helper の source -> output -> collector 順序、resolver lookup exactly once、source-derived helper / request-evidence / GraphInput / proof table / effect mask / backend / artifact 非進出を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。今回の checkpoint は actual full Resource IR traversal 完了ではなく、collector-owned source output を production origin として作る boundary であり、no-escape authority は未接続として fail-closed に止める。次は actual Resource IR graph walker 本体、production no-escape authority、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionへ進む。plan.md との差異はない。
+- Nietzsche の read-only review は、direct HIR source を re-tag しない方針は妥当だが、`ResourceLoweringTraversalProduced` は source -> operation -> unified event -> split -> collector を通った stage0 origin としてだけ扱い、actual full Resource IR traversal 完了と表現しないこと、PrivateCache / PrivateState effect を no-escape / mask proven に昇格しないことを確認した。James の implementation review は、production gate が no-escape pair code へ進むと region proof / fresh witness 側まで進みすぎると指摘した。実装と doc はこの指摘に従い、ResourceLowering origin でも no-escape authority 未接続として拒否する。James の再レビューでは blocker は残っていないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-lowering-output-boundary-doctest.json`。18/18。
+- pass after James review fix: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after James review fix: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass after James review fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-lowering-output-boundary-doctest-after-review.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resource-lowering-output-boundary-doctest-after-review.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_output_boundary_after_review.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_lowering_output_boundary_after_review.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- main merge 後再検証 pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- main merge 後再検証 pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- main merge 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-resource-lowering-output-boundary-merge-doctest.json`。18/18。
+- main merge 後再検証 pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-resource-lowering-output-boundary-merge-doctest.json`。18 passed / 0 failed。
+- main merge 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- main merge 後再検証 pass: `node nodesrc/issues.js check --dir issues`
+- main merge 後再検証 pass with LF/CRLF warnings only: `git diff --check`
+- main merge 後再検証 pass: `trunk build`
+- main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_lowering_output_boundary_merge.json`
+- checked JSON: `tmp/playground_editor_selfhost_resource_lowering_output_boundary_merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
