@@ -46,6 +46,7 @@
 //: - Operation-classified traversal bundle stage0 は、module-private operation descriptor を HIR-root request authority と classifier で unified event stream へ写し、split / collector を通して traversal source bundle へ接続します。これは actual Resource IR body traversal ではなく、将来 actual traversal が operation table または unified event stream を返す場合の owner lifecycle と fail-closed taxonomy を固定する smoke です。
 //: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
 //: - Backend readiness stage0 は、request-evidence gate の `Result` と、同じ body identity を持つ private-effect mask evidence を module-private に照合します。これは effect mask 実体や backend artifact ではなく、`RequestEvidenceProven` だけを backend 完了として扱わないための non-executable boundary です。
+//: - Upstream private-effect mask stage0 は、checker-layer proof producer を直接呼ばず、上位 orchestration が渡すべき neutral private-effect status / evidence を private-effect mask evidence へ写します。evidence の root / body fingerprint を保持して readiness gate へ渡すため、request gate result と別 body の mask evidence は accepted になりません。
 //:
 //: [計算量/けいさんりょう]:
 //: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
@@ -71,6 +72,7 @@
 //: - producer-owned unavailable traversal bundle stage0 は HIR root からの request 再収集 O(n)、unavailable source table 生成 O(n)、source / witness gate O(s + w)、既存 request-evidence 再照合 O(n + p) に従います。ここで固定するのは production authority と owner cleanup であり、actual Resource IR traversal の探索範囲や accepted source 生成の計算量ではありません。
 //: - operation-classified traversal bundle stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w` に対して O(o + a + g + s + w + n + p) です。operation table は module-private stage0 descriptor であり、actual Resource IR body traversal の探索範囲ではありません。
 //: - backend readiness gate は owner を持たない request evidence と mask evidence の identity / status を O(1) で照合します。actual PrivateCache / PrivateState effect fold や mask policy の計算量は後続 stage の責務です。
+//: - upstream private-effect mask conversion は neutral evidence 1 件の status / identity を O(1) で写すだけです。checker-layer proof table scan、actual private-effect proof production、effect mask policy fold はこの conversion では行いません。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -1205,6 +1207,30 @@ enum SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus:
     MaskEvidenceReady %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence
     MaskEvidenceBodyModuleFingerprintPlaceholder
 
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus: upstream private-effect proof の neutral status
+//:
+//: [目的/もくてき]:
+//: - checker-layer proof producer や Resource proof table を backend module に import せず、upper orchestration が backend readiness に渡すべき mask proof の結果だけを表します。
+//:
+//: [契約/けいやく]:
+//: - `UpstreamPrivateEffectProven` だけが mask accepted へ写ります。
+//: - Refuted / Missing / Unknown は readiness gate で fail-closed にします。Missing / Unknown を producer error に潰すと backend readiness 側で不足を分類できなくなるため、この neutral status として保持します。
+enum SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus:
+    UpstreamPrivateEffectProven
+    UpstreamPrivateEffectRefuted
+    UpstreamPrivateEffectMissing
+    UpstreamPrivateEffectUnknown
+
+//: SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence: upper orchestration が渡す private-effect mask proof evidence
+//:
+//: [契約/けいやく]:
+//: - root / body fingerprint は mask proof が対象にした body identity です。request evidence 側 identity とは readiness gate で別途照合します。
+//: - checker-layer proof table、Resource proof record、effect mask 実体、backend artifact は保持しません。
+struct SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence:
+    root_expr_id %SelfhostHirExprId
+    body_module_fingerprint %i32
+    status %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus
+
 //: SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -1306,6 +1332,12 @@ pub struct SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary:
     mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
     mask_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
     mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    upstream_mask_accepted_count %i32
+    upstream_mask_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    upstream_mask_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    upstream_mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    upstream_mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+    upstream_mask_placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer の失敗分類
 //:
@@ -7533,6 +7565,34 @@ fn selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_m
         else:
             SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus::MaskEvidenceReady SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence root_expr_id body_module_fingerprint status
 
+//: selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_status: upstream private-effect status を readiness mask status へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - request-evidence proof record への変換とは別に、upper orchestration が渡した private-effect proof status を readiness 用 mask status へ写します。
+//:
+//: [契約/けいやく]:
+//: - `UpstreamPrivateEffectProven` だけを `PrivateEffectMaskProven` にします。
+//: - Missing / Unknown は producer error へ潰さず readiness mask status として保持し、readiness gate で fail-closed にします。
+fn selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_status %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus \status:
+    match status:
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskRefuted
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskMissing
+        SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskUnknown
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence: upstream private-effect evidence を identity-bearing mask evidence へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - evidence の root / body fingerprint を mask evidence 側 identity として使います。request evidence 側 identity は caller の HIR root / body fingerprint から別に作り、後段 gate で照合します。
+//: - この conversion は checker-layer gate、Resource proof table、request-evidence proof table、GraphInput、backend bytes、effect mask 実体、artifact key を作りません。
+fn selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus \evidence:
+    let mask_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_status evidence.status
+    selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_mask_result evidence.root_expr_id evidence.body_module_fingerprint mask_status
+
 //: selfhost_memo_call_backend_private_cache_backend_readiness_identity_matches: request evidence と mask evidence が同じ body を[指/さ]すか[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_backend_readiness_identity_matches %fn &SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence fn &SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence bool \request\mask:
     and:
@@ -7589,6 +7649,19 @@ fn selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_
     let mask_ready_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_mask_result root_expr_id body_module_fingerprint mask_status
     selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_status_result request_status mask_ready_status
 
+//: selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence: request gate result と upstream private-effect evidence から readiness summary を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - request occurrence evidence と upstream private-effect mask evidence を、同じ body identity で揃った場合だけ readiness summary へ進めます。
+//:
+//: [契約/けいやく]:
+//: - request evidence 側 identity は caller が渡した HIR root / body fingerprint から作ります。
+//: - mask evidence 側 identity は upstream evidence から作ります。両者が一致しない場合は `PrivateEffectMaskIdentityMismatch` で拒否します。
+fn selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence Result SelfhostMemoCallBackendPrivateCacheBackendReadinessSummary SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\gate_result\upstream_evidence:
+    let request_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidenceStatus selfhost_memo_call_backend_private_cache_backend_readiness_request_status_from_gate_result root_expr_id body_module_fingerprint gate_result
+    let mask_ready_status %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidenceStatus selfhost_memo_call_backend_private_cache_backend_readiness_mask_status_from_upstream_private_effect_evidence upstream_evidence
+    selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_status_result request_status mask_ready_status
+
 //: selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result: stage0 用に readiness summary を i32 result へ[写/うつ]す
 fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \request\mask:
     match selfhost_memo_call_backend_private_cache_backend_readiness_gate_result request mask:
@@ -7600,6 +7673,14 @@ fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidenc
 //: selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result: gate result と mask status から代表 count を[返/かえ]す
 fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\gate_result\mask_status:
     match selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result root_expr_id body_module_fingerprint gate_result mask_status:
+        Result::Ok summary:
+            Result::Ok summary.request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence: upstream private-effect readiness summary を count result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\gate_result\upstream_evidence:
+    match selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence root_expr_id body_module_fingerprint gate_result upstream_evidence:
         Result::Ok summary:
             Result::Ok summary.request_count
         Result::Err e:
@@ -7666,7 +7747,24 @@ pub fn selfhost_memo_call_backend_private_cache_backend_readiness_stage0 %fn voi
             let accepted_request_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessRequestEvidence root 77 1 1
             let mismatched_mask_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskEvidence root 78 SelfhostMemoCallBackendPrivateCacheBackendReadinessMaskStatus::PrivateEffectMaskProven
             let mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_evidence_result accepted_request_evidence mismatched_mask_evidence
-            Result::Ok SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary accepted.request_count accepted.proven_request_count request_evidence_rejected empty_request_rejected partial_request_rejected inconsistent_request_rejected mask_missing_rejected mask_unknown_rejected mask_refuted_rejected mask_identity_mismatch_rejected
+            let upstream_accepted_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 77 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven
+            let upstream_refuted_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 77 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+            let upstream_missing_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 77 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+            let upstream_unknown_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 77 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+            let upstream_mismatch_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 78 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven
+            let upstream_placeholder_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence root 0 SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven
+            let upstream_accepted_count_result %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_accepted_evidence
+            let upstream_mask_accepted_count %i32 match upstream_accepted_count_result:
+                Result::Ok count:
+                    count
+                Result::Err _e:
+                    0
+            let upstream_mask_refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_refuted_evidence
+            let upstream_mask_missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_missing_evidence
+            let upstream_mask_unknown_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_unknown_evidence
+            let upstream_mask_identity_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_mismatch_evidence
+            let upstream_mask_placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root 77 accepted_gate_result upstream_placeholder_evidence
+            Result::Ok SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary accepted.request_count accepted.proven_request_count request_evidence_rejected empty_request_rejected partial_request_rejected inconsistent_request_rejected mask_missing_rejected mask_unknown_rejected mask_refuted_rejected mask_identity_mismatch_rejected upstream_mask_accepted_count upstream_mask_refuted_rejected upstream_mask_missing_rejected upstream_mask_unknown_rejected upstream_mask_identity_mismatch_rejected upstream_mask_placeholder_rejected
         Result::Err e:
             Result::Err e
 

@@ -80320,3 +80320,29 @@ MERGE_APPROVED
 - post-merge pass with LF/CRLF warning only: `git diff --check`
 - post-merge pass: `trunk build`
 - post-merge pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_memo_event_producer_convergence_merged.json`。JSON は `caseCount=13`, `passedCount=13`, `failedCount=0` を確認した。
+
+## 2026-06-22 selfhost memo_call backend upstream private-effect mask handoff checkpoint
+
+- backend readiness gate の mask 側入力を、Resource proof record 由来ではなく neutral upstream private-effect status / evidence 由来に差し替えた。
+- `SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus` と `SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence` は module-private のままにし、`root_expr_id` と `body_module_fingerprint` と status だけを保持する。
+- `UpstreamPrivateEffectProven` だけを `PrivateEffectMaskProven` に写し、`UpstreamPrivateEffectRefuted` / `Missing` / `Unknown` は readiness gate の typed error として fail-closed に残す。placeholder fingerprint と identity mismatch も accepted へ進めない。
+- `selfhost_memo_call_backend_private_cache_backend_readiness_summary_from_gate_result_and_upstream_private_effect_evidence` は request-evidence gate `Result` から作る request identity と、upstream evidence から作る mask identity を別々に作ってから既存 readiness gate で照合する。
+- この checkpoint は checker-layer `memo_trait_operation_private_effect_no_escape_gate` / `memo_trait_operation_private_effect_resource_no_escape_producer` を呼ばず、Resource proof table / record、request proof record、GraphInput、effect mask 実体、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact key を作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は upstream evidence の private surface、status mapping、same-body / placeholder rejection、stage0 coverage、checker / ResourceProof / RequestEvidenceProven / PrivateCacheNoEscapeProven / GraphInput / backend / effect / artifact 合成禁止を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、残件を「readiness gate の追加」ではなく「実 proof table から same-body neutral upstream mask evidence を作る upper orchestration」へ更新した。plan.md との差異はない。
+- Turing の初回 design review は `CHANGES_REQUESTED`。ResourceProofRecord を backend readiness mask authority にするのは、request-evidence Resource proof と private-effect mask authority を近づけすぎるため、neutral upstream private-effect proof status/evidence へ置き換えるべきという指摘だった。
+- 指摘対応後の Turing implementation review は `REVIEW_APPROVED`。checker-layer gate / resource no-escape producer / ResourceProofRecord / GraphInput / artifact を authority にしていないこと、neutral evidence が root / body fingerprint を保持し fail-closed に分類すること、source policy と docs/todo の残件更新に blocker がないことを確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-memo-call-backend-upstream-readiness-mask.json`。17/17。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-memo-call-backend-upstream-readiness-mask.json`。17 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js` は 600 秒でも完了しなかった。今回触った focused source policy contract は上記の通り通過済み。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o html=output/playground_editor_selfhost_upstream_mask_handoff_html -o json=output/playground_editor_selfhost_upstream_mask_handoff.json`
+- checked JSON: `caseCount=13`, `passedCount=13`, `failedCount=0`
