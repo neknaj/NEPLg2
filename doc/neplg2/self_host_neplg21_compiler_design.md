@@ -3150,6 +3150,22 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - checker-layer slot coverage producer / Resource no-escape producer / mask evidence producer から same-body neutral upstream evidence を作り、backend readiness gate へ渡す upper orchestration を追加する。
 - Resource summary hash invalidation、artifact policy hash、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost private-effect backend readiness handoff orchestration checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に backend public handoff status / evidence と public handoff count helper を追加し、checker-layer から root / body fingerprint / status だけを渡す境界を固定した。backend module は checker-layer module を import せず、public handoff evidence を module-private upstream private-effect evidence へ写してから existing backend readiness gate に接続する。module-private upstream status / evidence は public API に出さない。
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_backend_readiness_orchestrator.nepl` は facade-private の checker-layer orchestrator である。`memo_trait_operation_private_effect_mask_evidence` の `Result` を読み、mask success の場合だけ backend public handoff evidence へ変換して readiness count helper に渡す。mask `Err` は `MaskEvidenceRejected` として backend readiness error と分け、`Refuted` / `Missing` / `Unknown` は `Proven` に丸めず fail-closed のまま保持する。
+
+request 側の body root / body module fingerprint と mask evidence 側の body root / body module fingerprint は orchestrator 入力では別値として扱い、backend readiness gate で同一 body identity と placeholder fingerprint を検査する。identity mismatch、placeholder、mask error は accepted count にならない。production helper は mask evidence を自作せず、slot count を再解釈せず、GraphInput、Resource proof table、direct proof construction、backend bytes、effect mask 実体、sealed representation、`.neplobj` / `.neplproof` artifact key を作らない。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` と `nodesrc/test_selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_contract.js` で固定した。backend 側は public handoff 型を root / fingerprint / status のみに制限し、checker-layer private type や artifact payload が public surface に混ざらないことを検査する。orchestrator 側は facade 非公開、ty source 非登録、backend-private upstream type 参照禁止、mask status から public handoff status への wildcard なし mapping、mask success / mask error / backend readiness error の分離を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の actual use、escaping、unsupported、complete absence を checker-layer slot coverage record として明示発行する。
+- actual traversal 由来 explicit coverage record を checker-layer slot coverage producer / Resource no-escape producer / mask evidence producer へ渡し、今回接続した backend readiness handoff orchestration に同じ body identity で流す。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。

@@ -1,0 +1,224 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_backend_readiness_orchestrator
+//: checker-layer private-effect mask evidence を memo_call backend readiness handoff へ[渡/わた]す upper orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_private_effect_mask_evidence` は `PrivateCache` / `PrivateState` の fixed 2 slot proof から same-body neutral mask evidence を作ります。
+//: - `memo_call_backend_private_cache_proof_gate` は request-evidence gate result と private-effect readiness handoff evidence を照合します。
+//: - この module は、その 2 つの境界を型付きに接続し、checker mask evidence の root / body fingerprint / status を backend の public handoff evidence へ写します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は caller が渡した request-evidence gate `Result` と checker mask evidence `Result` だけです。source text、span、display name、diagnostic text、module path、public surface hash から mask status を推測しません。
+//: - request identity は caller が渡す body root / body module fingerprint から作り、mask identity は checker mask evidence の `body_root` / `body_module_fingerprint` から作ります。両者の一致は backend readiness gate に委譲します。
+//: - mask evidence `Err` は `MaskEvidenceRejected` として保持し、Missing / Unknown / Refuted を producer error や Proven に丸めません。
+//: - backend module の private upstream evidence 型はここでも使いません。public handoff evidence だけを渡します。
+//: - この module は GraphInput、Resource proof record/table、request proof table、backend bytes、effect mask 実体、sealed backend representation、prechecked artifact、`.neplobj` / `.neplproof` artifact key を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では request-evidence gate result と mask evidence result を受け取る non-executable readiness handoff です。
+//: - actual traversal が coverage record を producer-owned path で発行する boundary、Resource summary hash invalidation、artifact policy hash、sealed backend representation は後続 stage です。
+//: - facade には re-export しません。full selfhost proof orchestration が artifact boundary まで揃う段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - mask evidence 1 件の status / identity を O(1) で handoff evidence へ写します。
+//: - request proof table lookup と mask proof table lookup の計算量は、それぞれの producer / gate の契約に従います。この module は owner table を走査しません。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_backend_readiness_orchestrator" as *
+//: fn main %fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_stage0:
+//:         Result::Ok summary:
+//:             if:
+//:                 selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_stage0_summary_eq summary
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Result::Err _setup:
+//:             1
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_private_effect_mask_evidence" as *
+
+//: SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind: mask handoff orchestration の拒否理由
+//:
+//: [目的/もくてき]:
+//: - mask evidence producer が拒否したのか、backend readiness gate が拒否したのかを typed enum として保持します。
+pub enum SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind:
+    MaskEvidenceRejected %SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    BackendReadinessRejected %SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind
+
+//: SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary: handoff orchestration smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted、Refuted / Missing / Unknown、identity mismatch、placeholder、mask evidence rejection を確認します。
+pub struct SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary:
+    accepted_count %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+    refuted_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+    missing_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+    unknown_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+    identity_mismatch_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+    mask_error_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind: orchestration error を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind: orchestration error の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary: smoke summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary: smoke summary の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_handoff_status_from_mask_status: checker mask status を backend handoff status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - 全 status を明示 match し、Missing / Unknown を Proven に丸めません。
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_handoff_status_from_mask_status %fn SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven:
+            SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Proven
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted:
+            SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Refuted
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing:
+            SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Missing
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown:
+            SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Unknown
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_handoff_evidence_from_mask_evidence: checker mask evidence を backend public handoff evidence へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - body root / fingerprint / status だけを運びます。type id、operation、slot count は lower checker boundary の検査済み payload であり、backend handoff identity には入れません。
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_handoff_evidence_from_mask_evidence %fn SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence \evidence:
+    let status %SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus selfhost_memo_trait_operation_private_effect_backend_readiness_handoff_status_from_mask_status evidence.status
+    SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence evidence.body_root evidence.body_module_fingerprint status
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result: mask evidence result を backend readiness count へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - checker mask evidence producer の `Result` を、backend private upstream 型を露出せず existing readiness gate へ渡します。
+//:
+//: [契約/けいやく]:
+//: - `mask_result` が Err の場合は backend readiness へ進めません。
+//: - success path でも backend readiness gate が request identity と mask identity を照合するため、別 body の mask evidence は accepted になりません。
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind \request_body_root\request_body_module_fingerprint\gate_result\mask_result:
+    match mask_result:
+        Result::Ok mask_evidence:
+            let handoff_evidence %SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence selfhost_memo_trait_operation_private_effect_backend_readiness_handoff_evidence_from_mask_evidence mask_evidence
+            match selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_private_effect_handoff_evidence request_body_root request_body_module_fingerprint gate_result handoff_evidence:
+                Result::Ok count:
+                    Result::Ok count
+                Result::Err backend_error:
+                    Result::Err SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected backend_error
+        Result::Err mask_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::MaskEvidenceRejected mask_error
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_evidence: stage0 用 mask evidence を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_evidence %fn SelfhostHirExprId fn i32 fn SelfhostMemoTraitOperationPrivateEffectMaskStatus fn i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidence \root\fingerprint\status\proven_count:
+    let type_id %SelfhostTypeId selfhost_type_id_new 93001
+    SelfhostMemoTraitOperationPrivateEffectMaskEvidence type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root status 2 proven_count
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result: stage0 用 mask evidence result を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result %fn SelfhostHirExprId fn i32 fn SelfhostMemoTraitOperationPrivateEffectMaskStatus fn i32 Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \root\fingerprint\status\proven_count:
+    Result::Ok selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_evidence root fingerprint status proven_count
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_error_kind_eq: orchestration error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_error_kind_eq %fn SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind fn SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::MaskEvidenceRejected a_mask:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::MaskEvidenceRejected b_mask:
+                    selfhost_memo_trait_operation_private_effect_mask_error_kind_eq a_mask b_mask
+                SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected _b_backend:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected a_backend:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected b_backend:
+                    selfhost_memo_call_backend_private_cache_backend_readiness_error_kind_eq a_backend b_backend
+                SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::MaskEvidenceRejected _b_mask:
+                    false
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_count_result_eq: count result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_count_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq: result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind fn SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            selfhost_memo_trait_operation_private_effect_backend_readiness_error_kind_eq actual expected
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_stage0_summary_eq: stage0 summary の代表 contract を[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_stage0_summary_eq %fn SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary bool \summary:
+    let accepted_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_count_result_eq summary.accepted_count 1
+    let refuted_error %SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskRefuted
+    let missing_error %SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskMissing
+    let unknown_error %SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskUnknown
+    let mismatch_error %SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::PrivateEffectMaskIdentityMismatch
+    let placeholder_error %SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::BackendReadinessRejected SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind::BodyModuleFingerprintPlaceholder
+    let mask_error %SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind::MaskEvidenceRejected SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder
+    let refuted_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq summary.refuted_rejected refuted_error
+    let missing_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq summary.missing_rejected missing_error
+    let unknown_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq summary.unknown_rejected unknown_error
+    let mismatch_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq summary.identity_mismatch_rejected mismatch_error
+    let placeholder_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq summary.placeholder_rejected placeholder_error
+    let mask_error_ok %bool selfhost_memo_trait_operation_private_effect_backend_readiness_error_result_eq summary.mask_error_rejected mask_error
+    and:
+        accepted_ok
+        and:
+            refuted_ok
+            and:
+                missing_ok
+                and:
+                    unknown_ok
+                    and:
+                        mismatch_ok
+                        and:
+                            placeholder_ok
+                            mask_error_ok
+
+//: selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_stage0: checker mask evidence から backend readiness handoff への smoke API
+pub fn selfhost_memo_trait_operation_private_effect_backend_readiness_orchestrator_stage0 %fn void Result SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary StdErrorKind \void:
+    let request_root %SelfhostHirExprId selfhost_hir_expr_id_new 93002
+    let mismatched_request_root %SelfhostHirExprId selfhost_hir_expr_id_new 93004
+    let fingerprint %i32 93003
+    let accepted_gate_result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary 1 1
+    let accepted_count %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result request_root fingerprint accepted_gate_result selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result request_root fingerprint SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven 2
+    let refuted_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result request_root fingerprint accepted_gate_result selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result request_root fingerprint SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted 1
+    let missing_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result request_root fingerprint accepted_gate_result selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result request_root fingerprint SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing 1
+    let unknown_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result request_root fingerprint accepted_gate_result selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result request_root fingerprint SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown 1
+    let identity_mismatch_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result mismatched_request_root fingerprint accepted_gate_result selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result request_root fingerprint SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven 2
+    let placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result request_root fingerprint accepted_gate_result selfhost_memo_trait_operation_private_effect_backend_readiness_stage0_mask_result request_root 0 SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven 2
+    let mask_error_result %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder
+    let mask_error_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorErrorKind selfhost_memo_trait_operation_private_effect_backend_readiness_count_from_mask_evidence_result request_root fingerprint accepted_gate_result mask_error_result
+    Result::Ok SelfhostMemoTraitOperationPrivateEffectBackendReadinessOrchestratorStage0Summary accepted_count refuted_rejected missing_rejected unknown_rejected identity_mismatch_rejected placeholder_rejected mask_error_rejected

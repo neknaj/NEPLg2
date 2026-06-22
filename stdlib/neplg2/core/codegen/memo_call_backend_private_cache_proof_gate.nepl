@@ -47,6 +47,7 @@
 //: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
 //: - Backend readiness stage0 は、request-evidence gate の `Result` と、同じ body identity を持つ private-effect mask evidence を module-private に照合します。これは effect mask 実体や backend artifact ではなく、`RequestEvidenceProven` だけを backend 完了として扱わないための non-executable boundary です。
 //: - Upstream private-effect mask stage0 は、checker-layer proof producer を直接呼ばず、上位 orchestration が渡すべき neutral private-effect status / evidence を private-effect mask evidence へ写します。evidence の root / body fingerprint を保持して readiness gate へ渡すため、request gate result と別 body の mask evidence は accepted になりません。
+//: - Private-effect readiness handoff API は、checker-layer orchestration が作った neutral mask evidence を root / body fingerprint / status だけの public transport として受けます。backend module は checker module を import せず、handoff を module-private upstream evidence へ写して既存 readiness gate に通すだけです。
 //: - Actual traversal private-effect readiness projection stage0 は、actual traversal source table を neutral upstream private-effect status へ fail-closed に写します。現時点の source vocabulary は explicit 2-slot coverage / mask proof ではないため、この projection から `UpstreamPrivateEffectProven` は作りません。
 //:
 //: [計算量/けいさんりょう]:
@@ -74,6 +75,7 @@
 //: - operation-classified traversal bundle stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w` に対して O(o + a + g + s + w + n + p) です。operation table は module-private stage0 descriptor であり、actual Resource IR body traversal の探索範囲ではありません。
 //: - backend readiness gate は owner を持たない request evidence と mask evidence の identity / status を O(1) で照合します。actual PrivateCache / PrivateState effect fold や mask policy の計算量は後続 stage の責務です。
 //: - upstream private-effect mask conversion は neutral evidence 1 件の status / identity を O(1) で写すだけです。checker-layer proof table scan、actual private-effect proof production、effect mask policy fold はこの conversion では行いません。
+//: - private-effect readiness handoff は O(1) で、public handoff evidence を private upstream evidence へ写して既存 readiness gate を呼ぶだけです。
 //: - actual traversal private-effect readiness projection は source record 数 `s` に対して O(s) 時間で、accepted-shaped source を Missing、escaping source を Refuted、private-effect operation / unavailable source を Unknown に写します。explicit complete-traversal 2-slot coverage は checker-layer orchestration の後続責務です。
 //: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
 //:
@@ -1232,6 +1234,31 @@ struct SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectE
     root_expr_id %SelfhostHirExprId
     body_module_fingerprint %i32
     status %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus
+
+//: SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus: upper orchestration から backend readiness へ渡す public private-effect status
+//:
+//: [目的/もくてき]:
+//: - checker-layer mask evidence の status を、backend module が checker 型へ依存せず受け取れる transport enum として表します。
+//:
+//: [契約/けいやく]:
+//: - `Proven` だけが backend readiness の accepted mask status へ写ります。
+//: - `Refuted` / `Missing` / `Unknown` は既存 readiness gate で fail-closed にします。
+//: - この public handoff status は backend bytes、effect mask 実体、sealed representation、artifact key の authority ではありません。
+pub enum SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus:
+    Proven
+    Refuted
+    Missing
+    Unknown
+
+//: SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence: public handoff の same-body identity-bearing evidence
+//:
+//: [契約/けいやく]:
+//: - `root_expr_id` と `body_module_fingerprint` は checker mask evidence が対象にした body identity です。request evidence 側 identity は readiness gate で別途照合します。
+//: - checker proof table、slot coverage table、private upstream evidence、backend readiness summary、backend bytes、artifact key は保持しません。
+pub struct SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence:
+    root_expr_id %SelfhostHirExprId
+    body_module_fingerprint %i32
+    status %SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus
 
 //: SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke の代表結果
 //:
@@ -2808,6 +2835,32 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind:
 //: Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind: readiness error の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus: handoff status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status tag だけを持つため、checker proof owner や backend artifact owner は copy しません。
+impl Clone for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus: handoff status の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence: handoff evidence を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - evidence は root / fingerprint / status だけを保持し、owner buffer や artifact payload は含みません。
+impl Clone for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence: handoff evidence の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheBackendReadinessStage0Summary: backend readiness smoke summary を値として[複製/ふくせい]する
@@ -7716,6 +7769,41 @@ fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_re
             Result::Ok summary.request_count
         Result::Err e:
             Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status: public handoff status を private upstream status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - 全 variant を明示 match し、Missing / Unknown を Proven に丸めません。
+fn selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status %fn SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus \status:
+    match status:
+        SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Proven:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectProven
+        SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Refuted:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectRefuted
+        SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Missing:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectMissing
+        SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffStatus::Unknown:
+            SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus::UpstreamPrivateEffectUnknown
+
+//: selfhost_memo_call_backend_private_cache_upstream_evidence_from_private_effect_handoff_evidence: public handoff evidence を private upstream evidence へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - root / body fingerprint は handoff evidence 側の値をそのまま使います。request evidence 側 identity は readiness gate の既存照合に任せます。
+fn selfhost_memo_call_backend_private_cache_upstream_evidence_from_private_effect_handoff_evidence %fn SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence \evidence:
+    let status %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectStatus selfhost_memo_call_backend_private_cache_upstream_status_from_private_effect_handoff_status evidence.status
+    SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence evidence.root_expr_id evidence.body_module_fingerprint status
+
+//: selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_private_effect_handoff_evidence: public handoff から backend readiness count を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - checker-layer upper orchestration が、mask evidence status を backend private 型へ触れずに既存 readiness gate へ渡せるようにします。
+//:
+//: [契約/けいやく]:
+//: - request evidence identity は caller が渡す root / body fingerprint から作り、mask evidence identity は handoff evidence から作ります。両者は既存 readiness gate で照合します。
+//: - この helper は non-executable readiness probe です。backend bytes、effect mask 実体、sealed representation、`.neplobj` / `.neplproof` artifact key を作りません。
+pub fn selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_private_effect_handoff_evidence %fn SelfhostHirExprId fn i32 fn Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCachePrivateEffectReadinessHandoffEvidence Result i32 SelfhostMemoCallBackendPrivateCacheBackendReadinessErrorKind \root_expr_id\body_module_fingerprint\gate_result\handoff_evidence:
+    let upstream_evidence %SelfhostMemoCallBackendPrivateCacheBackendReadinessUpstreamPrivateEffectEvidence selfhost_memo_call_backend_private_cache_upstream_evidence_from_private_effect_handoff_evidence handoff_evidence
+    selfhost_memo_call_backend_private_cache_backend_readiness_count_from_gate_result_and_upstream_private_effect_evidence root_expr_id body_module_fingerprint gate_result upstream_evidence
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_upstream_status_from_source_kind: traversal source kind を neutral upstream private-effect status へ[写/うつ]す
 //:
