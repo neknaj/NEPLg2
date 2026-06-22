@@ -80921,3 +80921,30 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_operation_classified_noescape_coverage.json`
 - checked JSON: `output/playground_editor_selfhost_operation_classified_noescape_coverage.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost body-reader no-escape coverage authority checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、resolver-bound HIR body reader source plan を no-escape coverage authority boundary へ渡す backend-private smoke を追加した。
+- 新しい path は reader context から resolver-bound coverage authority を作り、`actual_traversal_body_reader_events_from_request_context_result`、`actual_walker_event_split_result`、`actual_traversal_body_adapter_sources_from_request_context_output_result`、`actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result` の順に通してから no-escape coverage を実行する。
+- split output owner の cleanup と context-bound source validation は既存 output adapter に寄せ、raw collector / validation を重複実装しない。
+- public stage0 summary は compact no-escape `Result` だけを返す。accepted pair code `13`、missing / rejected witness、witness authority mismatch、HIR `PrivateCache` effect、FnValue / MemoizedFunctionValue observation、pure call unsupported source の代表 rejection を固定した。
+- `ActualTraversalBundle`、source-derived witness helper、request-evidence gate、root-wide operation fixture、direct source adapter、stage0 coverage authority、GraphInput、Resource proof table push、checker proof table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は使わない。
+- この checkpoint は full Resource IR traversal ではない。残件は full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を同じ resolver-bound body identity で発行する production boundary、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、body-reader no-escape helper の module-private 化、reader-context authority の使用、context-bound output adapter の使用、stage0 authority / direct source adapter / bundle / request-evidence / lower proof / backend / artifact 禁止を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、今回の smoke を接続済みにしつつ、残件を full Resource IR traversal production boundary に保った。plan.md との差異はない。
+- Einstein の design review は、slice は妥当だが full traversal 完了ではなく production-reader 寄り smoke と明記すること、coverage authority は reader context resolver から作ること、split output は `actual_traversal_body_adapter_sources_from_request_context_output_result` に渡すこと、stage0 authority / direct source adapter / source-derived witness / request-evidence / backend artifact 禁止を source policy で固定することを指摘した。実装はこの方針に従った。
+- Newton の implementation review は、実装本体に bundle / source-derived witness / request-evidence / lower proof / backend artifact への逆戻りはないことを確認した。指摘に従い、`note.n.md` にこの checkpoint を追記し、body-reader no-escape helper から `actual_traversal_private_effect_coverage_stage0_authority` 系へ戻る退行も source policy で禁止した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-body-reader-noescape-coverage-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-body-reader-noescape-coverage-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_body_reader_noescape_coverage.json`
+- checked JSON: `output/playground_editor_selfhost_body_reader_noescape_coverage.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
