@@ -7153,6 +7153,10 @@ F5mv は compositor tile RLE present virtual drain であり、F5mu compositor h
 
 F5mv step は `GuiRgba8888CompositorTileRlePresentHostCommandRecord` だけを受け取り、RunRecord では `run_pixel_offset == seen_pixel_count` を要求して gap / overlap / reorder を拒否する。EndFrame は expected run count と expected pixel count が完了している場合だけ Ended になる。F5mv does not reuse lower F5cq/F5cs。lower host-command record や lower virtual drain へ落とすと compositor metadata が検査対象から外れるためである。F5mv は presentation target ではなく、host import、dispatch、scheduler、run-span、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
 
+F5mw は std layer compositor tile RLE present schedule boundary であり、F5mu compositor host-command record stream を host continuation / scheduler へ渡す前に deterministic slice budget で区切る。`GuiRgba8888CompositorTileRlePresentScheduleState` は F5mv virtual drain state と slice-local command / pixel counters だけを保持する。stream validation is delegated to F5mv virtual drain であり、Begin / Run / End ordering、metadata equality、run offset continuity を schedule layer で再実装しない。metadata is part of the F5mv drain authority であるため、F5mw は metadata copy を別 authority として持たない。
+
+F5mw の `Yield means exact slice budget` は、valid record を消費した後に command budget または pixel budget へちょうど到達した場合だけ `Yield` を返すという意味である。over-budget is a typed error であり、single RunRecord pixel budget 超過、total command / pixel budget 超過、checked arithmetic overflow、lower F5mv failure は previous schedule state を持つ error で返す。EndFrame により F5mv が Ended へ進む場合は terminal `Completed` を返し、`resume_slice` は F5mv drain を保持して slice counters だけ reset する。F5mw does not bypass F5mv and does not reuse lower F5cq/F5cs。lower F5ct / F5cs / F5cq、host import、dispatch、real scheduler、timer、queue、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

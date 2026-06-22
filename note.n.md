@@ -81432,3 +81432,29 @@ MERGE_APPROVED
 - Galileo の source-policy implementation review は初回 `PLAN_CHANGES_REQUIRED`。blocker は lower `std/gui/tile_present_*` host execution / virtual executor 系と `platforms/` import の禁止が狭いこと、および public step signature / direct record match の固定が弱いことだった。指摘に従い、F5mv source policy は lower `tile_present` family import 全体、platforms import、platforms token を禁止し、`gui_rgba8888_compositor_tile_rle_present_virtual_drain_step` の F5mu record-only signature と BeginFrame / RunRecord / EndFrame direct match を固定した。
 - Galileo の修正後再レビューは `PLAN_APPROVED`。lower host execution / virtual executor / host span operation / host import scheduler-start 系と platforms import の捕捉、F5mu import と typed id equality の許容、F5mu record-only signature / direct match 固定に blocker は残っていないと確認された。
 - Bernoulli の implementation review は `PLAN_APPROVED`。F5mu record-only、metadata full equality、F5cs 同等の run offset continuity / checked end / expected bounds / End completion、typed id raw usage の限定、docs/source policy/doctest/note/todo に blocker はないと確認された。
+
+## 2026-06-23 GUI std compositor present schedule checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_schedule.nepl` を追加し、F5mv virtual drain を authority とする F5mw compositor tile RLE present schedule boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentScheduleState` は F5mv drain と slice-local command / pixel counters だけを保持する。metadata authority は F5mv drain に残し、schedule layer では Begin / Run / End ordering、metadata equality、run offset continuity を再実装しない。
+- `gui_rgba8888_compositor_tile_rle_present_schedule_step_record` は policy validation、F5mu record pixel cost、single-run budget rejection、F5mv drain step、lower error category preservation、checked counter add、Completed / exact-budget Yield / Continue decision の順に進める。
+- over-budget は typed error で previous schedule state を返す。F5mv failure は `VirtualDrainFailed lower_kind` として lower category を保持する。`resume_slice` は F5mv drain を保持して slice counters だけ reset する。
+- F5mw は lower F5ct / F5cs / F5cq、compositor command cursor / run cursor / run step internals、host import、dispatch、scheduler、timer、queue、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Beauvoir の design review は `PLAN_APPROVED`。F5mw は F5ct の compositor 版として妥当で、authority を F5mv に置き、F5mw は slice counter と yield decision だけを担当する方針で問題ないと確認された。
+- Mill の source-policy review は `PLAN_APPROVED`。docs phrase、facade export、policy / state / error shape、F5mu record-only、F5mv authority、lower F5cq/F5cs / host / platform / fallback 禁止を固定する方針で問題ないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_schedule.n.md --no-tree -o tmp_gui_std_compositor_tile_present_schedule_f5mw.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_schedule.nepl --no-tree -o tmp_gui_std_compositor_tile_present_schedule_module_f5mw.json -j 1`。33/33。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_compositor_tile_present_virtual_drain_f5mw_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5mw_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mw.json`
+- checked JSON: `tmp-playground-editor-tests-f5mw.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- Hegel の implementation review は `PLAN_APPROVED`。F5mu record-only、F5mv authority、lower F5ct/F5cs/F5cq 非再利用、lower category preservation、previous state error、resume counter reset、host/platform/raw/fallback 非進出に blocker はないと確認された。

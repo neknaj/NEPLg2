@@ -1,0 +1,418 @@
+//: # std/gui/compositor_tile_present_schedule
+//: compositor tile RLE present host-command stream の scheduling boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mu の metadata [付/つ]き compositor host-command record stream を、host continuation / scheduler に[渡/わた]す[前/まえ]に deterministic な slice budget で[区切/くぎ]るための std layer boundary です。
+//: - F5mv virtual drain を stream validation の single authority として[用/もち]い、この module は slice counter と yield decision だけを[担当/たんとう]します。
+//:
+//: ### [契約/けいやく]
+//: - input は `GuiRgba8888CompositorTileRlePresentHostCommandRecord` だけです。
+//: - Begin / Run / End の[順序/じゅんじょ]、metadata [整合/せいごう]、run offset continuity は F5mv に[委譲/いじょう]します。
+//: - `Yield` は valid record を[消費/しょうひ]した[後/あと]に slice budget へちょうど[到達/とうたつ]したことを[表/あらわ]します。
+//: - budget [超過/ちょうか]は fallback ではなく typed error です。single run が pixel budget を[超/こ]える場合も error です。
+//: - lower F5ct / F5cs / F5cq、timer、queue、host import、platform API、DOM、Canvas、minifb、video memory はこの module に[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_schedule" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_virtual_drain" as *
+
+//: GuiRgba8888CompositorTileRlePresentSchedulePolicy: compositor present record slice の[上限/じょうげん]
+//:
+//: command count と pixel count の 2 つの budget を positive value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentSchedulePolicy:
+    max_commands_per_slice %i32
+    max_pixels_per_slice %i32
+
+impl Clone for GuiRgba8888CompositorTileRlePresentSchedulePolicy:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy GuiRgba8888CompositorTileRlePresentSchedulePolicy \policy:
+        *policy
+
+impl Copy for GuiRgba8888CompositorTileRlePresentSchedulePolicy:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentSchedulePolicy GuiRgba8888CompositorTileRlePresentSchedulePolicy \policy:
+        policy
+
+//: GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind: policy [生成/せいせい][失敗/しっぱい]の[原因/げんいん]
+//:
+//: budget は 0 以下を[許可/きょか]しないため、command と pixel を[分/わ]けて[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind:
+    MaxCommandsPerSliceInvalid
+    MaxPixelsPerSliceInvalid
+
+impl Clone for GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentSchedulePhase: schedule step の[結果/けっか][段階/だんかい]
+//:
+//: valid record [消費/しょうひ]後に continuing、exact-budget yield、frame completed を[明示/めいじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentSchedulePhase:
+    Continue
+    Yield
+    Completed
+
+impl Clone for GuiRgba8888CompositorTileRlePresentSchedulePhase:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentSchedulePhase GuiRgba8888CompositorTileRlePresentSchedulePhase \phase:
+        *phase
+
+impl Copy for GuiRgba8888CompositorTileRlePresentSchedulePhase:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentSchedulePhase GuiRgba8888CompositorTileRlePresentSchedulePhase \phase:
+        phase
+
+//: GuiRgba8888CompositorTileRlePresentScheduleState: F5mv drain と slice counter を[束/たば]ねる state
+//:
+//: stream authority は F5mv drain に[保持/ほじ]し、schedule layer は slice-local counter だけを[追加/ついか]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentScheduleState:
+    drain %GuiRgba8888CompositorTileRlePresentVirtualDrain
+    slice_command_count %i32
+    slice_pixel_count %i32
+
+impl Clone for GuiRgba8888CompositorTileRlePresentScheduleState:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentScheduleState \state:
+        *state
+
+impl Copy for GuiRgba8888CompositorTileRlePresentScheduleState:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentScheduleState \state:
+        state
+
+//: GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind: schedule step [失敗/しっぱい]の[原因/げんいん]
+//:
+//: policy / counter / budget / lower F5mv drain error を typed enum で[分/わ]けます。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind:
+    PolicyMaxCommandsInvalid
+    PolicyMaxPixelsInvalid
+    SliceCommandCountInvalid
+    SlicePixelCountInvalid
+    CommandCountOverflow
+    PixelCountOverflow
+    RunPixelCountInvalid
+    RunPixelBudgetExceeded
+    CommandBudgetExceeded
+    PixelBudgetExceeded
+    VirtualDrainFailed %GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentScheduleStep: successful schedule step
+//:
+//: updated state と phase を同じ value に[入/い]れ、exact-budget record を[失/うしな]わないようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentScheduleStep:
+    state %GuiRgba8888CompositorTileRlePresentScheduleState
+    phase %GuiRgba8888CompositorTileRlePresentSchedulePhase
+
+impl Clone for GuiRgba8888CompositorTileRlePresentScheduleStep:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleStep \step:
+        *step
+
+impl Copy for GuiRgba8888CompositorTileRlePresentScheduleStep:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleStep \step:
+        step
+
+//: GuiRgba8888CompositorTileRlePresentScheduleStepError: previous state [付/つ]き schedule error
+//:
+//: caller が retry / resume / discard を[明示/めいじ]できるよう、失敗[直前/ちょくぜん]の schedule state を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentScheduleStepError:
+    kind %GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind
+    category %Option GuiError
+    state %GuiRgba8888CompositorTileRlePresentScheduleState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentScheduleStepError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentScheduleStepError GuiRgba8888CompositorTileRlePresentScheduleStepError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentScheduleStepError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentScheduleStepError GuiRgba8888CompositorTileRlePresentScheduleStepError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_policy_new: policy value を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_policy_new %fn i32 fn i32 GuiRgba8888CompositorTileRlePresentSchedulePolicy \max_commands_per_slice\max_pixels_per_slice:
+    GuiRgba8888CompositorTileRlePresentSchedulePolicy max_commands_per_slice max_pixels_per_slice
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_state_new: schedule state を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_state_new %fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn i32 fn i32 GuiRgba8888CompositorTileRlePresentScheduleState \drain\slice_command_count\slice_pixel_count:
+    GuiRgba8888CompositorTileRlePresentScheduleState drain slice_command_count slice_pixel_count
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_new: successful step value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_step_new %fn GuiRgba8888CompositorTileRlePresentScheduleState fn GuiRgba8888CompositorTileRlePresentSchedulePhase GuiRgba8888CompositorTileRlePresentScheduleStep \state\phase:
+    GuiRgba8888CompositorTileRlePresentScheduleStep state phase
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category: error kind を coarse GUI category へ[写/うつ]す
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category %fn GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PolicyMaxCommandsInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PolicyMaxPixelsInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::RunPixelCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::RunPixelBudgetExceeded:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::CommandBudgetExceeded:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PixelBudgetExceeded:
+            Option::Some GuiError::ResourceExhausted
+        GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::VirtualDrainFailed _:
+            Option::Some GuiError::InvalidCommand
+        _:
+            Option::Some GuiError::InvalidCommand
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_error: category [付/つ]き error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_step_error %fn GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind fn GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentScheduleStepError \kind\state:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category kind
+    GuiRgba8888CompositorTileRlePresentScheduleStepError kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_error_with_category: lower category を[保/たも]つ error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_step_error_with_category %fn GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentScheduleStepError \kind\category\state:
+    GuiRgba8888CompositorTileRlePresentScheduleStepError kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_i32_max: checked add 用の i32 [上限/じょうげん]を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_i32_max %fn void i32 \void:
+    2147483647
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_policy: positive budget から policy を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_policy %fn i32 fn i32 Result GuiRgba8888CompositorTileRlePresentSchedulePolicy GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind \max_commands_per_slice\max_pixels_per_slice:
+    if le max_commands_per_slice 0:
+        then Result::Err GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind::MaxCommandsPerSliceInvalid
+        else:
+            if le max_pixels_per_slice 0:
+                then Result::Err GuiRgba8888CompositorTileRlePresentSchedulePolicyErrorKind::MaxPixelsPerSliceInvalid
+                else Result::Ok gui_rgba8888_compositor_tile_rle_present_schedule_policy_new max_commands_per_slice max_pixels_per_slice
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_commands_per_slice: command budget を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_commands_per_slice %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy i32 \policy:
+    *field::get_ref policy "max_commands_per_slice"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_pixels_per_slice: pixel budget を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_pixels_per_slice %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy i32 \policy:
+    *field::get_ref policy "max_pixels_per_slice"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_state_initial: empty F5mv drain 付き initial state を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_initial %fn void GuiRgba8888CompositorTileRlePresentScheduleState \void:
+    let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_virtual_drain_empty
+    gui_rgba8888_compositor_tile_rle_present_schedule_state_new drain 0 0
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_state_resume_slice: slice counter だけを reset する
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_resume_slice %fn GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentScheduleState \state:
+    let drain %GuiRgba8888CompositorTileRlePresentVirtualDrain *field::get_ref &state "drain"
+    gui_rgba8888_compositor_tile_rle_present_schedule_state_new drain 0 0
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_state_drain: F5mv drain state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_drain %fn &GuiRgba8888CompositorTileRlePresentScheduleState GuiRgba8888CompositorTileRlePresentVirtualDrain \state:
+    *field::get_ref state "drain"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count: slice command count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count %fn &GuiRgba8888CompositorTileRlePresentScheduleState i32 \state:
+    *field::get_ref state "slice_command_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count: slice pixel count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count %fn &GuiRgba8888CompositorTileRlePresentScheduleState i32 \state:
+    *field::get_ref state "slice_pixel_count"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_state: step state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_state %fn &GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleState \step:
+    *field::get_ref step "state"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_phase: step phase を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_phase %fn &GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentSchedulePhase \step:
+    *field::get_ref step "phase"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_error_kind: step error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_error_kind %fn &GuiRgba8888CompositorTileRlePresentScheduleStepError GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category_value: step error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_error_category_value %fn &GuiRgba8888CompositorTileRlePresentScheduleStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_error_state: step error previous state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_error_state %fn &GuiRgba8888CompositorTileRlePresentScheduleStepError GuiRgba8888CompositorTileRlePresentScheduleState \error:
+    *field::get_ref error "state"
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_validate_policy_for_step: step 用 policy を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_validate_policy_for_step %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy Result unit GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \policy:
+    let max_commands %i32 gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_commands_per_slice policy
+    if le max_commands 0:
+        then Result::Err GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PolicyMaxCommandsInvalid
+        else:
+            let max_pixels %i32 gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_pixels_per_slice policy
+            if le max_pixels 0:
+                then Result::Err GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PolicyMaxPixelsInvalid
+                else Result::Ok unit
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_record_pixel_cost: F5mu record の pixel cost を[求/もと]める
+//:
+//: Begin / End は 0 cost、Run は RLE run の pixel count を cost にします。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_record_pixel_cost %fn &GuiRgba8888CompositorTileRlePresentHostCommandRecord Result i32 GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \record:
+    match *record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame _descriptor:
+            Result::Ok 0
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            let run %GuiRgba8888RowTileRleRun gui_rgba8888_compositor_tile_rle_present_host_command_run_record_run &run_record
+            let pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+            if le pixel_count 0:
+                then Result::Err GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::RunPixelCountInvalid
+                else Result::Ok pixel_count
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame _descriptor:
+            Result::Ok 0
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_checked_add: nonnegative i32 add を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_checked_add %fn i32 fn i32 fn GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind Result i32 GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 gui_rgba8888_compositor_tile_rle_present_schedule_i32_max
+            let max_left %i32 sub max_i32 right
+            if gt left max_left:
+                then Result::Err overflow_kind
+                else Result::Ok add left right
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_count_result: F5mv success 後の counter と phase を[決/き]める
+//:
+//: Completed は budget comparison より[優先/ゆうせん]し、Yield は budget ちょうどの[到達/とうたつ]だけにします。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_schedule_count_result %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentScheduleState fn GuiRgba8888CompositorTileRlePresentVirtualDrain fn i32 Result GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleStepError \policy\previous_state\next_drain\pixel_cost:
+    let slice_command_count %i32 gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_command_count &previous_state
+    if lt slice_command_count 0:
+        then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::SliceCommandCountInvalid previous_state
+        else:
+            let slice_pixel_count %i32 gui_rgba8888_compositor_tile_rle_present_schedule_state_slice_pixel_count &previous_state
+            if lt slice_pixel_count 0:
+                then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::SlicePixelCountInvalid previous_state
+                else:
+                    match gui_rgba8888_compositor_tile_rle_present_schedule_checked_add slice_command_count 1 GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::CommandCountOverflow:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error kind previous_state
+                        Result::Ok next_command_count:
+                            match gui_rgba8888_compositor_tile_rle_present_schedule_checked_add slice_pixel_count pixel_cost GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PixelCountOverflow:
+                                Result::Err kind:
+                                    Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error kind previous_state
+                                Result::Ok next_pixel_count:
+                                    let next_state %GuiRgba8888CompositorTileRlePresentScheduleState gui_rgba8888_compositor_tile_rle_present_schedule_state_new next_drain next_command_count next_pixel_count
+                                    if gui_rgba8888_compositor_tile_rle_present_virtual_drain_is_ended &next_drain:
+                                        then Result::Ok gui_rgba8888_compositor_tile_rle_present_schedule_step_new next_state GuiRgba8888CompositorTileRlePresentSchedulePhase::Completed
+                                        else:
+                                            let max_commands %i32 gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_commands_per_slice policy
+                                            if gt next_command_count max_commands:
+                                                then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::CommandBudgetExceeded previous_state
+                                                else:
+                                                    let max_pixels %i32 gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_pixels_per_slice policy
+                                                    if gt next_pixel_count max_pixels:
+                                                        then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::PixelBudgetExceeded previous_state
+                                                        else:
+                                                            if or eq next_command_count max_commands eq next_pixel_count max_pixels:
+                                                                then Result::Ok gui_rgba8888_compositor_tile_rle_present_schedule_step_new next_state GuiRgba8888CompositorTileRlePresentSchedulePhase::Yield
+                                                                else Result::Ok gui_rgba8888_compositor_tile_rle_present_schedule_step_new next_state GuiRgba8888CompositorTileRlePresentSchedulePhase::Continue
+
+//: gui_rgba8888_compositor_tile_rle_present_schedule_step_record: F5mu record を budgeted schedule state に[反映/はんえい]する
+//:
+//: [契約/けいやく]:
+//: - F5mv の virtual drain step を single authority として[呼/よ]びます。
+//: - budget ちょうどの[到達/とうたつ]だけが `Yield` で、budget [超過/ちょうか]は typed error です。
+//: - error は previous schedule state を[保持/ほじ]し、lower F5mv error category は[失/うしな]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_schedule_step_record %fn &GuiRgba8888CompositorTileRlePresentSchedulePolicy fn GuiRgba8888CompositorTileRlePresentScheduleState fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentScheduleStep GuiRgba8888CompositorTileRlePresentScheduleStepError \policy\state\record:
+    match gui_rgba8888_compositor_tile_rle_present_schedule_validate_policy_for_step policy:
+        Result::Err kind:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error kind state
+        Result::Ok _:
+            match gui_rgba8888_compositor_tile_rle_present_schedule_record_pixel_cost &record:
+                Result::Err kind:
+                    Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error kind state
+                Result::Ok pixel_cost:
+                    let max_pixels %i32 gui_rgba8888_compositor_tile_rle_present_schedule_policy_max_pixels_per_slice policy
+                    if gt pixel_cost max_pixels:
+                        then Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::RunPixelBudgetExceeded state
+                        else:
+                            let previous_drain %GuiRgba8888CompositorTileRlePresentVirtualDrain gui_rgba8888_compositor_tile_rle_present_schedule_state_drain &state
+                            match gui_rgba8888_compositor_tile_rle_present_virtual_drain_step previous_drain record:
+                                Result::Err lower_error:
+                                    let lower_kind %GuiRgba8888CompositorTileRlePresentVirtualDrainErrorKind gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_kind &lower_error
+                                    let lower_category %Option GuiError gui_rgba8888_compositor_tile_rle_present_virtual_drain_error_category_value &lower_error
+                                    let kind %GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind GuiRgba8888CompositorTileRlePresentScheduleStepErrorKind::VirtualDrainFailed lower_kind
+                                    Result::Err gui_rgba8888_compositor_tile_rle_present_schedule_step_error_with_category kind lower_category state
+                                Result::Ok next_drain:
+                                    gui_rgba8888_compositor_tile_rle_present_schedule_count_result policy state next_drain pixel_cost
