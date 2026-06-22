@@ -81802,3 +81802,43 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_authority_bundle.json`
 - checked JSON: `tmp/playground_editor_selfhost_production_authority_bundle.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present dispatch loop / host report bridge checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_dispatch_loop.nepl` を追加し、F5my scheduled dispatch step と executor-supplied `Result unit GuiError` outcome を one-shot pending owner で接続する F5nc std layer compositor tile RLE present dispatch loop outcome boundary を実装した。
+- `GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest` は previous state、next state、F5mx request、post phase を保持し、Clone / Copy を持たない。`complete_request` は pending value を消費し、Err outcome を `HostImportExecutionFailed` と previous state、Ok outcome を post phase に応じた Continue / Yield / Completed と next state に写す。
+- `stdlib/std/gui/compositor_tile_present_host_report_loop_bridge.nepl` を追加し、F5nc pending request、F5mz action decoding、F5nb `validate_report_for_action`、F5na `report_outcome`、F5nc `complete_request` を validation before completion の順に接続する F5nd std layer compositor tile RLE present host report loop bridge boundary を実装した。
+- F5nd は unsupported support、wrong action、metadata mismatch report を completion 前に `ExecutorValidationFailed` として止め、pending previous state を返す。matching action の failed report は valid executor report として F5nc completion へ渡し、`HostImportExecutionFailed` によって rollback state を保持する。
+- F5nc/F5nd は actual host import、F5mw/F5mx/F5mv direct call、lower row-tile host / dispatch / schedule / virtual paths、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Dewey の read-only design/source-policy review は `PLAN_APPROVED`。bridge 単体ではなく dispatch loop one-shot pending と host report bridge の 2 境界を分ける方針、F5my-only authority、validation before completion、no lower/platform/raw/fallback leakage を固定する方針で問題ないと確認された。
+- Ohm の implementation review は `IMPLEMENTATION_APPROVED`。F5nc の F5my-only authority、PendingRequest / Step の no Clone-Copy と value consumption、F5nd の pending previous/request read -> F5mz action decoding -> F5nb validation -> F5na outcome -> F5nc completion order、validation failure no completion、source policy / focused doctest / docs coverage に blocker / required fix / nit はないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5nc.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5nd.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_module_f5nc.json -j 1`。25/25。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_report_loop_bridge.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_module_f5nd.json -j 1`。10/10。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_f5nc_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_executor_f5nd_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5nc_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_tile_present_host_report_loop_bridge_f5nd_regression.json -j 1`。1/1。
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nd.json`
+- checked JSON: `tmp-playground-editor-tests-f5nd.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- rebase 後再検証 pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- rebase 後再検証 pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- rebase 後再検証 pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_f5nd_rebase.json -j 1`。1/1。
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_f5nd_rebase.json -j 1`。1/1。
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_loop_module_f5nd_rebase.json -j 1`。25/25。
+- rebase 後再検証 pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_report_loop_bridge.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_report_loop_bridge_module_f5nd_rebase.json -j 1`。10/10。
+- rebase 後再検証 pass: `git diff --check`
+- rebase 後再検証 pass: `trunk build`
+- rebase 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nd-rebase.json`
+- checked JSON: `tmp-playground-editor-tests-f5nd-rebase.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

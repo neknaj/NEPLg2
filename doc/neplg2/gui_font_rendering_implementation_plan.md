@@ -5669,6 +5669,71 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5nb.json
 ```
 
+## Phase F5nc: std layer compositor tile RLE present dispatch loop outcome boundary
+
+目的:
+
+- F5my の `RequestReady request plus post phase` と executor-supplied host outcome を one-shot pending boundary で接続する。
+- `GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest` は previous loop state、next loop state、F5mx request、post phase を保持し、Clone / Copy を持たない。
+- `complete_request consumes pending` により同じ host outcome の二重 completion を型上防ぐ。
+- Err outcome は `HostImportExecutionFailed GuiError` と previous state を返し、Ok outcome は post phase を Continue / Yield / Completed に写して next state を返す。
+- F5nc は F5my dispatch step only を authority とし、F5mw schedule、F5mx request construction、F5mv virtual drain、lower row-tile path、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Dewey read-only design/source-policy review は `PLAN_APPROVED`。
+- bridge だけを先に作る設計は不可で、row-tile F5cz が F5cv one-shot pending に依存するのと同じく、compositor 側にも dispatch loop pending owner が必要と確認された。
+- required public surface は dispatch loop state、pending request、step、completion、error kind、error、state / pending / error accessors、`step_record`、`complete_request` である。
+- source policy は F5my direct call のみを許可し、F5mw / F5mx / F5mv direct call、lower row-tile path、raw / Vec / queue / timer / scheduler / platform / fallback を禁止する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_dispatch_loop.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentDispatchLoopState`、`GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest`、`GuiRgba8888CompositorTileRlePresentDispatchLoopStep`、`GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion`、`GuiRgba8888CompositorTileRlePresentDispatchLoopErrorKind`、`GuiRgba8888CompositorTileRlePresentDispatchLoopError` を追加する。
+- `state_initial`、`state_resume_slice`、`state_dispatch`、`step_pending`、`pending_previous`、`pending_next`、`pending_request`、`pending_post_phase`、`error_kind`、`error_category_value`、`error_state`、`step_record`、`complete_request` を追加する。
+- `stdlib/std/gui.nepl` facade から compositor dispatch loop boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_dispatch_loop.n.md` を追加し、runtime smoke と source policy labels を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5nc source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Dewey review、facade export、pending/step Clone/Copy 禁止、F5my-only authority、banned F5mw/F5mx/F5mv/lower/platform/raw/fallback tokens、`step_record` order、`complete_request` order、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5my dispatch regression、F5nb host executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で pending owner lifecycle、previous/next state preservation、no F5mw/F5mx/F5mv direct call、no lower row-tile / platform leakage がないことを確認する。
+
+## Phase F5nd: std layer compositor tile RLE present host report loop bridge boundary
+
+目的:
+
+- F5nc pending request、F5mz action decoding、F5na report_outcome、F5nb validate_report_for_action を validation before completion の順序で接続する。
+- unsupported support や wrong action / metadata report は F5nc completion 前に `ExecutorValidationFailed` として止め、pending previous state を返す。
+- matching action の failed report は validation success として F5nc `complete_request` に渡し、`HostImportExecutionFailed` と rollback state を得る。
+- F5nd は F5my / F5mw / F5mx / F5mv direct call、lower row-tile host / dispatch / schedule / virtual path、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
+plan review:
+
+- Dewey read-only design/source-policy review は `PLAN_APPROVED`。
+- required public surface は `GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind`、`GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError`、`complete`、error accessors である。
+- bridge order は pending previous/request read、F5mz expected action construction、F5nb validation、F5na outcome read、F5nc completion の順に固定する。
+- validation failure では completion を呼ばず、completion failure では F5nc lower error state を保持する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_report_loop_bridge.nepl` を追加する。
+- `ExecutorValidationFailed %GuiRgba8888CompositorTileRlePresentHostExecutorError` と `LoopCompletionFailed %GuiRgba8888CompositorTileRlePresentDispatchLoopError` を持つ error kind を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError`、`complete`、`error_kind`、`error_category_value`、`error_state` を追加する。
+- `stdlib/std/gui.nepl` facade から compositor host report loop bridge boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_report_loop_bridge.n.md` を追加し、success report completion、failed report completion error、unsupported validation stop、wrong report validation stop を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5nd source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、facade export、bridge error shape、allowed F5nc/F5mz/F5na/F5nb imports、banned F5my/F5mw/F5mx/F5mv/lower/platform/raw/fallback tokens、validation-before-completion order、validation error no completion、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5nc dispatch loop regression、F5nb host executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で validation before completion、failed report preservation、wrong report stop-before-completion、no F5my-F5mv direct call、no lower row-tile / platform leakage がないことを確認する。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

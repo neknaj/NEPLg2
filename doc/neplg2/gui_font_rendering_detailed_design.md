@@ -8675,6 +8675,22 @@ The support enum is intentionally nonempty. `GuiRgba8888CompositorTileRlePresent
 
 F5nb is not actual execution. It must not execute host imports, construct F5mx requests, complete pending work, advance F5my dispatch state, call F5mw/F5mv, call lower row-tile host/dispatch/schedule/virtual modules, use raw packet storage, `Vec`, platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior. Typed id raw access is limited to equality checks for `WindowId`, `SurfaceId`, and `FrameId`.
 
+## Std compositor tile RLE present dispatch loop boundary
+
+F5nc is the std layer compositor tile RLE present dispatch loop outcome boundary after F5my. It mirrors lower F5cv for compositor metadata-preserving requests. The loop state wraps `GuiRgba8888CompositorTileRlePresentDispatchState`; the pending request stores previous loop state, next loop state, `GuiRgba8888CompositorTileRlePresentHostImportRequest`, and `GuiRgba8888CompositorTileRlePresentDispatchPostPhase`.
+
+`GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest` and `GuiRgba8888CompositorTileRlePresentDispatchLoopStep` are owner-bearing values and must not implement Clone or Copy. `complete_request consumes pending`, so a host outcome cannot be replayed by repeatedly completing the same borrowed request. An Err outcome becomes `HostImportExecutionFailed GuiError` and returns previous state. An Ok outcome maps post phase to `Continue next state`, `Yield next state`, or `Completed next state`.
+
+F5nc calls F5my dispatch step only. It must not call F5mw schedule helpers, construct F5mx requests, call F5mv virtual drain, reuse lower row-tile dispatch / schedule / virtual / host paths, execute host imports, allocate a queue, invoke timers or schedulers, touch raw storage or `Vec`, expose platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, fallback, or silent no-op behavior.
+
+## Std compositor tile RLE present host report loop bridge boundary
+
+F5nd is the std layer compositor tile RLE present host report loop bridge boundary after F5nb. The bridge owns validation before completion. It reads previous state and request from `GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest`, derives expected action through F5mz action decoding, validates the returned report through F5nb validate_report_for_action, then only after successful validation reads F5na report_outcome and consumes pending through F5nc `complete_request`.
+
+`GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError` carries `GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind`, category, and loop state. `ExecutorValidationFailed` preserves the F5nb executor error, including expected/reported action context. `LoopCompletionFailed` preserves the F5nc dispatch loop error. This keeps wrong-report diagnostics and rollback state available without fabricating success.
+
+F5nd distinguishes validation failure from execution failure. Unsupported support and wrong action or metadata reports stop before completion and return pending previous state. A matching failed report is valid executor output; F5nd passes F5na report_outcome into F5nc completion, and `HostImportExecutionFailed` returns rollback state from F5nc. F5nd must not call F5my, F5mw, F5mx, or F5mv directly, must not reuse lower row-tile host / dispatch / schedule / virtual modules, and must not touch raw storage, `Vec`, platform APIs, video memory, Canvas, DOM, minifb, DrawTarget, RenderTarget, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

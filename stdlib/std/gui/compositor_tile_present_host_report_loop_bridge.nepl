@@ -1,0 +1,134 @@
+//: # std/gui/compositor_tile_present_host_report_loop_bridge
+//: compositor tile RLE present host report と dispatch loop completion の std layer bridge
+//:
+//: ### [目的/もくてき]
+//: - compositor dispatch loop pending request、F5mz action decoding、F5na execution report、F5nb executor validation を 1 つの[戻/もど]し[境界/きょうかい]に[束/たば]ねます。
+//: - platform executor が[返/かえ]した report を loop state に[反映/はんえい]する[前/まえ]に、support と full action identity を[検証/けんしょう]します。
+//:
+//: ### [契約/けいやく]
+//: - `pending` は value として[消費/しょうひ]され、successful validation の[後/あと]だけ dispatch loop completion に[渡/わた]されます。
+//: - validation failure では completion を[呼/よ]ばず、pending の previous state を error に[保持/ほじ]します。
+//: - execution failure report は action が[一致/いっち]していれば validation success とし、F5na `report_outcome` を loop completion へ[渡/わた]します。
+//: - actual host import、platform API、queue、timer、scheduler、raw storage、Vec、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_report_loop_bridge" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_execution_report" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind: report bridge failure の[種類/しゅるい]
+//:
+//: validation failure と loop completion failure を[分/わ]け、lower typed error を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind:
+    ExecutorValidationFailed %GuiRgba8888CompositorTileRlePresentHostExecutorError
+    LoopCompletionFailed %GuiRgba8888CompositorTileRlePresentDispatchLoopError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError: category と recovery state を[持/も]つ bridge error
+//:
+//: validation failure では pending previous state、completion failure では dispatch loop error state を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError:
+    kind %GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind
+    category %Option GuiError
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_new: bridge error payload を[作/つく]る
+//:
+//: validation failure と completion failure のどちらでも、category と recovery state を[同/おな]じ構造に[保存/ほぞん]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_new %fn GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError \kind\category\state:
+    GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_validation_error: F5nb validation failure を bridge error に[写/うつ]す
+//:
+//: pending を completion に[渡/わた]さず、previous state と lower category を[回収/かいしゅう]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_validation_error %fn GuiRgba8888CompositorTileRlePresentHostExecutorError fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError \lower\previous:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_executor_error_category_value &lower
+    let kind %GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind::ExecutorValidationFailed lower
+    gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_new kind category previous
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_completion_error: F5nc completion failure を bridge error に[写/うつ]す
+//:
+//: F5nc error が[保持/ほじ]する recovery state と category を bridge caller へそのまま[返/かえ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_completion_error %fn GuiRgba8888CompositorTileRlePresentDispatchLoopError GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError \lower:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_category_value &lower
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_error_state &lower
+    let kind %GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind::LoopCompletionFailed lower
+    gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_new kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete: validated report を loop completion に[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - pending request から expected action を[作/つく]り、report の action と full identity で[比較/ひかく]します。
+//: - validation failure では pending を completion に[渡/わた]しません。
+//: - validation success の[場合/ばあい]だけ report outcome を dispatch loop `complete_request` へ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest fn GuiRgba8888CompositorTileRlePresentHostExecutionReport Result GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError \support\pending\report:
+    let previous %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_previous &pending
+    let request gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request &pending
+    let expected %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_action &request
+    match gui_rgba8888_compositor_tile_rle_present_host_executor_validate_report_for_action support expected report:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_validation_error lower previous
+        Result::Ok validated:
+            let outcome %Result unit GuiError gui_rgba8888_compositor_tile_rle_present_host_execution_report_outcome &validated
+            match gui_rgba8888_compositor_tile_rle_present_dispatch_loop_complete_request pending outcome:
+                Result::Ok completion:
+                    Result::Ok completion
+                Result::Err lower:
+                    Result::Err gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_completion_error lower
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_kind: bridge error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_kind %fn &GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_category_value: bridge error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_state: bridge error の recovery state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_state %fn &GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
