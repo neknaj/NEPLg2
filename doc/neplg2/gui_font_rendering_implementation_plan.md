@@ -5807,6 +5807,39 @@ plan review:
 - focused doctest、module doctest、F5ne execution driver regression、F5nd report bridge regression、F5nb executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で sink/driver responsibility split、no manufactured outcome、owner recovery、F5ne-only completion、no direct F5nc/F5nd/F5nb/lower row-tile/platform leakage がないことを確認する。
 
+## Phase F5ng: std layer compositor tile RLE present host action attempt driver boundary
+
+目的:
+
+- actual Web / native / bare / headless executor が返した attempted action と executor-supplied outcome を、F5nf action sink driver へ渡す前に F5ne driver pending の expected action と照合する。
+- `GuiRgba8888CompositorTileRlePresentHostActionAttempt` は attempted action と `Result unit GuiError` だけを保持する Copy value とし、driver pending を所有しない。
+- mismatch では F5nf sink driver を呼ばず、expected action、attempted action、`GuiError::InvalidCommand` category、original driver pending を `AttemptActionMismatch` の owner-bearing error として返す。
+- match した場合だけ、attempt outcome を F5nf `gui_rgba8888_compositor_tile_rle_present_host_action_sink_driver_step` へ委譲する。
+- F5ng does not manufacture executor outcome。`Result::Ok unit` や synthetic `Result::Err` を作らず、attempt に含まれる `Result unit GuiError` だけを扱う。
+- F5ng は F5nf sink direct call、F5ne direct completion、F5nd direct bridge、F5nb direct validation、F5na report construction、F5mx request construction、F5my / F5mw / F5mv、lower row-tile path、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- Poincare read-only design/source-policy review は、F5nf 後続として compositor host action attempt driver boundary を追加する方針を妥当と確認した。
+- 責務は F5de の compositor 版であり、F5ne `pending_action`、attempt action、F5nb `action_same`、F5nf sink driver の順序だけを所有する。
+- mismatch は F5nf / F5ne completion を呼ばない owner-bearing error とし、match 後の unsupported support や completion failure は lower F5nf sink driver error として包む方針が確認された。
+- source policy では outcome 合成禁止、F5nf sink direct call 禁止、F5ne/F5nd/F5nb/F5na/F5mx direct call 禁止、platform / raw / scheduler / fallback 禁止を固定する。
+
+変更:
+
+- `stdlib/std/gui/compositor_tile_present_host_action_attempt_driver.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePresentHostActionAttempt`、`GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverStep`、owner-bearing `GuiRgba8888CompositorTileRlePresentHostActionAttemptMismatch`、`GuiRgba8888CompositorTileRlePresentHostActionAttemptSinkDriverFailed`、`GuiRgba8888CompositorTileRlePresentHostActionAttemptDriverError` と accessors を追加する。
+- `stdlib/std/gui.nepl` facade から compositor host action attempt driver boundary を再公開する。
+- `tests/stdlib/gui_std_compositor_tile_present_host_action_attempt_driver.n.md` を追加し、match success、mismatch owner recovery、matched unsupported support の lower sink rejection、matched executor failure の outcome preservation を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ng source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、facade export、attempt / mismatch / lower failure type shape、allowed F5nf/F5mz/F5ne/F5nb imports、banned F5nf sink direct call / F5ne direct completion / F5nd direct bridge / F5nb direct validation / F5na report construction / F5my-F5mv / lower row-tile / platform / raw / fallback tokens、attempt identity check before sink driver order、owner-bearing mismatch / lower failure Clone/Copy 禁止、no parentheses、focused doctest labels を検査する。
+- focused doctest、module doctest、F5nf sink driver regression、F5ne execution driver regression、F5nd report bridge regression、F5nb executor regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で action identity check、no manufactured outcome、mismatch owner recovery、F5nf-only delegation、no direct F5ne/F5nd/F5nb/F5na/lower row-tile/platform leakage がないことを確認する。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
