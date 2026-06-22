@@ -117,6 +117,8 @@ const allocRender2dCompositorTileRleCount = read("stdlib/alloc/gui/render2d/comp
 const allocRender2dCompositorTileRleCountImpl = withoutComments(allocRender2dCompositorTileRleCount);
 const allocRender2dCompositorTileRleCountStep = read("stdlib/alloc/gui/render2d/compositor_tile_rle_count_step.nepl");
 const allocRender2dCompositorTileRleCountStepImpl = withoutComments(allocRender2dCompositorTileRleCountStep);
+const allocRender2dCompositorTileRleCountCompleted = read("stdlib/alloc/gui/render2d/compositor_tile_rle_count_completed.nepl");
+const allocRender2dCompositorTileRleCountCompletedImpl = withoutComments(allocRender2dCompositorTileRleCountCompleted);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -368,6 +370,7 @@ const guiRender2dCompositorTilePlanTests = read("tests/stdlib/gui_render2d_compo
 const guiRender2dCompositorTilePayloadTests = read("tests/stdlib/gui_render2d_compositor_tile_payload.n.md");
 const guiRender2dCompositorTileRleCountTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_count.n.md");
 const guiRender2dCompositorTileRleCountStepTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_count_step.n.md");
+const guiRender2dCompositorTileRleCountCompletedTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_count_completed.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -27281,6 +27284,142 @@ assert(
         guiRender2dCompositorTileRleCountStepTests.includes("render2d_compositor_tile_rle_count_step_negative_budget_payload_recovery_ok") &&
         guiRender2dCompositorTileRleCountStepTests.includes("render2d_compositor_tile_rle_count_step_no_fake_owner_no_completed_no_encode_no_present_no_fallback"),
     "F5mg compositor tile RLE count step focused doctest must cover facade, zero-budget pending, completion status, metadata, negative-budget payload recovery, and no fake owner/completed/encode/present/fallback policy",
+);
+for (const [doc, name] of [
+    [spec, "font rendering spec"],
+    [detailedDesign, "font rendering detailed design"],
+    [implementationPlan, "font rendering implementation plan"],
+    [guiStandardLibrarySpec, "GUI standard library spec"],
+]) {
+    assert(
+        doc.includes("F5mh") &&
+            doc.includes("compositor tile RLE completed count") &&
+            doc.includes("GuiRgba8888CompositorTileRleCountCompletedOwner") &&
+            doc.includes("gui_rgba8888_row_tile_rle_count_completed_prepare") &&
+            doc.includes("exact capacity evidence") &&
+            doc.includes("no count step / encode / present") &&
+            doc.includes("fallback"),
+        `F5mh ${name} must document compositor tile RLE completed count, lower completed prepare, exact capacity evidence, deferred encode/present, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mh") &&
+        implementationPlan.includes("Plato plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("lower completed error は original count owner を返す") &&
+        implementationPlan.includes("count step を呼ばない") &&
+        implementationPlan.includes("F5mf の count owner finish / free に委譲する"),
+    "F5mh implementation plan must retain plan review approval, original count owner recovery, no count-step rerun, and F5mf finish/free delegation",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_rle_count_completed" as *'), "alloc/gui/render2d facade must export F5mh compositor tile RLE completed count");
+assert(
+    allocRender2dCompositorTileRleCountCompleted.includes("pub enum GuiRgba8888CompositorTileRleCountCompletedErrorKind:") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("CompletedPrepareFailed %GuiRgba8888RowTileRleCountCompletedErrorKind") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("pub struct GuiRgba8888CompositorTileRleCountCompletedOwner:") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("completed %GuiRgba8888RowTileRleCountCompletedOwner") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("pub struct GuiRgba8888CompositorTileRleCountCompletedError:") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("total_run_count %i32") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("cursor_next_pixel_index %i32") &&
+        allocRender2dCompositorTileRleCountCompleted.includes("count %GuiRgba8888CompositorTileRleCountOwner"),
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh must define typed lower completed error, completed-owner success, and progress+count-owner error",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleCountCompletedImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRleCountCompletedOwner|GuiRgba8888CompositorTileRleCountCompletedError)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh owner-bearing success and error structs must not implement Clone or Copy",
+);
+const compositorTileRleCountCompletedPrepare = functionSlice(allocRender2dCompositorTileRleCountCompletedImpl, "gui_rgba8888_compositor_tile_rle_count_completed_prepare");
+assertOrderedFragments(
+    compositorTileRleCountCompletedPrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_count_owner_metadata &owner",
+        'let lower_count %GuiRgba8888RowTileRleCountOwner field::get owner "count"',
+        "match gui_rgba8888_row_tile_rle_count_completed_prepare lower_count:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_count_completed_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_count_completed_owner_new completed metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh must copy metadata before consuming lower count owner and wrap lower completed owner with metadata",
+);
+assert(
+    (compositorTileRleCountCompletedPrepare.match(/\bgui_rgba8888_row_tile_rle_count_completed_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh prepare helper must call lower completed prepare exactly once",
+);
+assertNoMatch(
+    compositorTileRleCountCompletedPrepare,
+    /\b(?:gui_rgba8888_row_tile_rle_count_step|gui_rgba8888_row_tile_rle_drain|gui_rgba8888_row_tile_rle_encode|gui_rgba8888_row_tile_rle_writer|gui_rgba8888_row_tile_rle_storage|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh prepare helper must not rerun count step, direct-drain, encode, read raw bytes, present, host/platform, or fallback",
+);
+assertNoMatch(
+    compositorTileRleCountCompletedPrepare,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh prepare helper must preserve NEPL prefix style without parentheses",
+);
+const compositorTileRleCountCompletedErrorFromLower = functionSlice(allocRender2dCompositorTileRleCountCompletedImpl, "gui_rgba8888_compositor_tile_rle_count_completed_error_from_lower");
+assertOrderedFragments(
+    compositorTileRleCountCompletedErrorFromLower,
+    [
+        "let lower_kind %GuiRgba8888RowTileRleCountCompletedErrorKind gui_rgba8888_row_tile_rle_count_completed_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_count_completed_error_category_value &lower",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_count_completed_error_total_run_count &lower",
+        "let cursor_next_pixel_index %i32 gui_rgba8888_row_tile_rle_count_completed_error_cursor_next_pixel_index &lower",
+        "let lower_count %GuiRgba8888RowTileRleCountOwner gui_rgba8888_row_tile_rle_count_completed_error_finish_count_owner lower",
+        "let count %GuiRgba8888CompositorTileRleCountOwner GuiRgba8888CompositorTileRleCountOwner lower_count metadata",
+        "GuiRgba8888CompositorTileRleCountCompletedErrorKind::CompletedPrepareFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_count_completed_error_new kind category total_run_count cursor_next_pixel_index count",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh lower error wrapper must read lower kind/category/progress before count-owner recovery",
+);
+assertNoMatch(
+    compositorTileRleCountCompletedErrorFromLower,
+    /\b(?:GuiRgba8888CompositorTilePayloadOwner|GuiRgba8888RowTilePayloadOwner|gui_rgba8888_row_tile_rle_count_error_finish_cursor|gui_rgba8888_row_tile_rle_cursor_finish_payload)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh error wrapper must recover the original count owner instead of falling back to payload recovery",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleCountCompletedImpl, "gui_rgba8888_compositor_tile_rle_count_completed_owner_finish_entry"),
+    [
+        "let count %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_completed_owner_finish_count_owner owner",
+        "gui_rgba8888_compositor_tile_rle_count_owner_finish_entry count",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh success finish must delegate to F5mf count owner finish",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleCountCompletedImpl, "gui_rgba8888_compositor_tile_rle_count_completed_error_finish_entry"),
+    [
+        "let count %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_completed_error_finish_count_owner error",
+        "gui_rgba8888_compositor_tile_rle_count_owner_finish_entry count",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh error finish must delegate to F5mf count owner finish",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleCountCompletedImpl, "gui_rgba8888_compositor_tile_rle_count_completed_owner_free"),
+    [
+        "let count %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_completed_owner_finish_count_owner owner",
+        "gui_rgba8888_compositor_tile_rle_count_owner_free count",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh success free must delegate to F5mf count owner free",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRleCountCompletedImpl, "gui_rgba8888_compositor_tile_rle_count_completed_error_free"),
+    [
+        "let count %GuiRgba8888CompositorTileRleCountOwner gui_rgba8888_compositor_tile_rle_count_completed_error_finish_count_owner error",
+        "gui_rgba8888_compositor_tile_rle_count_owner_free count",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh error free must delegate to F5mf count owner free",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRleCountCompletedImpl,
+    /\b(?:gui_rgba8888_row_tile_rle_count_step|gui_rgba8888_row_tile_rle_drain|gui_rgba8888_row_tile_rle_encode|gui_rgba8888_row_tile_rle_writer|gui_rgba8888_row_tile_rle_storage|gui_rgba8888_row_tile_rle_encoded|gui_rgba8888_row_tile_rle_packet|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|alloc_region|dealloc_region|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_count_completed F5mh must not expose count step, direct drain, encode/storage/packet, raw byte read, present, host, platform, or fallback APIs",
+);
+assert(
+    guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_facade_ok") &&
+        guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_success_total_ok") &&
+        guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_metadata_ok") &&
+        guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_pending_rejected_ok") &&
+        guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_error_recovers_count_owner_ok") &&
+        guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_finish_free_delegation_ok") &&
+        guiRender2dCompositorTileRleCountCompletedTests.includes("render2d_compositor_tile_rle_count_completed_no_count_step_no_encode_no_present_no_fallback"),
+    "F5mh compositor tile RLE completed count focused doctest must cover facade, success total, metadata, pending rejection, count owner recovery, finish/free delegation, and no count-step/encode/present/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],
