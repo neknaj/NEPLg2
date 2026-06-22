@@ -600,8 +600,8 @@ assert.deepEqual(
 );
 assert.equal(
     countOccurrences(code, "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced"),
-    3,
-    "ResourceLoweringTraversalProduced must appear only in the production-gate branch, the production fresh-witness input move branch, and the resource-lowering source-output producer",
+    4,
+    "ResourceLoweringTraversalProduced must appear only in the body-reader rejection guard, the production-gate branch, the production fresh-witness input move branch, and the resource-lowering source-output producer",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutput"),
@@ -898,6 +898,24 @@ assertOrdered(
     "body-reader no-escape authority bundle must carry resolver-derived coverage authority and the owner-bearing fresh witness authority bundle",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalNoEscapeCoverageAuthorityBundle"),
+    [
+        "coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority",
+        "witness_bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle",
+    ],
+    "actual traversal no-escape authority bundle must carry production traversal coverage authority and the owner-bearing fresh witness authority bundle",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalNoEscapeCoverageAuthorityBundle\b/,
+    "actual traversal no-escape authority bundle must stay module-private",
+);
+assert.doesNotMatch(
+    code,
+    /impl\s+(?:Clone|Copy)\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalNoEscapeCoverageAuthorityBundle\b/,
+    "actual traversal no-escape authority bundle must not implement Clone or Copy because it owns the witness bundle",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_body_root_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_from_body_root_result module context body_root",
@@ -976,17 +994,22 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_no_escape_authority_bundle_result"),
     [
+        'field::get output "origin"',
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::HirReaderSourceDerived:",
         'field::get output "context"',
         'field::get output "coverage_authority"',
         'field::get output "sources"',
         "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_sources_result coverage_authority context sources",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin::ResourceLoweringTraversalProduced:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_free output",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
     ],
-    "actual traversal source output must move its source owner into the existing body-reader no-escape authority bundle helper",
+    "actual traversal source output body-reader helper must accept only source-derived output and must close/reject resource-lowering output",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_no_escape_authority_bundle_result")),
-    /body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result|actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result|actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result|GraphInput|proof_table_push|RequestEvidenceProven|mask_private|sealed backend|neplobj|neplproof|artifact/i,
-    "source output into-authority helper must not produce handoff pairs, compact codes, proof tables, backend bytes, effect masks, or artifacts",
+    /body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result|actual_traversal_no_escape_coverage_|actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result|actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result|GraphInput|proof_table_push|RequestEvidenceProven|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "source output into-authority helper must not route production traversal output, produce handoff pairs, compact codes, proof tables, backend bytes, effect masks, or artifacts",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result"),
@@ -1079,6 +1102,31 @@ assertOrdered(
     "body-reader no-escape pair-code helper must go through the handoff pair value boundary before projecting to a compact code",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_handoff_pair_from_authority_bundle_result"),
+    [
+        'field::get bundle "coverage_authority"',
+        'field::get bundle "witness_bundle"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result coverage_authority witness_bundle",
+    ],
+    "actual traversal no-escape handoff-pair helper must consume the production traversal authority bundle without routing through body-reader helpers",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_handoff_pair_from_authority_bundle_result")),
+    /body_reader_no_escape_coverage_|actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result|GraphInput|proof_table_push|RequestEvidenceProven|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "actual traversal no-escape handoff-pair helper must not use body-reader helpers or skip the pair value boundary",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_pair_code_from_authority_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_handoff_pair_from_authority_bundle_result bundle",
+        "Result::Ok pair:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_pair_code_from_handoff_pair pair",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "actual traversal no-escape pair-code helper must go through the production traversal handoff pair value boundary before projecting to compact code",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_no_escape_pair_code_result"),
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_into_no_escape_authority_bundle_result output",
@@ -1169,6 +1217,14 @@ assertOrdered(
     ],
     "no-escape authority bundle witness-count helper must delegate to the owner-closing fresh-witness bundle count helper",
 );
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_authority_bundle_witness_count"),
+    [
+        'field::get bundle "witness_bundle"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_witness_count witness_bundle",
+    ],
+    "actual traversal no-escape authority bundle witness-count helper must delegate to the owner-closing fresh-witness bundle count helper",
+);
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_stage0_fresh_witness_input_source_count_result")),
     /source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|actual_traversal_fresh_witness_authority_bundle_from_sources_result|source_output_into_fresh_witness_authority_bundle_result|region_proof_table_from_sources_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
@@ -1214,7 +1270,7 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new context body_root sources",
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_into_bundle_result input",
         "Result::Ok witness_bundle:",
-        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new coverage_authority witness_bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_authority_bundle_new coverage_authority witness_bundle",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
@@ -1223,7 +1279,7 @@ assertOrdered(
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_into_no_escape_authority_bundle_result")),
-    /source_output_no_escape_pair_code_result|source_output_into_no_escape_authority_bundle_result|source_output_into_fresh_witness_authority_bundle_result|actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result|body_reader_no_escape_coverage_pair_code_from_authority_bundle_result|body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    /source_output_no_escape_pair_code_result|source_output_into_no_escape_authority_bundle_result|source_output_into_fresh_witness_authority_bundle_result|actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result|body_reader_no_escape_coverage_authority_bundle_new|body_reader_no_escape_coverage_pair_code_from_authority_bundle_result|body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "production output authority bundle helper must not bypass production fresh-witness input, produce no-escape pair/code, or synthesize request-evidence/backend/effect/artifact records",
 );
 assertOrdered(
@@ -1233,13 +1289,13 @@ assertOrdered(
         "Result::Ok output:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_into_no_escape_authority_bundle_result output",
         "Result::Ok authority_bundle:",
-        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_witness_count authority_bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_authority_bundle_witness_count authority_bundle",
     ],
     "resource-lowering authority bundle witness-count stage0 helper must use the production output authority bundle boundary and close the owner after counting",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_authority_bundle_witness_count_with_body_expr_result")),
-    /source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_pair_code_from_authority_bundle_result|body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    /source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "resource-lowering authority bundle witness-count stage0 helper must not consume no-escape pair/code, request-evidence, backend, effect mask, or artifact records",
 );
 assertOrdered(
@@ -1247,7 +1303,7 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_into_no_escape_authority_bundle_result output",
         "Result::Ok authority_bundle:",
-        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result authority_bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_no_escape_coverage_pair_code_from_authority_bundle_result authority_bundle",
         "Result::Err e:",
         "Result::Err e",
     ],
@@ -1255,7 +1311,7 @@ assertOrdered(
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_pair_code_result")),
-    /source_output_no_escape_pair_code_result|source_output_into_no_escape_authority_bundle_result|source_output_into_fresh_witness_authority_bundle_result|actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    /source_output_no_escape_pair_code_result|source_output_into_no_escape_authority_bundle_result|source_output_into_fresh_witness_authority_bundle_result|actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result|body_reader_no_escape_coverage_|region_fresh_witness_resource_table_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "production output gate must not bypass the production fresh-witness input owner or synthesize request-evidence/backend/effect/artifact records in this stage",
 );
 assertOrdered(
