@@ -625,14 +625,35 @@ assert.doesNotMatch(
     "actual traversal source output must not implement Clone or Copy because it owns a source table",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary"),
+    [
+        "accepted_source_count %i32",
+        "escaping_source_count %i32",
+        "observation_source_count %i32",
+        "unsupported_source_count %i32",
+    ],
+    "producer source vocabulary summary must distinguish accepted, escaping, observation, and unsupported source counts",
+);
+assert.doesNotMatch(
+    code,
+    /pub\s+(?:struct|enum)\s+SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary\b/,
+    "producer source vocabulary summary must stay module-private",
+);
+assert.match(
+    code,
+    /impl\s+Copy\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary\b/,
+    "producer source vocabulary summary may be copied because it carries counts but no owner tables",
+);
+assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput"),
     [
         "context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
         "coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority",
         "body_root %SelfhostHirExprId",
+        "source_vocabulary %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary",
         "sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable",
     ],
-    "resource-lowering producer output must carry rechecked context, same-body coverage authority, resolver body root, and the producer-owned source table",
+    "resource-lowering producer output must carry rechecked context, same-body coverage authority, resolver body root, source vocabulary, and the producer-owned source table",
 );
 assert.doesNotMatch(
     code,
@@ -650,10 +671,11 @@ assertOrdered(
         "context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
         "coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority",
         "body_root %SelfhostHirExprId",
+        "source_vocabulary %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary",
         "walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput",
         "observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable",
     ],
-    "resource-lowering producer traversal output must carry rechecked context, same-body coverage authority, resolver body root, walker input owner, and observation owner",
+    "resource-lowering producer traversal output must carry rechecked context, same-body coverage authority, resolver body root, source vocabulary, walker input owner, and observation owner",
 );
 assert.doesNotMatch(
     code,
@@ -681,9 +703,9 @@ assertOrdered(
         "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
         'field::get output "walker_input"',
         'field::get output "observations"',
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root walker_input observations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root source_vocabulary walker_input observations",
     ],
-    "resource-lowering producer split-output conversion must build same-body coverage authority and move walker input and observation owners into the producer traversal output",
+    "resource-lowering producer split-output conversion must build same-body coverage authority, keep source vocabulary, and move walker input and observation owners into the producer traversal output",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output")),
@@ -696,9 +718,10 @@ assertOrdered(
         "context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
         "coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority",
         "body_root %SelfhostHirExprId",
+        "source_vocabulary %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary",
         "witness_bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle",
     ],
-    "resource-lowering producer authority output must carry rechecked context, same-body coverage authority, resolver body root, and the producer-issued fresh-witness authority bundle",
+    "resource-lowering producer authority output must carry rechecked context, same-body coverage authority, resolver body root, source vocabulary, and the producer-issued fresh-witness authority bundle",
 );
 assert.doesNotMatch(
     code,
@@ -1064,15 +1087,19 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources",
         "Result::Ok _producer_identity:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_sources_result &sources",
+        "Result::Ok source_vocabulary:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_output_from_context_sources_result context sources",
         "Result::Ok output:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output context body_root output",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output context body_root source_vocabulary output",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_bridge_error_from_availability_error e",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources",
     ],
-    "resource-lowering producer traversal output helper must validate producer sources, pass them through split output, wrap walker/observation owners, and close sources on validation failure",
+    "resource-lowering producer traversal output helper must validate producer sources, derive vocabulary, pass them through split output, wrap walker/observation owners, and close sources on validation failure",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_sources_result")),
@@ -1106,13 +1133,14 @@ assertOrdered(
         'field::get output "context"',
         'field::get output "coverage_authority"',
         'field::get output "body_root"',
+        'field::get output "source_vocabulary"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result output",
         "Result::Ok sources:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root source_vocabulary sources",
         "Result::Err _e:",
         "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
     ],
-    "resource-lowering producer traversal output into-output helper must derive source-only producer output from the traversal output owner and keep coverage authority on the same owner path",
+    "resource-lowering producer traversal output into-output helper must derive source-only producer output from the traversal output owner and keep coverage authority and source vocabulary on the same owner path",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result")),
@@ -1211,17 +1239,18 @@ assertOrdered(
         'field::get output "context"',
         'field::get output "coverage_authority"',
         'field::get output "body_root"',
+        'field::get output "source_vocabulary"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root",
         "Result::Ok _identity:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result output",
         "Result::Ok witness_bundle:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root witness_bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root source_vocabulary witness_bundle",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free output",
     ],
-    "resource-lowering producer traversal output authority helper must validate coverage identity, issue fresh witness authority from traversal output, and close traversal output on identity failure",
+    "resource-lowering producer traversal output authority helper must validate coverage identity, issue fresh witness authority and source vocabulary from traversal output, and close traversal output on identity failure",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result")),
@@ -1234,12 +1263,13 @@ assertOrdered(
         'field::get output "context"',
         'field::get output "coverage_authority"',
         'field::get output "body_root"',
+        'field::get output "source_vocabulary"',
         'field::get output "sources"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root",
         "Result::Ok _identity:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result context sources",
         "Result::Ok witness_bundle:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root witness_bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root source_vocabulary witness_bundle",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e",
         "Result::Err e:",
@@ -3726,6 +3756,40 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_projection_stage0_(?:record|push|closed|escape|single|run|accepted)/m,
     "actual walker traversal source projection helpers must stay module-private and only the typed smoke summary may be public",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_kind"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheStoragePlace:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_accept vocabulary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ReturnCacheReferencePlace:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_escape vocabulary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateCacheEffectOperation:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_unsupported vocabulary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::PrivateStateEffectOperation:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_unsupported vocabulary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::CacheHitObservation:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_observe vocabulary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::UnsupportedObservationSource:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_unsupported vocabulary",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceKind::ResourceIrTraversalUnavailable:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_unsupported vocabulary",
+    ],
+    "producer source vocabulary fold must preserve accepted, escaping, private-effect unsupported, observation, unsupported-observation, and unavailable classifications",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_kind")),
+    /(^|\n)\s*_/,
+    "producer source vocabulary fold must not use wildcard fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_sources_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_sources_loop_result",
+        "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_empty",
+    ],
+    "producer source vocabulary summary must be derived by reading the producer source table before source owner is moved",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceCollectorStage0Summary"),

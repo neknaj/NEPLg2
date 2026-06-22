@@ -3495,6 +3495,14 @@ body-reader source output 用の `actual_traversal_source_output_into_no_escape_
 
 この checkpoint も full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source と fresh witness / coverage authority を同じ resolver-bound body identity へ実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-06-23 selfhost resource-lowering source vocabulary authority checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、producer source table から accepted / escaping / observation / unsupported の count を持つ `ActualTraversalProducerSourceVocabulary` を作る module-private summary を追加した。summary は source owner ではなく copyable value であり、`PrivateCacheEffectOperation` / `PrivateStateEffectOperation` は no-escape proof ではないため unsupported count に入れる。
+
+`actual_traversal_resource_lowering_producer_traversal_output_from_sources_result` は context-bound source validation 後、source owner を split output へ move する前に vocabulary summary を作り、producer traversal output owner に束ねる。source-only producer output と producer authority output も同じ summary を保持するため、fresh witness authority bundle は accepted source owner だけでなく、その producer が観測した source vocabulary と同じ resolver-bound body identity に紐づく。summary の fold は wildcard fallback を使わず、escaping source、observation source、unsupported observation、`ResourceIrTraversalUnavailable` を accepted count へ混ぜない。
+
+この checkpoint も full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source vocabulary と fresh witness / coverage authority を同じ resolver-bound body identity へ実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
