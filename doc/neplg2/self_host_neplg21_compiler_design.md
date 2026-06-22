@@ -3409,6 +3409,16 @@ bundle 生成は fresh witness owner 作成で止める。`region_fresh_witness_
 
 この checkpoint は production no-escape authority の接続であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を実 traversal から発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-06-23 selfhost production no-escape authority bundle boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、production gate の中に埋まっていた `ResourceLoweringTraversalProduced` output から no-escape authority bundle を作る処理を `actual_traversal_production_output_into_no_escape_authority_bundle_result` へ切り出した。
+
+新しい boundary は output origin を検査し、`HirReaderSourceDerived` は owner cleanup 後に `SourceDerivedHirBodyReaderRejected` で拒否する。`ResourceLoweringTraversalProduced` の場合だけ、coverage authority の request root / body root / body module fingerprint / graph id を output の context / body root と照合し、production fresh witness input owner、same-source fresh witness authority bundle、`BodyReaderNoEscapeCoverageAuthorityBundle` の順に進める。`production_output_pair_code_result` はこの authority bundle boundary の後で既存 handoff pair value projection を呼ぶだけになった。
+
+stage0 summary には `resource_lowering_authority_bundle_witness_count` を追加し、neutral body で production authority bundle が witness owner 1 件を保持して owner-closing count helper で閉じられることを確認する。これは no-escape pair code より前の authority bundle checkpoint であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。
+
+この checkpoint により production no-escape pair code は、source output から直接組み立てる処理ではなく、coverage authority と fresh witness authority bundle を同じ resolver-bound body identity で束ねた authority bundle を経由する。残件は actual Resource IR graph walker 本体が accepted / escaping / observation / unsupported source vocabulary と fresh witness authority を実 traversal から発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

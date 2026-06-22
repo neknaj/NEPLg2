@@ -81779,3 +81779,26 @@ MERGE_APPROVED
 - pass after Feynman review fix: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
 - pass after Feynman review fix: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
 - pass after Feynman review fix: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-production-no-escape-authority-after-review-doctest.json`。18/18。
+
+## 2026-06-23 selfhost production no-escape authority bundle boundary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` の production gate から、`ResourceLoweringTraversalProduced` output を no-escape authority bundle へ変換する処理を `actual_traversal_production_output_into_no_escape_authority_bundle_result` として切り出した。
+- 新 helper は `HirReaderSourceDerived` を owner cleanup 後に `SourceDerivedHirBodyReaderRejected` で拒否し、`ResourceLoweringTraversalProduced` の場合だけ coverage authority の request root / body root / body module fingerprint / graph id を context / body root と照合する。その後、production fresh witness input owner、same-source fresh witness authority bundle、`BodyReaderNoEscapeCoverageAuthorityBundle` の順に進める。
+- `actual_traversal_production_output_pair_code_result` は production authority bundle helper を呼び、成功した authority bundle を既存 handoff-pair code path へ渡すだけにした。source output から pair code を直接組み立てない。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary` に `resource_lowering_authority_bundle_witness_count` を追加し、neutral body で production authority bundle が witness owner 1 件を持ち、count helper で owner を閉じることを固定した。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、production authority bundle helper の origin rejection、coverage identity validation、production fresh witness input 経由、pair/code 非生成、request-evidence / GraphInput / effect mask / backend / artifact 非生成を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新した。この checkpoint は production no-escape pair 前の authority bundle 境界であり、request-evidence gate、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projection はまだ残件である。plan.md との差異はない。
+- Schrodinger の read-only review は blocker なし。`HirReaderSourceDerived` の owner cleanup 後拒否、`ResourceLoweringTraversalProduced` の coverage identity validation -> fresh witness input -> same-source bundle -> `BodyReaderNoEscapeCoverageAuthorityBundle` の順序、validation failure の source owner cleanup、pair-code helper が既存 handoff-pair path を使うこと、contract test の境界固定を確認した。残リスクとして、実 traversal 本体 / effect mask / backend artifact / request-evidence 以降は未接続のため次境界で再レビューが必要とされた。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-production-authority-bundle-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-production-authority-bundle-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_production_authority_bundle.json`
+- checked JSON: `tmp/playground_editor_selfhost_production_authority_bundle.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
