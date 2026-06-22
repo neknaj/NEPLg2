@@ -839,13 +839,62 @@ assertOrdered(
     "body-reader no-escape source helper must validate the source owner, move it once into fresh witness authority, and close it on validation rejection",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result"),
     [
         "field::get bundle \"coverage_authority\"",
         "field::get bundle \"witness_bundle\"",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result coverage_authority witness_bundle",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result coverage_authority witness_bundle",
     ],
-    "body-reader no-escape pair-code helper must move the bundled witness owner into the lower no-escape coverage helper exactly once",
+    "body-reader no-escape handoff-pair helper must move the bundled witness owner into the lower no-escape coverage helper exactly once",
+);
+const bodyReaderNoEscapeHandoffPairBlock = stripDocComments(
+    topLevelBlock(
+        source,
+        "fn",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result",
+    ),
+);
+assert.equal(
+    countOccurrences(
+        bodyReaderNoEscapeHandoffPairBlock,
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result",
+    ),
+    1,
+    "body-reader no-escape handoff-pair helper must call the lower pair-producing helper exactly once",
+);
+assert.doesNotMatch(
+    bodyReaderNoEscapeHandoffPairBlock,
+    /selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result/,
+    "body-reader no-escape handoff-pair helper must not skip the pair value boundary by calling the lower compact-code helper",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_request_context_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result module context resolutions",
+        "Result::Ok authority_bundle:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result authority_bundle",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "body-reader no-escape request-context handoff helper must produce the backend-private handoff pair from the combined resolver-bound authority bundle",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair"),
+    [
+        "Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code pair",
+    ],
+    "body-reader no-escape pair-code projection must derive compact test code from an already-built handoff pair",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result bundle",
+        "Result::Ok pair:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair pair",
+        "Result::Err e:",
+        "Result::Err e",
+    ],
+    "body-reader no-escape pair-code helper must go through the handoff pair value boundary before projecting to a compact code",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result"),
@@ -855,9 +904,9 @@ assertOrdered(
         "selfhost_memo_call_backend_request_table_get_entry &table 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root context_body_module_fingerprint 0",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint",
-        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result &module context &resolutions",
-        "Result::Ok authority_bundle:",
-        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result authority_bundle",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_request_context_result &module context &resolutions",
+        "Result::Ok pair:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair pair",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions",
         "selfhost_memo_call_backend_request_table_free table",
         "selfhost_hir_module_free module",
@@ -898,6 +947,9 @@ for (const helperName of [
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_sources_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_body_root_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_request_context_result",
+    "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result",
     "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_result",
@@ -905,7 +957,7 @@ for (const helperName of [
 ]) {
     assert.doesNotMatch(
         stripDocComments(topLevelBlock(source, "fn", helperName)),
-        /witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RegionFreshWitnessStatus|actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result|SelfhostMemoCallBackendPrivateCacheActualTraversalBundle|actual_traversal_bundle_|actual_traversal_body_reader_bundle_|context_bound_reader_(?:traversal_bundle|coverage_witness)|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_request_evidence_gate_result|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof|artifact|actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|body_reader_no_escape_coverage_authority_bundle_from_split_output_result|actual_traversal_body_adapter_sources_from_request_context_output_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_private_effect_coverage_stage0_(?:authority|mismatched_authority)|actual_walker_operation_classifier_events_from_hir_root_result|resource_walker_input_new|resource_walker_input_push_|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue|region_fresh_witness_stage0_table_result/i,
+        /witness_body_module_fingerprint|graph_index|root_operation_ordinal|support_operation_ordinal|RegionFreshWitnessStatus|actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result|SelfhostMemoCallBackendPrivateCacheActualTraversalBundle|actual_traversal_bundle_|actual_traversal_body_reader_bundle_|context_bound_reader_(?:traversal_bundle|coverage_witness)|actual_traversal_bundle_source_derived_witness_result|actual_traversal_bundle_request_evidence_gate_result|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_proof_table_to_request_evidence_result|selfhost_memo_call_backend_private_cache_proof_table_push|RequestEvidenceProven|resource_graph_input_push|GraphInput|Wasm|LLVM|PrivateCacheInPureFunction|mask_private|sealed backend|neplobj|neplproof|artifact|actual_traversal_body_reader_events_from_request_context_result|actual_walker_event_split_result|body_reader_no_escape_coverage_authority_bundle_from_split_output_result|actual_traversal_body_adapter_sources_from_request_context_output_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_private_effect_coverage_stage0_(?:authority|mismatched_authority)|actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result|actual_walker_operation_classifier_events_from_hir_root_result|resource_walker_input_new|resource_walker_input_push_|SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage|SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue|region_fresh_witness_stage0_table_result/i,
         `${helperName} must not route through external witness fixtures, traversal bundles, source-derived request evidence, root-wide classifier fixtures, direct source adapters, lower proof synthesis, GraphInput, backend bytes, effect masking, or artifact keys`,
     );
 }
@@ -918,6 +970,11 @@ assert.doesNotMatch(
     code,
     /^pub\s+fn\s+\w+[^\n]*SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle\b/m,
     "public functions must not expose body-reader no-escape coverage authority bundle in their signatures",
+);
+assert.doesNotMatch(
+    code,
+    /^pub\s+fn\s+\w+[^\n]*SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair\b/m,
+    "public functions must not expose backend-private coverage handoff pair in their signatures",
 );
 assert.doesNotMatch(
     code,

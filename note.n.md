@@ -81395,3 +81395,26 @@ MERGE_APPROVED
 - checked JSON: `tmp-playground-editor-tests-f5mu.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - Dirac の implementation review は `PLAN_APPROVED`。F5mt accessor-only mapping、step continuation non-consuming、compositor descriptor preservation、lower F5cq / F5cp / F5co / F5mr / F5ms direct path 非進出、packet/raw/host/platform/fallback 非進出に blocker はないと確認された。
 - note: `node nodesrc/run_source_policy_regressions.js` は 180 秒、600 秒の両方で timeout。F5mu 固有の `node nodesrc/test_web_gui_font_rendering_contract.js` は通過済み。
+
+## 2026-06-23 selfhost body-reader no-escape handoff pair boundary checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、resolver-bound body-reader no-escape coverage path が compact pair code に直行しないよう、public evidence を持つ backend-private handoff pair 値境界を追加した。
+- `body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result` は、coverage authority と actual traversal-owned fresh witness authority bundle を lower no-escape coverage helper へ渡し、`SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair` を返す。fresh witness owner はここで 1 回だけ消費し、code projection はその後段に限定する。
+- `body_reader_no_escape_coverage_handoff_pair_from_request_context_result` は resolver-bound request context から combined authority bundle を作って pair 値に進める。これは body-reader source-derived boundary であり、full Resource IR / HIR lowering traversal production output ではない。
+- stage0 runner は pair 値 helperを通してから `body_reader_no_escape_coverage_pair_code_from_handoff_pair` で compact code に投影する。整数 code を production authority にせず、backend-private handoff pair も public API には出さない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、pair 値 helper、request-context helper、code projection helper、stage0 runner の順序、private pair 非公開、GraphInput / proof table / request-evidence gate / effect mask / backend / artifact 非進出を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、今回の checkpoint は full traversal 完了ではなく、次は full Resource IR / HIR lowering traversal が source vocabulary と actual fresh witness authority bundle を same resolver-bound body identity で発行する production boundary であることを明記した。plan.md との差異はない。
+- Dewey の read-only design review は、full Resource IR traversal をこの 1 slice で完了と扱うのは不正確で、次は production traversal output 境界に切るべきだと確認した。今回の実装は effect mask / backend / artifact へ進まず、pair code 前の値境界に限定した。
+- Gauss の implementation review は blocker なし。non-blocking 指摘に従い、「public handoff pair」という曖昧な表現を public evidence を持つ backend-private pair に直し、contract で lower pair-producing helper の呼び出し回数を 1 回に固定し、body-reader path から lower compact-code helperへ直行しないことを追加確認した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-body-reader-handoff-pair-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-body-reader-handoff-pair-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_body_reader_handoff_pair.json`
+- checked JSON: `tmp/playground_editor_selfhost_body_reader_handoff_pair.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

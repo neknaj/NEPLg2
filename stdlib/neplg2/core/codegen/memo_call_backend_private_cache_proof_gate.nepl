@@ -15782,14 +15782,51 @@ fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_autho
         Result::Err _e:
             Result::Err selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected
 
-//: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result: combined authority bundle を no-escape pair code へ[写/うつ]す
+//: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result: combined authority bundle を public evidence を持つ backend-private handoff pair へ[写/うつ]す
 //:
 //: [契約/けいやく]:
 //: - witness bundle owner は lower no-escape coverage helper が必ず消費します。この helper は owner を複製しません。
-fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result %impure fn SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \bundle:
+//: - 戻り値の pair は module-private ですが、内部の 2 件の handoff evidence は checker-layer upper orchestration が受ける public transport と同じ形です。
+//: - pair 生成は code projection より前に独立した境界として残します。整数 code だけを production output authority にしてはいけません。
+fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result %impure fn SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle Result SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \bundle:
     let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority field::get bundle "coverage_authority"
     let witness_bundle %SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle field::get bundle "witness_bundle"
-    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_code_from_authority_bundle_result coverage_authority witness_bundle
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_handoff_pair_from_authority_bundle_result coverage_authority witness_bundle
+
+//: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_request_context_result: resolver-bound reader context 由来の no-escape backend-private handoff pair を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - resolver-bound body root から作った coverage authority と、同じ body root から作った fresh witness authority owner を、body-reader source-derived の public evidence 2 件を持つ backend-private pair まで進めます。
+//:
+//: [契約/けいやく]:
+//: - request context helper が resolver lookup と source owner 生成を所有します。この helper は second resolver lookup、split-output roundtrip、source-derived request-evidence bundle を作りません。
+//: - `EffectObservedNoEscape` は lower no-escape coverage helper が fresh witness authority を検査した場合だけ発行します。source kind 単体や coverage absence pair から推測しません。
+//: - この helper は full Resource IR / HIR lowering traversal の production output ではありません。checker-layer へ実際に渡す公開境界は public `HandoffEvidence` 2 件を受ける upper orchestration 側に残します。
+//: - GraphInput、Resource proof table push、request-evidence gate、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_request_context_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualTraversalBodyResolutionTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \module\context\resolutions:
+    match selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result module context resolutions:
+        Result::Ok authority_bundle:
+            selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result authority_bundle
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair: backend-private handoff pair を[検査/けんさ]用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - この helper は stage0 / contract 用の compact projection です。production boundary は `HandoffPair` 値であり、code は authority ではありません。
+fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \pair:
+    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_pair_code pair
+
+//: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result: combined authority bundle を no-escape pair code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - pair code は必ず backend-private handoff pair 生成後に計算します。fresh witness owner を消費せずに code だけを合成してはいけません。
+fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result %impure fn SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \bundle:
+    match selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result bundle:
+        Result::Ok pair:
+            selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair pair
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage0_run_i32_with_body_expr_result: body expr fixture を no-escape pair code へ[写/うつ]す
 //:
@@ -15812,9 +15849,9 @@ fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_stage
                                 Result::Ok context:
                                     match selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_resolution_table_result function_ty def_id context_body_module_fingerprint:
                                         Result::Ok resolutions:
-                                            let resolved_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind match selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_from_request_context_result &module context &resolutions:
-                                                Result::Ok authority_bundle:
-                                                    selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_authority_bundle_result authority_bundle
+                                            let resolved_result %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind match selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_handoff_pair_from_request_context_result &module context &resolutions:
+                                                Result::Ok pair:
+                                                    selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_pair_code_from_handoff_pair pair
                                                 Result::Err e:
                                                     Result::Err e
                                             selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_table_free resolutions

@@ -3355,6 +3355,16 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 
 この checkpoint は full Resource IR traversal ではない。残件は、full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で発行し、coverage handoff、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionへ渡す production boundary である。
 
+## 2026-06-23 selfhost body-reader no-escape handoff pair boundary checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、body-reader no-escape coverage path が resolver-bound authority bundle から直接 test 用 pair code に潰れないよう、public evidence を持つ backend-private pair を返す `body_reader_no_escape_coverage_handoff_pair_from_authority_bundle_result` と `body_reader_no_escape_coverage_handoff_pair_from_request_context_result` を追加した。
+
+新しい helper は、resolver lookup 済み body root から作った coverage authority と、同じ body root の source owner から作った actual traversal-owned fresh witness authority bundle を lower no-escape coverage helper へ渡し、`SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffPair` を値として返す。stage0 の compact code は `body_reader_no_escape_coverage_pair_code_from_handoff_pair` で後段投影するだけで、整数 code を production authority にしない。
+
+この境界でも public pair 型は追加しない。checker-layer upper orchestration は引き続き public `HandoffEvidence` 2 件だけを受け、backend private pair / complete authority / source table / reader context / resolution table / fresh witness owner は公開しない。`EffectObservedNoEscape` は source kind 単体や absence pair から推測せず、fresh witness authority を lower no-escape coverage helper が検査した場合だけ発行する。
+
+GraphInput、Resource proof table push、request-evidence gate、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key は作らない。今回の checkpoint は full Resource IR traversal ではなく、HIR body reader source vocabulary 由来の no-escape handoff pair 値境界である。残件は、full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で実発行し、その public handoff evidence を checker-layer upper orchestration と effect mask / sealed backend / artifact stable key projectionへ渡す production boundary である。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
