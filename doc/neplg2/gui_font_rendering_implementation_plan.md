@@ -5882,7 +5882,7 @@ plan review:
 - std layer compositor tile RLE present host action platform bridge boundary を追加し、F5nh session pending から borrowed pending accessor で expected action を読み、target / record kind / descriptor を platform executor 用に投影する。
 - completion は F5nh outcome-only complete だけに戻し、platform executor から action identity / report / attempt を受け取らない。
 - Web compositor host action executor backend bridge を追加し、expected action を `nepl_gui_web.compositor_tile_present_begin/run/end` の begin / run / end import いずれか 1 回に渡す。
-- raw status は `Result unit GuiError` へ写し、default import は actual compositor implementation が入るまで fail-closed に `GuiError::Unsupported` 相当を返す。
+- raw status は `Result unit GuiError` へ写し、`nodesrc/run_test.js` の default import は stdlib doctest 用に fail-closed に `GuiError::Unsupported` 相当を返す。
 - F5ni does not manufacture platform outcome。std helper は `Result::Ok unit` や `Result::Err GuiError::...` を作らず、Web bridge は host status だけを typed outcome へ写す。
 - F5ni は F5ng / F5nf / F5ne lower completion direct call、F5nd direct bridge、F5nb direct validation、F5na report construction、F5mx request construction、F5my / F5mw / F5mv、lower row-tile owner path、queue、timer、scheduler、raw storage、DOM / Canvas / minifb、video memory fallback、silent no-op には進まない。
 
@@ -5905,9 +5905,38 @@ plan review:
 
 完了条件:
 
-- source policy が docs、std / Web facade export、allowed F5nh/F5mz/F5nb imports、std helper no outcome manufacturing、Web host import ABI、one raw import per begin/run/end helper、F5nh pending action -> Web execute -> F5nh outcome-only complete order、run_test / worker fail-closed stub、no action/report return、no lower direct completion、no scheduler / queue / timer / fallback tokens、focused doctest labels を検査する。
+- source policy が docs、std / Web facade export、allowed F5nh/F5mz/F5nb imports、std helper no outcome manufacturing、Web host import ABI、one raw import per begin/run/end helper、F5nh pending action -> Web execute -> F5nh outcome-only complete order、run_test fail-closed stub、no action/report return、no lower direct completion、no scheduler / queue / timer / fallback tokens、focused doctest labels を検査する。
 - focused doctest、module doctest、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 - implementation review で outcome-only complete、borrowed expected action authority、no manufactured platform outcome、Web no video memory fallback、native / bare / headless を未接続として後続に残していることを確認する。
+
+## Phase F5nj: Web compositor host import actual implementation
+
+目的:
+
+- Web compositor host import actual implementation として、`web/src/runtime/worker.ts` の `nepl_gui_web.compositor_tile_present_begin/run/end` を actual helper に接続する。
+- Web worker 内では full-frame video memory surface backing を正式な pixel backing とし、`begin` が write slot を acquire して caller supplied frame id に紐付け、`run` が contiguous RLE run を RGBA8888 bytes に書き、全 batch / tile の `end` 完了時だけ publish / present ack path に渡す。
+- target は Window target only とし、Offscreen / Device は Unsupported にする。
+- partial dirty unsupported until slot preservation/copy を明示し、現行の slot が前フレーム pixels を保持しない制約を隠さない。
+- compositor ABI には title がないため、Web worker は deterministic title policy として surface handle 由来の固定 title を使う。
+
+plan review:
+
+- Anscombe the 2nd read-only design review は、`begin` が existing surface から slot を acquire し caller supplied `frame_raw` に紐付ける方針、Window 以外を Unsupported とする方針、present title を explicit policy として決める必要を blocker として確認した。
+- 指摘に従い、F5nj は Window target only、surface-handle-derived deterministic title policy、full-frame-only publish を明文化して実装する。
+
+変更:
+
+- `web/src/gui-preview/compositor-tile-present-host.ts` を追加し、descriptor validation、slot acquire、contiguous run write、batch/tile completion、full publish、typed host status mapping を実装する。
+- `web/src/runtime/worker.ts` の compositor host import を actual helper へ接続し、raw video memory write / publish / discard は compositor-owned frame を拒否する。
+- `nodesrc/test_web_gui_compositor_tile_present_host_import.js` を追加し、single packet、multi-batch、row-crossing run、lifecycle failure、Offscreen / Device unsupported、partial dirty unsupported、no writable slot を検査する。
+- `nodesrc/run_source_policy_regressions.js` と `nodesrc/test_web_gui_font_rendering_contract.js` に F5nj source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Web worker actual import connection、helper begin/run/end、Window target only、full-frame video memory surface backing、partial dirty unsupported until slot preservation/copy、deterministic title policy、run_test fail-closed default、raw/compositor frame mixing rejection、no stdout / DOM / Canvas / fallback を検査する。
+- F5nj host import regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で no silent fallback、no direct Canvas / DOM drawing、no Window fallback for Offscreen / Device、partial dirty unsupported reason、title policy が確認済みである。
 
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 

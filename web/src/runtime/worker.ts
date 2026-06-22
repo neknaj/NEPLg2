@@ -31,8 +31,17 @@ import {
     type GuiVideoMemoryDirtyRegion,
     type GuiVideoMemoryError,
     type GuiVideoMemorySurface,
-    type GuiVideoMemoryWriteSlot,
 } from '../gui-preview/video-memory-surface.js';
+import {
+    beginGuiWebCompositorTilePresent,
+    createGuiWebVideoMemoryHostSurfaceRecord,
+    endGuiWebCompositorTilePresent,
+    guiWebVideoMemoryHostFrameIsPlain,
+    runGuiWebCompositorTilePresent,
+    type GuiWebCompositorTilePresentDescriptor,
+    type GuiWebVideoMemoryHostFrameRecord,
+    type GuiWebVideoMemoryHostSurfaceRecord,
+} from '../gui-preview/compositor-tile-present-host.js';
 import {
     createGuiVideoMemoryHostAckBuffer,
     GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE,
@@ -140,18 +149,6 @@ type CompilerMode = 'rust' | 'selfhost';
 type LastGuiWebInputEvent =
     | { kind: 'empty' }
     | { kind: 'event'; event: GuiWebSharedInputEventRecord };
-
-type GuiWebVideoMemoryHostFrameRecord = {
-    frameId: number;
-    slot: GuiVideoMemoryWriteSlot;
-};
-
-type GuiWebVideoMemoryHostSurfaceRecord = {
-    handle: number;
-    surface: GuiVideoMemorySurface;
-    nextFrameId: number;
-    frames: GuiWebVideoMemoryHostFrameRecord[];
-};
 
 let compilerInitPromise: Promise<any> | null = null;
 let compilerSession: any | null = null;
@@ -492,16 +489,212 @@ class WorkerWASI extends WASI {
         return this.lastGuiWebInputEvent.event.tick;
     }
 
-    nepl_gui_web_compositor_tile_present_begin(..._args: number[]): number {
-        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    nepl_gui_web_compositor_tile_present_begin(
+        targetKind: number,
+        windowRaw: number,
+        surfaceRaw: number,
+        frameRaw: number,
+        packetFrameId: number,
+        batchIndex: number,
+        tileIndex: number,
+        planRowStart: number,
+        planRowCount: number,
+        rowStart: number,
+        rowCount: number,
+        width: number,
+        height: number,
+        strideBytes: number,
+        tileRows: number,
+        tileCount: number,
+        pixelCount: number,
+        totalRunCount: number,
+        encodedByteCount: number,
+        metadataFrameId: number,
+        metadataWidth: number,
+        metadataHeight: number,
+        metadataRowStart: number,
+        metadataRowCount: number,
+        metadataBatchCount: number,
+        metadataMaxRowsPerBatch: number,
+    ): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceRaw);
+        if (!surface) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        return beginGuiWebCompositorTilePresent(surface, this.guiWebCompositorTilePresentDescriptor(
+            targetKind,
+            windowRaw,
+            surfaceRaw,
+            frameRaw,
+            packetFrameId,
+            batchIndex,
+            tileIndex,
+            planRowStart,
+            planRowCount,
+            rowStart,
+            rowCount,
+            width,
+            height,
+            strideBytes,
+            tileRows,
+            tileCount,
+            pixelCount,
+            totalRunCount,
+            encodedByteCount,
+            metadataFrameId,
+            metadataWidth,
+            metadataHeight,
+            metadataRowStart,
+            metadataRowCount,
+            metadataBatchCount,
+            metadataMaxRowsPerBatch,
+        ));
     }
 
-    nepl_gui_web_compositor_tile_present_run(..._args: number[]): number {
-        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    nepl_gui_web_compositor_tile_present_run(
+        targetKind: number,
+        windowRaw: number,
+        surfaceRaw: number,
+        frameRaw: number,
+        packetFrameId: number,
+        batchIndex: number,
+        tileIndex: number,
+        planRowStart: number,
+        planRowCount: number,
+        rowStart: number,
+        rowCount: number,
+        width: number,
+        height: number,
+        strideBytes: number,
+        tileRows: number,
+        tileCount: number,
+        pixelCount: number,
+        totalRunCount: number,
+        encodedByteCount: number,
+        metadataFrameId: number,
+        metadataWidth: number,
+        metadataHeight: number,
+        metadataRowStart: number,
+        metadataRowCount: number,
+        metadataBatchCount: number,
+        metadataMaxRowsPerBatch: number,
+        runPixelOffset: number,
+        runPixelCount: number,
+        r: number,
+        g: number,
+        b: number,
+        a: number,
+    ): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceRaw);
+        if (!surface) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        return runGuiWebCompositorTilePresent(
+            surface,
+            this.guiWebCompositorTilePresentDescriptor(
+                targetKind,
+                windowRaw,
+                surfaceRaw,
+                frameRaw,
+                packetFrameId,
+                batchIndex,
+                tileIndex,
+                planRowStart,
+                planRowCount,
+                rowStart,
+                rowCount,
+                width,
+                height,
+                strideBytes,
+                tileRows,
+                tileCount,
+                pixelCount,
+                totalRunCount,
+                encodedByteCount,
+                metadataFrameId,
+                metadataWidth,
+                metadataHeight,
+                metadataRowStart,
+                metadataRowCount,
+                metadataBatchCount,
+                metadataMaxRowsPerBatch,
+            ),
+            {
+                pixelOffset: runPixelOffset,
+                pixelCount: runPixelCount,
+                r,
+                g,
+                b,
+                a,
+            },
+        );
     }
 
-    nepl_gui_web_compositor_tile_present_end(..._args: number[]): number {
-        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    nepl_gui_web_compositor_tile_present_end(
+        targetKind: number,
+        windowRaw: number,
+        surfaceRaw: number,
+        frameRaw: number,
+        packetFrameId: number,
+        batchIndex: number,
+        tileIndex: number,
+        planRowStart: number,
+        planRowCount: number,
+        rowStart: number,
+        rowCount: number,
+        width: number,
+        height: number,
+        strideBytes: number,
+        tileRows: number,
+        tileCount: number,
+        pixelCount: number,
+        totalRunCount: number,
+        encodedByteCount: number,
+        metadataFrameId: number,
+        metadataWidth: number,
+        metadataHeight: number,
+        metadataRowStart: number,
+        metadataRowCount: number,
+        metadataBatchCount: number,
+        metadataMaxRowsPerBatch: number,
+    ): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceRaw);
+        if (!surface) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const result = endGuiWebCompositorTilePresent(surface, this.guiWebCompositorTilePresentDescriptor(
+            targetKind,
+            windowRaw,
+            surfaceRaw,
+            frameRaw,
+            packetFrameId,
+            batchIndex,
+            tileIndex,
+            planRowStart,
+            planRowCount,
+            rowStart,
+            rowCount,
+            width,
+            height,
+            strideBytes,
+            tileRows,
+            tileCount,
+            pixelCount,
+            totalRunCount,
+            encodedByteCount,
+            metadataFrameId,
+            metadataWidth,
+            metadataHeight,
+            metadataRowStart,
+            metadataRowCount,
+            metadataBatchCount,
+            metadataMaxRowsPerBatch,
+        ));
+        if (result.kind === 'status') {
+            return result.status;
+        }
+        const status = this.presentGuiVideoMemorySurface(result.windowId, result.title, result.surface);
+        return status === GUI_VIDEO_MEMORY_HOST_STATUS_OK ? GUI_VIDEO_MEMORY_HOST_STATUS_OK : status || GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE;
     }
 
     nepl_gui_web_video_memory_create_surface(width: number, height: number, slotCount: number): number {
@@ -513,12 +706,7 @@ class WorkerWASI extends WASI {
         this.nextGuiVideoMemorySurfaceHandle += 1;
         this.guiVideoMemorySurfaces = [
             ...this.guiVideoMemorySurfaces,
-            {
-                handle,
-                surface: created.value,
-                nextFrameId: 1,
-                frames: [],
-            },
+            createGuiWebVideoMemoryHostSurfaceRecord(handle, created.value),
         ];
         return handle;
     }
@@ -539,6 +727,7 @@ class WorkerWASI extends WASI {
             {
                 frameId,
                 slot: acquired.value,
+                compositor: { kind: 'none' },
             },
         ];
         return frameId;
@@ -554,6 +743,7 @@ class WorkerWASI extends WASI {
         const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
         if (
             !frame
+            || !guiWebVideoMemoryHostFrameIsPlain(frame)
             || !isNonNegativeInteger(dstOffset)
             || !isNonNegativeInteger(byteLen)
             || dstOffset + byteLen > frame.slot.surface.pixelByteLength
@@ -577,7 +767,7 @@ class WorkerWASI extends WASI {
         srcPtr: number,
     ): number {
         const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
-        if (!frame || !isPositiveInteger(width)) {
+        if (!frame || !guiWebVideoMemoryHostFrameIsPlain(frame) || !isPositiveInteger(width)) {
             return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
         }
         const byteLen = width * 4;
@@ -608,7 +798,12 @@ class WorkerWASI extends WASI {
         a: number,
     ): number {
         const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
-        if (!frame || !isValidRect(frame.slot.surface, x, y, width, height) || !areValidColorChannels(r, g, b, a)) {
+        if (
+            !frame
+            || !guiWebVideoMemoryHostFrameIsPlain(frame)
+            || !isValidRect(frame.slot.surface, x, y, width, height)
+            || !areValidColorChannels(r, g, b, a)
+        ) {
             return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
         }
         for (let row = y; row < y + height; row += 1) {
@@ -627,7 +822,7 @@ class WorkerWASI extends WASI {
     nepl_gui_web_video_memory_discard_write_slot(surfaceHandle: number, frameId: number): number {
         const surface = this.findGuiVideoMemorySurface(surfaceHandle);
         const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
-        if (!surface || !frame) {
+        if (!surface || !frame || !guiWebVideoMemoryHostFrameIsPlain(frame)) {
             return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
         }
         const discarded = discardGuiVideoMemoryWriteSlot(frame.slot);
@@ -649,7 +844,7 @@ class WorkerWASI extends WASI {
     ): number {
         const surface = this.findGuiVideoMemorySurface(surfaceHandle);
         const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
-        if (!surface || !frame) {
+        if (!surface || !frame || !guiWebVideoMemoryHostFrameIsPlain(frame)) {
             return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
         }
         const dirty = this.decodeGuiVideoMemoryDirtyRegion(frame.slot.surface, dirtyKind, x, y, width, height);
@@ -799,6 +994,64 @@ class WorkerWASI extends WASI {
         });
         const status = waitGuiTimerHostAck(ack.value);
         return status === GUI_TIMER_HOST_STATUS_OK ? GUI_TIMER_HOST_STATUS_OK : status || GUI_TIMER_HOST_STATUS_BACKEND_FAILURE;
+    }
+
+    private guiWebCompositorTilePresentDescriptor(
+        targetKind: number,
+        windowRaw: number,
+        surfaceRaw: number,
+        frameRaw: number,
+        packetFrameId: number,
+        batchIndex: number,
+        tileIndex: number,
+        planRowStart: number,
+        planRowCount: number,
+        rowStart: number,
+        rowCount: number,
+        width: number,
+        height: number,
+        strideBytes: number,
+        tileRows: number,
+        tileCount: number,
+        pixelCount: number,
+        totalRunCount: number,
+        encodedByteCount: number,
+        metadataFrameId: number,
+        metadataWidth: number,
+        metadataHeight: number,
+        metadataRowStart: number,
+        metadataRowCount: number,
+        metadataBatchCount: number,
+        metadataMaxRowsPerBatch: number,
+    ): GuiWebCompositorTilePresentDescriptor {
+        return {
+            targetKind,
+            windowId: windowRaw,
+            surfaceHandle: surfaceRaw,
+            frameId: frameRaw,
+            packetFrameId,
+            batchIndex,
+            tileIndex,
+            planRowStart,
+            planRowCount,
+            rowStart,
+            rowCount,
+            width,
+            height,
+            strideBytes,
+            tileRows,
+            tileCount,
+            pixelCount,
+            totalRunCount,
+            encodedByteCount,
+            metadataFrameId,
+            metadataWidth,
+            metadataHeight,
+            metadataRowStart,
+            metadataRowCount,
+            metadataBatchCount,
+            metadataMaxRowsPerBatch,
+        };
     }
 
     private findGuiVideoMemorySurface(surfaceHandle: number): GuiWebVideoMemoryHostSurfaceRecord | null {

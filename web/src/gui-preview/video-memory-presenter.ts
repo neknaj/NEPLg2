@@ -152,13 +152,11 @@ function guiVideoMemoryImageDataForSlot(slot: GuiVideoMemoryReadSlot): ImageData
     const cache = guiVideoMemoryImageDataSlotCache(slot.surface);
     const cached = cache.get(slot.slotIndex);
     if (cached) {
+        cached.data.set(slot.pixels);
         return cached;
     }
-    const imageData = new ImageData(
-        slot.pixels as unknown as ImageDataArray,
-        slot.surface.width,
-        slot.surface.height,
-    );
+    const imageData = new ImageData(slot.surface.width, slot.surface.height);
+    imageData.data.set(slot.pixels);
     cache.set(slot.slotIndex, imageData);
     return imageData;
 }

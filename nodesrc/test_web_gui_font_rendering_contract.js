@@ -387,6 +387,8 @@ const nativeGuiLib = read("nepl-gui-native/src/lib.rs");
 const barePlatformBehaviorDoc = read("doc/neplg2/gui_bare_platform_behavior.md");
 const runTestSource = read("nodesrc/run_test.js");
 const webRuntimeWorkerSource = read("web/src/runtime/worker.ts");
+const webCompositorTilePresentHostSource = read("web/src/gui-preview/compositor-tile-present-host.ts");
+const webCompositorTilePresentHostTestSource = read("nodesrc/test_web_gui_compositor_tile_present_host_import.js");
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -31239,6 +31241,14 @@ for (const [name, doc] of [
             doc.includes("no video memory fallback"),
         `F5ni ${name} must document Web compositor host executor ABI and fail-closed policy`,
     );
+    assert(
+        doc.includes("Web compositor host import actual implementation") &&
+            doc.includes("full-frame video memory surface backing") &&
+            doc.includes("partial dirty unsupported until slot preservation/copy") &&
+            doc.includes("Window target only") &&
+            doc.includes("deterministic title policy"),
+        `F5nj ${name} must document Web compositor host import actual implementation scope`,
+    );
 }
 assert(stdGuiFacade.includes('pub #import "./gui/compositor_tile_present_host_action_platform_bridge" as *'), "std/gui facade must export F5ni compositor tile present host action platform bridge boundary");
 assert(platformGuiWebFacade.includes('pub #import "./web/compositor_host_executor" as @merge'), "platforms/gui/web facade must export F5ni Web compositor host executor bridge");
@@ -31383,15 +31393,58 @@ assert(
         runTestSource.includes("compositor_tile_present_end: () => -1"),
     "nodesrc/run_test default Web imports must fail closed for compositor host executor ABI",
 );
+const workerCompositorHostImportPath = textSliceBetween(
+    webRuntimeWorkerSource,
+    "    nepl_gui_web_compositor_tile_present_begin",
+    "    nepl_gui_web_video_memory_create_surface",
+);
 assert(
     webRuntimeWorkerSource.includes("compositor_tile_present_begin: this.nepl_gui_web_compositor_tile_present_begin.bind(this)") &&
         webRuntimeWorkerSource.includes("compositor_tile_present_run: this.nepl_gui_web_compositor_tile_present_run.bind(this)") &&
         webRuntimeWorkerSource.includes("compositor_tile_present_end: this.nepl_gui_web_compositor_tile_present_end.bind(this)") &&
-        webRuntimeWorkerSource.includes("nepl_gui_web_compositor_tile_present_begin(..._args: number[]): number") &&
-        webRuntimeWorkerSource.includes("nepl_gui_web_compositor_tile_present_run(..._args: number[]): number") &&
-        webRuntimeWorkerSource.includes("nepl_gui_web_compositor_tile_present_end(..._args: number[]): number") &&
-        (webRuntimeWorkerSource.match(/return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;/g) || []).length >= 3,
-    "web runtime worker must expose fail-closed compositor host executor imports until actual Web compositor implementation is connected",
+        workerCompositorHostImportPath.includes("beginGuiWebCompositorTilePresent") &&
+        workerCompositorHostImportPath.includes("runGuiWebCompositorTilePresent") &&
+        workerCompositorHostImportPath.includes("endGuiWebCompositorTilePresent") &&
+        workerCompositorHostImportPath.includes("this.presentGuiVideoMemorySurface(result.windowId, result.title, result.surface)") &&
+        !workerCompositorHostImportPath.includes("..._args") &&
+        !workerCompositorHostImportPath.includes("return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;"),
+    "web runtime worker F5nj must connect compositor host executor imports to actual Web video-memory-backed implementation",
+);
+assertNoMatch(
+    workerCompositorHostImportPath,
+    /stdout|GuiWebStdoutProtocol|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\.|presentGuiWebRuntimeVideoMemory|fallback|silent no-op/,
+    "web runtime worker F5nj compositor host import path must not use stdout, DOM, Canvas, presenter internals, or fallback",
+);
+assert(
+    webRuntimeWorkerSource.includes("createGuiWebVideoMemoryHostSurfaceRecord(handle, created.value)") &&
+        webRuntimeWorkerSource.includes("compositor: { kind: 'none' }") &&
+        (webRuntimeWorkerSource.match(/guiWebVideoMemoryHostFrameIsPlain\(frame\)/g) || []).length >= 5,
+    "web runtime worker F5nj must separate compositor-managed frames from raw video-memory write/publish/discard frames",
+);
+assert(
+    webCompositorTilePresentHostSource.includes("export function beginGuiWebCompositorTilePresent") &&
+        webCompositorTilePresentHostSource.includes("export function runGuiWebCompositorTilePresent") &&
+        webCompositorTilePresentHostSource.includes("export function endGuiWebCompositorTilePresent") &&
+        webCompositorTilePresentHostSource.includes("acquireGuiVideoMemoryWriteSlot(surface.surface)") &&
+        webCompositorTilePresentHostSource.includes("publishGuiVideoMemoryWriteSlot(frame.slot, { kind: 'full' })") &&
+        webCompositorTilePresentHostSource.includes("metadataRowStart !== 0 || descriptor.metadataRowCount !== descriptor.height") &&
+        webCompositorTilePresentHostSource.includes("descriptor.targetKind !== COMPOSITOR_TARGET_WINDOW") &&
+        webCompositorTilePresentHostSource.includes("run.pixelOffset !== packetState.seenPixelCount"),
+    "web gui-preview compositor tile present host F5nj must own begin/acquire, contiguous run write, full-frame publish, partial-dirty unsupported, and window-only validation",
+);
+assertNoMatch(
+    webCompositorTilePresentHostSource,
+    /stdout|GuiWebStdoutProtocol|CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\.|presentGuiWebRuntimeVideoMemory|postMessage|fallback|silent no-op/,
+    "web gui-preview compositor tile present host F5nj must stay inside video-memory surface state and avoid direct UI/fallback effects",
+);
+assert(
+    webCompositorTilePresentHostTestSource.includes("verifyFullFrameSinglePacket") &&
+        webCompositorTilePresentHostTestSource.includes("verifyFullFrameMultiBatch") &&
+        webCompositorTilePresentHostTestSource.includes("verifyRunOrderAndLifecycleFailures") &&
+        webCompositorTilePresentHostTestSource.includes("verifyUnsupportedAndResourceFailures") &&
+        webCompositorTilePresentHostTestSource.includes("partial dirty metadata is unsupported") &&
+        webCompositorTilePresentHostTestSource.includes("Offscreen and Device targets fail closed"),
+    "F5nj Web compositor host import regression must cover success, multi-batch, lifecycle failure, unsupported targets, and partial dirty policy",
 );
 assert(
     guiPlatformWebCompositorHostExecutorTests.includes("platform_web_compositor_host_executor_facade_ok") &&

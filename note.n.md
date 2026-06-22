@@ -1,3 +1,49 @@
+# 2026-06-23 Agent2 GUI Web F5nj compositor host import actual implementation
+
+## 目的
+
+- F5ni で追加した `nepl_gui_web.compositor_tile_present_begin/run/end` ABI を Web worker の actual implementation へ接続する。
+- Web では `GuiVideoMemorySurface` を formal pixel backing とし、stdout / DOM / Canvas fallback ではなく full-frame publish と existing presenter ack path に載せる。
+- Offscreen / Device を Window に流さず Unsupported とし、partial dirty は slot preservation/copy の契約が入るまで Unsupported にする。
+
+## 実装内容
+
+- `web/src/gui-preview/compositor-tile-present-host.ts` を追加した。
+- `begin` は descriptor を検証し、Window target だけを受け入れ、surface から write slot を acquire して caller supplied frame id に compositor state として紐付ける。
+- `run` は current packet と contiguous tile-local `run_pixel_offset` を検証し、RGBA8888 run を write slot bytes に書く。
+- `end` は packet の run / pixel count と batch / tile completion を検証し、全 packet 完了時だけ full dirty で publish して present request を返す。
+- partial dirty は現行 slot が前フレーム pixels を保持しないため Unsupported とした。
+- `web/src/runtime/worker.ts` の compositor host import を actual helper に接続し、raw video memory write / publish / discard は compositor-owned frame を拒否するようにした。
+- `nodesrc/test_web_gui_compositor_tile_present_host_import.js` を追加し、single packet、multi-batch、row-crossing run、lifecycle failure、Offscreen / Device unsupported、partial dirty unsupported、no writable slot を検査する。
+- source policy、仕様/詳細設計/標準ライブラリ仕様/実装計画、`todo.md` を更新した。
+
+## plan.md との差異
+
+- F5nj は plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う Web actual host import 接続である。
+- 現時点では native / bare / headless platform host executor bridge、partial dirty の slot preservation/copy、real scheduler integration には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Anscombe the 2nd read-only design review は、`begin` が surface から slot を acquire して caller supplied `frame_raw` に紐付ける方針、Offscreen / Device を Unsupported とする方針、present title policy を明示する必要を blocker と確認した。
+- 指摘に従い、F5nj は Window target only、surface-handle-derived deterministic title policy、full-frame-only publish とした。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_compositor_tile_present_host_import.js`
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_web_gui_compositor_tile_present_host_import.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nj.json`
+- checked JSON: `tmp_playground_editor_f5nj.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 残り
+
+- F5nj 後続として、native / bare / headless platform host executor bridge、partial dirty の slot preservation/copy、scheduler integration へ進む。
+
 # 2026-06-23 Agent2 GUI std/Web F5ni compositor host action platform bridge boundary
 
 ## 目的
@@ -45,7 +91,7 @@
 
 ## 残り
 
-- F5ni 後続として、native / bare / headless platform host executor bridge、Web compositor host import の actual implementation、scheduler integration へ進む。
+- F5ni/F5nj 後続として、native / bare / headless platform host executor bridge、partial dirty の slot preservation/copy、scheduler integration へ進む。
 
 # 2026-06-23 Agent2 GUI std F5nh compositor host action executor session boundary
 

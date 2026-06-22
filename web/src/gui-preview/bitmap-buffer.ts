@@ -3,7 +3,7 @@ import type { GuiPreviewColor } from './commands.js';
 export type GuiPreviewBitmapBuffer = {
     width: number;
     height: number;
-    pixels: Uint8ClampedArray<ArrayBuffer>;
+    pixels: Uint8ClampedArray;
 };
 
 export function createGuiPreviewBitmapBuffer(
@@ -61,7 +61,7 @@ export function writeGuiPreviewBitmapPixel(
     writeGuiPreviewBitmapColor(buffer.pixels, offset, color);
 }
 
-function writeGuiPreviewBitmapColor(pixels: Uint8ClampedArray<ArrayBuffer>, offset: number, color: GuiPreviewColor) {
+function writeGuiPreviewBitmapColor(pixels: Uint8ClampedArray, offset: number, color: GuiPreviewColor) {
     const alpha = color.alpha / 255;
     if (alpha >= 1) {
         pixels[offset] = color.red;

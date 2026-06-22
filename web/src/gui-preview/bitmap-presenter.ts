@@ -17,9 +17,11 @@ export function presentGuiPreviewBitmapToCanvas(
 function guiPreviewImageDataForBuffer(buffer: GuiPreviewBitmapBuffer): ImageData {
     const cached = guiPreviewImageDataCache.get(buffer);
     if (cached) {
+        cached.data.set(buffer.pixels);
         return cached;
     }
-    const imageData = new ImageData(buffer.pixels, buffer.width, buffer.height);
+    const imageData = new ImageData(buffer.width, buffer.height);
+    imageData.data.set(buffer.pixels);
     guiPreviewImageDataCache.set(buffer, imageData);
     return imageData;
 }
