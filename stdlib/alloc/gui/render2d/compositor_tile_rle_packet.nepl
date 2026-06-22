@@ -1,0 +1,718 @@
+//: # alloc/gui/render2d/compositor_tile_rle_packet
+//: RGBA8888 compositor tile RLE packet bridge boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mo の compositor tile RLE encoded owner を lower packet owner へ[渡/わた]します。
+//: - lower packet owner と compositor metadata を[束/たば]ね、後続 std present boundary が frame metadata を[失/うしな]わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - encoded owner を lower encoded owner へ[分解/ぶんかい]する[前/まえ]に metadata を Copy value として[読/よ]みます。
+//: - lower `gui_rgba8888_row_tile_rle_packet_prepare` を 1 [回/かい]だけ[呼/よ]びます。
+//: - lower packet prepare error では lower kind / category を[読/よ]んでから lower encoded owner を metadata [付/つ]き compositor encoded owner へ[戻/もど]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は packet owner bridge で止まります。packet record reader、std present、host / platform API、video memory、Canvas / DOM / minifb、raw byte access、fallback / silent no-op は[含/ふく]めません。
+//: - packet owner finish は abort / recovery helper であり、present frame completion や entry finish は[作/つく]りません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/compositor_frame_entry" as *
+#import "alloc/gui/render2d/compositor_tile_rle_encoded" as *
+#import "alloc/gui/render2d/row_tile_rle_encoded" as *
+#import "alloc/gui/render2d/row_tile_rle_packet" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRgba8888CompositorTileRlePacketPrepareErrorKind: packet bridge の[失敗/しっぱい][段階/だんかい]
+//:
+//: lower packet prepare error kind を Copy value として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePacketPrepareErrorKind:
+    PacketPrepareFailed %GuiRgba8888RowTileRlePacketPrepareErrorKind
+
+impl Clone for GuiRgba8888CompositorTileRlePacketPrepareErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePacketPrepareErrorKind GuiRgba8888CompositorTileRlePacketPrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePacketPrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePacketPrepareErrorKind GuiRgba8888CompositorTileRlePacketPrepareErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePacketOwner: lower packet owner と compositor metadata の owner
+//:
+//: transport-ready packet authority と copied frame metadata を 1 つの owner payload に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePacketOwner:
+    packet %GuiRgba8888RowTileRlePacketOwner
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+//: GuiRgba8888CompositorTileRlePacketDescriptor: lower packet descriptor と compositor metadata の Copy descriptor
+//:
+//: std present boundary が lower packet descriptor と compositor metadata を同時に[参照/さんしょう]できるようにします。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePacketDescriptor:
+    packet %GuiRgba8888RowTileRlePacketDescriptor
+    metadata %GuiRgba8888CompositorFrameEntryMetadata
+
+impl Clone for GuiRgba8888CompositorTileRlePacketDescriptor:
+    fn clone %fn &GuiRgba8888CompositorTileRlePacketDescriptor GuiRgba8888CompositorTileRlePacketDescriptor \descriptor:
+        *descriptor
+
+impl Copy for GuiRgba8888CompositorTileRlePacketDescriptor:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePacketDescriptor GuiRgba8888CompositorTileRlePacketDescriptor \descriptor:
+        descriptor
+
+//: GuiRgba8888CompositorTileRlePacketPrepareError: encoded owner を[回収/かいしゅう]できる packet prepare error
+//:
+//: lower packet prepare error の kind / category と、metadata [付/つ]き encoded owner を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePacketPrepareError:
+    kind %GuiRgba8888CompositorTileRlePacketPrepareErrorKind
+    category %Option GuiError
+    encoded %GuiRgba8888CompositorTileRleEncodedOwner
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_new: lower packet owner と metadata を[束/たば]ねる
+//:
+//: lower packet prepare が[成功/せいこう]した後だけ呼ぶ module-private constructor です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_packet_owner_new %fn GuiRgba8888RowTileRlePacketOwner fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePacketOwner \packet\metadata:
+    GuiRgba8888CompositorTileRlePacketOwner packet metadata
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_new: lower descriptor と metadata を[束/たば]ねる
+//:
+//: lower packet owner の descriptor を compositor metadata と一緒に Copy descriptor として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_packet_descriptor_new %fn GuiRgba8888RowTileRlePacketDescriptor fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePacketDescriptor \packet\metadata:
+    GuiRgba8888CompositorTileRlePacketDescriptor packet metadata
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_new: prepare error payload を[作/つく]る
+//:
+//: lower kind、category、回収用 encoded owner を 1 つの owner-bearing error にまとめます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_new %fn GuiRgba8888CompositorTileRlePacketPrepareErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRleEncodedOwner GuiRgba8888CompositorTileRlePacketPrepareError \kind\category\encoded:
+    GuiRgba8888CompositorTileRlePacketPrepareError kind category encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_from_lower: lower prepare error を compositor encoded error へ[写/うつ]す
+//:
+//: lower kind / category を[読/よ]んでから lower encoded owner を[回収/かいしゅう]し、metadata [付/つ]き encoded owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_from_lower %fn GuiRgba8888RowTileRlePacketPrepareError fn GuiRgba8888CompositorFrameEntryMetadata GuiRgba8888CompositorTileRlePacketPrepareError \lower\metadata:
+    let lower_kind %GuiRgba8888RowTileRlePacketPrepareErrorKind gui_rgba8888_row_tile_rle_packet_prepare_error_kind &lower
+    let category %Option GuiError gui_rgba8888_row_tile_rle_packet_prepare_error_category_value &lower
+    let lower_encoded %GuiRgba8888RowTileRleEncodedOwner gui_rgba8888_row_tile_rle_packet_prepare_error_finish_encoded lower
+    let encoded %GuiRgba8888CompositorTileRleEncodedOwner GuiRgba8888CompositorTileRleEncodedOwner lower_encoded metadata
+    let kind %GuiRgba8888CompositorTileRlePacketPrepareErrorKind GuiRgba8888CompositorTileRlePacketPrepareErrorKind::PacketPrepareFailed lower_kind
+    gui_rgba8888_compositor_tile_rle_packet_prepare_error_new kind category encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare: compositor encoded owner を packet owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - metadata を Copy してから lower encoded owner を[取/と]り[出/だ]します。
+//: - lower packet prepare を 1 [回/かい]だけ[呼/よ]び、success では packet owner と metadata を[束/たば]ねます。
+//: - error では lower encoded owner を metadata [付/つ]き encoded owner に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare %fn GuiRgba8888CompositorTileRleEncodedOwner Result GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePacketPrepareError \encoded:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encoded_owner_metadata &encoded
+    let lower_encoded %GuiRgba8888RowTileRleEncodedOwner field::get encoded "encoded"
+    match gui_rgba8888_row_tile_rle_packet_prepare lower_encoded:
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_packet_prepare_error_from_lower lower metadata
+        Result::Ok packet:
+            Result::Ok gui_rgba8888_compositor_tile_rle_packet_owner_new packet metadata
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_metadata: packet owner に[保持/ほじ]した metadata を[返/かえ]す
+//:
+//: metadata は Copy value なので packet owner を[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_metadata %fn &GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorFrameEntryMetadata \owner:
+    *field::get_ref owner "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor: lower packet descriptor を[読/よ]む
+//:
+//: public descriptor wrapper を[作/つく]るための module-private helper です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor %fn &GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888RowTileRlePacketDescriptor \owner:
+    let packet %&GuiRgba8888RowTileRlePacketOwner field::get_ref owner "packet"
+    gui_rgba8888_row_tile_rle_packet_descriptor packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor: metadata [付/つ]き packet descriptor を[返/かえ]す
+//:
+//: lower descriptor を裸で公開せず、compositor metadata と[束/たば]ねた Copy descriptor を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor %fn &GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRlePacketDescriptor \owner:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata owner
+    gui_rgba8888_compositor_tile_rle_packet_descriptor_new packet metadata
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_metadata: descriptor の compositor metadata を[返/かえ]す
+//:
+//: descriptor は Copy value なので[消費/しょうひ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_metadata %fn &GuiRgba8888CompositorTileRlePacketDescriptor GuiRgba8888CompositorFrameEntryMetadata \descriptor:
+    *field::get_ref descriptor "metadata"
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet: descriptor に[保持/ほじ]した lower packet descriptor を[読/よ]む
+//:
+//: scalar accessor 実装用の module-private helper です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet %fn &GuiRgba8888CompositorTileRlePacketDescriptor GuiRgba8888RowTileRlePacketDescriptor \descriptor:
+    *field::get_ref descriptor "packet"
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id: descriptor の frame id を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_frame_id %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index: descriptor の batch index を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_batch_index %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index: descriptor の tile index を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_index %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start: descriptor の plan row start を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_start %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count: descriptor の plan row count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_plan_row_count %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start: descriptor の row start を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_row_start %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_row_start &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count: descriptor の row count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_row_count %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_row_count &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_width: descriptor の width を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_width %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_width &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_height: descriptor の height を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_height %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_height &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes: descriptor の stride bytes を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_stride_bytes %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows: descriptor の tile rows を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_rows %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count: descriptor の tile count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_tile_count %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count: descriptor の pixel count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_pixel_count %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count: descriptor の total run count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_total_run_count %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count: descriptor の encoded byte count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_encoded_byte_count %fn &GuiRgba8888CompositorTileRlePacketDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_descriptor_lower_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &packet
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_frame_id: packet descriptor の frame id を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_frame_id %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_frame_id &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_batch_index: packet descriptor の batch index を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_batch_index %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_batch_index &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_index: packet descriptor の tile index を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_index %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_tile_index &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_plan_row_start: packet descriptor の plan row start を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_plan_row_start %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_plan_row_count: packet descriptor の plan row count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_plan_row_count %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_row_start: packet descriptor の row start を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_row_start %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_row_start &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_row_count: packet descriptor の row count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_row_count %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_row_count &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_width: packet descriptor の width を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_width %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_width &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_height: packet descriptor の height を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_height %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_height &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_stride_bytes: packet descriptor の stride bytes を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_stride_bytes %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_rows: packet descriptor の tile rows を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_rows %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_count: packet descriptor の tile count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_tile_count %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_tile_count &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_pixel_count: packet descriptor の pixel count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_pixel_count %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_total_run_count: packet descriptor の total run count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_total_run_count %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_encoded_byte_count: packet descriptor の encoded byte count を[返/かえ]す
+//:
+//: lower packet descriptor accessor に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_descriptor_encoded_byte_count %fn &GuiRgba8888CompositorTileRlePacketOwner i32 \owner:
+    let descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner
+    gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count &descriptor
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_kind: prepare error kind を[返/かえ]す
+//:
+//: lower packet prepare failure の分類を Copy value として[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_kind %fn &GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRlePacketPrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_category_value: prepare error の category を[返/かえ]す
+//:
+//: lower packet prepare error の coarse category をそのまま[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_category_value %fn &GuiRgba8888CompositorTileRlePacketPrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_metadata: recovery encoded owner の metadata を[返/かえ]す
+//:
+//: error が[保持/ほじ]する metadata [付/つ]き encoded owner から metadata を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_metadata %fn &GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorFrameEntryMetadata \error:
+    let encoded %&GuiRgba8888CompositorTileRleEncodedOwner field::get_ref error "encoded"
+    gui_rgba8888_compositor_tile_rle_encoded_owner_metadata encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_total_run_count: recovery encoded owner の total run count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する encoded owner から exact run count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_total_run_count %fn &GuiRgba8888CompositorTileRlePacketPrepareError i32 \error:
+    let encoded %&GuiRgba8888CompositorTileRleEncodedOwner field::get_ref error "encoded"
+    gui_rgba8888_compositor_tile_rle_encoded_owner_total_run_count encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_encoded_byte_count: recovery encoded owner の encoded byte count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する encoded owner から exact encoded byte count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_encoded_byte_count %fn &GuiRgba8888CompositorTileRlePacketPrepareError i32 \error:
+    let encoded %&GuiRgba8888CompositorTileRleEncodedOwner field::get_ref error "encoded"
+    gui_rgba8888_compositor_tile_rle_encoded_owner_encoded_byte_count encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_cursor_next_pixel_index: recovery encoded owner の cursor next pixel index を[返/かえ]す
+//:
+//: error が[保持/ほじ]する encoded owner から cursor progress を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_cursor_next_pixel_index %fn &GuiRgba8888CompositorTileRlePacketPrepareError i32 \error:
+    let encoded %&GuiRgba8888CompositorTileRleEncodedOwner field::get_ref error "encoded"
+    gui_rgba8888_compositor_tile_rle_encoded_owner_cursor_next_pixel_index encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_cursor_pixel_count: recovery encoded owner の cursor pixel count を[返/かえ]す
+//:
+//: error が[保持/ほじ]する encoded owner から cursor pixel count を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_cursor_pixel_count %fn &GuiRgba8888CompositorTileRlePacketPrepareError i32 \error:
+    let encoded %&GuiRgba8888CompositorTileRleEncodedOwner field::get_ref error "encoded"
+    gui_rgba8888_compositor_tile_rle_encoded_owner_cursor_pixel_count encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_finish_encoded: error から encoded owner を[取/と]り[出/だ]す
+//:
+//: caller が retry / recovery / free を[選/えら]べるように metadata [付/つ]き encoded owner を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_finish_encoded %fn GuiRgba8888CompositorTileRlePacketPrepareError GuiRgba8888CompositorTileRleEncodedOwner \error:
+    field::get error "encoded"
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_finish_encoded: packet owner を encoded owner へ[戻/もど]す
+//:
+//: metadata を Copy してから lower packet owner を[消費/しょうひ]し、metadata [付/つ]き encoded owner へ[戻/もど]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_finish_encoded %fn GuiRgba8888CompositorTileRlePacketOwner GuiRgba8888CompositorTileRleEncodedOwner \owner:
+    let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata &owner
+    let packet %GuiRgba8888RowTileRlePacketOwner field::get owner "packet"
+    let lower_encoded %GuiRgba8888RowTileRleEncodedOwner gui_rgba8888_row_tile_rle_packet_finish_encoded packet
+    GuiRgba8888CompositorTileRleEncodedOwner lower_encoded metadata
+
+//: gui_rgba8888_compositor_tile_rle_packet_prepare_error_free: prepare error の recovery encoded owner を[閉/と]じる
+//:
+//: error が[保持/ほじ]する encoded owner を F5mo encoded owner free に[委譲/いじょう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_prepare_error_free %fn GuiRgba8888CompositorTileRlePacketPrepareError Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \error:
+    let encoded %GuiRgba8888CompositorTileRleEncodedOwner gui_rgba8888_compositor_tile_rle_packet_prepare_error_finish_encoded error
+    gui_rgba8888_compositor_tile_rle_encoded_owner_free encoded
+
+//: gui_rgba8888_compositor_tile_rle_packet_owner_free: packet owner を[閉/と]じて encoded storage まで[破棄/はき]する
+//:
+//: lower packet owner free に[委譲/いじょう]し、encoded storage deallocation / cursor free の typed kind を F5mo encoded finish kind に[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/compositor_tile_rle_packet" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_packet_owner_free %fn GuiRgba8888CompositorTileRlePacketOwner Result unit GuiRgba8888CompositorTileRleEncodedFinishErrorKind \owner:
+    let packet %GuiRgba8888RowTileRlePacketOwner field::get owner "packet"
+    match gui_rgba8888_row_tile_rle_packet_owner_free packet:
+        Result::Err lower_kind:
+            Result::Err GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind
+        Result::Ok _:
+            Result::Ok unit

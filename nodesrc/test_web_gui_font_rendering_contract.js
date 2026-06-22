@@ -133,6 +133,8 @@ const allocRender2dCompositorTileRleWriteStep = read("stdlib/alloc/gui/render2d/
 const allocRender2dCompositorTileRleWriteStepImpl = withoutComments(allocRender2dCompositorTileRleWriteStep);
 const allocRender2dCompositorTileRleEncoded = read("stdlib/alloc/gui/render2d/compositor_tile_rle_encoded.nepl");
 const allocRender2dCompositorTileRleEncodedImpl = withoutComments(allocRender2dCompositorTileRleEncoded);
+const allocRender2dCompositorTileRlePacket = read("stdlib/alloc/gui/render2d/compositor_tile_rle_packet.nepl");
+const allocRender2dCompositorTileRlePacketImpl = withoutComments(allocRender2dCompositorTileRlePacket);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
@@ -392,6 +394,7 @@ const guiRender2dCompositorTileRleStorageTests = read("tests/stdlib/gui_render2d
 const guiRender2dCompositorTileRleWriteCursorTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_write_cursor.n.md");
 const guiRender2dCompositorTileRleWriteStepTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_write_step.n.md");
 const guiRender2dCompositorTileRleEncodedTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md");
+const guiRender2dCompositorTileRlePacketTests = read("tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
@@ -28655,6 +28658,211 @@ assert(
         guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_free_delegates_lower_encoded_ok") &&
         guiRender2dCompositorTileRleEncodedTests.includes("render2d_compositor_tile_rle_encoded_no_packet_present_raw_fallback"),
     "F5mo compositor tile RLE encoded focused doctest/source policy must cover facade runtime types, seal, counts/progress, metadata, payload recovery, source-policy write cursor recovery, lower free delegation, and no packet/present/raw/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("F5mp") &&
+            doc.includes("compositor tile RLE packet bridge") &&
+            doc.includes("GuiRgba8888CompositorTileRlePacketOwner") &&
+            doc.includes("GuiRgba8888CompositorTileRlePacketDescriptor") &&
+            doc.includes("gui_rgba8888_row_tile_rle_packet_prepare") &&
+            doc.includes("packet record reader") &&
+            doc.includes("finish_payload") &&
+            doc.includes("fallback"),
+        `F5mp ${name} must document compositor packet owner, descriptor wrapper, lower packet prepare, no packet-record/present/fallback policy, and no finish_payload helper`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5mp") &&
+        implementationPlan.includes("Schrodinger plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("F5mo encoded owner") &&
+        implementationPlan.includes("metadata付き descriptor wrapper") &&
+        implementationPlan.includes("finish_payload / finish_entry は F5mp に置かない"),
+    "F5mp implementation plan must record subagent approval, F5mo encoded owner input, descriptor wrapper, and no finish_payload/finish_entry policy",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/compositor_tile_rle_packet" as *'), "alloc/gui/render2d facade must export F5mp compositor tile RLE packet bridge");
+assert(
+    allocRender2dCompositorTileRlePacket.includes("pub enum GuiRgba8888CompositorTileRlePacketPrepareErrorKind:") &&
+        allocRender2dCompositorTileRlePacket.includes("PacketPrepareFailed %GuiRgba8888RowTileRlePacketPrepareErrorKind") &&
+        allocRender2dCompositorTileRlePacket.includes("pub struct GuiRgba8888CompositorTileRlePacketOwner:") &&
+        allocRender2dCompositorTileRlePacket.includes("packet %GuiRgba8888RowTileRlePacketOwner") &&
+        allocRender2dCompositorTileRlePacket.includes("metadata %GuiRgba8888CompositorFrameEntryMetadata") &&
+        allocRender2dCompositorTileRlePacket.includes("pub struct GuiRgba8888CompositorTileRlePacketDescriptor:") &&
+        allocRender2dCompositorTileRlePacket.includes("packet %GuiRgba8888RowTileRlePacketDescriptor") &&
+        allocRender2dCompositorTileRlePacket.includes("pub struct GuiRgba8888CompositorTileRlePacketPrepareError:") &&
+        allocRender2dCompositorTileRlePacket.includes("encoded %GuiRgba8888CompositorTileRleEncodedOwner"),
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp must define typed lower packet prepare error, metadata-wrapped packet owner, descriptor wrapper, and encoded recovery error",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRlePacketImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+(?:GuiRgba8888CompositorTileRlePacketOwner|GuiRgba8888CompositorTileRlePacketPrepareError)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp owner-bearing success and error structs must not implement Clone or Copy",
+);
+assertMatch(
+    allocRender2dCompositorTileRlePacketImpl,
+    /impl\s+Clone\s+for\s+GuiRgba8888CompositorTileRlePacketDescriptor:[\s\S]*impl\s+Copy\s+for\s+GuiRgba8888CompositorTileRlePacketDescriptor:/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp descriptor wrapper must be Clone and Copy",
+);
+const compositorTileRlePacketPrepare = functionSlice(allocRender2dCompositorTileRlePacketImpl, "gui_rgba8888_compositor_tile_rle_packet_prepare");
+assertOrderedFragments(
+    compositorTileRlePacketPrepare,
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_encoded_owner_metadata &encoded",
+        'let lower_encoded %GuiRgba8888RowTileRleEncodedOwner field::get encoded "encoded"',
+        "match gui_rgba8888_row_tile_rle_packet_prepare lower_encoded:",
+        "Result::Err gui_rgba8888_compositor_tile_rle_packet_prepare_error_from_lower lower metadata",
+        "Result::Ok gui_rgba8888_compositor_tile_rle_packet_owner_new packet metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp must copy metadata before consuming lower encoded owner and wrap lower packet owner",
+);
+assert(
+    (compositorTileRlePacketPrepare.match(/\bgui_rgba8888_row_tile_rle_packet_prepare\b/g) || []).length === 1,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp prepare helper must call lower packet prepare exactly once",
+);
+assertNoMatch(
+    compositorTileRlePacketPrepare,
+    /\b(?:gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked|gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked|gui_rgba8888_row_tile_rle_packet_record|row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|load_u8|store_u8|region_ptr_at|mem_ptr_addr|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport execution|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp prepare helper must not bypass F5cm descriptor authority, read packet records/raw bytes, present, host/platform, or fallback",
+);
+const compositorTileRlePacketErrorFromLower = functionSlice(allocRender2dCompositorTileRlePacketImpl, "gui_rgba8888_compositor_tile_rle_packet_prepare_error_from_lower");
+assertOrderedFragments(
+    compositorTileRlePacketErrorFromLower,
+    [
+        "let lower_kind %GuiRgba8888RowTileRlePacketPrepareErrorKind gui_rgba8888_row_tile_rle_packet_prepare_error_kind &lower",
+        "let category %Option GuiError gui_rgba8888_row_tile_rle_packet_prepare_error_category_value &lower",
+        "let lower_encoded %GuiRgba8888RowTileRleEncodedOwner gui_rgba8888_row_tile_rle_packet_prepare_error_finish_encoded lower",
+        "let encoded %GuiRgba8888CompositorTileRleEncodedOwner GuiRgba8888CompositorTileRleEncodedOwner lower_encoded metadata",
+        "GuiRgba8888CompositorTileRlePacketPrepareErrorKind::PacketPrepareFailed lower_kind",
+        "gui_rgba8888_compositor_tile_rle_packet_prepare_error_new kind category encoded",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp lower prepare error wrapper must read lower kind/category before encoded owner recovery",
+);
+assertNoMatch(
+    compositorTileRlePacketErrorFromLower,
+    /\b(?:GuiRgba8888CompositorTilePayloadOwner|gui_rgba8888_compositor_tile_rle_encoded_owner_finish_payload|finish_payload|gui_rgba8888_row_tile_rle_packet_record|row_tile_rle_packet_record)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp prepare error wrapper must recover encoded owner without payload or record-reader fallback",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRlePacketImpl, "gui_rgba8888_compositor_tile_rle_packet_owner_descriptor"),
+    [
+        "let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_compositor_tile_rle_packet_owner_lower_descriptor owner",
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata owner",
+        "gui_rgba8888_compositor_tile_rle_packet_descriptor_new packet metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp owner descriptor must wrap lower packet descriptor with compositor metadata",
+);
+for (const accessor of [
+    "frame_id",
+    "batch_index",
+    "tile_index",
+    "plan_row_start",
+    "plan_row_count",
+    "row_start",
+    "row_count",
+    "width",
+    "height",
+    "stride_bytes",
+    "tile_rows",
+    "tile_count",
+    "pixel_count",
+    "total_run_count",
+    "encoded_byte_count",
+]) {
+    assert(
+        allocRender2dCompositorTileRlePacket.includes(`pub fn gui_rgba8888_compositor_tile_rle_packet_descriptor_${accessor}`) &&
+            allocRender2dCompositorTileRlePacket.includes(`gui_rgba8888_row_tile_rle_packet_descriptor_${accessor} &packet`),
+        `alloc/gui/render2d/compositor_tile_rle_packet F5mp descriptor accessor ${accessor} must delegate to lower packet descriptor accessor`,
+    );
+}
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRlePacketImpl, "gui_rgba8888_compositor_tile_rle_packet_owner_finish_encoded"),
+    [
+        "let metadata %GuiRgba8888CompositorFrameEntryMetadata gui_rgba8888_compositor_tile_rle_packet_owner_metadata &owner",
+        'let packet %GuiRgba8888RowTileRlePacketOwner field::get owner "packet"',
+        "let lower_encoded %GuiRgba8888RowTileRleEncodedOwner gui_rgba8888_row_tile_rle_packet_finish_encoded packet",
+        "GuiRgba8888CompositorTileRleEncodedOwner lower_encoded metadata",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp finish encoded must preserve metadata and normalize lower packet owner to compositor encoded owner",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRlePacketImpl, "gui_rgba8888_compositor_tile_rle_packet_prepare_error_free"),
+    [
+        "let encoded %GuiRgba8888CompositorTileRleEncodedOwner gui_rgba8888_compositor_tile_rle_packet_prepare_error_finish_encoded error",
+        "gui_rgba8888_compositor_tile_rle_encoded_owner_free encoded",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp prepare error free must delegate to F5mo encoded owner free",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dCompositorTileRlePacketImpl, "gui_rgba8888_compositor_tile_rle_packet_owner_free"),
+    [
+        'let packet %GuiRgba8888RowTileRlePacketOwner field::get owner "packet"',
+        "match gui_rgba8888_row_tile_rle_packet_owner_free packet:",
+        "Result::Err GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed lower_kind",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp owner free must delegate to lower packet owner free and wrap lower encoded finish kind",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRlePacketImpl,
+    /\bpub\s+fn\s+gui_rgba8888_compositor_tile_rle_packet_(?:owner_finish_payload|prepare_error_finish_payload|owner_finish_entry|prepare_error_finish_entry)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp must not add finish_payload or finish_entry helpers",
+);
+const f5mpLowerPacketFunctions = Array.from(allocRender2dCompositorTileRlePacketImpl.matchAll(/\bgui_rgba8888_row_tile_rle_[a-z0-9_]+\b/g), (match) => match[0]);
+const f5mpAllowedLowerPacketFunctions = new Set([
+    "gui_rgba8888_row_tile_rle_packet_prepare_error_kind",
+    "gui_rgba8888_row_tile_rle_packet_prepare_error_category_value",
+    "gui_rgba8888_row_tile_rle_packet_prepare_error_finish_encoded",
+    "gui_rgba8888_row_tile_rle_packet_prepare",
+    "gui_rgba8888_row_tile_rle_packet_descriptor",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_frame_id",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_batch_index",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_tile_index",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_row_start",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_row_count",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_width",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_height",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_stride_bytes",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_tile_count",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count",
+    "gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count",
+    "gui_rgba8888_row_tile_rle_packet_finish_encoded",
+    "gui_rgba8888_row_tile_rle_packet_owner_free",
+]);
+assert(
+    f5mpLowerPacketFunctions.every((name) => f5mpAllowedLowerPacketFunctions.has(name)),
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp may only call lower packet prepare/error/descriptor/finish/free helpers",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRlePacketImpl,
+    /\b(?:gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked|gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked|gui_rgba8888_row_tile_rle_packet_record|row_tile_rle_packet_record|gui_rgba8888_row_tile_payload_byte_at|byte_at|row_byte_storage|gui_rgba8888_row_byte_storage_byte_at|RegionToken|MemPtr|load_u8|store_u8|region_ptr_at|mem_ptr_addr|std\/gui|host|platform|Canvas|DOM|minifb|present|publish|video_memory|transport execution|fallback|silent no-op)\b/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp must not expose F5cm internals, packet records, raw byte access, std present, host, platform, or fallback APIs",
+);
+assertNoMatch(
+    allocRender2dCompositorTileRlePacketImpl,
+    /[()]/,
+    "alloc/gui/render2d/compositor_tile_rle_packet F5mp implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_facade_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_prepare_error_kind_runtime_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_prepare_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_descriptor_wrapper_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_descriptor_scalar_accessors_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_metadata_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_finish_encoded_recovery_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_prepare_error_recovery_source_policy_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_free_delegates_lower_packet_ok") &&
+        guiRender2dCompositorTileRlePacketTests.includes("render2d_compositor_tile_rle_packet_no_record_present_raw_fallback"),
+    "F5mp compositor tile RLE packet focused doctest/source policy must cover facade runtime type, prepare, descriptor wrapper/scalars, metadata, encoded recovery, source-policy error recovery, lower free delegation, and no record/present/raw/fallback policy",
 );
 for (const [doc, name] of [
     [spec, "font rendering spec"],

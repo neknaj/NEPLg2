@@ -8510,6 +8510,18 @@ F5mo intentionally does not provide any `finish_entry` helper. Encoded owner fin
 
 F5mo must not expose packet, packet record reader, `gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked`, `gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked`, tile payload direct byte reader, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, source storage, destination raw storage, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no packet / present / raw byte compositor tile RLE encoded seal bridge; packet transport and present continuation remain later boundaries.
 
+## Render2d compositor tile RLE packet bridge boundary
+
+F5mp is the compositor-side packet bridge after F5mo. It consumes `GuiRgba8888CompositorTileRleEncodedOwner`, copies compositor metadata first, extracts the lower `GuiRgba8888RowTileRleEncodedOwner`, and calls `gui_rgba8888_row_tile_rle_packet_prepare` exactly once. It returns `GuiRgba8888CompositorTileRlePacketOwner`, which stores the lower packet owner plus metadata for the later std present boundary.
+
+The success owner exposes a metadata付き descriptor wrapper, `GuiRgba8888CompositorTileRlePacketDescriptor`, instead of returning a bare lower descriptor as the main public projection. The wrapper stores lower `GuiRgba8888RowTileRlePacketDescriptor` plus compositor metadata and is Clone / Copy. Descriptor scalar accessors delegate to lower packet descriptor accessors for frame id, batch index, tile index, plan row start/count, row start/count, width, height, stride bytes, tile rows, tile count, pixel count, total run count, and encoded byte count.
+
+The error path follows Schrodinger's plan review approval. Lower row tile RLE packet prepare errors keep the encoded owner, so F5mp reads `kind` and `category` before consuming the lower error and wraps the recovered lower encoded owner with the copied metadata. This is encoded owner recovery, not payload recovery and not packet recovery. F5mp must not call `gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked` or `gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked` directly; F5cm lower packet prepare remains the descriptor authority boundary.
+
+F5mp intentionally does not provide `finish_payload` or `finish_entry`. `owner_finish_encoded` converts the lower packet owner back into a compositor encoded owner. `prepare_error_finish_encoded` returns the recovery encoded owner. `prepare_error_free` delegates to F5mo encoded owner free, while `owner_free` delegates to lower packet owner free and wraps lower encoded finish kind as `GuiRgba8888CompositorTileRleEncodedFinishErrorKind::EncodedFinishFailed`. Payload recovery must be an explicit caller step through the F5mo encoded owner helper.
+
+F5mp must not expose packet record reader, `row_tile_rle_packet_record`, row byte storage accessors, `RegionToken`, `MemPtr`, raw byte load/store, packet record decoding, std present, host import, host present, platform backend, video memory, Canvas, DOM, minifb, fallback, or silent no-op behavior. It is a no packet record / present / raw byte compositor tile RLE packet bridge; std present-frame ownership and present continuation remain later boundaries.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
