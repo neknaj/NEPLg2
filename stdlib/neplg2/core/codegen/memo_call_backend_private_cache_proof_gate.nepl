@@ -16165,6 +16165,23 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_wi
             selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result: producer source owner を fresh witness authority bundle へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - resource-lowering producer が所有する source table を、generic source-output input owner へ戻さず、producer 専用の witness authority 発行境界へ渡します。
+//:
+//: [契約/けいやく]:
+//: - producer-owned source table を context と再照合してから、same-source candidate 由来 fresh witness authority producer へ move します。
+//: - validation failure では source owner を必ず閉じ、fresh witness owner は作りません。
+//: - この helper は source output envelope、production fresh witness input owner、no-escape coverage、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、artifact key を作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \context\sources:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_body_context_sources_validate_result context &sources:
+        Result::Ok _valid:
+            selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_from_sources_result sources
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
 //: selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new: body reader no-escape authority bundle を[作/つく]る
 fn selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_authority_bundle_new %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority fn SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle \coverage_authority\witness_bundle:
     SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageAuthorityBundle coverage_authority witness_bundle
@@ -16366,7 +16383,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage
 //:
 //: [契約/けいやく]:
 //: - coverage authority は request root / body root / body module fingerprint / graph id を producer output の identity と照合してから使います。
-//: - fresh witness は production fresh witness input owner を経由し、source table を request context から再生成しません。
+//: - fresh witness は producer source owner 専用 helper で発行し、source output envelope や production fresh witness input owner へ戻しません。
 //: - coverage validation failure では producer output が保持していた source owner を必ず閉じます。
 //: - この helper は no-escape handoff pair、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、sealed representation、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_into_authority_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \output:
@@ -16376,8 +16393,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
     let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get output "sources"
     match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
         Result::Ok _identity:
-            let input %SelfhostMemoCallBackendPrivateCacheActualTraversalProductionFreshWitnessAuthorityInput selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_new context body_root sources
-            match selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_input_into_bundle_result input:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result context sources:
                 Result::Ok witness_bundle:
                     Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root witness_bundle
                 Result::Err e:
