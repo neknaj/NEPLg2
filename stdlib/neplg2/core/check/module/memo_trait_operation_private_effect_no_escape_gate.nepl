@@ -324,6 +324,15 @@ fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop %fn 
 fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \proofs\key:
     selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_loop proofs key 0 none
 
+//: selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_not_applicable_result: `NotApplicable` private-effect slot の proof status を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - caller は proof table の内部 Vec を直接走査せず、この API を通して exact key 照合と duplicate rejection を共有します。
+//: - この API は `NotApplicable` slot 専用です。`NoEscapeProven` や `MayEscape` を外部から lookup key として渡す bypass は認めません。
+pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_not_applicable_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \proofs\type_id\operation\body_module_fingerprint\body_root\effect:
+    let key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id operation body_module_fingerprint body_root effect SelfhostEffectEscapeState::NotApplicable
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_result proofs key
+
 //: selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result: summary を method body fact へ[写/うつ]す
 fn selfhost_memo_trait_operation_private_effect_no_escape_fact_from_summary_result %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationMethodBodyEffectSummary Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind \type_id\operation\summary:
     match selfhost_memo_trait_operation_method_body_fact_from_summary_result type_id operation summary:

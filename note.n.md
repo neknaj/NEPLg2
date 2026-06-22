@@ -1,3 +1,41 @@
+# 2026-06-22 selfhost private-effect mask evidence producer checkpoint
+
+## 目的
+
+- checker-layer private-effect no-escape proof table から same-body neutral mask evidence を作る。
+- method body effect summary が単一 `SelfhostEffectKind` へ fold されることで低 rank の `PrivateState` が隠れる問題を避けるため、`PrivateCache` / `PrivateState` の fixed 2 slot を必須証明にする。
+- backend readiness private type、Resource graph/proof internal、proof store、artifact、sealed backend representation、Wasm / LLVM bytes は作らない。
+
+## subagent review
+
+- Erdos の plan review は `PLAN_APPROVED`。
+- 指摘を受け、任意 requirement table ではなく fixed 2 slot とした。`Missing` は effect 不在ではなく必須 slot の proof record 欠落であり、actual traversal が effect 不在を安全に使う場合も明示 `Proven` record を発行する方針にした。
+- lookup は proof table の direct Vec scan ではなく、`memo_trait_operation_private_effect_no_escape_gate` に narrow public `NotApplicable` lookup API を追加して共有する方針にした。
+- status priority は structural error、`Refuted`、`Missing`、`Unknown`、`Proven` とした。
+- Erdos の implementation review は `REVIEW_APPROVED`。narrow lookup が exact key equality / duplicate rejection を共有していること、mask evidence が fixed 2 slot を必ず lookup していること、backend / Resource graph / artifact / sealed bytes 依存が無いこと、docs / todo / note が upper orchestration 後続の実装状態と整合していることを確認した。
+
+## 実装
+
+- `memo_trait_operation_private_effect_no_escape_gate.nepl` に `selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_not_applicable_result` を追加した。外部 caller は `NotApplicable` slot 専用 API だけを使い、exact key equality と duplicate rejection は既存 private lookup に委譲する。
+- `memo_trait_operation_private_effect_mask_evidence.nepl` を追加した。`SelfhostTypeId`、operation、body module fingerprint、body root、status、required slot count、proven slot count を持つ neutral evidence を返す。
+- `PrivateCache + NotApplicable` と `PrivateState + NotApplicable` を必ず lookup し、両方 `Proven` の場合だけ `Proven` とする。`Refuted > Missing > Unknown > Proven` で fail-closed に fold する。
+- source policy contract を追加し、facade 非公開、selfhost ty sources 非登録、backend / Resource graph / proof store / artifact / public surface / evidence producer / impl table / purity gate / Drop proof layer import 禁止、narrow lookup 経由、fixed 2 slot、wildcard fallback 禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、mask evidence producer 完了と actual traversal の slot 完備 / upper orchestration 残件を記録した。plan.md との差異はない。
+
+## 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_trait_operation_private_effect_mask_evidence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_mask_evidence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_private_effect_no_escape_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_mask_evidence.nepl --dist web/dist -o tmp/selfhost-private-effect-mask-evidence.json`
+- checked JSON: `tmp/selfhost-private-effect-mask-evidence.json` は `total: 2`, `passed: 2`, `failed: 0`, `errored: 0`。
+
+## 残件
+
+- actual Resource IR / HIR lowering traversal が `PrivateCache` / `PrivateState` の実使用と明示不在 slot を同じ body identity で proof record 化する。
+- checker-layer mask evidence を backend readiness gate の module-private upstream evidence へ写す upper orchestration を追加する。
+- Resource summary hash invalidation、artifact policy hash、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 # 2026-06-22 selfhost memo_call backend private-effect readiness gate checkpoint
 
 ## 目的

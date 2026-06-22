@@ -234,6 +234,15 @@ assertOrdered(
     "proof lookup must reject duplicate matching proofs and must not use first-wins",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_not_applicable_result"),
+    [
+        "pub fn selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_not_applicable_result",
+        "selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id operation body_module_fingerprint body_root effect SelfhostEffectEscapeState::NotApplicable",
+        "selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_result proofs key",
+    ],
+    "public proof lookup must be a narrow NotApplicable slot wrapper over the private exact-key lookup",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_private_effect_no_escape_transform_summary_result"),
     [
         "eq body_module_fingerprint 0",

@@ -3098,6 +3098,22 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 - neutral upstream mask evidence を artifact emission 前段の policy hash / Resource summary hash invalidation / sealed backend representation と照合する。
 - PrivateCache / PrivateState effect mask 実体、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost private-effect mask evidence producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_mask_evidence.nepl` を追加し、checker-layer proof table から same-body neutral private-effect mask evidence を作る boundary を接続した。method body effect summary は単一 `SelfhostEffectKind` へ fold され、`PrivateCache` が `PrivateState` より強い rank として残るため、この producer は `PrivateCache + NotApplicable` と `PrivateState + NotApplicable` の固定 2 slot を必ず照合する。両 slot が `Proven` の場合だけ `SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven` を返し、`Refuted > Missing > Unknown > Proven` の fail-closed priority で集約する。
+
+`Missing` は「effect 不在」ではなく「必須 slot の proof record 欠落」である。actual traversal が effect 不在を安全に使う場合も、その slot の明示的な `Proven` proof record を発行してからこの producer に渡す。proof lookup は `memo_trait_operation_private_effect_no_escape_gate` に追加した narrow public `NotApplicable` lookup API を通し、proof table の内部 Vec を別 module で走査しない。duplicate proof rejection と exact key equality は no-escape gate 側の private implementation を共有する。
+
+この checkpoint は backend readiness private type、Resource graph/proof internal、operation evidence record、aggregate proof、proof store、prechecked artifact、effect mask 実体、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact key を作らない。evidence は `SelfhostTypeId`、operation、body module fingerprint、body root、status、required slot count、proven slot count を持つ checker-layer neutral value であり、facade には re-export しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_private_effect_mask_evidence_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、backend / memo_call / codegen / Resource graph internals / proof store / artifact / public surface / evidence producer / impl table / scanner/materializer / purity gate / Drop proof layer の import 禁止、fixed 2 slot lookup、Missing の fail-closed 意味、narrow lookup 経由、wildcard fallback 禁止、stage0 の both Proven / 各 Refuted / 各 Missing / 各 Unknown / placeholder / duplicate proof coverage を検査する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、`PrivateCache` / `PrivateState` の実使用と不在 slot を区別した fixed 2 slot proof record を同じ body identity で明示発行する。
+- checker-layer mask evidence を backend readiness gate の module-private upstream evidence へ写す upper orchestration と、artifact emission 前段の policy hash / Resource summary hash invalidation との照合を追加する。
+- PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
