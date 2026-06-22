@@ -3273,6 +3273,16 @@ public stage0 summary は accepted pair code、missing / rejected witness、witn
 - production coverage handoff producer から no-escape coverage authority boundary と checker-layer upper orchestration へ、fixture ではなく full traversal output 由来の public evidence を渡す。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost reader traversal output witness authority checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、body-reader no-escape coverage path の fresh witness authority 生成を event split output round-trip から外し、resolver-bound reader source output から直接 same-source candidate 由来 fresh witness authority bundle を作る module-private boundary へ寄せた。
+
+新しい `actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result` は、`actual_traversal_body_reader_sources_from_request_context_result` が返す source table owner だけを authority として受け取り、`actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ move する。`FreshWitnessAuthorityBundle` は source table owner を内包するため、source table を別 field として二重所有しない。body-reader no-escape request-context helper はこの boundary へ直接委譲し、`actual_traversal_body_reader_events_from_request_context_result`、`actual_walker_event_split_result`、`actual_traversal_body_adapter_sources_from_request_context_output_result` を fresh witness authority の主経路にしない。
+
+accepted / escaping / observation / unsupported source vocabulary は reader source output 由来の同一 body identity に寄り、fresh witness authority も同じ source owner から作られる。external witness metadata、`RegionFreshWitnessStatus` fixture、split-output fixture、stage0 witness wrapper、`ActualTraversalBundle`、source-derived request-evidence bundle、request-evidence gate、GraphInput、Resource proof table push、checker proof table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、`.neplobj` / `.neplproof` artifact key は作らない。
+
+この checkpoint も full Resource IR traversal ではない。source output は HIR body reader source vocabulary であり、actual Resource IR / HIR lowering traversal が独立した Resource walker event と fresh-region witness table を実発行したわけではない。残件は、full Resource IR / HIR lowering traversal が accepted / escaping / observation / unsupported source vocabulary、actual fresh witness / no-escape authority、coverage handoff を同じ resolver-bound body identity で発行し、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionへ渡す production boundary である。
+
 ## 2026-06-22 selfhost reader fresh witness authority producer checkpoint
 
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、body-reader no-escape coverage path から caller supplied witness fingerprint / graph / ordinal / status を外し、resolver-bound reader source owner から same-source candidate 由来の fresh witness authority bundle を作る backend-private producer を追加した。

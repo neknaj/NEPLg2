@@ -80974,3 +80974,27 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_reader_fresh_witness_authority.json`
 - checked JSON: `output/playground_editor_selfhost_reader_fresh_witness_authority.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-22 selfhost reader traversal output witness authority checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、body-reader no-escape coverage path の fresh witness authority 生成を event split output round-trip から外し、resolver-bound reader source output から直接 same-source candidate 由来 fresh witness authority bundle を作る module-private boundary に寄せた。
+- 新しい `actual_traversal_body_reader_fresh_witness_authority_bundle_from_request_context_result` は `actual_traversal_body_reader_sources_from_request_context_result` の source table owner を `actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ move する。`FreshWitnessAuthorityBundle` は source table owner を内包するため、source table を別 field として二重所有しない。
+- body-reader no-escape request-context helper は direct reader source output boundary へ委譲し、`actual_traversal_body_reader_events_from_request_context_result`、`actual_walker_event_split_result`、`actual_traversal_body_adapter_sources_from_request_context_output_result` を fresh witness authority の主経路にしない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、新 boundary の source-owner 由来 witness derivation、旧 split-output authority helper の削除、external witness metadata / split-output fixture / source adapter fixture / request-evidence / GraphInput / backend / artifact への退行禁止を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` を更新し、今回の checkpoint は direct reader source output 由来の witness authority 接続であり、full Resource IR / HIR lowering traversal、PrivateCache / PrivateState effect mask 実体、sealed representation、artifact stable key projectionは残件であることを明記した。plan.md との差異はない。
+- Anscombe の design review は `PLAN_APPROVED`。条件は source table owner を fresh witness authority bundle と別 field で二重所有しないことで、今回の実装は source owner を bundle へ move する単一 owner 設計として対応した。
+- Anscombe の implementation review は `PLAN_APPROVED`。source owner は新 helper で二重所有されず `actual_traversal_fresh_witness_authority_bundle_from_sources_result` へ move され、旧 split-output helper 削除も competing authority path の除去として問題なしと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-reader-traversal-output-witness-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-reader-traversal-output-witness-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_reader_traversal_output_witness.json`
+- checked JSON: `output/playground_editor_selfhost_reader_traversal_output_witness.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
