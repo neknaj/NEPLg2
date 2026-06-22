@@ -1,0 +1,156 @@
+//: # std/gui/compositor_tile_present_host_execution_driver
+//: compositor tile RLE present host execution driver の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5nc の pending request を、Web / native / bare / headless executor が[実行/じっこう]する action と one-shot pending value の[組/く]みに[束/たば]ねます。
+//: - platform executor は `pending_action` で action を[読/よ]み、実行結果だけを `complete_outcome` に[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - `DriverPending` は pending value を[所有/しょゆう]するため Clone / Copy を[実装/じっそう]しません。
+//: - completion は F5na report construction と F5nd bridge だけを[通/とお]し、F5nc `complete_request` や F5nb validation を[直接/ちょくせつ][呼/よ]びません。
+//: - support / full action identity validation は F5nd / F5nb に[委譲/いじょう]します。
+//: - actual platform API、DOM、Canvas、minifb、video memory、queue、timer、scheduler、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution_driver" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_dispatch_loop" as *
+#import "std/gui/compositor_tile_present_host_execution" as *
+#import "std/gui/compositor_tile_present_host_execution_report" as *
+#import "std/gui/compositor_tile_present_host_executor" as *
+#import "std/gui/compositor_tile_present_host_report_loop_bridge" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending: executor action と pending owner を[保持/ほじ]する
+//:
+//: pending value を one-shot completion まで[所有/しょゆう]するため Clone / Copy を[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending:
+    pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest
+    action %GuiRgba8888CompositorTileRlePresentHostExecutionAction
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind: driver failure の[種類/しゅるい]
+//:
+//: validation と completion の lower failure は F5nd bridge error として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind:
+    BridgeFailed %GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind \kind:
+        kind
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionDriverError: category と recovery state を[持/も]つ driver error
+//:
+//: F5nd bridge error から category と loop state を[回収/かいしゅう]し、actual executor wrapper が recovery を[選/えら]べるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutionDriverError:
+    kind %GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind
+    category %Option GuiError
+    state %GuiRgba8888CompositorTileRlePresentDispatchLoopState
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionDriverError:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverError GuiRgba8888CompositorTileRlePresentHostExecutionDriverError \error:
+        *error
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionDriverError:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverError GuiRgba8888CompositorTileRlePresentHostExecutionDriverError \error:
+        error
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_new: driver pending payload を[作/つく]る
+//:
+//: original pending owner と decoded action を 1 つの owner value に[束/たば]ねます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_new %fn GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest fn GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending \pending\action:
+    GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending pending action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_new: driver error payload を[作/つく]る
+//:
+//: kind、category、recovery state を[同/おな]じ形で[保存/ほぞん]するための module [内部/ないぶ] helper です。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_new %fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind fn Option GuiError fn GuiRgba8888CompositorTileRlePresentDispatchLoopState GuiRgba8888CompositorTileRlePresentHostExecutionDriverError \kind\category\state:
+    GuiRgba8888CompositorTileRlePresentHostExecutionDriverError kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_bridge_error: F5nd bridge error を driver error に[写/うつ]す
+//:
+//: lower bridge error の category と recovery state を[保/たも]ったまま `BridgeFailed` として[包/つつ]みます。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_bridge_error %fn GuiRgba8888CompositorTileRlePresentHostReportLoopBridgeError GuiRgba8888CompositorTileRlePresentHostExecutionDriverError \lower:
+    let category %Option GuiError gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_category_value &lower
+    let state %GuiRgba8888CompositorTileRlePresentDispatchLoopState gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_error_state &lower
+    let kind %GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind::BridgeFailed lower
+    gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_new kind category state
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_prepare: pending request を executor action と[一緒/いっしょ]に[保持/ほじ]する
+//:
+//: [契約/けいやく]:
+//: - F5nc pending request accessor で request を[読/よ]み、F5mz action を 1 [回/かい]だけ[導出/どうしゅつ]します。
+//: - original pending value は driver pending に[移/うつ]され、completion まで[保持/ほじ]されます。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_prepare %fn GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending \pending:
+    let request gui_rgba8888_compositor_tile_rle_present_dispatch_loop_pending_request &pending
+    let action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_action &request
+    gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_new pending action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action: executor が[実行/じっこう]する action を[読/よ]む
+//:
+//: driver pending は[消費/しょうひ]せず、actual executor が action identity を[確認/かくにん]できるようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending GuiRgba8888CompositorTileRlePresentHostExecutionAction \driver:
+    *field::get_ref driver "action"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome: executor outcome を loop completion へ[戻/もど]す
+//:
+//: [契約/けいやく]:
+//: - action を[読/よ]んでから pending value を driver から[取/と]り[出/だ]します。
+//: - F5na report を[作/つく]り、F5nd bridge に validation と completion を[委譲/いじょう]します。
+//: - F5nc completion、F5nb validation、F5mx request construction を[直接/ちょくせつ][呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_complete_outcome %fn GuiRgba8888CompositorTileRlePresentHostExecutorSupport fn GuiRgba8888CompositorTileRlePresentHostExecutionDriverPending fn Result unit GuiError Result GuiRgba8888CompositorTileRlePresentDispatchLoopCompletion GuiRgba8888CompositorTileRlePresentHostExecutionDriverError \support\driver\outcome:
+    let action %GuiRgba8888CompositorTileRlePresentHostExecutionAction gui_rgba8888_compositor_tile_rle_present_host_execution_driver_pending_action &driver
+    let pending %GuiRgba8888CompositorTileRlePresentDispatchLoopPendingRequest field::get driver "pending"
+    let report %GuiRgba8888CompositorTileRlePresentHostExecutionReport gui_rgba8888_compositor_tile_rle_present_host_execution_report action outcome
+    match gui_rgba8888_compositor_tile_rle_present_host_report_loop_bridge_complete support pending report:
+        Result::Ok completion:
+            Result::Ok completion
+        Result::Err lower:
+            Result::Err gui_rgba8888_compositor_tile_rle_present_host_execution_driver_bridge_error lower
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_kind: driver error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_kind %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverError GuiRgba8888CompositorTileRlePresentHostExecutionDriverErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_category_value: driver error category を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_category_value %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverError Option GuiError \error:
+    *field::get_ref error "category"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_state: driver error の recovery state を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_driver_error_state %fn &GuiRgba8888CompositorTileRlePresentHostExecutionDriverError GuiRgba8888CompositorTileRlePresentDispatchLoopState \error:
+    *field::get_ref error "state"
