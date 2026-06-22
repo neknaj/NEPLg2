@@ -648,11 +648,12 @@ assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput"),
     [
         "context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext",
+        "coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority",
         "body_root %SelfhostHirExprId",
         "walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput",
         "observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable",
     ],
-    "resource-lowering producer traversal output must carry rechecked context, resolver body root, walker input owner, and observation owner",
+    "resource-lowering producer traversal output must carry rechecked context, same-body coverage authority, resolver body root, walker input owner, and observation owner",
 );
 assert.doesNotMatch(
     code,
@@ -677,11 +678,12 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output"),
     [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
         'field::get output "walker_input"',
         'field::get output "observations"',
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context body_root walker_input observations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root walker_input observations",
     ],
-    "resource-lowering producer split-output conversion must move walker input and observation owners into the producer traversal output",
+    "resource-lowering producer split-output conversion must build same-body coverage authority and move walker input and observation owners into the producer traversal output",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output")),
@@ -1099,28 +1101,44 @@ assert.doesNotMatch(
     "resource-lowering producer traversal output collector must not redo body resolution, rebuild split output, use request-context adapters, request-evidence, backend, effect, or artifact records",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_from_body_root_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_body_root_result module context body_root",
-        "Result::Ok traversal_output:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result traversal_output",
-        "Result::Ok lowered_sources:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root lowered_sources",
+        'field::get output "context"',
+        'field::get output "coverage_authority"',
+        'field::get output "body_root"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result output",
+        "Result::Ok sources:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root sources",
         "Result::Err _e:",
         "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
     ],
-    "resource-lowering producer output body-root helper must build same-body coverage authority, derive sources from the producer traversal output owner, and wrap only producer-owned sources",
+    "resource-lowering producer traversal output into-output helper must derive source-only producer output from the traversal output owner and keep coverage authority on the same owner path",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result")),
+    /actual_traversal_private_effect_coverage_authority_new|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_(?:authority|handoff|pair)|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "resource-lowering producer traversal output into-output helper must not rebuild coverage authority, route through source output/source-only body-root helpers, production fresh-witness input, request-evidence, backend, effect mask, or artifact records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_from_body_root_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_body_root_result module context body_root",
+        "Result::Ok traversal_output:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_output_result traversal_output",
+        "Result::Err _e:",
+        "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+    ],
+    "resource-lowering producer output body-root helper must delegate traversal output ownership to the source-only producer output helper",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_from_body_root_result")),
-    /actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|actual_traversal_body_reader_sources_from_request_context_result|actual_traversal_body_reader_output_from_context_sources_result|actual_traversal_body_reader_output_from_request_context_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_bundle_|context_bound_reader_traversal_bundle|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
-    "resource-lowering producer output body-root helper must not redo resolver lookup, call source body-root helper, create source output envelopes, use reader adapters, request-evidence, backend, effect, or artifact records",
+    /actual_traversal_private_effect_coverage_authority_new|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_sources_from_traversal_output_result|actual_traversal_resource_lowering_producer_output_new|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|actual_traversal_body_reader_sources_from_request_context_result|actual_traversal_body_reader_output_from_context_sources_result|actual_traversal_body_reader_output_from_request_context_result|actual_traversal_body_adapter_sources_from_request_context_result\b|actual_traversal_bundle_|context_bound_reader_traversal_bundle|region_fresh_witness_request_evidence_gate_result|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "resource-lowering producer output body-root helper must not rebuild coverage authority, collect sources directly, redo resolver lookup, call source body-root helper, create source output envelopes, use reader adapters, request-evidence, backend, effect, or artifact records",
 );
 assert.equal(
     countOccurrences(code, "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new"),
     2,
-    "resource-lowering producer output constructor must appear only in its definition and the body-root producer output helper",
+    "resource-lowering producer output constructor must appear only in its definition and the traversal-output into-output helper",
 );
 assert.equal(
     countOccurrences(code, "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_into_source_output"),
@@ -1184,13 +1202,14 @@ assertOrdered(
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result")),
-    /actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    /actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_traversal_output_into_output_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "resource-lowering producer traversal output fresh-witness helper must not route through source output, source-only output, production fresh-witness input, request-evidence, backend, effect mask, or artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result"),
     [
         'field::get output "context"',
+        'field::get output "coverage_authority"',
         'field::get output "body_root"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root",
         "Result::Ok _identity:",
@@ -1206,7 +1225,7 @@ assertOrdered(
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result")),
-    /actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_sources_from_traversal_output_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    /actual_traversal_private_effect_coverage_authority_new|actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_sources_from_traversal_output_result|actual_traversal_resource_lowering_producer_traversal_output_into_output_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
     "resource-lowering producer traversal output authority helper must not expose source collection directly, route through source output/source-only output, production fresh-witness input, request-evidence, backend, effect mask, or artifact records",
 );
 assertOrdered(
@@ -1236,19 +1255,18 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_body_root_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_body_root_result module context body_root",
         "Result::Ok traversal_output:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result coverage_authority traversal_output",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result traversal_output",
         "Result::Err _e:",
         "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
     ],
-    "resource-lowering producer authority body-root helper must build coverage authority and delegate traversal-output ownership to the authority helper",
+    "resource-lowering producer authority body-root helper must delegate traversal-output ownership to the authority helper without rebuilding coverage authority",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_from_body_root_result")),
-    /actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_sources_from_traversal_output_result|actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_resource_lowering_source_output_from_request_context_result|actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_(?:authority|handoff|pair)|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
-    "resource-lowering producer authority body-root helper must not redo resolver lookup, collect sources directly, route through source body-root/source-only output, mint source output, use production fresh-witness input, request-evidence, backend, effect mask, or artifact records",
+    /actual_traversal_private_effect_coverage_authority_new|actual_traversal_body_resolution_lookup_result|actual_traversal_resource_lowering_producer_sources_from_body_root_result|actual_traversal_resource_lowering_producer_sources_from_traversal_output_result|actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result|actual_traversal_resource_lowering_producer_traversal_output_into_output_result|actual_traversal_resource_lowering_producer_output_from_body_root_result|actual_traversal_resource_lowering_producer_output_into_authority_output_result|actual_traversal_resource_lowering_source_output_from_request_context_result|actual_traversal_source_output_new|SelfhostMemoCallBackendPrivateCacheActualTraversalSourceOutputOrigin|production_fresh_witness_authority_input_new|production_fresh_witness_authority_input_into_bundle_result|actual_traversal_source_output_from_body_root_result|actual_traversal_source_output_from_request_context_result|source_output_no_escape_pair_code_result|body_reader_no_escape_coverage_(?:authority|handoff|pair)|resource_proof_gate_from_hir_root_result|resource_graph_input_push|proof_table_push|RequestEvidenceProven|GraphInput|Wasm|LLVM|mask_private|sealed backend|neplobj|neplproof|artifact/i,
+    "resource-lowering producer authority body-root helper must not rebuild coverage authority, redo resolver lookup, collect sources directly, route through source body-root/source-only output, mint source output, use production fresh-witness input, request-evidence, backend, effect mask, or artifact records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_into_no_escape_authority_bundle_result"),
