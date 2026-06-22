@@ -1,0 +1,157 @@
+//: # std/gui/compositor_tile_present_host_import
+//: compositor tile RLE present host-command record の host continuation request boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mu の metadata [付/つ]き compositor host-command record を、Web / native / bare presenter が[受/う]け[取/と]る formal host continuation request に[包/つつ]みます。
+//: - actual host import は[呼/よ]ばず、host capability と compositor command record の[対応/たいおう]を `Result` で[検査/けんさ]します。
+//:
+//: ### [契約/けいやく]
+//: - target は Window / Offscreen / Device の enum です。headless と text grid は presentation target ではありません。
+//: - RGBA8888 compositor tile RLE 専用 request なので、host color format が `FormatRgba8888` でない場合は `GuiError::Unsupported` を[返/かえ]します。
+//: - Window target は `WindowPixel`、windowing capability、`default_window` の `Some` をすべて[要求/ようきゅう]します。
+//: - unsupported target から別 target への fallback や silent no-op は[行/おこな]いません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は F5mu record だけを[消費/しょうひ]します。F5mw schedule state、lower F5cr/F5cq、compositor cursor、packet storage、platform API には[戻/もど]りません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_import" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/host" as *
+#import "std/gui/window" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostImportTarget: compositor present request の[出力先/しゅつりょくさき]
+//:
+//: Window / Offscreen / Device だけを presentation target とし、headless は request にしません。
+//:
+//: neplg2:test[skip]
+pub enum GuiRgba8888CompositorTileRlePresentHostImportTarget:
+    Window %WindowId
+    Offscreen
+    Device
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostImportTarget:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostImportTarget GuiRgba8888CompositorTileRlePresentHostImportTarget \target:
+        *target
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostImportTarget:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostImportTarget GuiRgba8888CompositorTileRlePresentHostImportTarget \target:
+        target
+
+//: GuiRgba8888CompositorTileRlePresentHostImportRequest: target と F5mu record を[束/たば]ねる request
+//:
+//: 後続 boundary が target と metadata [付/つ]き record を同じ value として[読/よ]めるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiRgba8888CompositorTileRlePresentHostImportRequest:
+    target %GuiRgba8888CompositorTileRlePresentHostImportTarget
+    record %GuiRgba8888CompositorTileRlePresentHostCommandRecord
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostImportRequest:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentHostImportRequest \request:
+        *request
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostImportRequest:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentHostImportRequest \request:
+        request
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_color_format_ok: RGBA8888 capability かを[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_import_color_format_ok %fn &GuiCapabilities bool \capabilities:
+    match gui_capabilities_color_format capabilities:
+        ColorFormat::FormatRgba8888:
+            true
+        _:
+            false
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_request_new: request value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_import_request_new %fn GuiRgba8888CompositorTileRlePresentHostImportTarget fn GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentHostImportRequest \target\record:
+    GuiRgba8888CompositorTileRlePresentHostImportRequest target record
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_window_target: Window target を[検査/けんさ]して[作/つく]る
+//:
+//: windowing capability と default window の両方がある場合だけ Window target を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_import_window_target %fn &GuiHost fn &GuiCapabilities Result GuiRgba8888CompositorTileRlePresentHostImportTarget GuiError \host\capabilities:
+    if gui_capabilities_has_windowing capabilities:
+        then:
+            match gui_host_default_window host:
+                Option::Some window:
+                    Result::Ok GuiRgba8888CompositorTileRlePresentHostImportTarget::Window window
+                Option::None:
+                    Result::Err GuiError::Unsupported
+        else Result::Err GuiError::Unsupported
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_target_from_host: capability から target を[選/えら]ぶ
+//:
+//: unsupported surface kind は fallback せず `Unsupported` にします。
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_compositor_tile_rle_present_host_import_target_from_host %fn &GuiHost fn &GuiCapabilities Result GuiRgba8888CompositorTileRlePresentHostImportTarget GuiError \host\capabilities:
+    let surface_kind %SurfaceKind gui_capabilities_surface_kind capabilities
+    match surface_kind:
+        SurfaceKind::WindowPixel:
+            gui_rgba8888_compositor_tile_rle_present_host_import_window_target host capabilities
+        SurfaceKind::OffscreenPixel:
+            Result::Ok GuiRgba8888CompositorTileRlePresentHostImportTarget::Offscreen
+        SurfaceKind::DevicePixel:
+            Result::Ok GuiRgba8888CompositorTileRlePresentHostImportTarget::Device
+        _:
+            Result::Err GuiError::Unsupported
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_request: F5mu record を host continuation request に[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - host capability が RGBA8888 pixel presentation に[合/あ]わない場合は `GuiError::Unsupported` です。
+//: - headless / text grid は presentation target ではないため、検査用 virtual drain として[扱/あつか]い、ここでは request を[作/つく]りません。
+//: - fallback target は[選/えら]ばず、caller が unsupported を明示的に[処理/しょり]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_import_request %fn &GuiHost fn GuiRgba8888CompositorTileRlePresentHostCommandRecord Result GuiRgba8888CompositorTileRlePresentHostImportRequest GuiError \host\record:
+    let capabilities %GuiCapabilities gui_host_capabilities host
+    if gui_rgba8888_compositor_tile_rle_present_host_import_color_format_ok &capabilities:
+        then:
+            match gui_rgba8888_compositor_tile_rle_present_host_import_target_from_host host &capabilities:
+                Result::Ok target:
+                    Result::Ok gui_rgba8888_compositor_tile_rle_present_host_import_request_new target record
+                Result::Err error:
+                    Result::Err error
+        else Result::Err GuiError::Unsupported
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_request_target: request target を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_import_request_target %fn &GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentHostImportTarget \request:
+    *field::get_ref request "target"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_request_record: request record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_import_request_record %fn &GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentHostCommandRecord \request:
+    *field::get_ref request "record"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_import_target_window: Window target の id を Result で[返/かえ]す
+//:
+//: non-window target は `Unsupported` です。
+//:
+//: neplg2:test[skip]
+pub fn gui_rgba8888_compositor_tile_rle_present_host_import_target_window %fn &GuiRgba8888CompositorTileRlePresentHostImportTarget Result WindowId GuiError \target:
+    match *target:
+        GuiRgba8888CompositorTileRlePresentHostImportTarget::Window window:
+            Result::Ok window
+        _:
+            Result::Err GuiError::Unsupported

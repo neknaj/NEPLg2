@@ -81458,3 +81458,29 @@ MERGE_APPROVED
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mw.json`
 - checked JSON: `tmp-playground-editor-tests-f5mw.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
 - Hegel の implementation review は `PLAN_APPROVED`。F5mu record-only、F5mv authority、lower F5ct/F5cs/F5cq 非再利用、lower category preservation、previous state error、resume counter reset、host/platform/raw/fallback 非進出に blocker はないと確認された。
+
+## 2026-06-23 GUI std compositor present host import checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_host_import.nepl` を追加し、F5mu compositor host-command record only を host continuation request に包む F5mx boundary を接続した。
+- `GuiRgba8888CompositorTileRlePresentHostImportTarget` は Window / Offscreen / Device だけを持つ。Headless is not a presentation target とし、headless / text grid / unsupported surface kind / wrong color format / missing default window は `GuiError::Unsupported` で返す。
+- `GuiRgba8888CompositorTileRlePresentHostImportRequest` は validated target と original `GuiRgba8888CompositorTileRlePresentHostCommandRecord` を保持する。lower F5cr/F5cq request / record へ投影せず、compositor metadata を request surface に残す。
+- F5mx does not depend on F5mw and does not execute host imports。F5mw schedule state、F5mv virtual drain、lower F5cr/F5cq/F5ct/F5cs、compositor cursor、dispatch、host execution action、raw storage、Vec、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Sartre の design review は `PLAN_APPROVED`。F5mx は lower F5cr の compositor 版として妥当で、F5mw に依存せず target / capability validation だけを担当し、lower F5cr/F5cq へ変換しない方針で問題ないと確認された。
+- Leibniz の source-policy review は `PLAN_APPROVED`。docs phrase、facade export、target enum / request shape、F5mu import、RGBA8888 validation、target mapping、headless rejection、F5mw/F5mv / lower F5cr/F5cq / platform / fallback 禁止を固定する方針で問題ないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5mx.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_import.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_import_module_f5mx.json -j 1`。11/11。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_command.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_command_f5mx_regression.json -j 1`。2/2。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_schedule.n.md --no-tree -o tmp_gui_std_compositor_tile_present_schedule_f5mx_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5mx_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mx.json`
+- checked JSON: `tmp-playground-editor-tests-f5mx.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+- Godel の implementation review は `PLAN_APPROVED`。F5mu record 直接消費、metadata-preserving request、F5cr 同等 capability/target validation、no host import execution、no F5mw/F5mv dependency、no lower F5cr/F5cq/raw/platform/fallback に blocker はないと確認された。
