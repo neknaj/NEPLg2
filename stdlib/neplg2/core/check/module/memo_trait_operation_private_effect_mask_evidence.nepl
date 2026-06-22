@@ -1,0 +1,499 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_private_effect_mask_evidence
+//: `PrivateState` / `PrivateCache` の no-escape proof table から、backend 直前の orchestration が読める中立的な private-effect mask evidence を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - method body effect summary は 1 つの `SelfhostEffectKind` へ fold され、`PrivateCache` が `PrivateState` より強い rank として残ります。そのため、summary に残った片方の private effect だけを proof すると、同じ body 内の低 rank private effect を隠せます。
+//: - この module は、同じ `SelfhostTypeId`、operation、body module fingerprint、HIR body root について `PrivateCache + NotApplicable` と `PrivateState + NotApplicable` の 2 slot を必ず照合し、両方が `Proven` の場合だけ mask を `Proven` にします。
+//: - 返す evidence は checker-layer の中立 evidence であり、backend readiness module の private 型、Resource graph event、proof store artifact、sealed backend representation ではありません。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は caller が渡した proof table と typed identity だけです。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash から private effect mask を推測しません。
+//: - `body_module_fingerprint == 0` は placeholder origin なので lookup へ進めず fail-closed に拒否します。
+//: - `PrivateCache` と `PrivateState` は固定 2 slot です。実 traversal 側で effect が無かったことを安全に使いたい場合も、その slot の proof record を明示的な `Proven` として渡します。`Missing` は「effect 不在」ではなく「必須 slot の proof record 欠落」です。
+//: - status fold は structural error を `Result::Err` として先に返し、status 内では `Refuted > Missing > Unknown > Proven` の順に強い失敗として扱います。`Unknown` や `Missing` を `Proven` に丸めません。
+//: - proof lookup は `memo_trait_operation_private_effect_no_escape_gate` の public narrow lookup API だけを使います。proof table の内部 Vec を直接読みません。
+//: - この module は memo_call backend、backend readiness private type、Resource graph/proof internal、operation evidence record、aggregate proof、proof store、prechecked artifact、`.neplobj`、`.neplproof`、Wasm / LLVM bytes を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では、Resource no-escape producer が作った session-local proof table から same-body neutral mask evidence を作る boundary です。
+//: - actual Resource IR traversal が absence slot を明示的に `Proven` として発行する producer、Resource summary hash invalidation、artifact policy hash、backend readiness への upper orchestration は後続 stage です。
+//: - facade には re-export しません。full public surface orchestration が private-effect proof producer と backend readiness gate を接続する段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - proof record 数を p とすると、2 slot lookup により O(p) 時間、追加 owner なしの O(1) 空間です。
+//: - proof lookup は no-escape gate 側の exact key equality と duplicate rejection を共有するため、後続で sorted index 化してもこの module の契約は変えません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_mask_evidence" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_private_effect_mask_evidence_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_private_effect_mask_evidence_result_status_eq summary.both_proven_evidence SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_private_effect_mask_evidence_result_proven_count_eq summary.both_proven_evidence 2
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_private_effect_mask_status_result_eq summary.cache_refuted_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_private_effect_mask_status_result_eq summary.state_refuted_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_private_effect_mask_status_result_eq summary.cache_missing_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_private_effect_mask_status_result_eq summary.state_missing_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_private_effect_mask_status_result_eq summary.cache_unknown_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_private_effect_mask_status_result_eq summary.state_unknown_status SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_private_effect_mask_evidence_count_error_result_eq summary.placeholder_rejected SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_private_effect_mask_evidence_count_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind::ProofDuplicate
+//:             let shown checks_print_report checks10
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "private effect mask evidence stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_private_effect_no_escape_gate" as *
+
+//: SelfhostMemoTraitOperationPrivateEffectMaskStatus: private-effect mask evidence の集約状態
+//:
+//: [契約/けいやく]:
+//: - `Proven` だけが backend readiness や artifact policy の accepted input になれます。
+//: - `Missing` は必須 slot の proof record がない状態であり、effect 不在の証明ではありません。
+pub enum SelfhostMemoTraitOperationPrivateEffectMaskStatus:
+    Proven
+    Refuted
+    Missing
+    Unknown
+
+//: SelfhostMemoTraitOperationPrivateEffectMaskEvidence: same-body private-effect mask evidence
+//:
+//: [契約/けいやく]:
+//: - `type_id`、`operation`、`body_module_fingerprint`、`body_root` は lookup に使った typed identity をそのまま保持します。
+//: - `required_slot_count` は現 checkpoint では常に 2 です。後続で slot が増える場合も count と status fold を同時に更新します。
+pub struct SelfhostMemoTraitOperationPrivateEffectMaskEvidence:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    status %SelfhostMemoTraitOperationPrivateEffectMaskStatus
+    required_slot_count %i32
+    proven_slot_count %i32
+
+//: SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind: mask evidence producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - setup proof table、typed body identity、proof lookup の失敗を bool へ潰さず保持します。
+pub enum SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind:
+    ProofTableAllocFailed %StdErrorKind
+    ProofTableBuildRejected %SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+    BodyModuleFingerprintPlaceholder
+    ProofLookupRejected %SelfhostMemoTraitOperationPrivateEffectNoEscapeGateErrorKind
+
+//: SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary: mask evidence producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - fixed 2 slot 成功、各 slot の Refuted / Missing / Unknown、placeholder、duplicate proof rejection を確認します。
+pub struct SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary:
+    both_proven_evidence %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    cache_refuted_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    state_refuted_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    cache_missing_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    state_missing_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    cache_unknown_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    state_unknown_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+    duplicate_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectMaskStatus: mask status を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectMaskStatus:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskStatus \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectMaskStatus: mask status の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectMaskStatus:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskStatus \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectMaskEvidence: owner を含まない mask evidence を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectMaskEvidence:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidence \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectMaskEvidence: mask evidence が owner lifecycle を持たないことを示す marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectMaskEvidence:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidence \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind: error を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind: error の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary: smoke summary を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary: smoke summary の Copy marker
+impl Copy for SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_private_effect_mask_status_from_proof_status: no-escape proof status を mask status へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_mask_status_from_proof_status %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectMaskStatus \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+            SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted:
+            SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing:
+            SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown:
+            SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+
+//: selfhost_memo_trait_operation_private_effect_mask_status_fold: 2 slot status を fail-closed に[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - priority は `Refuted > Missing > Unknown > Proven` です。Missing は「required proof slot が無い」ため Unknown より先に拒否します。
+fn selfhost_memo_trait_operation_private_effect_mask_status_fold %fn SelfhostMemoTraitOperationPrivateEffectMaskStatus fn SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskStatus \left\right:
+    match left:
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted:
+            SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing:
+            match right:
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown:
+            match right:
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven:
+            match right:
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown
+                SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven:
+                    SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven
+
+//: selfhost_memo_trait_operation_private_effect_mask_proven_increment: proof status が Proven の場合だけ count を[増/ふ]やす値を[返/かえ]す
+fn selfhost_memo_trait_operation_private_effect_mask_proven_increment %fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven:
+            1
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted:
+            0
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Missing:
+            0
+        SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown:
+            0
+
+//: selfhost_memo_trait_operation_private_effect_mask_lookup_slot_result: 1 private-effect slot の proof status を[引/ひ]く
+fn selfhost_memo_trait_operation_private_effect_mask_lookup_slot_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \proofs\type_id\operation\body_module_fingerprint\body_root\effect:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_lookup_not_applicable_result proofs type_id operation body_module_fingerprint body_root effect:
+        Result::Ok status:
+            Result::Ok status
+        Result::Err gate_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected gate_error
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_from_slots: 2 slot lookup 結果を evidence へ[畳/たた]む
+fn selfhost_memo_trait_operation_private_effect_mask_evidence_from_slots %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidence \type_id\operation\body_module_fingerprint\body_root\cache_proof_status\state_proof_status:
+    let cache_status %SelfhostMemoTraitOperationPrivateEffectMaskStatus selfhost_memo_trait_operation_private_effect_mask_status_from_proof_status cache_proof_status
+    let state_status %SelfhostMemoTraitOperationPrivateEffectMaskStatus selfhost_memo_trait_operation_private_effect_mask_status_from_proof_status state_proof_status
+    let status %SelfhostMemoTraitOperationPrivateEffectMaskStatus selfhost_memo_trait_operation_private_effect_mask_status_fold cache_status state_status
+    let proven_slot_count %i32 add selfhost_memo_trait_operation_private_effect_mask_proven_increment cache_proof_status selfhost_memo_trait_operation_private_effect_mask_proven_increment state_proof_status
+    SelfhostMemoTraitOperationPrivateEffectMaskEvidence type_id operation body_module_fingerprint body_root status 2 proven_slot_count
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_result: proof table から same-body neutral mask evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - proof table は borrow です。この関数は閉じません。
+//: - `PrivateCache + NotApplicable` と `PrivateState + NotApplicable` を同じ typed body identity で必ず lookup します。
+pub fn selfhost_memo_trait_operation_private_effect_mask_evidence_result %fn &SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \proofs\type_id\operation\body_module_fingerprint\body_root:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            match selfhost_memo_trait_operation_private_effect_mask_lookup_slot_result proofs type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateCache:
+                Result::Ok cache_status:
+                    match selfhost_memo_trait_operation_private_effect_mask_lookup_slot_result proofs type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateState:
+                        Result::Ok state_status:
+                            Result::Ok selfhost_memo_trait_operation_private_effect_mask_evidence_from_slots type_id operation body_module_fingerprint body_root cache_status state_status
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_operation_private_effect_mask_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_mask_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_private_effect_mask_error_kind_eq: mask evidence error が同じ分類と payload か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_mask_error_kind_eq %fn SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind fn SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed b_alloc:
+                    eq selfhost_memo_trait_operation_private_effect_mask_std_error_kind_code a_alloc selfhost_memo_trait_operation_private_effect_mask_std_error_kind_code b_alloc
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableBuildRejected _b_build:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected _b_lookup:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableBuildRejected a_build:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableBuildRejected b_build:
+                    selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq a_build b_build
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected _b_lookup:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder:
+                    true
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableBuildRejected _b_build:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected _b_lookup:
+                    false
+        SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected a_lookup:
+            match b:
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofLookupRejected b_lookup:
+                    selfhost_memo_trait_operation_private_effect_no_escape_error_kind_eq a_lookup b_lookup
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableBuildRejected _b_build:
+                    false
+                SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+
+//: selfhost_memo_trait_operation_private_effect_mask_status_code: mask status を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_private_effect_mask_status_code %fn SelfhostMemoTraitOperationPrivateEffectMaskStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Proven:
+            1
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Refuted:
+            2
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Missing:
+            3
+        SelfhostMemoTraitOperationPrivateEffectMaskStatus::Unknown:
+            4
+
+//: selfhost_memo_trait_operation_private_effect_mask_status_eq: mask status が同じ variant か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_mask_status_eq %fn SelfhostMemoTraitOperationPrivateEffectMaskStatus fn SelfhostMemoTraitOperationPrivateEffectMaskStatus bool \a\b:
+    eq selfhost_memo_trait_operation_private_effect_mask_status_code a selfhost_memo_trait_operation_private_effect_mask_status_code b
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_result_status_eq: evidence result の status が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_mask_evidence_result_status_eq %fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind fn SelfhostMemoTraitOperationPrivateEffectMaskStatus bool \result\expected:
+    match result:
+        Result::Ok evidence:
+            selfhost_memo_trait_operation_private_effect_mask_status_eq evidence.status expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_result_proven_count_eq: evidence result の proven slot count が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_mask_evidence_result_proven_count_eq %fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok evidence:
+            eq evidence.proven_slot_count expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_mask_status_result_eq: status result が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_mask_status_result_eq %fn Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind fn SelfhostMemoTraitOperationPrivateEffectMaskStatus bool \result\expected:
+    match result:
+        Result::Ok status:
+            selfhost_memo_trait_operation_private_effect_mask_status_eq status expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_count_error_result_eq: i32 result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_private_effect_mask_evidence_count_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind fn SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind bool \result\expected:
+    match result:
+        Result::Ok _count:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_private_effect_mask_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_status_result: evidence result から status result を[取/と]り[出/だ]す
+fn selfhost_memo_trait_operation_private_effect_mask_evidence_status_result %fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \result:
+    match result:
+        Result::Ok evidence:
+            Result::Ok evidence.status
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_count_result: evidence result から proven count result を[取/と]り[出/だ]す
+fn selfhost_memo_trait_operation_private_effect_mask_evidence_count_result %fn Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \result:
+    match result:
+        Result::Ok evidence:
+            Result::Ok evidence.proven_slot_count
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_record: stage0 用 proof record を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord \type_id\operation\body_module_fingerprint\body_root\effect\status:
+    let key %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofKey selfhost_memo_trait_operation_private_effect_no_escape_proof_key_new type_id operation body_module_fingerprint body_root effect SelfhostEffectEscapeState::NotApplicable
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_record_new key status
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_push_result: stage0 proof table に record を[追加/ついか]する
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_push_result %impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord Result SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \proofs\record:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_push proofs record:
+        Result::Ok next_proofs:
+            Result::Ok next_proofs
+        Result::Err gate_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableBuildRejected gate_error
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_evidence_from_table_result: stage0 proof table を借用 lookup へ渡してから[閉/と]じる
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_evidence_from_table_result %impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \proofs\type_id\operation\body_module_fingerprint\body_root:
+    let result %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_result &proofs type_id operation body_module_fingerprint body_root
+    selfhost_memo_trait_operation_private_effect_no_escape_proof_table_free proofs
+    result
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result: 2 slot proof table から evidence result を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \type_id\operation\body_module_fingerprint\body_root\cache_status\state_status:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            let cache_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_mask_stage0_record type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateCache cache_status
+            match selfhost_memo_trait_operation_private_effect_mask_stage0_push_result proofs0 cache_record:
+                Result::Ok proofs1:
+                    let state_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_mask_stage0_record type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateState state_status
+                    match selfhost_memo_trait_operation_private_effect_mask_stage0_push_result proofs1 state_record:
+                        Result::Ok proofs2:
+                            selfhost_memo_trait_operation_private_effect_mask_stage0_evidence_from_table_result proofs2 type_id operation body_module_fingerprint body_root
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_one_slot_result: 1 slot だけの proof table から evidence result を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_one_slot_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostEffectKind impure fn SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \type_id\operation\body_module_fingerprint\body_root\effect\status:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            let record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_mask_stage0_record type_id operation body_module_fingerprint body_root effect status
+            match selfhost_memo_trait_operation_private_effect_mask_stage0_push_result proofs0 record:
+                Result::Ok proofs1:
+                    selfhost_memo_trait_operation_private_effect_mask_stage0_evidence_from_table_result proofs1 type_id operation body_module_fingerprint body_root
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_empty_count_result: 空 proof table で count result を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_empty_count_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \type_id\operation\body_module_fingerprint\body_root:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_private_effect_mask_evidence_count_result selfhost_memo_trait_operation_private_effect_mask_stage0_evidence_from_table_result proofs type_id operation body_module_fingerprint body_root
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_mask_stage0_duplicate_count_result: duplicate proof lookup rejection を[作/つく]る
+fn selfhost_memo_trait_operation_private_effect_mask_stage0_duplicate_count_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind \type_id\operation\body_module_fingerprint\body_root:
+    match selfhost_memo_trait_operation_private_effect_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            let cache_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_mask_stage0_record type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+            match selfhost_memo_trait_operation_private_effect_mask_stage0_push_result proofs0 cache_record:
+                Result::Ok proofs1:
+                    match selfhost_memo_trait_operation_private_effect_mask_stage0_push_result proofs1 cache_record:
+                        Result::Ok proofs2:
+                            let state_record %SelfhostMemoTraitOperationPrivateEffectNoEscapeProofRecord selfhost_memo_trait_operation_private_effect_mask_stage0_record type_id operation body_module_fingerprint body_root SelfhostEffectKind::PrivateState SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+                            match selfhost_memo_trait_operation_private_effect_mask_stage0_push_result proofs2 state_record:
+                                Result::Ok proofs3:
+                                    selfhost_memo_trait_operation_private_effect_mask_evidence_count_result selfhost_memo_trait_operation_private_effect_mask_stage0_evidence_from_table_result proofs3 type_id operation body_module_fingerprint body_root
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind::ProofTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_private_effect_mask_evidence_stage0: private-effect mask evidence producer の smoke API
+pub fn selfhost_memo_trait_operation_private_effect_mask_evidence_stage0 %impure fn void Result SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 92001
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 92002
+    let fingerprint %i32 92003
+    let both_proven_evidence %Result SelfhostMemoTraitOperationPrivateEffectMaskEvidence SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let cache_refuted_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_status_result selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let state_refuted_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_status_result selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Refuted
+    let cache_missing_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_status_result selfhost_memo_trait_operation_private_effect_mask_stage0_one_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostEffectKind::PrivateState SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let state_missing_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_status_result selfhost_memo_trait_operation_private_effect_mask_stage0_one_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root SelfhostEffectKind::PrivateCache SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let cache_unknown_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_status_result selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Hash fingerprint root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven
+    let state_unknown_status %Result SelfhostMemoTraitOperationPrivateEffectMaskStatus SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_evidence_status_result selfhost_memo_trait_operation_private_effect_mask_stage0_two_slot_result type_id SelfhostMemoTraitOperationEvidenceKind::Hash fingerprint root SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Proven SelfhostMemoTraitOperationPrivateEffectNoEscapeProofStatus::Unknown
+    let placeholder_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_stage0_empty_count_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq 0 root
+    let duplicate_rejected %Result i32 SelfhostMemoTraitOperationPrivateEffectMaskEvidenceErrorKind selfhost_memo_trait_operation_private_effect_mask_stage0_duplicate_count_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq fingerprint root
+    Result::Ok SelfhostMemoTraitOperationPrivateEffectMaskEvidenceStage0Summary both_proven_evidence cache_refuted_status state_refuted_status cache_missing_status state_missing_status cache_unknown_status state_unknown_status placeholder_rejected duplicate_rejected
