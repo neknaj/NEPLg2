@@ -1,0 +1,270 @@
+//: # std/gui/compositor_tile_present_host_execution
+//: compositor tile RLE present host execution action の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5mx の host continuation request を、Web / native / bare executor がそのまま match できる flat action enum に[写/うつ]します。
+//: - この module は host import を[実行/じっこう]せず、request target と metadata [付/つ]き host-command record の[組/く]み[合/あ]わせを typed action shape として[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - 入力は F5mx の `GuiRgba8888CompositorTileRlePresentHostImportRequest` だけです。
+//: - 出力は target と record kind の直積を表す invalid-state-free enum です。
+//: - F5mx で capability validation が[済/す]んでいるため、この boundary は新しい failure mode を[作/つく]りません。
+//: - actual host import execution、dispatch loop、scheduler、queue、timer、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "std/gui/compositor_tile_present" as *
+#import "std/gui/compositor_tile_present_host_command" as *
+#import "std/gui/compositor_tile_present_host_import" as *
+#import "std/gui/window" as *
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin: Window BeginFrame action payload
+//:
+//: Window target と metadata [付/つ]き compositor present descriptor を同じ Copy payload として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin:
+    window %WindowId
+    descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin \payload:
+        *payload
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin \payload:
+        payload
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun: Window RunRecord action payload
+//:
+//: Window target と metadata [付/つ]き compositor run record を同じ Copy payload として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun:
+    window %WindowId
+    run_record %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun \payload:
+        *payload
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun \payload:
+        payload
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd: Window EndFrame action payload
+//:
+//: Window target と metadata [付/つ]き compositor present descriptor を同じ Copy payload として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub struct GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd:
+    window %WindowId
+    descriptor %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd \payload:
+        *payload
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd \payload:
+        payload
+
+//: GuiRgba8888CompositorTileRlePresentHostExecutionAction: target と record kind の flat action
+//:
+//: Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の[直積/ちょくせき]を enum として[固定/こてい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub enum GuiRgba8888CompositorTileRlePresentHostExecutionAction:
+    WindowBegin %GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin
+    WindowRun %GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun
+    WindowEnd %GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd
+    OffscreenBegin %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    OffscreenRun %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord
+    OffscreenEnd %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    DeviceBegin %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+    DeviceRun %GuiRgba8888CompositorTileRlePresentHostCommandRunRecord
+    DeviceEnd %GuiRgba8888CompositorTileRlePresentFrameDescriptor
+
+impl Clone for GuiRgba8888CompositorTileRlePresentHostExecutionAction:
+    fn clone %fn &GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutionAction \action:
+        *action
+
+impl Copy for GuiRgba8888CompositorTileRlePresentHostExecutionAction:
+    fn copy_mark %fn GuiRgba8888CompositorTileRlePresentHostExecutionAction GuiRgba8888CompositorTileRlePresentHostExecutionAction \action:
+        action
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_new: Window Begin payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_new %fn WindowId fn GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin \window\descriptor:
+    GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin window descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_new: Window Run payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_new %fn WindowId fn GuiRgba8888CompositorTileRlePresentHostCommandRunRecord GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun \window\run_record:
+    GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun window run_record
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_new: Window End payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_new %fn WindowId fn GuiRgba8888CompositorTileRlePresentFrameDescriptor GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd \window\descriptor:
+    GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd window descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_window: Window target の record を action に[写/うつ]す
+//:
+//: Begin / Run / End の record kind を Window action payload に[分/わ]けます。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_window %fn WindowId fn GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentHostExecutionAction \window\record:
+    match record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            let payload %GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_new window descriptor
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowBegin payload
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            let payload %GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_new window run_record
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowRun payload
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:
+            let payload %GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_new window descriptor
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::WindowEnd payload
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_offscreen: Offscreen target の record を action に[写/うつ]す
+//:
+//: metadata [付/つ]き descriptor / run record をそのまま Offscreen action に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_offscreen %fn GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentHostExecutionAction \record:
+    match record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenBegin descriptor
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenRun run_record
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::OffscreenEnd descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_device: Device target の record を action に[写/うつ]す
+//:
+//: metadata [付/つ]き descriptor / run record をそのまま Device action に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+fn gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_device %fn GuiRgba8888CompositorTileRlePresentHostCommandRecord GuiRgba8888CompositorTileRlePresentHostExecutionAction \record:
+    match record:
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceBegin descriptor
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::RunRecord run_record:
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceRun run_record
+        GuiRgba8888CompositorTileRlePresentHostCommandRecord::EndFrame descriptor:
+            GuiRgba8888CompositorTileRlePresentHostExecutionAction::DeviceEnd descriptor
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_window: Window Begin payload の window id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_window %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin WindowId \payload:
+    *field::get_ref payload "window"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_descriptor: Window Begin payload の descriptor を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_begin_descriptor %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowBegin GuiRgba8888CompositorTileRlePresentFrameDescriptor \payload:
+    *field::get_ref payload "descriptor"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_window: Window Run payload の window id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_window %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun WindowId \payload:
+    *field::get_ref payload "window"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record: Window Run payload の run record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_run_record %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowRun GuiRgba8888CompositorTileRlePresentHostCommandRunRecord \payload:
+    *field::get_ref payload "run_record"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_window: Window End payload の window id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_window %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd WindowId \payload:
+    *field::get_ref payload "window"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_descriptor: Window End payload の descriptor を[返/かえ]す
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_window_end_descriptor %fn &GuiRgba8888CompositorTileRlePresentHostExecutionWindowEnd GuiRgba8888CompositorTileRlePresentFrameDescriptor \payload:
+    *field::get_ref payload "descriptor"
+
+//: gui_rgba8888_compositor_tile_rle_present_host_execution_action: request を executor action に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - F5mx request target と F5mu record を public accessor で[読/よ]み、flat action enum に[変換/へんかん]します。
+//: - capability validation や request construction は F5mx の[責務/せきむ]なので、この関数では[行/おこな]いません。
+//: - host import の[実行/じっこう][結果/けっか]はこの action ではなく、後続 executor が `Result unit GuiError` として completion boundary に[渡/わた]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/compositor_tile_present_host_execution" as *
+//: ```
+pub fn gui_rgba8888_compositor_tile_rle_present_host_execution_action %fn &GuiRgba8888CompositorTileRlePresentHostImportRequest GuiRgba8888CompositorTileRlePresentHostExecutionAction \request:
+    let target %GuiRgba8888CompositorTileRlePresentHostImportTarget gui_rgba8888_compositor_tile_rle_present_host_import_request_target request
+    let record %GuiRgba8888CompositorTileRlePresentHostCommandRecord gui_rgba8888_compositor_tile_rle_present_host_import_request_record request
+    match target:
+        GuiRgba8888CompositorTileRlePresentHostImportTarget::Window window:
+            gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_window window record
+        GuiRgba8888CompositorTileRlePresentHostImportTarget::Offscreen:
+            gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_offscreen record
+        GuiRgba8888CompositorTileRlePresentHostImportTarget::Device:
+            gui_rgba8888_compositor_tile_rle_present_host_execution_action_for_device record

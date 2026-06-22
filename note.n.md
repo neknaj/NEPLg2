@@ -81542,3 +81542,29 @@ MERGE_APPROVED
 - main merge 後再検証 pass: `trunk build`
 - main merge 後再検証 pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5my-merge.json`
 - checked JSON: `tmp-playground-editor-tests-f5my-merge.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-23 GUI std compositor present host execution action checkpoint
+
+- `stdlib/std/gui/compositor_tile_present_host_execution.nepl` を追加し、F5mx host continuation request から F5mz std layer compositor tile RLE present host execution action boundary への変換を接続した。
+- `GuiRgba8888CompositorTileRlePresentHostExecutionAction` は Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の flat target x record action として固定した。
+- Window action payload は `WindowId` と metadata 付き compositor descriptor / run record を保持する。Begin / End は `GuiRgba8888CompositorTileRlePresentFrameDescriptor`、Run は `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord` を保持し、lower row-tile descriptor へ投影しない。
+- `gui_rgba8888_compositor_tile_rle_present_host_execution_action` は F5mx request accessor だけで target / record を読み、F5mu record kind を action enum へ写す。F5my ready request、F5mw schedule state、F5mv virtual drain state には依存しない。
+- F5mz は host import を実行せず、`Result` path、execution report、queue、timer、scheduler、platform API、raw storage、Vec、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を更新した。plan.md との差異はない。
+- Boyle の design/source-policy review は実装前時点で `PLAN_CHANGES_REQUIRED`。F5mz doc/source policy/test/facade wiring、F5mx request-only、metadata-preserving payload、no F5my/F5mw/F5mv / lower row-tile leakage を required invariants として指摘したため、今回の実装と source policy に反映した。
+- Goodall の implementation review は `PLAN_APPROVED`。F5mx request-only input、3x3 flat action shape、descriptor/run-record metadata preservation、no F5my/F5mw/F5mv / lower row-tile / platform / raw / fallback leakage に blocker はないと確認された。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_f5mz.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/compositor_tile_present_host_execution.nepl --no-tree -o tmp_gui_std_compositor_tile_present_host_execution_module_f5mz.json -j 1`。18/18。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_host_import.n.md --no-tree -o tmp_gui_std_compositor_tile_present_host_import_f5mz_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_compositor_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_compositor_tile_present_dispatch_f5mz_regression.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5mz_regression.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mz.json`
+- checked JSON: `tmp-playground-editor-tests-f5mz.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

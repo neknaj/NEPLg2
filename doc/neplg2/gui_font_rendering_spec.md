@@ -7165,6 +7165,10 @@ F5my は std layer compositor tile RLE present scheduled dispatch boundary で�
 
 F5my の error は previous dispatch state を返す。F5mw failure は lower kind / category を `ScheduleFailed` として包み、F5mx request construction failure は `HostImportRequestFailed` と `Option::Some host_error` を返す。F5mx failure では同じ step で得た updated schedule state を公開せず、caller は previous dispatch state から retry / unsupported handling を選ぶ。F5my does not execute host imports and does not call F5mv directly。F5mv authority は F5mw に閉じ、lower F5cu/F5ct/F5cs/F5cr/F5cq、raw storage、Vec、queue、timer、scheduler、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
 
+F5mz は std layer compositor tile RLE present host execution action boundary であり、F5mx request accessor だけで `GuiRgba8888CompositorTileRlePresentHostImportRequest` の target と record を読み、`GuiRgba8888CompositorTileRlePresentHostExecutionAction` へ写す。出力は Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の flat target x record action であり、Begin / End は `GuiRgba8888CompositorTileRlePresentFrameDescriptor`、Run は `GuiRgba8888CompositorTileRlePresentHostCommandRunRecord` を保持する metadata-preserving action である。
+
+F5mz consumes F5mx requests, not F5my ready requests。F5mz does not depend on F5my and does not depend on F5mw/F5mv schedule or drain state。F5mz does not execute host imports。capability validation と request construction は F5mx の責務であり、F5mz は `Result` を作らない。lower F5cw/F5cr/F5cq へ投影すると compositor metadata を失うため、lower row-tile host execution / import / command、F5my dispatch、F5mw schedule、F5mv virtual drain、raw storage、Vec、queue、timer、scheduler、platform API、video memory、Canvas / DOM / minifb、fallback / silent no-op へ進まない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
