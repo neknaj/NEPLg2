@@ -1,3 +1,53 @@
+# 2026-06-22 Agent2 GUI render2d F5mp compositor tile RLE packet bridge boundary
+
+## 目的
+
+- F5mo の `GuiRgba8888CompositorTileRleEncodedOwner` から lower `gui_rgba8888_row_tile_rle_packet_prepare` へ進む compositor tile RLE packet bridge を追加する。
+- packet bridge は lower packet owner と metadata を `GuiRgba8888CompositorTileRlePacketOwner` として束ね、packet record reader / std present / host present へ進まない boundary として分離する。
+- lower packet prepare error は kind / category を読んだ後で lower encoded owner を metadata 付き encoded owner へ戻す。payload recovery や lower error recovery の公開にはしない。
+
+## 実装内容
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_packet.nepl` を追加した。
+- `GuiRgba8888CompositorTileRlePacketPrepareErrorKind`、`GuiRgba8888CompositorTileRlePacketOwner`、`GuiRgba8888CompositorTileRlePacketDescriptor`、`GuiRgba8888CompositorTileRlePacketPrepareError` を追加した。
+- `gui_rgba8888_compositor_tile_rle_packet_prepare` は metadata を encoded owner から Copy してから lower encoded owner を取り出し、lower packet prepare を 1 回だけ呼ぶ。
+- success は lower packet owner を metadata 付き packet owner へ戻し、lower packet descriptor と metadata を束ねる metadata付き descriptor wrapper と descriptor scalar accessor を追加した。
+- lower error は kind / category を読んでから lower encoded owner を取り出し、metadata 付き encoded owner recovery error に正規化した。
+- `owner_finish_encoded`、`prepare_error_finish_encoded`、`prepare_error_free`、`owner_free` を追加した。`prepare_error_free` は F5mo encoded owner free に委譲し、`owner_free` は lower packet owner free に委譲して F5mo encoded finish kind に正規化する。
+- Schrodinger のレビュー指摘に従い、F5mp には `finish_payload` / `finish_entry` を置かず、payload recovery は caller が encoded owner recovery 後に F5mo helper を明示的に呼ぶ形にした。
+- packet-side の record reader、`gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked` / `gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked` の直呼び、std present、raw byte、host / platform API、fallback / silent no-op はこの境界に入れていない。
+- `stdlib/alloc/gui/render2d.nepl` facade、`tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`todo.md` を F5mp contract に合わせて更新した。
+
+## plan.md との差異
+
+- F5mp は 2D compositor の formal tile RLE transport を進めるための中間境界であり、plan.md の 2D rendering engine / GUI rendering path 完成方針に沿う。
+- 現時点では packet record reader、std present、platform present continuation には進めていない。これらは後続 boundary として残る。
+
+## subagent review
+
+- Schrodinger plan review は `PLAN_APPROVED`。
+- recovery owner は `GuiRgba8888CompositorTileRleEncodedOwner` で正しく、lower packet prepare error は kind/category を先に読み、lower encoded owner を metadata 付き encoded owner へ戻す方針が承認された。
+- descriptor は lower descriptor を裸で返すより、lower `GuiRgba8888RowTileRlePacketDescriptor` と metadata を束ねる Copy descriptor wrapper がよいと指摘されたため、その形に修正した。
+- `finish_payload` / `finish_entry` は F5mp に置かず、`owner_finish_encoded` と F5mo helper の明示的な 2 段 recovery に分ける方針が承認された。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_packet_f5mp.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_packet.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_packet_module_f5mp.json -j 1`（56/56）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encoded_f5mp_regression.json -j 1`（3/3）
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5mp_regression.json -j 1`（1/1）
+- pass: `git diff --check`（LF/CRLF warning のみ）
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5mp.json`
+- checked JSON: `tmp_playground_editor_f5mp.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 残り
+
+- F5mp 後続として、compositor packet owner から std present payload transport / present continuation へ進む boundary を実装する。
+
 # 2026-06-22 Agent2 GUI render2d F5mo compositor tile RLE encoded seal bridge boundary
 
 ## 目的
@@ -45,7 +95,7 @@
 
 ## 残り
 
-- F5mo 後続として、compositor encoded owner から lower packet / std present payload transport / present continuation へ進む boundary を実装する。
+- F5mp で compositor encoded owner から lower packet owner への bridge は接続済み。後続として、compositor packet owner から std present payload transport / present continuation へ進む boundary を実装する。
 
 # 2026-06-22 Agent2 GUI render2d F5mn compositor tile RLE write step bridge boundary
 
@@ -107,7 +157,7 @@
 
 ## 残り
 
-- F5mo で encoded seal boundary は接続済み。後続として、compositor encoded owner から lower packet / std present payload transport / present continuation へ進む boundary を実装する。
+- F5mp で lower packet owner への bridge は接続済み。後続として、compositor packet owner から std present payload transport / present continuation へ進む boundary を実装する。
 
 # 2026-06-22 Agent2 GUI render2d F5mm compositor tile RLE write cursor start bridge boundary
 

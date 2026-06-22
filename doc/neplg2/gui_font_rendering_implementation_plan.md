@@ -4984,6 +4984,61 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mo.json
 ```
 
+## Phase F5mp: render2d compositor tile RLE packet bridge boundary
+
+目的:
+
+- F5mo encoded owner を authority とし、既存 lower `gui_rgba8888_row_tile_rle_packet_prepare` を compositor metadata 付きで接続する。
+- lower packet prepare を 1 回だけ呼び、success では lower packet owner と copied metadata を `GuiRgba8888CompositorTileRlePacketOwner` として束ねる。
+- lower packet prepare error は original encoded owner を返す契約なので、kind / category を読んだ後で lower encoded owner を metadata 付き F5mo encoded owner へ戻す。
+- この phase では packet owner bridge に留め、packet record reader、std present、host / platform API、host present、video memory、Canvas / DOM / minifb、transport execution、fallback / silent no-op へ進まない。no packet record / present / raw byte の compositor tile RLE packet bridge で止める。
+
+plan review:
+
+- Schrodinger plan review は `PLAN_APPROVED`。
+- F5mo encoded owner を lower packet prepare へ渡す boundary として正しく、success owner は lower `GuiRgba8888RowTileRlePacketOwner` を metadata 付き owner として包み、lower owner を直接返さない。
+- descriptor は lower descriptor を裸で返さず、`GuiRgba8888CompositorTileRlePacketDescriptor` に lower packet descriptor と metadata を束ねる metadata付き descriptor wrapper とする。
+- lower packet prepare error は encoded owner recovery であり、lower packet prepare error を公開 recovery payload にしない。error wrapper は lower kind / category を `gui_rgba8888_row_tile_rle_packet_prepare_error_finish_encoded` より前に読む。
+- `owner_finish_encoded` は packet completion ではなく recovery / abort helper であり、lower packet owner を metadata 付き encoded owner へ戻す。
+- finish_payload / finish_entry は F5mp に置かない。payload recovery が必要な caller は F5mp で encoded owner へ戻してから F5mo helper を明示的に呼ぶ。
+- `gui_rgba8888_row_tile_rle_encoded_tile_descriptor_checked` と `gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked` は F5cm packet prepare の責務なので、F5mp では直接呼ばない。
+- source policy で facade export、typed owner/error/descriptor、owner-bearing no Clone / Copy、descriptor wrapper Clone / Copy、single lower packet prepare call、metadata-before-lower-owner-consume、lower error kind/category before encoded owner recovery、packet record / std present / raw byte / host / platform / fallback 禁止、lower packet helper whitelist だけを検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/compositor_tile_rle_packet.nepl` を追加する。
+- `GuiRgba8888CompositorTileRlePacketPrepareErrorKind`、`GuiRgba8888CompositorTileRlePacketOwner`、`GuiRgba8888CompositorTileRlePacketDescriptor`、`GuiRgba8888CompositorTileRlePacketPrepareError` を追加する。owner-bearing success / error は Clone / Copy を実装しない。descriptor wrapper は Clone / Copy を実装する。
+- `gui_rgba8888_compositor_tile_rle_packet_prepare` は metadata を encoded owner から Copy してから lower encoded owner を取り出し、lower packet prepare を 1 回だけ呼ぶ。
+- success は lower packet owner を metadata 付き packet owner へ戻し、metadata 付き descriptor wrapper と descriptor scalar accessor を提供する。
+- lower packet prepare error は lower kind / category を読んでから lower encoded owner を取り出し、metadata 付き F5mo encoded owner を持つ prepare error に正規化する。lower packet prepare error を公開 recovery payload にしない。
+- `owner_finish_encoded`、`prepare_error_finish_encoded`、`prepare_error_free`、`owner_free` を追加する。`prepare_error_free` は F5mo encoded owner free に委譲し、`owner_free` は lower packet owner free に委譲する。
+- `finish_payload` / `finish_entry` は作らない。
+- `stdlib/alloc/gui/render2d.nepl` facade から compositor tile RLE packet bridge を再公開する。
+- `tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md` を追加し、default runtime smoke で facade / wrapped lower prepare error kind を固定し、source policy fixture で lower packet prepare success、metadata付き descriptor wrapper、descriptor scalar accessors、metadata、encoded owner recovery、prepare error recovery、packet owner free delegation、no packet record / present / raw byte / fallback label を固定する。malformed packet owner 直 constructor 禁止 compile_fail も追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5mp source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が docs、Schrodinger approval、facade export、typed lower packet prepare error variant、metadata 付き packet owner success、metadata付き descriptor wrapper、encoded owner recovery error、owner-bearing success / error no Clone / Copy、descriptor wrapper Clone / Copy、lower packet prepare exact once、metadata-before-lower-owner-consume、lower error kind/category before encoded owner recovery、lower packet prepare error を公開 recovery payload にしないこと、success finish encoded の lower packet finish encoded 経由 recovery、prepare error free の F5mo encoded owner free 委譲、packet owner free の lower packet owner free 委譲、`finish_payload` / `finish_entry` 禁止、packet record / raw byte access / std present / host / platform / fallback 禁止、runtime smoke label と source policy fixture label を検査する。
+- focused doctest、module doctest、F5mo encoded regression、lower packet regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+- implementation review で metadata-after-move、owner loss、lower packet prepare error exposure、encoded owner recovery loss、packet record / present / raw leakage、`tile_descriptor_checked` / `tile_plan_metadata_checked` 直呼び、`finish_payload` / `finish_entry` がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_packet_f5mp.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/render2d/compositor_tile_rle_packet.nepl --no-tree -o tmp_gui_render2d_compositor_tile_rle_packet_module_f5mp.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_compositor_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_compositor_tile_rle_encoded_f5mp_regression.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5mp_regression.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp-playground-editor-tests-f5mp.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
