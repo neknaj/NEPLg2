@@ -47,6 +47,7 @@
 //: - Context-bound reader traversal bundle stage0 は、recheck 済み reader context と production reader output を既存 context-bound source helper で照合してから、fresh witness owner を追加し、actual traversal bundle gate へ渡します。source validation に失敗した場合は witness owner を作りません。
 //: - Context-bound coverage witness bundle stage0 は、同じ context-bound source owner から coverage handoff pair を借用生成し、その owner を source-derived fresh witness bundle へ渡します。coverage と request-evidence が別々の source table を読むと body / graph authority がずれるため、同一 owner 境界を先に固定します。
 //: - Actual no-escape coverage authority stage0 は、actual traversal-owned fresh witness authority bundle と coverage complete authority を同じ body / graph identity で照合し、fresh witness Resource proof table が作れた後だけ PrivateCache slot を `EffectObservedNoEscape` に昇格します。source-derived witness bundle や source kind 単体から no-escape を発行しません。
+//: - Operation-classified no-escape coverage authority stage0 は、module-private operation descriptor を classifier / split / collector へ通し、collector output を request-evidence bundle ではなく actual traversal-owned fresh witness authority bundle として no-escape coverage boundary へ渡します。これは full Resource IR traversal ではなく、operation-classified owner lifecycle が no-escape authority boundary まで崩れないことを確認する smoke です。
 //: - Backend readiness stage0 は、request-evidence gate の `Result` と、同じ body identity を持つ private-effect mask evidence を module-private に照合します。これは effect mask 実体や backend artifact ではなく、`RequestEvidenceProven` だけを backend 完了として扱わないための non-executable boundary です。
 //: - Upstream private-effect mask stage0 は、checker-layer proof producer を直接呼ばず、上位 orchestration が渡すべき neutral private-effect status / evidence を private-effect mask evidence へ写します。evidence の root / body fingerprint を保持して readiness gate へ渡すため、request gate result と別 body の mask evidence は accepted になりません。
 //: - Private-effect readiness handoff API は、checker-layer orchestration が作った neutral mask evidence を root / body fingerprint / status だけの public transport として受けます。backend module は checker module を import せず、handoff を module-private upstream evidence へ写して既存 readiness gate に通すだけです。
@@ -76,6 +77,7 @@
 //: - context-bound reader traversal bundle stage0 は source 数 `s` に対して O(s) 時間で request context と source table の key / graph を照合し、照合成功後だけ witness table を作って既存 bundle gate へ渡します。この段階で固定するのは owner lifecycle と fail-closed taxonomy であり、source lookup index や actual Resource IR traversal の探索削減は後続 stage で追加できます。
 //: - context-bound coverage witness bundle stage0 は source 数 `s` に対して O(s) 時間で coverage pair を作り、その後同じ source owner を fresh witness request-evidence gate へ渡します。source table を複製せず、coverage 計算失敗時だけ owner をこの boundary で閉じます。
 //: - actual no-escape coverage authority stage0 は source 数 `s`、region proof record 数 `r`、witness record 数 `w` に対して O(s + r + w) 時間です。request-evidence gate、effect mask、backend artifact は呼ばず、fresh witness Resource proof table は成功時もこの boundary 内で閉じます。
+//: - operation-classified no-escape coverage authority stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、region proof record 数 `r`、witness 数 `w` に対して O(o + a + g + s + r + w) 時間です。request-evidence gate、ActualTraversalBundle、effect mask、backend artifact は呼びません。
 //: - collector-owned traversal bundle stage0 は collector input の body / place / edge / unsupported / observation 数を `g`、source 数を `s`、witness 数を `w` とすると O(g + s + w + n + p) です。actual Resource IR body traversal を読む計算量ではなく、collector output owner と fresh witness owner を同じ bundle boundary で閉じるための stage0 計算量です。
 //: - producer-owned unavailable traversal bundle stage0 は HIR root からの request 再収集 O(n)、unavailable source table 生成 O(n)、source / witness gate O(s + w)、既存 request-evidence 再照合 O(n + p) に従います。ここで固定するのは production authority と owner cleanup であり、actual Resource IR traversal の探索範囲や accepted source 生成の計算量ではありません。
 //: - operation-classified traversal bundle stage0 は operation record 数 `o`、unified event 数 `a`、collector input 数 `g`、source 数 `s`、witness 数 `w` に対して O(o + a + g + s + w + n + p) です。operation table は module-private stage0 descriptor であり、actual Resource IR body traversal の探索範囲ではありません。
@@ -2780,6 +2782,26 @@ pub struct SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEsca
     fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
     graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
 
+//: SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary: operation classifier output 由来 no-escape coverage authority smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - module-private operation descriptor が HIR-root request authority、operation classifier、unified event split、collector を通って actual traversal-owned fresh witness authority bundle へ渡り、no-escape coverage boundary まで届くことを確認します。
+//:
+//: [契約/けいやく]:
+//: - summary は pair code と typed Result だけを公開します。operation table、event table、walker input、observation table、source table、fresh witness table、authority bundle、candidate、Resource proof table、handoff pair は公開しません。
+//: - accepted count は executable backend plan ではありません。stage0 operation descriptor が既存 classifier / split / collector を通り、request-evidence gate ではなく no-escape coverage authority boundary に届いたことだけを表します。
+//: - actual Resource IR body traversal、production accepted source、PrivateCache / PrivateState effect masking、sealed backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` artifact projection はこの summary の範囲外です。
+pub struct SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary:
+    accepted_no_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    witness_authority_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+
 //: SelfhostMemoCallBackendPrivateCacheContextBoundReaderTraversalBundleStage0Summary: context-bound reader output bundle 接続 smoke の代表結果
 //:
 //: [目的/もくてき]:
@@ -3198,6 +3220,19 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNo
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageStage0Summary: no-escape coverage smoke summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageStage0Summary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageStage0Summary SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageStage0Summary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary: operation-classified no-escape coverage smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は owner を含まない `Result` payload だけを保持します。operation table、event table、source table、fresh witness table、authority bundle は private helper 内で閉じます。
+impl Clone for SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary: operation-classified no-escape coverage smoke summary の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind: Resource proof producer error を値として[複製/ふくせい]する
@@ -15498,6 +15533,23 @@ fn selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_wit
             selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
             Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
 
+//: selfhost_memo_call_backend_private_cache_collector_owned_no_escape_coverage_authority_bundle_with_owners_result: collector output を no-escape coverage authority bundle へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - walker input と observation table はこの helper が必ず閉じます。
+//: - source table 生成に成功した後は、`actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result` が witness 生成失敗時の source cleanup を担当します。
+//: - `ActualTraversalBundle` や source-derived witness helper へ変換せず、no-escape coverage 専用 wrapper だけを作ります。
+fn selfhost_memo_call_backend_private_cache_collector_owned_no_escape_coverage_authority_bundle_with_owners_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceWalkerInput impure fn SelfhostMemoCallBackendPrivateCacheObservationBanTable impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \input\observations\witness_body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collect_from_walker_input_result &input &observations:
+        Result::Ok sources:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+            selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_stage0_with_sources_result sources witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status
+        Result::Err e:
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+            selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
 //: selfhost_memo_call_backend_private_cache_collector_owned_traversal_bundle_from_input_result: input fixture を collector-owned bundle へ[渡/わた]す
 //:
 //: [契約/けいやく]:
@@ -15751,6 +15803,167 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_operation_classifi
     let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_single_result 77 SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation
     let placeholder_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_stage0_accepted_result 0
     SelfhostMemoCallBackendPrivateCacheActualWalkerOperationClassifierStage0Summary accepted_result may_escape_rejected unsupported_rejected observation_rejected placeholder_rejected
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_split_events_result: split 後の owner pair を no-escape coverage authority bundle へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - `actual_walker_event_split_result` は unified event table owner を成功・失敗のどちらでも閉じます。
+//: - split success 後の walker input owner と observation table owner は、collector-owned no-escape coverage authority helper にそのまま所有権を渡します。
+//: - split error は normalizer の失敗なので、source build rejection として `Stage0SourceRejected (NormalizerRejected e)` に写します。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_split_events_result %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \events\witness_body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_split_result events:
+        Result::Ok output:
+            let input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get output "walker_input"
+            let observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable field::get output "observations"
+            selfhost_memo_call_backend_private_cache_collector_owned_no_escape_coverage_authority_bundle_with_owners_result input observations witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::NormalizerRejected e
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_with_operations_result: operation table を classifier / split / collector 経由で no-escape coverage authority bundle に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - module-private operation descriptor から unified event stream を作り、既存 split と collector owner lifecycle を通して no-escape coverage authority bundle に接続します。
+//:
+//: [契約/けいやく]:
+//: - operation table owner は classifier success / classifier error のどちらでもこの helper が閉じます。
+//: - classifier success 後の events owner は split helper に渡し、split helper が cleanup を担当します。
+//: - `ActualTraversalBundle`、source-derived witness helper、request-evidence gate、GraphInput、proof table、backend bytes、effect mask、artifact key は作りません。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_with_operations_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \module\root\fuel\operation_body_module_fingerprint\operations\witness_body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    let events_result %Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_events_from_hir_root_result module root fuel operation_body_module_fingerprint &operations
+    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+    match events_result:
+        Result::Ok events:
+            selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_split_events_result events witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_operation_table_result: operation table builder result を stage0 module 上で no-escape coverage authority bundle へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - operation table が作成済みで module fixture 作成に失敗した場合、この helper が operation table owner を閉じます。
+//: - operation table builder の失敗は source build の失敗として `Stage0SourceRejected` に写します。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_operation_table_result %impure fn i32 impure fn Result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \operation_body_module_fingerprint\operations_result\witness_body_module_fingerprint\graph_index\root_operation_ordinal\support_operation_ordinal\status:
+    match operations_result:
+        Result::Ok operations:
+            let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+            let def_id %SelfhostDefId selfhost_def_id_new 41
+            let function_ty %SelfhostTypeId selfhost_type_id_new 11
+            match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+                Result::Ok module:
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let result %Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_with_operations_result &module root 8 operation_body_module_fingerprint operations witness_body_module_fingerprint graph_index root_operation_ordinal support_operation_ordinal status
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
+                    Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::RegionFreshWitnessResourceProofRejected SelfhostMemoCallBackendPrivateCacheResourceProofProducerErrorKind::Stage0FixtureAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_accepted_authority_bundle_result: operation classifier 由来 accepted source と no-escape coverage authority bundle を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - accepted operation descriptor は module-private stage0 fixture です。production HIR-root producer が accepted source を emit したことを意味しません。
+//: - matching witness は root ordinal 0、support ordinal 1 を指します。これは `PrivateCacheStoragePlace` と `CloneOutOwnedValueEdge` の operation ordinal に対応します。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_accepted_authority_bundle_result %impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \operation_body_module_fingerprint\witness_body_module_fingerprint\status:
+    selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_operation_table_result operation_body_module_fingerprint selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_closed_clone_table_result witness_body_module_fingerprint 0 0 1 status
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_escape_authority_bundle_result: escaping operation descriptor と no-escape coverage authority bundle を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - escaping descriptor は matching witness があっても no-escape coverage authority boundary で fail-closed になります。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_escape_authority_bundle_result %impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \witness_body_module_fingerprint:
+    selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_operation_table_result 77 selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_escape_table_result witness_body_module_fingerprint 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_observation_authority_bundle_result: observation operation descriptor と no-escape coverage authority bundle を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - observation descriptor は split 後に observation table owner へ入り、no-escape candidate へ昇格しません。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_observation_authority_bundle_result %impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \witness_body_module_fingerprint:
+    selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_operation_table_result 77 selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::CacheHitObservation witness_body_module_fingerprint 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_unsupported_authority_bundle_result: unsupported operation descriptor と no-escape coverage authority bundle を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - unsupported descriptor は `UnsupportedTraversalSource` として collector output に残り、matching witness があっても no-escape proof へ進みません。
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_unsupported_authority_bundle_result %impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind \witness_body_module_fingerprint:
+    selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_authority_bundle_from_operation_table_result 77 selfhost_memo_call_backend_private_cache_actual_walker_operation_stage0_single_table_result SelfhostMemoCallBackendPrivateCacheActualWalkerOperationKind::UnknownResourceOperation witness_body_module_fingerprint 0 0 1 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result: accepted operation-classified authority bundle を no-escape pair code へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \authority\operation_body_module_fingerprint\witness_body_module_fingerprint\status:
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_run_i32_with_authority_bundle_result authority selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_accepted_authority_bundle_result operation_body_module_fingerprint witness_body_module_fingerprint status
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_escape_result: escaping operation-classified authority bundle を no-escape pair code へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_escape_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \authority\witness_body_module_fingerprint:
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_run_i32_with_authority_bundle_result authority selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_escape_authority_bundle_result witness_body_module_fingerprint
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_observation_result: observation operation-classified authority bundle を no-escape pair code へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_observation_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \authority\witness_body_module_fingerprint:
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_run_i32_with_authority_bundle_result authority selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_observation_authority_bundle_result witness_body_module_fingerprint
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_unsupported_result: unsupported operation-classified authority bundle を no-escape pair code へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_unsupported_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority impure fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind \authority\witness_body_module_fingerprint:
+    selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_stage0_run_i32_with_authority_bundle_result authority selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_unsupported_authority_bundle_result witness_body_module_fingerprint
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_summary_eq: operation-classified no-escape coverage smoke の代表 contract を[確認/かくにん]する
+pub fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_summary_eq %fn SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary bool \summary:
+    let accepted_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_pair_code_result_eq summary.accepted_no_escape_pair_code 13
+    let missing_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessMissing
+    let missing_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.missing_witness_rejected missing_expected
+    let rejected_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessRejected
+    let rejected_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.rejected_witness_rejected rejected_expected
+    let witness_authority_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessAuthorityMismatch
+    let witness_authority_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.witness_authority_mismatch_rejected witness_authority_expected
+    let escape_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessEscapingSource
+    let escape_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.may_escape_rejected escape_expected
+    let observation_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource
+    let observation_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.observation_rejected observation_expected
+    let unsupported_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource
+    let unsupported_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.unsupported_rejected unsupported_expected
+    let fingerprint_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::CoverageRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceBodyIdentityMismatch
+    let fingerprint_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.fingerprint_mismatch_rejected fingerprint_expected
+    let graph_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::CoverageRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerErrorKind::SourceGraphIdentityMismatch
+    let graph_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_result_eq summary.graph_mismatch_rejected graph_expected
+    and:
+        accepted_ok
+        and:
+            missing_ok
+            and:
+                rejected_ok
+                and:
+                    witness_authority_ok
+                    and:
+                        escape_ok
+                        and:
+                            observation_ok
+                            and:
+                                unsupported_ok
+                                and:
+                                    fingerprint_ok
+                                    graph_ok
+
+//: selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0: Operation-classified no-escape coverage authority stage0
+//:
+//: [目的/もくてき]:
+//: - operation-classified source owner と matching fresh witness owner が、request-evidence gate ではなく no-escape coverage authority boundary に直接届くことを確認します。
+//:
+//: [契約/けいやく]:
+//: - `ActualTraversalBundle`、source-derived witness helper、request-evidence gate、GraphInput、effect mask、backend artifact は作りません。
+//: - accepted descriptor は module-private fixture です。actual Resource IR / HIR lowering traversal の production accepted path ではありません。
+pub fn selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0 %impure fn void SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary \void:
+    let authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_stage0_authority 77 0
+    let accepted_no_escape_pair_code %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result authority 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let missing_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result authority 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessMissing
+    let rejected_witness_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result authority 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessRejected
+    let witness_authority_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result authority 77 78 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let may_escape_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_escape_result authority 77
+    let observation_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_observation_result authority 77
+    let unsupported_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_unsupported_result authority 77
+    let fingerprint_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_stage0_authority 78 0
+    let fingerprint_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result fingerprint_authority 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    let graph_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_stage0_authority 77 1
+    let graph_mismatch_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_operation_classified_no_escape_coverage_stage0_run_i32_result graph_authority 77 77 SelfhostMemoCallBackendPrivateCacheRegionFreshWitnessStatus::PrivateCacheRegionFreshWitnessCandidateAccepted
+    SelfhostMemoCallBackendPrivateCacheOperationClassifiedNoEscapeCoverageStage0Summary accepted_no_escape_pair_code missing_witness_rejected rejected_witness_rejected witness_authority_mismatch_rejected may_escape_rejected observation_rejected unsupported_rejected fingerprint_mismatch_rejected graph_mismatch_rejected
 
 //: selfhost_memo_call_backend_private_cache_operation_classified_traversal_bundle_from_split_events_result: split 後の owner pair を collector-owned bundle へ[渡/わた]す
 //:

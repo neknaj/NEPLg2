@@ -80896,3 +80896,28 @@ MERGE_APPROVED
 - first `node nodesrc/run_source_policy_regressions.js` timed out at 15 min; rerun with 30 min timeout passed.
 - pass: `node nodesrc/run_source_policy_regressions.js`
 - Noether の implementation review は `PLAN_APPROVED`。source-derived helper から wrapper へ入れないこと、coverage-first / same-source reuse / cleanup、candidate authority direct check、PrivateCache-only no-escape、public API 非露出、lower proof / backend / artifact 非生成、docs / todo / note の整合を確認した。
+
+## 2026-06-22 selfhost operation-classified no-escape coverage authority checkpoint
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` に、operation-classified classifier / split / collector output を `ActualTraversalBundle` へ戻さず、actual traversal-owned fresh witness authority bundle として no-escape coverage authority boundary へ渡す backend-private smoke を追加した。
+- collector output から source table owner を得た直後に `SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle` を作る。`ActualTraversalBundle -> FreshWitnessAuthorityBundle` の変換 helper は作らず、source-derived witness helper / context-bound source-derived bundle から no-escape coverage wrapper へ入る経路も追加しない。
+- public stage0 summary は pair code と compact no-escape error `Result` だけを返す。accepted は pair code `13`、missing / rejected witness、witness authority mismatch、may-escape、observation、unsupported、coverage authority fingerprint / graph mismatch を代表 case として固定した。
+- witness body fingerprint mismatch は `CoverageRejected` ではなく `WitnessAuthorityMismatch` に落ちるため、coverage authority と witness authority の責務を混同しない。
+- helper は request-evidence gate、request proof table、GraphInput、checker proof table、PrivateCache / PrivateState effect mask、backend bytes、sealed representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key を作らない。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は、new helper の module-private 化、collector owner cleanup、operation table / event / split owner path、`ActualTraversalBundle` / source-derived witness / request-evidence / lower proof / backend / artifact 合成禁止、stage0 summary の typed rejection taxonomy を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と `todo.md` は、今回の smoke を接続済みにしつつ、残件を full Resource IR traversal が accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で発行する production boundary に保った。plan.md との差異はない。
+- Tesla の design review は方針妥当。`ActualTraversalBundle` から wrapper への変換 helper を作らないこと、new helper body で source-derived witness / request-evidence / GraphInput / proof push / backend artifact を禁止すること、stage0 summary を pair code と compact no-escape Result だけにすること、witness mismatch を `WitnessAuthorityMismatch` として押さえることを確認した。実装はこの指摘に従った。
+
+### 検証
+
+- pass: `node --check nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-operation-classified-noescape-coverage-doctest.json`。18/18。
+- pass: `node nodesrc/analyze_tests_json.js tmp/selfhost-operation-classified-noescape-coverage-doctest.json`。18 passed / 0 failed。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_selfhost_operation_classified_noescape_coverage.json`
+- checked JSON: `output/playground_editor_selfhost_operation_classified_noescape_coverage.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

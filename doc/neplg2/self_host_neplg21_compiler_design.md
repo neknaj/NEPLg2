@@ -3257,6 +3257,22 @@ no-escape coverage public error は internal region proof error enum をその�
 - production coverage handoff producer から no-escape coverage authority boundary と checker-layer upper orchestration へ、fixture ではなく full traversal output 由来の public evidence を渡す。
 - Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
 
+## 2026-06-22 selfhost operation-classified no-escape coverage authority checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、operation-classified source owner を `ActualTraversalBundle` / request-evidence gate へ戻さず、actual traversal-owned fresh witness authority bundle として no-escape coverage authority boundary へ渡す backend-private smoke を追加した。
+
+新しい path は module-private operation descriptor から operation classifier、unified event split、collector を通り、collector が作った source owner を `SelfhostMemoCallBackendPrivateCacheActualTraversalFreshWitnessAuthorityBundle` へ直接渡す。`ActualTraversalBundle` から authority wrapper へ変換する helper は作らない。source-derived witness helper、context-bound source-derived bundle、request-evidence gate、GraphInput、checker proof table、effect mask、backend bytes、sealed representation、`.neplobj` / `.neplproof` artifact key は使わない。
+
+public stage0 summary は accepted pair code、missing / rejected witness、witness authority mismatch、may-escape、observation、unsupported、coverage authority fingerprint / graph mismatch の compact no-escape Result だけを返す。accepted path は pair code `13` を返し、witness body mismatch は `CoverageRejected` ではなく `WitnessAuthorityMismatch` へ落ちることを固定する。
+
+この checkpoint は full Resource IR traversal ではない。accepted descriptor は module-private fixture であり、production HIR-root traversal が accepted source / fresh witness authority を発行したことを意味しない。operation-classified owner lifecycle が no-escape coverage boundary まで崩れないことだけを固定する。
+
+残件:
+
+- full Resource IR / HIR lowering traversal が、accepted / escaping / observation / unsupported source vocabulary と actual traversal-owned fresh witness authority bundle を same resolver-bound body identity で発行する。
+- production coverage handoff producer から no-escape coverage authority boundary と checker-layer upper orchestration へ、fixture ではなく full traversal output 由来の public evidence を渡す。
+- Resource summary hash invalidation、artifact policy hash、PrivateCache / PrivateState effect mask 実体、sealed memoized backend representation、Wasm / LLVM bytes、`.neplobj` / `.neplproof` stable key projectionへ接続する。
+
 ## 2026-06-21 selfhost memo_call backend reader operation policy source checkpoint
 
 operation producer bridge が読む production source helper は、split-output availability を authority にせず、recheck 済み `ActualTraversalBodyReaderRequestContext` から reader operation policy source table を作る。default policy は `WrapperPrivateCacheStorage` と `WrapperCloneOutOwnedValue` の 2 source だけであり、source table 作成後に context-bound source validation を通してから source-to-operation projection と classifier / normalizer へ進める。
