@@ -656,9 +656,7 @@ jobs:
                     selfhost-tutorials-tests.json \
                     selfhost-examples-tests.json \
                     selfhost-stdlib-tests.json \
-                    selfhost-llvm-tests.json \
-                    tests-dual-tests.json \
-                    tests-dual-stdlib.json
+                    selfhost-llvm-tests.json
                   do
                     curl -fsSL "${pages_url}/tests/${file}" -o "dist/tests/last-completed/${file}" || true
                   done
@@ -679,6 +677,18 @@ jobs:
                   current_sha="$(git ls-remote "${{ github.server_url }}/${{ github.repository }}.git" refs/heads/main | awk '{print $1}')"
                   if [ "${current_sha}" != "${{ github.sha }}" ]; then
                     echo "Refusing to publish stale Pages artifact for ${{ github.sha }}; current main is ${current_sha}."
+                    exit 1
+                  fi
+
+            - name: Check pending Pages artifact size
+              run: |
+                  du -ah dist | sort -rh | head -n 40
+                  size_bytes="$(du -sb dist | awk '{print $1}')"
+                  echo "pending dist size: ${size_bytes} bytes"
+                  max_bytes=$((900 * 1024 * 1024))
+                  if [ "${size_bytes}" -gt "${max_bytes}" ]; then
+                    echo "Pages pending artifact is too large for deploy (${size_bytes} > ${max_bytes})."
+                    echo "Run with -j 1 or adjust summary file selection."
                     exit 1
                   fi
 
@@ -847,6 +857,17 @@ jobs:
                   current_sha="$(git ls-remote "${{ github.server_url }}/${{ github.repository }}.git" refs/heads/main | awk '{print $1}')"
                   if [ "${current_sha}" != "${{ github.sha }}" ]; then
                     echo "Refusing to publish stale Pages artifact for ${{ github.sha }}; current main is ${current_sha}."
+                    exit 1
+                  fi
+
+            - name: Check final Pages artifact size
+              run: |
+                  du -ah dist | sort -rh | head -n 40
+                  size_bytes="$(du -sb dist | awk '{print $1}')"
+                  echo "final dist size: ${size_bytes} bytes"
+                  max_bytes=$((900 * 1024 * 1024))
+                  if [ "${size_bytes}" -gt "${max_bytes}" ]; then
+                    echo "Pages final artifact is too large for deploy (${size_bytes} > ${max_bytes})."
                     exit 1
                   fi
 

@@ -1,3 +1,23 @@
+# 2026-06-23 CI Pages artifact size対策（Pages deployment fix）
+
+## 目的
+
+- `pages-fast-deploy` で 1GB 超過による `Deploy pending site` 失敗に対し、原因が `pages-fast-bundle` 生成物のサイズ過大であることを確認。
+- `dist/tests/last-completed` の読み出し対象に巨大な `tests-dual-*.json` が含まれていたため、`pages-fast-pending` が過大化していた点を優先解消する。
+
+## 変更内容
+
+- `.github/workflows/ci.yml` の `pages-fast-bundle` で fallback 取得対象から以下を除外:
+  - `tests-dual-tests.json`
+  - `tests-dual-stdlib.json`
+- `pages-fast-bundle` と `pages-final-bundle` の `dist` について、`upload-pages-artifact` 前にサイズ計測ステップを追加。
+  - `du -sb dist` でバイト数を取得し、`900MB` を上限として即時失敗させる。
+  - 直上位 40 件の大きいファイル一覧を出力し、次回の削減対象を追いやすくした。
+
+## 残る検討
+
+- 根本方針として、Pages は公開用 summary のみを置き、`tests-dual-*.json` のような巨大な詳細 JSON は Actions artifact に分離する設計に進める。
+
 # 2026-06-23 Agent2 GUI Web F5nk compositor partial dirty slot preservation/copy
 
 ## 目的
