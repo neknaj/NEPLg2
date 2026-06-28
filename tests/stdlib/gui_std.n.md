@@ -45,10 +45,12 @@ fn main %impure fn void i32 \void:
 ## gui_font_resource_request_is_typed_boundary
 
 [目的/もくてき]:
-- font resource path と hash を typed value として保持し、empty path と negative face index を `GuiError::InvalidCommand` で拒否することを確認します。
+- font resource path と hash を typed value として保持します。
+- canonical path ではない empty / absolute / backslash / empty segment / dot segment / parent segment を typed reason で拒否します。
+- std facade の既存 constructor は invalid path と negative face index を `GuiError::InvalidCommand` で拒否することを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_resource_request_is_typed_boundary\" count=6 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"path\" expected=\"fonts/HackGenConsoleNF-Regular.ttf\" actual=\"fonts/HackGenConsoleNF-Regular.ttf\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"hash\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"empty path rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"negative face rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_resource_request_is_typed_boundary\" count=12 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"path\" expected=\"fonts/HackGenConsoleNF-Regular.ttf\" actual=\"fonts/HackGenConsoleNF-Regular.ttf\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"hash\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"empty path rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"absolute path rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"backslash path rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"empty segment rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"dot segment rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"parent segment rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"public invalid path rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"negative face rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -61,8 +63,15 @@ exit_code: 0
 #import "std/gui" as *
 #import "std/test" as *
 
-fn empty_path_rejected %fn void bool \void:
-    match gui_font_resource_path_result "":
+fn path_error_kind_is %fn str fn GuiFontResourcePathErrorKind bool \path\expected:
+    match gui_font_resource_path_validate_result path:
+        Result::Err kind:
+            gui_font_resource_path_error_kind_eq kind expected
+        Result::Ok _path:
+            false
+
+fn path_constructor_rejects_invalid %fn str bool \path:
+    match gui_font_resource_path_result path:
         Result::Err error:
             match error:
                 GuiError::InvalidCommand:
@@ -113,14 +122,26 @@ fn main %impure fn void i32 \void:
     let request_path_value %str gui_font_resource_path_value &request_path
     let face_index_actual %i32 face_index_value &request
     let hash_actual %i32 hash_value &request
-    let empty_path_ok %bool empty_path_rejected
+    let empty_path_ok %bool path_error_kind_is "" GuiFontResourcePathErrorKind::Empty
+    let absolute_path_ok %bool path_error_kind_is "/fonts/HackGenConsoleNF-Regular.ttf" GuiFontResourcePathErrorKind::Absolute
+    let backslash_path_ok %bool path_error_kind_is "fonts\\HackGenConsoleNF-Regular.ttf" GuiFontResourcePathErrorKind::Backslash
+    let empty_segment_ok %bool path_error_kind_is "fonts//HackGenConsoleNF-Regular.ttf" GuiFontResourcePathErrorKind::EmptySegment
+    let dot_segment_ok %bool path_error_kind_is "fonts/./HackGenConsoleNF-Regular.ttf" GuiFontResourcePathErrorKind::DotSegment
+    let parent_segment_ok %bool path_error_kind_is "fonts/../HackGenConsoleNF-Regular.ttf" GuiFontResourcePathErrorKind::ParentSegment
+    let public_invalid_path_ok %bool path_constructor_rejects_invalid "fonts/../HackGenConsoleNF-Regular.ttf"
     let negative_face_ok %bool negative_face_rejected path
     let check0 assert_eq_i32 "resource id" 5 resource_id_value
     let check1 assert_str_eq "path" "fonts/HackGenConsoleNF-Regular.ttf" request_path_value
     let check2 assert_eq_i32 "face index" 0 face_index_actual
     let check3 assert_eq_i32 "hash" negative hash_actual
     let check4 assert "empty path rejected" empty_path_ok
-    let check5 assert "negative face rejected" negative_face_ok
+    let check5 assert "absolute path rejected" absolute_path_ok
+    let check6 assert "backslash path rejected" backslash_path_ok
+    let check7 assert "empty segment rejected" empty_segment_ok
+    let check8 assert "dot segment rejected" dot_segment_ok
+    let check9 assert "parent segment rejected" parent_segment_ok
+    let check10 assert "public invalid path rejected" public_invalid_path_ok
+    let check11 assert "negative face rejected" negative_face_ok
     let checks:
         test_report_new "gui_font_resource_request_is_typed_boundary"
         |> test_report_push check0
@@ -129,6 +150,12 @@ fn main %impure fn void i32 \void:
         |> test_report_push check3
         |> test_report_push check4
         |> test_report_push check5
+        |> test_report_push check6
+        |> test_report_push check7
+        |> test_report_push check8
+        |> test_report_push check9
+        |> test_report_push check10
+        |> test_report_push check11
     let shown test_report_print_stdout checks
     test_report_exit_code shown
 ```

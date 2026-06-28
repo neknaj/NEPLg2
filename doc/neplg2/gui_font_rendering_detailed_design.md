@@ -176,7 +176,7 @@ GuiFontFaceSelection:
 
 この規則は source policy と doctest で固定する。
 
-F2 の `GuiFontResourceRequest` constructor は request shape だけを検査する。つまり path が empty でないこと、`face_index` が `Some n` の場合に `n >= 0` であること、hash value が typed `GuiResourceHash` であること、decode policy が enum value であることを確認する。Collection font の `face_count` を必要とする `FaceIndexRequired` / out-of-range 判定は、F4 の sfnt metadata parser または font registry が font bytes を読める段階で行う。
+F2 の初期 `GuiFontResourceRequest` constructor は request shape だけを検査する。F5nm 以降は、request construction の前段で `GuiFontResourcePath` が canonical path validation を行い、空 path、absolute path、backslash、empty segment、`.`、`..` を拒否する。`GuiFontResourceRequest` 自体は typed path、`face_index` が `Some n` の場合に `n >= 0` であること、hash value が typed `GuiResourceHash` であること、decode policy が enum value であることを確認する。Collection font の `face_count` を必要とする `FaceIndexRequired` / out-of-range 判定は、F4 の sfnt metadata parser または font registry が font bytes を読める段階で行う。
 
 ## SFNT name table
 
@@ -8768,6 +8768,14 @@ Partial descriptors use absolute metadata rows. `metadata_row_start`, `metadata_
 F5nl records the readiness gate for Web Playground engine-driven text drawing. The Web runtime already mounts `fonts/HackGenConsoleNF-Regular.ttf` into VFS before Wasm execution, and the font/render2d/compositor layers already contain glyph mask owners, fill / stroke / shadow composition boundaries, software surface drain, dirty owner bridges, and Web compositor tile RLE host imports. These are necessary pieces, but they are not sufficient evidence that the playground can draw text through the font engine.
 
 The readiness gate remains closed until a Web run can load font bytes through the formal provider / registry, shape text into glyph runs, rasterize those glyphs through the alloc/gui/font owners, drain them into a render2d surface, and present that surface through the formal compositor or video memory path. Existing `gui_web_stdout_text_i32` examples, browser CSS fonts, Canvas `fillText`, `FontFace`, `HostTextMeasurer`, and fixed-cell mock measurement are compatibility or IDE UI paths only. They must not be counted as formal font renderer presentation.
+
+## std font resource canonical path validation
+
+F5nm closes the std/Web mismatch in public font resource path validation. `GuiFontResourcePath` is the public resource identity string and uses the same canonical shape as Web VFS resource records: no leading slash, `/` as the only separator, no empty segment, no `.`, and no `..`. The Web VFS internal path `/fonts/HackGenConsoleNF-Regular.ttf` is a transport path derived from canonical `fonts/HackGenConsoleNF-Regular.ttf`; it is not accepted as a public `GuiFontResourcePath`.
+
+`std/gui/font_resource` exposes `GuiFontResourcePathErrorKind` for Empty, Absolute, Backslash, EmptySegment, DotSegment, and ParentSegment. `gui_font_resource_path_validate_result` returns that detailed typed error, while the compatibility constructor `gui_font_resource_path_result` maps every invalid canonical path to `GuiError::InvalidCommand`.
+
+This checkpoint still does not load bytes or draw glyphs. The next root boundary is a typed bytes provider that accepts `GuiFontResourceRequest`, performs exact canonical path lookup against Web VFS or the native/bare provider, validates hash and decode policy, and returns font bytes or a typed error without suffix, display-name, browser font, Canvas, FontFace, or stdout fallback.
 
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 

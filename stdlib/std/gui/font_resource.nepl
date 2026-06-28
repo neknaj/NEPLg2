@@ -115,6 +115,27 @@ impl Copy for GuiFontResourcePath:
     fn copy_mark %fn GuiFontResourcePath GuiFontResourcePath \path:
         path
 
+//: GuiFontResourcePathErrorKind: font resource path validation の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: public resource path は leading slash を[持/も]たない canonical path です。Web VFS の内部 file path とは[分/わ]けて[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontResourcePathErrorKind:
+    Empty
+    Absolute
+    Backslash
+    EmptySegment
+    DotSegment
+    ParentSegment
+
+impl Clone for GuiFontResourcePathErrorKind:
+    fn clone %fn &GuiFontResourcePathErrorKind GuiFontResourcePathErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontResourcePathErrorKind:
+    fn copy_mark %fn GuiFontResourcePathErrorKind GuiFontResourcePathErrorKind \kind:
+        kind
+
 //: GuiFontResourceRequest: font bytes decode の request value
 //:
 //: neplg2:test[skip]
@@ -164,13 +185,180 @@ pub fn gui_resource_hash %fn i32 GuiResourceHash \raw:
 pub fn gui_resource_hash_raw %fn &GuiResourceHash i32 \hash:
     *field::get_ref hash "raw"
 
+//: gui_font_resource_path_byte_eq: path の 1 byte を[期待/きたい] byte と[比/くら]べる
+//:
+//: validate loop は byte index を[範囲/はんい][内/ない]で[進/すす]めるため、missing byte は false として fail closed にします。
+//:
+//: neplg2:test[skip]
+fn gui_font_resource_path_byte_eq %fn str fn i32 fn i32 bool \path\idx\expected:
+    match byte_at path idx:
+        Option::Some ch:
+            eq ch expected
+        Option::None:
+            false
+
+//: gui_font_resource_path_validate_segment: 1 segment の canonical 表記を[検査/けんさ]する
+//:
+//: 空 segment、`.`、`..` は resource identity と VFS lookup の[境界/きょうかい]を[曖昧/あいまい]にするため[拒否/きょひ]します。
+//:
+//: neplg2:test[skip]
+fn gui_font_resource_path_validate_segment %fn str fn i32 fn i32 Result unit GuiFontResourcePathErrorKind \path\segment_start\segment_len:
+    let second_idx %i32 add segment_start 1
+    let dot_segment %bool and eq segment_len 1 gui_font_resource_path_byte_eq path segment_start '.'
+    let parent_first %bool gui_font_resource_path_byte_eq path segment_start '.'
+    let parent_second %bool gui_font_resource_path_byte_eq path second_idx '.'
+    let parent_segment %bool and eq segment_len 2 and parent_first parent_second
+    if:
+        eq segment_len 0
+        then:
+            Result::Err GuiFontResourcePathErrorKind::EmptySegment
+        else:
+            if:
+                dot_segment
+                then:
+                    Result::Err GuiFontResourcePathErrorKind::DotSegment
+                else:
+                    if:
+                        parent_segment
+                        then:
+                            Result::Err GuiFontResourcePathErrorKind::ParentSegment
+                        else:
+                            Result::Ok unit
+
+//: gui_font_resource_path_validate_loop: slash 区切りの path を byte [単位/たんい]で[検査/けんさ]する
+//:
+//: Web VFS と同じく `\` は host path 表現として[拒否/きょひ]し、`/` で[区切/くぎ]った segment ごとに canonical 表記を[確認/かくにん]します。
+//:
+//: neplg2:test[skip]
+fn gui_font_resource_path_validate_loop %fn str fn i32 fn i32 fn i32 Result unit GuiFontResourcePathErrorKind \path\n\idx\segment_start:
+    if:
+        ge idx n
+        then:
+            gui_font_resource_path_validate_segment path segment_start sub n segment_start
+        else:
+            match byte_at path idx:
+                Option::Some ch:
+                    if:
+                        eq ch '\\'
+                        then:
+                            Result::Err GuiFontResourcePathErrorKind::Backslash
+                        else:
+                            if:
+                                eq ch '/'
+                                then:
+                                    match gui_font_resource_path_validate_segment path segment_start sub idx segment_start:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok _unit:
+                                            gui_font_resource_path_validate_loop path n add idx 1 add idx 1
+                                else:
+                                    gui_font_resource_path_validate_loop path n add idx 1 segment_start
+                Option::None:
+                    Result::Err GuiFontResourcePathErrorKind::EmptySegment
+
+//: gui_font_resource_path_error_kind_eq: path validation error kind を[比/くら]べる
+//:
+//: doctest や platform bridge が payload なしの分類を[安定/あんてい]して[確認/かくにん]するための helper です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_path_error_kind_eq %fn GuiFontResourcePathErrorKind fn GuiFontResourcePathErrorKind bool \a\b:
+    match a:
+        GuiFontResourcePathErrorKind::Empty:
+            match b:
+                GuiFontResourcePathErrorKind::Empty:
+                    true
+                _:
+                    false
+        GuiFontResourcePathErrorKind::Absolute:
+            match b:
+                GuiFontResourcePathErrorKind::Absolute:
+                    true
+                _:
+                    false
+        GuiFontResourcePathErrorKind::Backslash:
+            match b:
+                GuiFontResourcePathErrorKind::Backslash:
+                    true
+                _:
+                    false
+        GuiFontResourcePathErrorKind::EmptySegment:
+            match b:
+                GuiFontResourcePathErrorKind::EmptySegment:
+                    true
+                _:
+                    false
+        GuiFontResourcePathErrorKind::DotSegment:
+            match b:
+                GuiFontResourcePathErrorKind::DotSegment:
+                    true
+                _:
+                    false
+        GuiFontResourcePathErrorKind::ParentSegment:
+            match b:
+                GuiFontResourcePathErrorKind::ParentSegment:
+                    true
+                _:
+                    false
+
+//: gui_font_resource_path_error_kind_to_gui_error: detailed path error を public GuiError へ[写/うつ]す
+//:
+//: std facade の既存 constructor は `GuiError::InvalidCommand` を[返/かえ]し、詳細分類は `gui_font_resource_path_validate_result` で[確認/かくにん]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_path_error_kind_to_gui_error %fn GuiFontResourcePathErrorKind GuiError \kind:
+    match kind:
+        GuiFontResourcePathErrorKind::Empty:
+            GuiError::InvalidCommand
+        GuiFontResourcePathErrorKind::Absolute:
+            GuiError::InvalidCommand
+        GuiFontResourcePathErrorKind::Backslash:
+            GuiError::InvalidCommand
+        GuiFontResourcePathErrorKind::EmptySegment:
+            GuiError::InvalidCommand
+        GuiFontResourcePathErrorKind::DotSegment:
+            GuiError::InvalidCommand
+        GuiFontResourcePathErrorKind::ParentSegment:
+            GuiError::InvalidCommand
+
+//: gui_font_resource_path_validate_result: canonical font resource path を[検査/けんさ]して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - path は空ではなく、leading slash を[持/も]ちません。
+//: - separator は `/` だけで、空 segment、`.`、`..` を[含/ふく]みません。
+//: - Web VFS の内部 path はこの canonical path に `/` を 1 つ[前置/ぜんち]した別表現です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_path_validate_result %fn str Result GuiFontResourcePath GuiFontResourcePathErrorKind \path:
+    let n %i32 len path
+    if:
+        eq n 0
+        then:
+            Result::Err GuiFontResourcePathErrorKind::Empty
+        else:
+            match byte_at path 0:
+                Option::Some first:
+                    if:
+                        eq first '/'
+                        then:
+                            Result::Err GuiFontResourcePathErrorKind::Absolute
+                        else:
+                            match gui_font_resource_path_validate_loop path n 0 0:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok _unit:
+                                    Result::Ok GuiFontResourcePath path
+                Option::None:
+                    Result::Err GuiFontResourcePathErrorKind::Empty
+
 //: gui_font_resource_path_result: font resource path を[検査/けんさ]して[作/つく]る
 //:
 //: neplg2:test[skip]
 pub fn gui_font_resource_path_result %fn str Result GuiFontResourcePath GuiError \path:
-    if gt len path 0:
-        then Result::Ok GuiFontResourcePath path
-        else Result::Err GuiError::InvalidCommand
+    match gui_font_resource_path_validate_result path:
+        Result::Ok checked:
+            Result::Ok checked
+        Result::Err kind:
+            Result::Err gui_font_resource_path_error_kind_to_gui_error kind
 
 //: gui_font_resource_path_value: resource path string を[読/よ]む
 //:
