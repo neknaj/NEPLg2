@@ -90,6 +90,25 @@ export type GuiFontResourcePathResult =
         reason: GuiFontResourcePathErrorReason;
     };
 
+export type GuiFontResourceProviderErrorReason =
+    | 'InvalidPath'
+    | 'MissingResource'
+    | 'PayloadNotBinary'
+    | 'UnsupportedDecodePolicy';
+
+export type GuiFontResourceBinaryReadResult =
+    | {
+        ok: true;
+        resourcePath: GuiFontResourcePath;
+        vfsPath: string;
+        bytes: Uint8Array;
+    }
+    | {
+        ok: false;
+        reason: GuiFontResourceProviderErrorReason;
+        pathReason?: GuiFontResourcePathErrorReason;
+    };
+
 type MountedPayload = {
     resourcePath: GuiFontResourcePath;
     vfsPath: string;
@@ -155,6 +174,39 @@ export function normalizeGuiFontResourcePath(rawPath: string): GuiFontResourcePa
 
 export function guiFontResourceVfsPath(path: GuiFontResourcePath): string {
     return `/${path}`;
+}
+
+export function readGuiFontResourceBinaryFromVfs(
+    vfs: VFS,
+    rawPath: string,
+    decodePolicyRaw: number,
+): GuiFontResourceBinaryReadResult {
+    if (!isSupportedGuiFontDecodePolicyRaw(decodePolicyRaw)) {
+        return { ok: false, reason: 'UnsupportedDecodePolicy' };
+    }
+    const pathResult = normalizeGuiFontResourcePath(rawPath);
+    if (!pathResult.ok) {
+        return { ok: false, reason: 'InvalidPath', pathReason: pathResult.reason };
+    }
+    const vfsPath = guiFontResourceVfsPath(pathResult.path);
+    if (!vfs.exists(vfsPath)) {
+        return { ok: false, reason: 'MissingResource' };
+    }
+    let content: string | Uint8Array;
+    try {
+        content = vfs.readFile(vfsPath);
+    } catch {
+        return { ok: false, reason: 'MissingResource' };
+    }
+    if (!(content instanceof Uint8Array) || content.byteLength === 0) {
+        return { ok: false, reason: 'PayloadNotBinary' };
+    }
+    return {
+        ok: true,
+        resourcePath: pathResult.path,
+        vfsPath,
+        bytes: new Uint8Array(content),
+    };
 }
 
 export async function mountBundledGuiFontResources(
@@ -228,6 +280,10 @@ export async function mountBundledGuiFontResources(
         ok: true,
         mountedPaths,
     };
+}
+
+function isSupportedGuiFontDecodePolicyRaw(raw: number): boolean {
+    return raw === 1 || raw === 2 || raw === 3;
 }
 
 async function loadBundledGuiFontResource(

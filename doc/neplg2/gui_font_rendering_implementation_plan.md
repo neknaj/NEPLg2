@@ -6005,6 +6005,31 @@ plan review:
 - Web VFS の internal `/fonts/...` path を public `GuiFontResourcePath` として受理しない。
 - 次の未実装境界は `GuiFontResourceRequest -> typed font bytes provider` として残す。
 
+## Phase F5nn: Web font resource bytes provider boundary
+
+目的:
+
+- `GuiFontResourceRequest` から Web VFS mounted binary payload へ進む formal provider 経路を追加する。
+- `std/fs` / Web WASI `path_open` の欠落を隠さず、Web GUI platform host import を provider boundary として扱う。
+- exact canonical path lookup、decode policy tag validation、binary payload validation、expected hash validation、typed provider error を固定する。
+- provider success を registry、layout、glyph rendering、Web presentation の成功 evidence と混同しない。
+
+変更:
+
+- `stdlib/std/gui/font_resource.nepl` に `GuiFontResourceProviderErrorKind`、non-Copy `GuiFontResourceBytes` owner、ByteBuf FNV-1a hash、expected hash validation、owner access/free helper を追加する。
+- `stdlib/platforms/gui/web/font_resource_provider.nepl` を追加し、`nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` host import を通して Web VFS bytes を取得する。
+- `web/src/gui-font/font-resource-vfs.ts` に exact canonical binary read helper を追加し、missing resource、text payload、unsupported decode policy を typed reason として返す。
+- `web/src/runtime/worker.ts` に font resource host import を追加し、runtime VFS helper を使って guest memory へ bytes を copy する。
+- `nodesrc/run_test.js` の default Web imports は unsupported provider として fail-closed にする。
+- `tests/stdlib/gui_std.n.md`、`nodesrc/test_web_gui_font_resource_vfs_behavior.js`、`nodesrc/test_web_gui_font_rendering_contract.js`、仕様 docs、実装 note を更新する。
+
+完了条件:
+
+- std doctest が bytes owner、actual hash、hash mismatch、owner free boundary を確認する。
+- Web VFS behavior test が exact lookup、copy、suffix-only missing、text payload rejection、unsupported decode policy を確認する。
+- source policy が dedicated Web host import、no `std/fs` / `path_open`、no suffix / display-name authority、no FontFace / Canvas / stdout fallback を検査する。
+- `npm --prefix web run build:ts`、contract tests、documentation contract、`trunk build`、playground editor JSON が通る。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

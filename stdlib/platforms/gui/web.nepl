@@ -18,3 +18,4 @@ pub #import "./web/clock" as @merge
 pub #import "./web/stdout_protocol" as @merge
 pub #import "./web/input" as @merge
 pub #import "./web/compositor_host_executor" as @merge
+pub #import "./web/font_resource_provider" as @merge

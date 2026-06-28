@@ -316,6 +316,8 @@ const platformGuiWebTimer = read("stdlib/platforms/gui/web/timer.nepl");
 const platformGuiWebTimerImpl = withoutComments(platformGuiWebTimer);
 const platformGuiWebCompositorHostExecutor = read("stdlib/platforms/gui/web/compositor_host_executor.nepl");
 const platformGuiWebCompositorHostExecutorImpl = withoutComments(platformGuiWebCompositorHostExecutor);
+const platformGuiWebFontResourceProvider = read("stdlib/platforms/gui/web/font_resource_provider.nepl");
+const platformGuiWebFontResourceProviderImpl = withoutComments(platformGuiWebFontResourceProvider);
 const platformGuiHeadlessFacade = read("stdlib/platforms/gui/headless.nepl");
 const platformGuiHeadlessClock = read("stdlib/platforms/gui/headless/clock.nepl");
 const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
@@ -2066,6 +2068,61 @@ assertNoMatch(
     fontResourceImpl,
     /\b(?:MockTextMeasurer|HostTextMeasurer|host_text_measurer|host_text_measurer_fixed|measure_text)\b/,
     "std/gui/font_resource must not depend on fixed-cell text measurement fallback",
+);
+assertMatch(
+    fontResourceImpl,
+    /pub\s+enum\s+GuiFontResourceProviderErrorKind:[\s\S]*InvalidPath[\s\S]*MissingResource[\s\S]*PayloadNotBinary[\s\S]*HashMismatch[\s\S]*UnsupportedDecodePolicy[\s\S]*UnsupportedProvider[\s\S]*OutOfMemory[\s\S]*BackendFailure[\s\S]*ResourceExhausted/,
+    "std/gui/font_resource must expose typed font resource provider error reasons",
+);
+assertMatch(
+    fontResourceImpl,
+    /pub\s+struct\s+GuiFontResourceBytes:[\s\S]*request\s+%GuiFontResourceRequest[\s\S]*source\s+%GuiFontResourceSource[\s\S]*byte_len\s+%i32[\s\S]*actual_hash\s+%GuiResourceHash[\s\S]*decode_policy\s+%GuiFontDecodePolicy[\s\S]*bytes\s+%ByteBuf/,
+    "std/gui/font_resource must expose a non-Copy owner carrying request, source, length, actual hash, decode policy, and ByteBuf",
+);
+assertNoMatch(
+    fontResourceImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiFontResourceBytes/,
+    "GuiFontResourceBytes must not be Copy or Clone because it owns ByteBuf",
+);
+assertMatch(
+    fontResourceImpl,
+    /gui_font_resource_bytes_hash[\s\S]*new_fnv1a32[\s\S]*gui_font_resource_bytebuf_fnv1a32_loop[\s\S]*fnv1a32_finalize/,
+    "std/gui/font_resource must hash ByteBuf bytes without delegating to platform APIs",
+);
+assertMatch(
+    fontResourceImpl,
+    /gui_font_resource_validate_bytes_hash[\s\S]*Option::Some\s+expected_hash[\s\S]*gui_font_resource_bytes_hash[\s\S]*HashMismatch/,
+    "std/gui/font_resource must validate expected_hash before provider success",
+);
+assertMatch(
+    fontResourceImpl,
+    /gui_font_resource_validate_request_bytes_hash[\s\S]*gui_font_resource_request_expected_hash[\s\S]*gui_font_resource_validate_bytes_hash/,
+    "std/gui/font_resource must expose request-to-bytes hash validation without leaking Option internals into providers",
+);
+assertMatch(
+    platformGuiWebFacade,
+    /pub\s+#import\s+"\.\/web\/font_resource_provider"\s+as\s+@merge/,
+    "platforms/gui/web facade must export Web font resource provider",
+);
+assertMatch(
+    platformGuiWebFontResourceProvider,
+    /#extern\s+"nepl_gui_web"\s+"font_resource_byte_len"[\s\S]*#extern\s+"nepl_gui_web"\s+"font_resource_read_bytes"/,
+    "Web font resource provider must use dedicated nepl_gui_web imports",
+);
+assertMatch(
+    platformGuiWebFontResourceProviderImpl,
+    /gui_web_font_resource_request_bytes[\s\S]*gui_web_font_resource_byte_len_raw[\s\S]*io_bytebuf_alloc_region[\s\S]*gui_web_font_resource_read_bytes_raw[\s\S]*gui_font_resource_validate_request_bytes_hash[\s\S]*gui_font_resource_bytes_new/,
+    "Web font resource provider must allocate ByteBuf, copy host bytes, validate hash, then return the owner",
+);
+assertMatch(
+    platformGuiWebFontResourceProviderImpl,
+    /Result::Err\s+kind:[\s\S]*io_bytebuf_free\s+bytes[\s\S]*Result::Err\s+kind/,
+    "Web font resource provider must free ByteBuf on hash validation failure",
+);
+assertNoMatch(
+    platformGuiWebFontResourceProviderImpl,
+    /\b(?:std\/fs|path_open|FontFace|Canvas|fillText|measureText|stdout|suffix|displayName|family)\b/,
+    "Web font resource provider must not use filesystem, browser text, stdout, suffix, or display-name authority",
 );
 
 assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui facade must export font parser facade");
@@ -44037,6 +44094,7 @@ assertMatch(coreGuiPrelude, /#import\s+"\.\/render_style"\s+as\s+@merge/, "core/
 assertMatch(stdGuiFacade, /#import\s+"\.\/gui\/font_resource"\s+as\s+\*/, "std/gui facade must export font resource boundary");
 assertMatch(guiCoreTests, /gui_core_font_metrics_and_glyph_paint_contract/, "gui_core doctests must cover font metrics and glyph paint");
 assertMatch(guiStdTests, /gui_font_resource_request_is_typed_boundary/, "gui_std doctests must cover font resource request boundary");
+assertMatch(guiStdTests, /gui_font_resource_bytes_owner_hash_contract/, "gui_std doctests must cover font resource bytes owner and hash boundary");
 
 assertMatch(
     webFontResourceVfs,
@@ -44073,6 +44131,21 @@ assertMatch(
     /export function guiFontResourceVfsPath[\s\S]*return `\/\$\{path\}`/,
     "Web font resource VFS path must be derived from canonical path with a single leading slash",
 );
+assertMatch(
+    webFontResourceVfs,
+    /export type GuiFontResourceProviderErrorReason[\s\S]*InvalidPath[\s\S]*MissingResource[\s\S]*PayloadNotBinary[\s\S]*UnsupportedDecodePolicy/,
+    "Web font resource VFS provider read must expose typed error reasons",
+);
+assertMatch(
+    webFontResourceVfs,
+    /export function readGuiFontResourceBinaryFromVfs[\s\S]*normalizeGuiFontResourcePath\(rawPath\)[\s\S]*guiFontResourceVfsPath\(pathResult\.path\)[\s\S]*vfs\.exists\(vfsPath\)[\s\S]*vfs\.readFile\(vfsPath\)[\s\S]*content instanceof Uint8Array[\s\S]*new Uint8Array\(content\)/,
+    "Web font resource provider read must exact-lookup canonical VFS binary bytes and return a copy",
+);
+assertNoMatch(
+    textSliceBetween(webFontResourceVfs, "export function readGuiFontResourceBinaryFromVfs", "\nexport async function mountBundledGuiFontResources"),
+    /\b(?:endsWith|includes\(['"`]HackGen|FontFace|Canvas|fillText|measureText|stdout|fallback|displayName|family)\b/,
+    "Web font resource provider read must not suffix-match or use browser/stdout text fallback",
+);
 for (const errorKind of [
     "FetchUnavailable",
     "InvalidResourcePath",
@@ -44107,6 +44180,37 @@ assertNoMatch(
     webFontResourceVfs,
     /\b(?:fallback|Fallback)\b/,
     "Web font resource VFS must not describe hidden fallback behavior",
+);
+assertMatch(
+    webWorker,
+    /import\s+\{\s*readGuiFontResourceBinaryFromVfs\s*\}\s+from\s+'..\/gui-font\/font-resource-vfs\.js'/,
+    "Web worker must use the font resource VFS provider helper",
+);
+assertMatch(
+    webWorker,
+    /font_resource_byte_len: this\.nepl_gui_web_font_resource_byte_len\.bind\(this\)[\s\S]*font_resource_read_bytes: this\.nepl_gui_web_font_resource_read_bytes\.bind\(this\)/,
+    "Web worker must expose font resource provider host imports",
+);
+const f5nnWorkerFontResource = textSliceBetween(webWorker, "    nepl_gui_web_font_resource_byte_len", "\n    private storeGuiWebInputEventTakeResult");
+assertMatch(
+    f5nnWorkerFontResource,
+    /nepl_gui_web_font_resource_read_bytes[\s\S]*dst\.set\(resource\)/,
+    "Web worker font resource read import must copy provider bytes to guest memory",
+);
+assertMatch(
+    f5nnWorkerFontResource,
+    /resolveGuiFontResourceBinary[\s\S]*new TextDecoder\('utf-8', \{ fatal: true \}\)[\s\S]*readGuiFontResourceBinaryFromVfs\(this\.vfs, rawPath, decodePolicyRaw\)/,
+    "Web worker font resource resolver must decode path and exact-read VFS bytes",
+);
+assertNoMatch(
+    f5nnWorkerFontResource,
+    /\b(?:path_open|FontFace|Canvas|fillText|measureText|stdout|endsWith|suffix|displayName|family|fallback)\b/,
+    "Web worker font resource provider must not use WASI filesystem, browser text, stdout, suffix, or display-name fallback",
+);
+assert(
+    runTestSource.includes("font_resource_byte_len: () => -1") &&
+        runTestSource.includes("font_resource_read_bytes: () => -1"),
+    "doctest default nepl_gui_web imports must fail closed for font resource provider",
 );
 assertMatch(
     webMain,
@@ -44162,6 +44266,11 @@ assertMatch(
     webFontResourceBehaviorTest,
     /mountBundledGuiFontResources[\s\S]*serializeForCompile/,
     "Web font resource behavior test must cover mount success, typed failures, rollback, and compile overlay exclusion",
+);
+assertMatch(
+    webFontResourceBehaviorTest,
+    /readGuiFontResourceBinaryFromVfs[\s\S]*provider read should resolve canonical binary font resource[\s\S]*provider read must return a copy[\s\S]*provider read must not suffix-match font names[\s\S]*PayloadNotBinary[\s\S]*UnsupportedDecodePolicy/,
+    "Web font resource behavior test must cover provider exact binary read, copy, suffix rejection, text rejection, and decode-policy rejection",
 );
 for (const behaviorKind of ["HttpError", "InvalidBytes", "InvalidText", "InvalidResourcePath", "VfsWriteFailed"]) {
     assertMatch(

@@ -169,6 +169,12 @@ function createGuiVideoMemoryFakeHost(options) {
                     }
                     return HOST_OK;
                 },
+                font_resource_byte_len() {
+                    return HOST_UNSUPPORTED;
+                },
+                font_resource_read_bytes() {
+                    return HOST_UNSUPPORTED;
+                },
                 video_memory_create_surface(requestedWidth, requestedHeight, requestedSlotCount) {
                     record("create", arguments);
                     if (nextSurfaceIndex >= expectedSurfaces.length) {

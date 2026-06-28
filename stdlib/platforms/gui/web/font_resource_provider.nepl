@@ -1,0 +1,114 @@
+//: # platforms/gui/web/font_resource_provider
+//: Web VFS から formal font resource bytes を[取得/しゅとく]する provider boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiFontResourceRequest` を Web runtime の mounted VFS resource へ[接続/せつぞく]し、font bytes を owned `ByteBuf` として[返/かえ]します。
+//: - Web WASI の filesystem API ではなく、`nepl_gui_web` host import を font resource provider の正式境界にします。
+//:
+//: ### [契約/けいやく]
+//: - public path は slashless canonical `GuiFontResourcePath` であり、Web VFS path は host 側で `/` を 1 つ[前置/ぜんち]して[導出/どうしゅつ]します。
+//: - provider は exact canonical path lookup だけを[行/おこな]い、suffix、display name、browser font family へ fallback しません。
+//: - 成功前に expected hash を[検証/けんしょう]し、hash mismatch の場合は取得済み `ByteBuf` を[解放/かいほう]してから typed error を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #target std
+//:| #import "platforms/gui/web/font_resource_provider" as *
+//: ```
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string" as string
+#import "alloc/string/storage" as string_storage
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/internal" as mem_internal
+#import "core/result" as *
+#import "std/gui" as *
+
+#extern "nepl_gui_web" "font_resource_byte_len" fn gui_web_font_resource_byte_len_raw %impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "font_resource_read_bytes" fn gui_web_font_resource_read_bytes_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+
+fn gui_web_font_resource_status_error %fn i32 GuiFontResourceProviderErrorKind \status:
+    if eq status -1:
+        then GuiFontResourceProviderErrorKind::UnsupportedProvider
+        else:
+            if eq status -2:
+                then GuiFontResourceProviderErrorKind::InvalidPath
+                else:
+                    if eq status -3:
+                        then GuiFontResourceProviderErrorKind::MissingResource
+                        else:
+                            if eq status -4:
+                                then GuiFontResourceProviderErrorKind::PayloadNotBinary
+                                else:
+                                    if eq status -5:
+                                        then GuiFontResourceProviderErrorKind::UnsupportedDecodePolicy
+                                        else:
+                                            if eq status -6:
+                                                then GuiFontResourceProviderErrorKind::ResourceExhausted
+                                                else GuiFontResourceProviderErrorKind::BackendFailure
+
+fn gui_web_font_resource_discard_region %impure fn RegionToken u8 impure fn GuiFontResourceProviderErrorKind Result GuiFontResourceBytes GuiFontResourceProviderErrorKind \region\kind:
+    match dealloc_region<u8> region:
+        Result::Ok _:
+            unit
+        Result::Err _:
+            unit
+    Result::Err kind
+
+fn gui_web_font_resource_request_path_raw %fn &GuiFontResourceRequest i32 \request:
+    let path %GuiFontResourcePath gui_font_resource_request_path request
+    let text %str gui_font_resource_path_value &path
+    mem_internal::mem_ptr_addr string_storage::string_data_ptr text
+
+fn gui_web_font_resource_request_path_len %fn &GuiFontResourceRequest i32 \request:
+    let path %GuiFontResourcePath gui_font_resource_request_path request
+    let text %str gui_font_resource_path_value &path
+    string::len text
+
+fn gui_web_font_resource_request_policy_raw %fn &GuiFontResourceRequest i32 \request:
+    let policy %GuiFontDecodePolicy gui_font_resource_request_decode_policy request
+    gui_font_decode_policy_raw policy
+
+//: gui_web_font_resource_request_bytes: Web VFS から font resource bytes を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - Web playground runtime に mount 済みの binary font payload を、正式な provider import 経由で `GuiFontResourceBytes` にします。
+//:
+//: [契約/けいやく]:
+//: - `std/fs` や WASI `path_open` は使いません。
+//: - host import の負 sentinel はこの module 内で typed provider error へ[写/うつ]します。
+//: - hash mismatch や read 失敗の error path では、確保済み storage を必ず[解放/かいほう]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_font_resource_request_bytes %impure fn &GuiFontResourceRequest Result GuiFontResourceBytes GuiFontResourceProviderErrorKind \request:
+    let request_value %GuiFontResourceRequest *request
+    let path_ptr %i32 gui_web_font_resource_request_path_raw request
+    let path_len %i32 gui_web_font_resource_request_path_len request
+    let policy_raw %i32 gui_web_font_resource_request_policy_raw request
+    let byte_len %i32 gui_web_font_resource_byte_len_raw path_ptr path_len policy_raw
+    if le byte_len 0:
+        then:
+            Result::Err gui_web_font_resource_status_error byte_len
+        else:
+            match io_bytebuf_alloc_region byte_len:
+                Result::Err _e:
+                    Result::Err GuiFontResourceProviderErrorKind::OutOfMemory
+                Result::Ok region:
+                    let dst %MemPtr u8 io_bytebuf_region_ptr &region
+                    let dst_raw %i32 mem_internal::mem_ptr_addr dst
+                    let read_status %i32 gui_web_font_resource_read_bytes_raw path_ptr path_len policy_raw dst_raw byte_len
+                    if ne read_status 0:
+                        then:
+                            let kind %GuiFontResourceProviderErrorKind gui_web_font_resource_status_error read_status
+                            gui_web_font_resource_discard_region region kind
+                        else:
+                            let bytes %ByteBuf io_bytebuf_finish_region region byte_len
+                            match gui_font_resource_validate_request_bytes_hash request &bytes:
+                                Result::Err kind:
+                                    io_bytebuf_free bytes
+                                    Result::Err kind
+                                Result::Ok _:
+                                    Result::Ok gui_font_resource_bytes_new request_value GuiFontResourceSource::Vfs bytes

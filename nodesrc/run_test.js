@@ -127,6 +127,8 @@ function defaultNeplGuiWebImports() {
         last_event_timer_tick: () => 0,
         request_timer: () => -1,
         monotonic_clock_ms: () => 0,
+        font_resource_byte_len: () => -1,
+        font_resource_read_bytes: () => -1,
         video_memory_create_surface: () => -1,
         video_memory_acquire_write_slot: () => -1,
         video_memory_write_slot_bytes: () => -2,

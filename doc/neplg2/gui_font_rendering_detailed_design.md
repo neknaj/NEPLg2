@@ -8775,7 +8775,17 @@ F5nm closes the std/Web mismatch in public font resource path validation. `GuiFo
 
 `std/gui/font_resource` exposes `GuiFontResourcePathErrorKind` for Empty, Absolute, Backslash, EmptySegment, DotSegment, and ParentSegment. `gui_font_resource_path_validate_result` returns that detailed typed error, while the compatibility constructor `gui_font_resource_path_result` maps every invalid canonical path to `GuiError::InvalidCommand`.
 
-This checkpoint still does not load bytes or draw glyphs. The next root boundary is a typed bytes provider that accepts `GuiFontResourceRequest`, performs exact canonical path lookup against Web VFS or the native/bare provider, validates hash and decode policy, and returns font bytes or a typed error without suffix, display-name, browser font, Canvas, FontFace, or stdout fallback.
+F5nm itself still does not load bytes or draw glyphs. The next root boundary is a typed bytes provider that accepts `GuiFontResourceRequest`, performs exact canonical path lookup against Web VFS or the native/bare provider, validates hash and decode policy, and returns font bytes or a typed error without suffix, display-name, browser font, Canvas, FontFace, or stdout fallback.
+
+## Web font resource bytes provider boundary
+
+F5nn opens the first formal Web font bytes provider path. `std/gui/font_resource` owns the common contract: `GuiFontResourceProviderErrorKind` separates invalid path, missing resource, text payload, hash mismatch, unsupported decode policy/provider, out-of-memory, resource exhaustion, and backend failure. `GuiFontResourceBytes` is a non-Copy owner carrying the original `GuiFontResourceRequest`, provider source, byte length, actual resource hash, decode policy, and owned `ByteBuf`.
+
+The Web platform module `platforms/gui/web/font_resource_provider` is the only NEPL layer that calls the Web host import. It uses `font_resource_byte_len` to prove exact mounted binary length, allocates a `ByteBuf` region, then calls `font_resource_read_bytes` to copy the same canonical resource into guest memory. It does not call `std/fs`, does not depend on Web WASI `path_open`, and does not reinterpret mounted font success as provider success.
+
+The TypeScript host uses `readGuiFontResourceBinaryFromVfs` over the runtime VFS. The helper normalizes the public canonical path, derives the internal VFS path with one leading slash, requires an exact existing file, rejects string payloads and empty binary payloads as `PayloadNotBinary`, and returns a fresh `Uint8Array` copy. The worker decodes the guest path as fatal UTF-8 and maps typed helper failures to host sentinel values for the NEPL provider wrapper.
+
+Hash validation happens after bytes are copied into `ByteBuf` and before `GuiFontResourceBytes` success is returned. If `expected_hash` does not match the FNV-1a 32-bit bit pattern, the provider frees the `ByteBuf` and returns `HashMismatch`. F5nn still stops before registry, face selection, SFNT metadata parsing, shaping, layout, glyph rasterization, render2d drain, or compositor presentation.
 
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 

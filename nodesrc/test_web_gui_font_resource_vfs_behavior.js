@@ -105,6 +105,7 @@ async function main() {
         guiFontResourceVfsPath,
         mountBundledGuiFontResources,
         normalizeGuiFontResourcePath,
+        readGuiFontResourceBinaryFromVfs,
     } = await import(compiledModuleUrl("gui-font/font-resource-vfs.js"));
 
     const pathResult = normalizeGuiFontResourcePath(HACKGEN_CONSOLE_REGULAR_RESOURCE_PATH);
@@ -122,6 +123,26 @@ async function main() {
     assert(successVfs.isReadOnly("/fonts/HackGen-LICENSE.txt"), "license file should be read-only");
     assertUint8Array(successVfs.readFile("/fonts/HackGenConsoleNF-Regular.ttf"), "font file should be binary");
     assertEqual(successVfs.readFile("/fonts/HackGen-LICENSE.txt"), "license", "license text should be mounted");
+    const providerRead = readGuiFontResourceBinaryFromVfs(successVfs, "fonts/HackGenConsoleNF-Regular.ttf", 1);
+    assert(providerRead.ok, "provider read should resolve canonical binary font resource");
+    assertEqual(providerRead.vfsPath, "/fonts/HackGenConsoleNF-Regular.ttf", "provider read VFS path");
+    assertEqual(providerRead.bytes.byteLength, 4, "provider read byte length");
+    assertEqual(providerRead.bytes[2], 2, "provider read bytes");
+    providerRead.bytes[0] = 99;
+    assertEqual(successVfs.readFile("/fonts/HackGenConsoleNF-Regular.ttf")[0], 0, "provider read must return a copy");
+    const suffixRead = readGuiFontResourceBinaryFromVfs(successVfs, "HackGenConsoleNF-Regular.ttf", 1);
+    assert(!suffixRead.ok, "provider read must not suffix-match font names");
+    assertEqual(suffixRead.reason, "MissingResource", "suffix-only path is not mounted canonical identity");
+    const licenseRead = readGuiFontResourceBinaryFromVfs(successVfs, "fonts/HackGen-LICENSE.txt", 1);
+    assert(!licenseRead.ok, "provider read must reject text payloads");
+    assertEqual(licenseRead.reason, "PayloadNotBinary", "text payload rejection");
+    const absoluteRead = readGuiFontResourceBinaryFromVfs(successVfs, "/fonts/HackGenConsoleNF-Regular.ttf", 1);
+    assert(!absoluteRead.ok, "provider read must reject absolute public paths");
+    assertEqual(absoluteRead.reason, "InvalidPath", "absolute path provider error");
+    assertEqual(absoluteRead.pathReason, "Absolute", "absolute path reason");
+    const unsupportedDecode = readGuiFontResourceBinaryFromVfs(successVfs, "fonts/HackGenConsoleNF-Regular.ttf", 99);
+    assert(!unsupportedDecode.ok, "provider read must reject unsupported decode policy tags");
+    assertEqual(unsupportedDecode.reason, "UnsupportedDecodePolicy", "unsupported decode policy error");
     const compileOverlay = successVfs.serializeForCompile();
     assertEqual(compileOverlay["/examples/app.nepl"], "fn main:", "editable NEPL source should stay in compile overlay");
     assert(!Object.prototype.hasOwnProperty.call(compileOverlay, "/fonts/HackGenConsoleNF-Regular.ttf"), "font binary must not enter compile overlay");

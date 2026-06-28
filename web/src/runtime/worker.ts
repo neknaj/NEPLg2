@@ -63,10 +63,18 @@ import {
     GUI_TIMER_HOST_STATUS_OK,
     waitGuiTimerHostAck,
 } from '../gui-preview/timer-host-abi.js';
+import { readGuiFontResourceBinaryFromVfs } from '../gui-font/font-resource-vfs.js';
 
 const GUI_WEB_BACKEND_CLOCK_STATUS_UNSUPPORTED = -1;
 const GUI_WEB_BACKEND_CLOCK_STATUS_BACKEND_FAILURE = -2;
 const GUI_WEB_BACKEND_CLOCK_I32_MAX_MS = 2147483647;
+const GUI_FONT_RESOURCE_STATUS_UNSUPPORTED_PROVIDER = -1;
+const GUI_FONT_RESOURCE_STATUS_INVALID_PATH = -2;
+const GUI_FONT_RESOURCE_STATUS_MISSING_RESOURCE = -3;
+const GUI_FONT_RESOURCE_STATUS_PAYLOAD_NOT_BINARY = -4;
+const GUI_FONT_RESOURCE_STATUS_UNSUPPORTED_DECODE_POLICY = -5;
+const GUI_FONT_RESOURCE_STATUS_RESOURCE_EXHAUSTED = -6;
+const GUI_FONT_RESOURCE_STATUS_BACKEND_FAILURE = -7;
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -224,6 +232,8 @@ class WorkerWASI extends WASI {
             compositor_tile_present_end: this.nepl_gui_web_compositor_tile_present_end.bind(this),
             request_timer: this.nepl_gui_web_request_timer.bind(this),
             monotonic_clock_ms: this.nepl_gui_web_monotonic_clock_ms.bind(this),
+            font_resource_byte_len: this.nepl_gui_web_font_resource_byte_len.bind(this),
+            font_resource_read_bytes: this.nepl_gui_web_font_resource_read_bytes.bind(this),
         };
     }
 
@@ -934,6 +944,58 @@ class WorkerWASI extends WASI {
         return monotonicMs;
     }
 
+    nepl_gui_web_font_resource_byte_len(pathPtr: number, pathLen: number, decodePolicyRaw: number): number {
+        const resource = this.resolveGuiFontResourceBinary(pathPtr, pathLen, decodePolicyRaw);
+        if (typeof resource === 'number') {
+            return resource;
+        }
+        return resource.byteLength > 0 ? resource.byteLength : GUI_FONT_RESOURCE_STATUS_PAYLOAD_NOT_BINARY;
+    }
+
+    nepl_gui_web_font_resource_read_bytes(
+        pathPtr: number,
+        pathLen: number,
+        decodePolicyRaw: number,
+        dstPtr: number,
+        dstLen: number,
+    ): number {
+        const resource = this.resolveGuiFontResourceBinary(pathPtr, pathLen, decodePolicyRaw);
+        if (typeof resource === 'number') {
+            return resource;
+        }
+        if (dstLen !== resource.byteLength) {
+            return GUI_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+        }
+        const dst = this.memoryBytes(dstPtr, dstLen);
+        if (typeof dst === 'number') {
+            return GUI_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+        }
+        try {
+            dst.set(resource);
+            return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+        } catch {
+            return GUI_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+        }
+    }
+
+    private resolveGuiFontResourceBinary(pathPtr: number, pathLen: number, decodePolicyRaw: number): Uint8Array | number {
+        const pathBytes = this.memoryBytes(pathPtr, pathLen);
+        if (typeof pathBytes === 'number') {
+            return GUI_FONT_RESOURCE_STATUS_INVALID_PATH;
+        }
+        let rawPath: string;
+        try {
+            rawPath = new TextDecoder('utf-8', { fatal: true }).decode(pathBytes);
+        } catch {
+            return GUI_FONT_RESOURCE_STATUS_INVALID_PATH;
+        }
+        const result = readGuiFontResourceBinaryFromVfs(this.vfs, rawPath, decodePolicyRaw);
+        if (!result.ok) {
+            return guiFontResourceProviderStatus(result.reason);
+        }
+        return result.bytes;
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -1159,6 +1221,22 @@ function isValidRect(surface: GuiVideoMemorySurface, x: number, y: number, width
         && isNonNegativeInteger(height)
         && x + width <= surface.width
         && y + height <= surface.height;
+}
+
+function guiFontResourceProviderStatus(reason: string): number {
+    if (reason === 'InvalidPath') {
+        return GUI_FONT_RESOURCE_STATUS_INVALID_PATH;
+    }
+    if (reason === 'MissingResource') {
+        return GUI_FONT_RESOURCE_STATUS_MISSING_RESOURCE;
+    }
+    if (reason === 'PayloadNotBinary') {
+        return GUI_FONT_RESOURCE_STATUS_PAYLOAD_NOT_BINARY;
+    }
+    if (reason === 'UnsupportedDecodePolicy') {
+        return GUI_FONT_RESOURCE_STATUS_UNSUPPORTED_DECODE_POLICY;
+    }
+    return GUI_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
 }
 
 function guiVideoMemoryHostStatusFromError(error: GuiVideoMemoryError): number {
