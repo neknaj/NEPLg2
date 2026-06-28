@@ -852,7 +852,17 @@ const webShell = read("web/src/terminal/shell.ts");
 const webWorker = read("web/src/runtime/worker.ts");
 const webVfs = read("web/src/runtime/vfs.ts");
 const webIndex = read("web/index.html");
+const webGuiPreviewBitmapRasterizer = read("web/src/gui-preview/bitmap-rasterizer.ts");
 const webFontResourceBehaviorTest = read("nodesrc/test_web_gui_font_resource_vfs_behavior.js");
+const todo = read("todo.md");
+const guiExampleTextSources = [
+    read("examples/gui_counter.nepl"),
+    read("examples/gui_calculator.nepl"),
+    read("examples/gui_scientific_calculator.nepl"),
+    read("examples/gui_mandelbrot.nepl"),
+    read("examples/gui_life.nepl"),
+    read("examples/gui_breakout.nepl"),
+].join("\n");
 
 assertMatch(
     spec,
@@ -2040,6 +2050,46 @@ assertNoMatch(
 
 assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui facade must export font parser facade");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "alloc/gui/font facade must export sfnt parser");
+assertMatch(
+    allocFontFacade,
+    /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*font resource provider[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
+    "alloc/gui/font facade docs must distinguish implemented glyph/render2d boundaries from missing Web text presentation",
+);
+assertMatch(
+    spec,
+    /F5nl の Web Playground font drawing readiness boundary[\s\S]*fonts\/HackGenConsoleNF-Regular\.ttf[\s\S]*legacy stdout text transport[\s\S]*formal font resource provider \/ registry[\s\S]*text shaping \/ layout[\s\S]*Web compositor \/ video memory surface[\s\S]*FontFace[\s\S]*Canvas `fillText`[\s\S]*HostTextMeasurer[\s\S]*legacy stdout text/,
+    "font spec must keep Web font resource mount separate from engine-driven text presentation readiness",
+);
+assertMatch(
+    detailedDesign,
+    /## Web Playground font drawing readiness[\s\S]*necessary pieces, but they are not sufficient evidence[\s\S]*readiness gate remains closed[\s\S]*formal provider \/ registry[\s\S]*render2d surface[\s\S]*formal compositor or video memory path[\s\S]*gui_web_stdout_text_i32[\s\S]*Canvas `fillText`[\s\S]*FontFace[\s\S]*HostTextMeasurer/,
+    "font detailed design must state that Web text drawing readiness is still closed",
+);
+assertMatch(
+    implementationPlan,
+    /## Phase F5nl: Web Playground font drawing readiness boundary[\s\S]*legacy stdout text examples[\s\S]*formal provider \/ registry \/ layout \/ presentation path[\s\S]*nodesrc\/test_web_gui_font_rendering_contract\.js/,
+    "font implementation plan must include F5nl Web font drawing readiness boundary",
+);
+assertMatch(
+    todo,
+    /font rasterization \/ text layout が実描画可能になった段階[\s\S]*古今和歌集仮名序/,
+    "todo must keep ruby/Japanese GUI example gated on actual font rasterization and text layout presentation",
+);
+assertMatch(
+    guiExampleTextSources,
+    /\bgui_web_stdout_text_i32\b/,
+    "current GUI examples with text labels must remain classified as legacy stdout text until formal font presentation replaces them",
+);
+assertMatch(
+    webGuiPreviewBitmapRasterizer,
+    /rasterizeGuiPreviewTextRun[\s\S]*GUI_PREVIEW_BITMAP_GLYPH_WIDTH[\s\S]*GUI_PREVIEW_BITMAP_FONT/,
+    "Web preview text-run must remain explicit bitmap compatibility rendering, not formal font engine evidence",
+);
+assertNoMatch(
+    webGuiPreviewBitmapRasterizer,
+    /\b(?:HackGen|GuiFontResource|gui_sfnt|FontFace|fillText|measureText|HostTextMeasurer|MockTextMeasurer)\b/,
+    "Web preview bitmap rasterizer must not impersonate formal font resource, browser font, or host measurement paths",
+);
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/metadata"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export metadata parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/name"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export name parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/cmap"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export cmap parser");

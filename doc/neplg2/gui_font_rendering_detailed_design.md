@@ -8763,6 +8763,12 @@ F5nk adds partial dirty slot preservation/copy without changing the Web pixel ba
 
 Partial descriptors use absolute metadata rows. `metadata_row_start`, `metadata_row_count`, `metadata_batch_count`, `plan_row_start`, and tile row bounds are validated together, and partial end publishes the completed frame with dirty rect publish for the exact row range. Snapshot preparation is transactional: the next committed snapshot is allocated and populated before `publishGuiVideoMemoryWriteSlot`; only publish success commits frame state, removes the active frame, and replaces the committed snapshot. Publish failure or snapshot allocation failure leaves the active frame retryable.
 
+## Web Playground font drawing readiness
+
+F5nl records the readiness gate for Web Playground engine-driven text drawing. The Web runtime already mounts `fonts/HackGenConsoleNF-Regular.ttf` into VFS before Wasm execution, and the font/render2d/compositor layers already contain glyph mask owners, fill / stroke / shadow composition boundaries, software surface drain, dirty owner bridges, and Web compositor tile RLE host imports. These are necessary pieces, but they are not sufficient evidence that the playground can draw text through the font engine.
+
+The readiness gate remains closed until a Web run can load font bytes through the formal provider / registry, shape text into glyph runs, rasterize those glyphs through the alloc/gui/font owners, drain them into a render2d surface, and present that surface through the formal compositor or video memory path. Existing `gui_web_stdout_text_i32` examples, browser CSS fonts, Canvas `fillText`, `FontFace`, `HostTextMeasurer`, and fixed-cell mock measurement are compatibility or IDE UI paths only. They must not be counted as formal font renderer presentation.
+
 ## SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.

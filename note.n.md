@@ -1,3 +1,47 @@
+# 2026-06-28 Agent2 GUI font rendering F5nl Web Playground readiness boundary
+
+## 目的
+
+- Web Playground で font rendering engine による text drawing が可能になったかを現状確認し、font resource mount / glyph mask 部品 / compositor host import と、実際の engine-driven text presentation を混同しない contract を追加する。
+- HackGen VFS mount、SFNT/glyf/raster/render2d/compositor 部品、legacy stdout text examples の現在地を分け、次の実装境界を formal glyph/text smoke に置く。
+
+## 現状判断
+
+- Web runtime は `fonts/HackGenConsoleNF-Regular.ttf` と license を VFS に mount し、run 前 preflight で失敗を止める経路を持つ。
+- `alloc/gui/font` には SFNT metadata/name/cmap/hmtx/glyf parser、simple glyph outline、fill / stroke / shadow mask owner、render2d software drain / dirty owner / compositor bridge の境界がある。
+- Web compositor tile RLE host import と F5nk partial dirty committed snapshot は接続済みである。
+- ただし Web Playground examples の text label はまだ `gui_web_stdout_text_i32` 系の legacy stdout text transport で、Web preview の `text-run` は 5x7 bitmap compatibility renderer である。formal font provider / registry、text shaping / layout、glyph run から render2d surface への public text API、Web compositor / video memory presentation は未接続である。
+
+## 変更内容
+
+- `stdlib/alloc/gui/font.nepl` の facade comment を更新し、SFNT parser だけでなく glyph mask / stroke / shadow / render2d bridge 境界が公開済みであることと、font provider / registry / text layout / Web presentation が未接続であることを明示した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5nl Web Playground font drawing readiness boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5nl source policy を追加し、browser `FontFace`、Canvas `fillText`、HostTextMeasurer、fixed-cell mock、legacy stdout text transport、Web preview bitmap text-run を formal font renderer presentation evidence とみなさないことを検査する。
+
+## plan.md との差異
+
+- plan.md は言語仕様の方向性を記述しており、今回の変更は GUI font rendering の現状 contract / documentation / source policy の更新である。
+- 言語仕様本体の変更は行っていない。
+
+## subagent review
+
+- Godel the 2nd の read-only review は、Web Playground はまだ font rendering engine を使って文字を描ける状態ではないと判定した。
+- 指摘された次境界は canonical font resource から glyph を解決し、font engine の mask/coverage を render2d dirty owner へ合成し、既存 compositor frame / tile RLE / Web host executor で表示する single glyph または minimal text smoke である。ruby layout や examples 全面 rewrite はその後に扱う。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`（baseline ok、既存の sample gaps 表示あり）
+- pass: `trunk build`（prebuild の `npm --prefix web run build:ts` を含む）
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nl_font_readiness.json`
+- checked JSON: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- pass: `git diff --check`（CRLF warning のみ）
+
+## 残り
+
+- 次 slice では formal provider / registry から single glyph または minimal text smoke を Web compositor path へ流す。
+
 # 2026-06-28 GitHub Pages deploy 再設計
 
 ## 目的

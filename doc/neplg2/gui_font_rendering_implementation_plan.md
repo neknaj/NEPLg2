@@ -5963,6 +5963,25 @@ plan review:
 - source policy が committed snapshot、partial dirty slot preservation/copy、dirty rect publish、absolute metadata row validation、raw publish snapshot update、active writer concurrency rejection、no presenter read-slot baseline、no stdout / DOM / Canvas / fallback を検査する。
 - F5nj/F5nk host import regression、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 
+## Phase F5nl: Web Playground font drawing readiness boundary
+
+目的:
+
+- Web Playground で font rendering engine による text drawing がまだ未接続であることを、resource mount や glyph mask 部品の存在と混同しない contract として固定する。
+- Web VFS font mount、alloc/gui/font の glyph mask / render2d / compositor 部品、legacy stdout text examples、formal provider / registry / layout / presentation path の接続状態を分けて記述する。
+- browser `FontFace`、Canvas `fillText`、HostTextMeasurer、fixed-cell mock、legacy stdout text transport を engine-driven text presentation の成功 evidence として扱わない。
+
+変更:
+
+- `stdlib/alloc/gui/font.nepl` の facade comment を現行実装に合わせ、SFNT parser だけでなく glyph mask / stroke / shadow / render2d bridge 境界が公開済みであることと、font provider / registry / text layout / Web presentation が未接続であることを明示する。
+- `doc/neplg2/gui_font_rendering_spec.md` と `gui_font_rendering_detailed_design.md` に Web Playground font drawing readiness gate を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に readiness gate と legacy stdout text 非到達の source policy を追加する。
+
+完了条件:
+
+- source policy が Web font mount と formal font drawing readiness を分けて検査する。
+- focused contract、documentation contract、`trunk build`、playground editor JSON が通る。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
