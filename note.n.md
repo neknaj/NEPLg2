@@ -82633,3 +82633,35 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_resource_source_vocabulary_authority.json`
 - checked JSON: `tmp/playground_editor_selfhost_resource_source_vocabulary_authority.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-29 Web font resource bytes provider boundary checkpoint
+
+- 2026-06-29 に Zenn の開発方針を再確認した。今回の slice では、Web Playground の font mount 済み状態を formal provider success と混同せず、`GuiFontResourceRequest` から Web VFS binary payload へ進む dedicated provider boundary を追加した。plan.md は変更していない。
+- `stdlib/std/gui/font_resource.nepl` に `GuiFontResourceProviderErrorKind` と non-Copy `GuiFontResourceBytes` owner を追加した。owner は request、source、byte length、actual hash、decode policy、owned `ByteBuf` を保持する。ByteBuf の FNV-1a 32-bit hash helper と expected hash validation を追加し、hash mismatch は `HashMismatch` typed error にした。
+- `stdlib/platforms/gui/web/font_resource_provider.nepl` を追加し、`nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` の 2 段 host import で Web runtime VFS から bytes を取得するようにした。`std/fs` / Web WASI `path_open` は使わず、read 失敗や hash mismatch の error path では確保済み region / ByteBuf を閉じる。
+- `web/src/gui-font/font-resource-vfs.ts` に exact canonical binary read helper を追加した。slashless public path から internal VFS path を導出し、missing resource、text payload、empty binary、unsupported decode policy を typed reason として返す。helper は VFS 内部の `Uint8Array` を直接渡さず copy を返す。
+- `web/src/runtime/worker.ts` に font resource host import を追加した。guest path bytes は fatal UTF-8 decode し、runtime VFS helper の typed reason を host sentinel へ写し、成功時だけ guest memory へ bytes を copy する。
+- `gui_font_resource_validate_request_bytes_hash` を追加し、Web provider が `Option<GuiResourceHash>` の内部形状を直接保持せず、request と bytes の契約だけで hash validation する形にした。Web facade 全体での import 時にも同じ型境界で通る。
+- `tests/stdlib/gui_std.n.md`、`nodesrc/test_web_gui_font_resource_vfs_behavior.js`、`nodesrc/test_web_gui_font_rendering_contract.js`、font rendering specs、standard library spec、todo を更新した。Web F5nn は bytes provider までであり、native / bare / headless provider、registry、face selection、text shaping / layout、glyph rasterization、render2d drain、Web compositor presentation はまだ残件である。
+- subagent review は、F5nn が registry / rendering へ進まず typed bytes provider で止まるべきこと、success owner が ByteBuf owner と hash/decode evidence を保持すべきこと、`std/fs` / suffix / FontFace / Canvas / stdout fallback を使わないことを指摘したため、owner field と tests/source policy に反映した。
+
+### 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_web_gui_font_resource_vfs_behavior.js`
+- pass: `node nodesrc/test_web_gui_font_resource_vfs_behavior.js`
+- pass: `node nodesrc/tests.js -i stdlib/platforms/gui/web/font_resource_provider.nepl --no-tree -o tmp/web_font_resource_provider_f5nn.json -j 1`。2/2。
+- pass: `node nodesrc/analyze_tests_json.js tmp/web_font_resource_provider_f5nn.json`。2 passed / 0 failed。
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp/gui_std_f5nn.json -j 1`。13/13。
+- pass: `node nodesrc/analyze_tests_json.js tmp/gui_std_f5nn.json`。13 passed / 0 failed。
+- pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+- pass: `node nodesrc/test_web_gui_preview_renderer.js`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass: `npm --prefix web run build:ts`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_font_resource_provider_f5nn.json`
+- checked JSON: `tmp/playground_editor_font_resource_provider_f5nn.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

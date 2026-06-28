@@ -160,6 +160,98 @@ fn main %impure fn void i32 \void:
     test_report_exit_code shown
 ```
 
+## gui_font_resource_bytes_owner_hash_contract
+
+[目的/もくてき]:
+- provider が返す font resource bytes owner は ByteBuf を所有し、request/source/byte_len/actual_hash/decode_policy を保持します。
+- expected_hash mismatch は typed `HashMismatch` として返します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_font_resource_bytes_owner_hash_contract\" count=8 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"byte length\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"actual hash\" expected=\"752165258\" actual=\"752165258\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"source vfs\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"decode policy\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=4 status=ok kind=str_eq label=\"request path\" expected=\"fonts/HackGenConsoleNF-Regular.ttf\" actual=\"fonts/HackGenConsoleNF-Regular.ttf\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"expected hash accepted\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"hash mismatch rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"oom maps to resource exhausted\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn source_is_vfs %fn GuiFontResourceSource bool \source:
+    match source:
+        GuiFontResourceSource::Vfs:
+            true
+        _:
+            false
+
+fn validate_hash_ok %fn &ByteBuf fn Option GuiResourceHash bool \bytes\expected:
+    match gui_font_resource_validate_bytes_hash bytes expected:
+        Result::Ok _:
+            true
+        Result::Err _kind:
+            false
+
+fn validate_hash_mismatch %fn &ByteBuf fn Option GuiResourceHash bool \bytes\expected:
+    match gui_font_resource_validate_bytes_hash bytes expected:
+        Result::Err kind:
+            gui_font_resource_provider_error_kind_eq kind GuiFontResourceProviderErrorKind::HashMismatch
+        Result::Ok _:
+            false
+
+fn provider_error_maps_to_resource_exhausted %fn void bool \void:
+    match gui_font_resource_provider_error_kind_to_gui_error GuiFontResourceProviderErrorKind::OutOfMemory:
+        GuiError::ResourceExhausted:
+            true
+        _:
+            false
+
+fn main %impure fn void i32 \void:
+    let path %GuiFontResourcePath unwrap_ok gui_font_resource_path_result "fonts/HackGenConsoleNF-Regular.ttf"
+    let expected_hash_value %GuiResourceHash gui_resource_hash 752165258
+    let expected_hash %Option GuiResourceHash some expected_hash_value
+    let request %GuiFontResourceRequest unwrap_ok gui_font_resource_request path none expected_hash GuiFontDecodePolicy::SfntOnly
+    let bytes %ByteBuf unwrap_ok io_bytebuf_from_str_result "AB"
+    let resource %GuiFontResourceBytes gui_font_resource_bytes_new request GuiFontResourceSource::Vfs bytes
+    let actual_hash %GuiResourceHash gui_font_resource_bytes_actual_hash &resource
+    let resource_request %GuiFontResourceRequest gui_font_resource_bytes_request &resource
+    let resource_path %GuiFontResourcePath gui_font_resource_request_path &resource_request
+    let resource_path_text %str gui_font_resource_path_value &resource_path
+    let source %GuiFontResourceSource gui_font_resource_bytes_source &resource
+    let decode_policy %GuiFontDecodePolicy gui_font_resource_bytes_decode_policy &resource
+    let resource_bytes %&ByteBuf gui_font_resource_bytes_ref &resource
+    let expected_hash_ok %bool validate_hash_ok resource_bytes expected_hash
+    let mismatch_bytes %ByteBuf unwrap_ok io_bytebuf_from_str_result "AB"
+    let wrong_hash %GuiResourceHash gui_resource_hash 0
+    let wrong_expected %Option GuiResourceHash some wrong_hash
+    let mismatch_ok %bool validate_hash_mismatch &mismatch_bytes wrong_expected
+    io_bytebuf_free mismatch_bytes
+    let check0 assert_eq_i32 "byte length" 2 gui_font_resource_bytes_len &resource
+    let check1 assert_eq_i32 "actual hash" 752165258 gui_resource_hash_raw &actual_hash
+    let check2 assert "source vfs" source_is_vfs source
+    let check3 assert_eq_i32 "decode policy" 1 gui_font_decode_policy_raw decode_policy
+    let check4 assert_str_eq "request path" "fonts/HackGenConsoleNF-Regular.ttf" resource_path_text
+    let check5 assert "expected hash accepted" expected_hash_ok
+    let check6 assert "hash mismatch rejected" mismatch_ok
+    let check7 assert "oom maps to resource exhausted" provider_error_maps_to_resource_exhausted
+    let checks:
+        test_report_new "gui_font_resource_bytes_owner_hash_contract"
+        |> test_report_push check0
+        |> test_report_push check1
+        |> test_report_push check2
+        |> test_report_push check3
+        |> test_report_push check4
+        |> test_report_push check5
+        |> test_report_push check6
+        |> test_report_push check7
+    gui_font_resource_bytes_free resource
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
 ## gui_offscreen_snapshot_requires_offscreen_present_command
 
 [目的/もくてき]:

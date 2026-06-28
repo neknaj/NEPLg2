@@ -2006,6 +2006,8 @@ TUI text measurement は terminal cell width を返す `TextMeasurer` 実装と�
 
 Outline font rendering、font resource loading、ruby / furigana、Japanese vertical writing、math inline layout との接続は `doc/neplg2/gui_font_rendering_design.md` で扱う。Formal GUI text renderer は `fonts/HackGenConsoleNF-Regular.ttf` を resource path として読み、font metrics、shaped run、positioned glyph、glyph rasterization を同じ font face から導く。Browser / OS text measurement は authority にせず、unsupported feature は typed error として扱う。
 
+`std/gui/font_resource` は resource path / hash / decode policy / provider bytes owner の標準境界である。`GuiFontResourcePath` は slashless canonical path だけを受け取り、Web VFS internal path、display name、suffix、font family name を authority にしない。`GuiFontResourceBytes` は request、source、byte length、actual hash、decode policy、owned `ByteBuf` を保持し、provider は success 前に expected hash を検証する。Web backend は `platforms/gui/web/font_resource_provider` の `nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` で runtime VFS から binary payload を得る。これは font registry、layout、glyph rasterization、presentation path の完成を意味しない。
+
 ## Mobile Lifecycle Contract
 
 Mobile backend は native desktop の一種として扱わない。少なくとも次の状態遷移を event contract として表す。

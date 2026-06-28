@@ -7203,6 +7203,10 @@ F5nk の partial dirty slot preservation/copy は、Web surface record が commi
 
 F5nl の Web Playground font drawing readiness boundary は、現時点で engine-driven text presentation が未達であることを contract として明示する。Web は `fonts/HackGenConsoleNF-Regular.ttf` を VFS に mount し、alloc/gui/font は glyph mask、fill / stroke / shadow composition、render2d dirty owner、compositor tile RLE host import へ到達する部品を持つ。しかし Web Playground examples の text label はまだ legacy stdout text transport を使い、formal font resource provider / registry、text shaping / layout、glyph run から render2d surface への public text API、engine output を Web compositor / video memory surface へ渡す presentation path は接続されていない。この boundary は browser `FontFace`、Canvas `fillText`、HostTextMeasurer、固定 cell fallback、legacy stdout text を formal font renderer の成功 evidence とみなさない。
 
+F5nn の Web font resource bytes provider boundary は、`GuiFontResourceRequest` から Web VFS の mounted binary payload へ進む最初の formal provider 経路である。`std/gui/font_resource` は `GuiFontResourceBytes` owner と typed provider errors を持ち、success owner は request、source、byte length、actual `GuiResourceHash`、decode policy、owned `ByteBuf` を保持する。Web platform module は `nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` を使い、canonical path を UTF-8 bytes として host に渡し、host は exact canonical lookup だけで `/fonts/...` internal path を導出する。`expected_hash` がある場合は ByteBuf 上で FNV-1a 32-bit bit pattern を計算して照合し、mismatch では bytes owner を解放して `HashMismatch` を返す。
+
+F5nn は font registry、face selection、SFNT metadata parsing、glyph shaping、layout、rasterization、render2d drain、Web compositor presentation を開かない。`std/fs` / Web WASI `path_open`、suffix match、display name authority、browser CSS font、`FontFace`、Canvas `fillText` / `measureText`、stdout text transport、empty fake bytes、system font fallback は provider success evidence ではない。
+
 ### SFNT simple glyph render fill alpha mask sample cursor boundary
 
 F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。

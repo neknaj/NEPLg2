@@ -9,7 +9,7 @@
 //: - path は `GuiFontResourcePath` として保持し、display name や family name の authority にしません。
 //: - `face_index` が `Some n` で `n < 0` の[場合/ばあい]は `GuiError::InvalidCommand` です。
 //: - collection face count を必要とする検査は font bytes を[読/よ]める parser / registry phase で[行/おこな]います。
-//: - DOM、Canvas、FontFace、CoreText、DirectWrite、fontconfig handle はこの module の public value に[入/い]れません。
+//: - 具体的な browser / OS font handle はこの module の public value に[入/い]れません。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -18,6 +18,8 @@
 
 #indent 4
 
+#import "alloc/hash/fnv1a32" as *
+#import "alloc/io" as *
 #import "alloc/string" as *
 #import "core/field" as field
 #import "core/gui" as *
@@ -136,6 +138,30 @@ impl Copy for GuiFontResourcePathErrorKind:
     fn copy_mark %fn GuiFontResourcePathErrorKind GuiFontResourcePathErrorKind \kind:
         kind
 
+//: GuiFontResourceProviderErrorKind: font bytes provider の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: resource provider は path、payload kind、hash、decode policy を typed error として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontResourceProviderErrorKind:
+    InvalidPath
+    MissingResource
+    PayloadNotBinary
+    HashMismatch
+    UnsupportedDecodePolicy
+    UnsupportedProvider
+    OutOfMemory
+    BackendFailure
+    ResourceExhausted
+
+impl Clone for GuiFontResourceProviderErrorKind:
+    fn clone %fn &GuiFontResourceProviderErrorKind GuiFontResourceProviderErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontResourceProviderErrorKind:
+    fn copy_mark %fn GuiFontResourceProviderErrorKind GuiFontResourceProviderErrorKind \kind:
+        kind
+
 //: GuiFontResourceRequest: font bytes decode の request value
 //:
 //: neplg2:test[skip]
@@ -152,6 +178,19 @@ impl Clone for GuiFontResourceRequest:
 impl Copy for GuiFontResourceRequest:
     fn copy_mark %fn GuiFontResourceRequest GuiFontResourceRequest \request:
         request
+
+//: GuiFontResourceBytes: provider から[取得/しゅとく]した font resource bytes owner
+//:
+//: `ByteBuf` owner を[保持/ほじ]するため、この型は Copy / Clone にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontResourceBytes:
+    request %GuiFontResourceRequest
+    source %GuiFontResourceSource
+    byte_len %i32
+    actual_hash %GuiResourceHash
+    decode_policy %GuiFontDecodePolicy
+    bytes %ByteBuf
 
 //: gui_font_resource_id_unchecked: module-private proof と raw id から resource id を[組/く]み[立/た]てる
 //:
@@ -184,6 +223,20 @@ pub fn gui_resource_hash %fn i32 GuiResourceHash \raw:
 //: neplg2:test[skip]
 pub fn gui_resource_hash_raw %fn &GuiResourceHash i32 \hash:
     *field::get_ref hash "raw"
+
+//: gui_font_decode_policy_raw: decode policy を platform ABI 用 tag に[写/うつ]す
+//:
+//: tag は platform module の host import 境界でだけ[使/つか]い、std API の authority は enum value に[残/のこ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_decode_policy_raw %fn GuiFontDecodePolicy i32 \policy:
+    match policy:
+        GuiFontDecodePolicy::SfntOnly:
+            1
+        GuiFontDecodePolicy::SfntAndWoff:
+            2
+        GuiFontDecodePolicy::AllSupportedContainers:
+            3
 
 //: gui_font_resource_path_byte_eq: path の 1 byte を[期待/きたい] byte と[比/くら]べる
 //:
@@ -320,6 +373,92 @@ pub fn gui_font_resource_path_error_kind_to_gui_error %fn GuiFontResourcePathErr
         GuiFontResourcePathErrorKind::ParentSegment:
             GuiError::InvalidCommand
 
+//: gui_font_resource_provider_error_kind_eq: provider error kind を[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_provider_error_kind_eq %fn GuiFontResourceProviderErrorKind fn GuiFontResourceProviderErrorKind bool \a\b:
+    match a:
+        GuiFontResourceProviderErrorKind::InvalidPath:
+            match b:
+                GuiFontResourceProviderErrorKind::InvalidPath:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::MissingResource:
+            match b:
+                GuiFontResourceProviderErrorKind::MissingResource:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::PayloadNotBinary:
+            match b:
+                GuiFontResourceProviderErrorKind::PayloadNotBinary:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::HashMismatch:
+            match b:
+                GuiFontResourceProviderErrorKind::HashMismatch:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::UnsupportedDecodePolicy:
+            match b:
+                GuiFontResourceProviderErrorKind::UnsupportedDecodePolicy:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::UnsupportedProvider:
+            match b:
+                GuiFontResourceProviderErrorKind::UnsupportedProvider:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::OutOfMemory:
+            match b:
+                GuiFontResourceProviderErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::BackendFailure:
+            match b:
+                GuiFontResourceProviderErrorKind::BackendFailure:
+                    true
+                _:
+                    false
+        GuiFontResourceProviderErrorKind::ResourceExhausted:
+            match b:
+                GuiFontResourceProviderErrorKind::ResourceExhausted:
+                    true
+                _:
+                    false
+
+//: gui_font_resource_provider_error_kind_to_gui_error: provider error を core GUI error へ[写/うつ]す
+//:
+//: 詳細分類は provider error として[保持/ほじ]し、互換 API では core GUI error へ[畳/たた]みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_provider_error_kind_to_gui_error %fn GuiFontResourceProviderErrorKind GuiError \kind:
+    match kind:
+        GuiFontResourceProviderErrorKind::InvalidPath:
+            GuiError::InvalidCommand
+        GuiFontResourceProviderErrorKind::MissingResource:
+            GuiError::InvalidCommand
+        GuiFontResourceProviderErrorKind::PayloadNotBinary:
+            GuiError::InvalidCommand
+        GuiFontResourceProviderErrorKind::HashMismatch:
+            GuiError::InvalidCommand
+        GuiFontResourceProviderErrorKind::UnsupportedDecodePolicy:
+            GuiError::Unsupported
+        GuiFontResourceProviderErrorKind::UnsupportedProvider:
+            GuiError::Unsupported
+        GuiFontResourceProviderErrorKind::OutOfMemory:
+            GuiError::ResourceExhausted
+        GuiFontResourceProviderErrorKind::BackendFailure:
+            GuiError::BackendFailure
+        GuiFontResourceProviderErrorKind::ResourceExhausted:
+            GuiError::ResourceExhausted
+
 //: gui_font_resource_path_validate_result: canonical font resource path を[検査/けんさ]して[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -407,3 +546,113 @@ pub fn gui_font_resource_request_expected_hash %fn &GuiFontResourceRequest Optio
 //: neplg2:test[skip]
 pub fn gui_font_resource_request_decode_policy %fn &GuiFontResourceRequest GuiFontDecodePolicy \request:
     *field::get_ref request "decode_policy"
+
+//: gui_font_resource_bytebuf_fnv1a32_loop: ByteBuf payload を FNV-1a state へ[混/ま]ぜる
+//:
+//: `ByteBuf` owner は借用し、out-of-range は sentinel byte にせず現在の state で停止します。
+//:
+//: neplg2:test[skip]
+fn gui_font_resource_bytebuf_fnv1a32_loop %fn &ByteBuf fn i32 fn i32 fn Fnv1a32 Fnv1a32 \bytes\n\idx\h:
+    if:
+        ge idx n
+        then:
+            h
+        else:
+            match io_bytebuf_byte_at bytes idx:
+                Option::Some b:
+                    gui_font_resource_bytebuf_fnv1a32_loop bytes n add idx 1 fnv1a32_update h b
+                Option::None:
+                    h
+
+//: gui_font_resource_bytes_hash: font resource bytes の stable hash を[計算/けいさん]する
+//:
+//: [目的/もくてき]:
+//: - provider が[返/かえ]した byte payload を、platform API に[依存/いそん]しない FNV-1a 32-bit bit pattern へ[写/うつ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_hash %fn &ByteBuf GuiResourceHash \bytes:
+    let n %i32 io_bytebuf_len_ref bytes
+    let h0 %Fnv1a32 new_fnv1a32
+    let h1 %Fnv1a32 gui_font_resource_bytebuf_fnv1a32_loop bytes n 0 h0
+    gui_resource_hash fnv1a32_finalize h1
+
+//: gui_font_resource_validate_bytes_hash: optional expected hash を provider bytes と[照合/しょうごう]する
+//:
+//: `None` は hash pinning なし、`Some` は `GuiResourceHash` raw bit pattern の完全一致です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_validate_bytes_hash %fn &ByteBuf fn Option GuiResourceHash Result unit GuiFontResourceProviderErrorKind \bytes\expected:
+    match expected:
+        Option::None:
+            Result::Ok unit
+        Option::Some expected_hash:
+            let actual %GuiResourceHash gui_font_resource_bytes_hash bytes
+            if eq gui_resource_hash_raw &actual gui_resource_hash_raw &expected_hash:
+                then Result::Ok unit
+                else Result::Err GuiFontResourceProviderErrorKind::HashMismatch
+
+//: gui_font_resource_validate_request_bytes_hash: request の expected hash と provider bytes を[照合/しょうごう]する
+//:
+//: request が hash pinning を[持/も]たない[場合/ばあい]は成功とし、持つ場合は payload hash と完全一致させます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_validate_request_bytes_hash %fn &GuiFontResourceRequest fn &ByteBuf Result unit GuiFontResourceProviderErrorKind \request\bytes:
+    let expected %Option GuiResourceHash gui_font_resource_request_expected_hash request
+    gui_font_resource_validate_bytes_hash bytes expected
+
+//: gui_font_resource_bytes_new: provider result bytes owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_new %fn GuiFontResourceRequest fn GuiFontResourceSource fn ByteBuf GuiFontResourceBytes \request\source\bytes:
+    let byte_len %i32 io_bytebuf_len_ref &bytes
+    let actual_hash %GuiResourceHash gui_font_resource_bytes_hash &bytes
+    let decode_policy %GuiFontDecodePolicy gui_font_resource_request_decode_policy &request
+    GuiFontResourceBytes request source byte_len actual_hash decode_policy bytes
+
+//: gui_font_resource_bytes_request: bytes owner の request を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_request %fn &GuiFontResourceBytes GuiFontResourceRequest \resource:
+    *field::get_ref resource "request"
+
+//: gui_font_resource_bytes_source: bytes owner の provider source を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_source %fn &GuiFontResourceBytes GuiFontResourceSource \resource:
+    *field::get_ref resource "source"
+
+//: gui_font_resource_bytes_len: bytes owner の payload 長を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_len %fn &GuiFontResourceBytes i32 \resource:
+    *field::get_ref resource "byte_len"
+
+//: gui_font_resource_bytes_actual_hash: provider が[確認/かくにん]した actual hash を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_actual_hash %fn &GuiFontResourceBytes GuiResourceHash \resource:
+    *field::get_ref resource "actual_hash"
+
+//: gui_font_resource_bytes_decode_policy: bytes 取得時の decode policy を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_decode_policy %fn &GuiFontResourceBytes GuiFontDecodePolicy \resource:
+    *field::get_ref resource "decode_policy"
+
+//: gui_font_resource_bytes_ref: bytes owner の ByteBuf を[借/か]りる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_ref %fn &GuiFontResourceBytes &ByteBuf \resource:
+    field::get_ref resource "bytes"
+
+//: gui_font_resource_bytes_finish: bytes owner から ByteBuf owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_finish %fn GuiFontResourceBytes ByteBuf \resource:
+    field::get resource "bytes"
+
+//: gui_font_resource_bytes_free: bytes owner の payload を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_bytes_free %fn GuiFontResourceBytes unit \resource:
+    io_bytebuf_free gui_font_resource_bytes_finish resource
