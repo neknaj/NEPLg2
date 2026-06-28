@@ -62,6 +62,7 @@ jobs:
               with:
                   name: bootstrap-build
                   path: |
+                      dist
                       target/debug
                       target/wasm32-unknown-unknown
                       nodesrc/parser.js
