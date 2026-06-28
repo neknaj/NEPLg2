@@ -11,7 +11,6 @@
 
 export function initPlayground(config) {
   const {
-    searchIndex: __SEARCH_INDEX__,
     rootPrefix: __ROOT_PREFIX__,
     vfsOverrides: __TUTORIAL_VFS_OVERRIDES__,
     moduleJsPath,
@@ -19,6 +18,29 @@ export function initPlayground(config) {
     tocTitle,
     title,
   } = config;
+  let __SEARCH_INDEX__ = Array.isArray(config.searchIndex) ? config.searchIndex : [];
+  let searchIndexLoadPromise = null;
+
+  function loadSearchIndex() {
+    const searchIndexPath = config.searchIndexPath ? String(config.searchIndexPath) : '';
+    if (!searchIndexPath) {
+      return Promise.resolve(__SEARCH_INDEX__);
+    }
+    if (!searchIndexLoadPromise) {
+      searchIndexLoadPromise = fetch(searchIndexPath, { cache: 'force-cache' })
+        .then((res) => {
+          if (!res.ok) throw new Error(`search index fetch failed: ${res.status}`);
+          return res.json();
+        })
+        .then((payload) => {
+          __SEARCH_INDEX__ = Array.isArray(payload) ? payload : [];
+          return __SEARCH_INDEX__;
+        })
+        .catch(() => __SEARCH_INDEX__);
+    }
+    return searchIndexLoadPromise;
+  }
+  loadSearchIndex();
 
   // --- UI Injection ---
   function injectUI() {
@@ -816,7 +838,7 @@ self.onmessage = async (e) => {
         }
       }
 
-      function renderSearchResults(query) {
+      async function renderSearchResults(query) {
         const q = query.trim();
         const kindVal = searchKind ? searchKind.value : 'all';
         const pathVal = searchPath ? searchPath.value.trim() : '';
@@ -829,7 +851,11 @@ self.onmessage = async (e) => {
         if (searchClear && q) searchClear.style.display = 'block';
         else if (searchClear) searchClear.style.display = 'none';
 
-        const hits = NeplSearch.searchIndex(q, __SEARCH_INDEX__, 15, { kind: kindVal, path: pathVal });
+        const loadedSearchIndex = await loadSearchIndex();
+        if (searchInput && query !== searchInput.value) {
+          return;
+        }
+        const hits = NeplSearch.searchIndex(q, loadedSearchIndex, 15, { kind: kindVal, path: pathVal });
         activeIdx = -1;
 
         if (hits.length === 0) {

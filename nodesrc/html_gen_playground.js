@@ -111,6 +111,7 @@ function wrapHtmlPlayground(
   tocItemsHtml,
   tocTitle,
   searchIndexJson,
+  searchIndexPath,
   rootPrefix,
   inPageTocHtml,
 ) {
@@ -122,6 +123,7 @@ function wrapHtmlPlayground(
   const vfsOverrides = buildPlaygroundVfsOverrides();
   const vfsOverridesJson = JSON.stringify(vfsOverrides);
   const safeSearchIndexJson = searchIndexJson || "[]";
+  const safeSearchIndexPath = searchIndexPath || "";
   const safeRootPrefix = rootPrefix || "./";
   const safeTocTitle = tocTitle || "Getting Started";
 
@@ -153,6 +155,7 @@ function wrapHtmlPlayground(
   import { initPlayground } from '${runtimeJsPath}';
   initPlayground({
     searchIndex: ${safeSearchIndexJson},
+    searchIndexPath: '${escapeHtml(safeSearchIndexPath)}',
     rootPrefix: '${escapeHtml(safeRootPrefix)}',
     vfsOverrides: ${vfsOverridesJson},
     moduleJsPath: '${escapeHtml(moduleJsPath)}',
@@ -197,6 +200,7 @@ function renderHtmlPlayground(ast, opt) {
   const searchIndex =
     opt && Array.isArray(opt.searchIndex) ? opt.searchIndex : [];
   const searchIndexJson = JSON.stringify(searchIndex);
+  const searchIndexPath = opt && opt.searchIndexPath ? String(opt.searchIndexPath) : "";
   const rootPrefix = opt && opt.rootPrefix ? String(opt.rootPrefix) : "./";
   const body = renderBody(ast);
   
@@ -217,6 +221,7 @@ function renderHtmlPlayground(ast, opt) {
     tocItemsHtml,
     tocTitle,
     searchIndexJson,
+    searchIndexPath,
     rootPrefix,
     inPageTocHtml
   );

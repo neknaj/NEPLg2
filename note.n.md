@@ -1,3 +1,48 @@
+# 2026-06-28 GitHub Pages deploy 再設計
+
+## 目的
+
+- GitHub Actions run `28019144617` の Pages deploy 失敗を調査し、`dist/doc` が 13GB まで膨らんで Pages artifact size guard に落ちていた原因を修正する。
+- metrics / docs / test report が失敗しても、Web Playground 本体は必ず GitHub Pages へ deploy される構成へ分離する。
+
+## 原因
+
+- `html_play` 生成時に scope 全体の search index を各 HTML ページへ inline 埋め込みしていた。
+- doc + stdlib はページ数が多いため、同じ search index が 1000 ページ以上に複製され、入力 27MB 程度に対して `dist/doc` が 13GB まで増えていた。
+- さらに `bootstrap-build` artifact に Pages 用 `dist` と CI テスト用 `target` を同居させており、Pages job が deploy に不要な build artifact を展開する構造になっていた。
+
+## 実装内容
+
+- `nodesrc/cli.js` は `html_play` の search index を scope ごとの `search-index*.json` として 1 回だけ出力し、各ページは `searchIndexPath` を参照するようにした。
+- `nodesrc/html_gen_playground.js` と `nodesrc/static/playground_runtime.js` は外部 search index を fetch して検索に使う。
+- `.github/workflows/ci.yml` は `playground-site`、`bootstrap-build`、`pages-content` を分離した。
+- `pages-fast-bundle` / `pages-final-bundle` は `playground-site` を土台にし、`bootstrap-build` を Pages job で展開しない。
+- docs / tutorials / metrics は `pages-content` job の optional content とし、生成 step は `continue-on-error` にした。
+- `pages-final-deploy` は `pages-fast-deploy` の成否に依存せず、final bundle が作れた場合は単独で deploy できるようにした。
+- `doc/ci_pages_deploy.md` に deploy 設計を記述した。
+
+## plan.md との差異
+
+- plan.md は言語仕様の方向性を記述しており、今回の CI / Pages deploy 分離は実装・公開基盤の修正である。
+- 言語仕様や stdlib API の変更は行っていない。
+
+## 検証
+
+- pass: `node --check nodesrc/cli.js`
+- pass: `node --check nodesrc/html_gen_playground.js`
+- pass: `node --check nodesrc/static/playground_runtime.js`
+- pass: `node nodesrc/test_pages_ci_metrics_contract.js`
+- pass: Python + PyYAML による `.github/workflows/ci.yml` parse
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_pages_deploy.json`
+- checked JSON: `caseCount=13`, `passedCount=13`, `failedCount=0`
+- pass: `git diff --check`（CRLF warning のみ）
+- checked: docs/tutorials の `html_play` ローカル生成結果は `tmp_pages_content_check` で 365,939,313 bytes。`doc/search-index.json` は 11.22MB で、旧 13GB から Pages artifact guard 内へ収まる見込み。
+
+## 残り
+
+- GitHub push 後の Actions / Pages deploy 確認を行う。
+
 # 2026-06-23 CI Pages artifact size対策（Pages deployment fix）
 
 ## 目的

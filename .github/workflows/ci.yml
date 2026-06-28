@@ -50,39 +50,152 @@ jobs:
                   test -f dist/testinfo.html
                   test -f dist/metrics.html
 
-            - name: Source policy regressions
-              run: node nodesrc/run_source_policy_regressions.js --warn-only
-
-            - name: Build tutorials HTML into dist
-              run: |
-                  rm -rf dist/tutorials
-                  node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist/tutorials/getting_started --site-name "NEPLg2 Tutorial" --description-prefix "NEPLg2 Getting Started tutorial"
-
-            - name: Build doc + stdlib HTML into dist
-              run: |
-                  rm -rf dist/doc
-                  mkdir -p /tmp/nepl-doc-root
-                  cp -r doc/. /tmp/nepl-doc-root/
-                  cp -r stdlib /tmp/nepl-doc-root/stdlib
-                  node nodesrc/cli.js -i /tmp/nepl-doc-root -o html_play=dist/doc --exclude-dir chat --exclude-dir tests --exclude-dir tests_backup --site-name "NEPLg2 ドキュメント" --description-prefix "NEPLg2"
-
-            - name: Build repository metrics into dist
-              run: |
-                  mkdir -p dist/metrics
-                  node nodesrc/run_repo_metrics.js --root . --json dist/metrics/repo_metrics.json --csv dist/metrics/repo_metrics.csv
-                  node nodesrc/run_repo_metrics_history.js --root . --limit 100 --json dist/metrics/repo_metrics_history.json
+            - name: Upload playground site artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playground-site
+                  path: dist
+                  compression-level: 6
 
             - name: Upload bootstrap build artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: bootstrap-build
                   path: |
-                      dist
                       target/debug
                       target/wasm32-unknown-unknown
                       nodesrc/parser.js
                       nodesrc/html_gen.js
                   compression-level: 1
+
+    source-policy:
+        runs-on: ubuntu-latest
+        needs: build
+        timeout-minutes: 15
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Download bootstrap build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: bootstrap-build
+                  path: .
+
+            - name: Source policy regressions
+              run: node nodesrc/run_source_policy_regressions.js --warn-only
+
+    pages-content:
+        runs-on: ubuntu-latest
+        needs: build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.build.result == 'success'
+        timeout-minutes: 25
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  cache: npm
+                  cache-dependency-path: web/package-lock.json
+
+            - name: Install web dependencies
+              run: |
+                  cd web
+                  npm ci
+
+            - name: Compile TypeScript (nodesrc)
+              run: ./web/node_modules/.bin/tsc -p nodesrc/tsconfig.json
+
+            - name: Download playground site artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: playground-site
+                  path: dist
+
+            - name: Verify playground compiler assets
+              run: |
+                  if [ -d dist/dist ] && [ ! -f dist/index.html ]; then
+                    cp -a dist/dist/. dist/
+                    rm -rf dist/dist
+                  fi
+                  test -f dist/index.html
+                  ls dist/nepl-web-*.js >/dev/null
+                  ls dist/nepl-web-*_bg.wasm >/dev/null
+
+            - name: Build tutorials HTML into optional Pages content
+              id: tutorials_content
+              continue-on-error: true
+              run: |
+                  rm -rf dist-content/tutorials
+                  node nodesrc/cli.js -i tutorials/getting_started -o html_play=dist-content/tutorials/getting_started --site-name "NEPLg2 Tutorial" --description-prefix "NEPLg2 Getting Started tutorial"
+
+            - name: Build doc + stdlib HTML into optional Pages content
+              id: docs_content
+              continue-on-error: true
+              run: |
+                  rm -rf dist-content/doc
+                  mkdir -p /tmp/nepl-doc-root
+                  cp -r doc/. /tmp/nepl-doc-root/
+                  cp -r stdlib /tmp/nepl-doc-root/stdlib
+                  node nodesrc/cli.js -i /tmp/nepl-doc-root -o html_play=dist-content/doc --exclude-dir chat --exclude-dir tests --exclude-dir tests_backup --site-name "NEPLg2 ドキュメント" --description-prefix "NEPLg2"
+
+            - name: Build repository metrics into optional Pages content
+              id: metrics_content
+              continue-on-error: true
+              run: |
+                  mkdir -p dist-content/metrics
+                  node nodesrc/run_repo_metrics.js --root . --json dist-content/metrics/repo_metrics.json --csv dist-content/metrics/repo_metrics.csv
+                  node nodesrc/run_repo_metrics_history.js --root . --limit 100 --json dist-content/metrics/repo_metrics_history.json
+
+            - name: Write optional content status
+              if: always()
+              run: |
+                  mkdir -p dist-content
+                  cat > dist-content/content-status.json <<EOF
+                  {
+                    "tutorials": "${{ steps.tutorials_content.outcome }}",
+                    "docs": "${{ steps.docs_content.outcome }}",
+                    "metrics": "${{ steps.metrics_content.outcome }}",
+                    "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  }
+                  EOF
+
+            - name: Guard optional Pages content size
+              if: always()
+              run: |
+                  mkdir -p dist-content
+                  du -ah dist-content | sort -rh | head -n 40 || true
+                  size_bytes="$(du -sb dist-content | awk '{print $1}')"
+                  echo "optional Pages content size: ${size_bytes} bytes"
+                  max_bytes=$((700 * 1024 * 1024))
+                  if [ "${size_bytes}" -gt "${max_bytes}" ]; then
+                    echo "Optional Pages content is too large (${size_bytes} > ${max_bytes}); publishing playground without generated docs/tutorials."
+                    rm -rf dist-content/doc dist-content/tutorials
+                    cat > dist-content/content-status.json <<EOF
+                  {
+                    "tutorials": "omitted_too_large",
+                    "docs": "omitted_too_large",
+                    "metrics": "${{ steps.metrics_content.outcome }}",
+                    "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  }
+                  EOF
+                  fi
+
+            - name: Upload optional Pages content artifact
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: pages-content
+                  path: dist-content
+                  if-no-files-found: ignore
+                  compression-level: 6
 
     compile-test:
         runs-on: ubuntu-latest
@@ -632,11 +745,20 @@ jobs:
         timeout-minutes: 10
 
         steps:
-            - name: Download bootstrap build artifacts
+            - name: Download playground site artifact
               uses: actions/download-artifact@v4
               with:
-                  name: bootstrap-build
-                  path: .
+                  name: playground-site
+                  path: dist
+
+            - name: Verify pending Pages base
+              run: |
+                  if [ -d dist/dist ] && [ ! -f dist/index.html ]; then
+                    cp -a dist/dist/. dist/
+                    rm -rf dist/dist
+                  fi
+                  test -f dist/index.html
+                  test -f dist/tests.html
 
             - name: Mark site as pending
               run: |
@@ -722,6 +844,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - build
+            - pages-content
             - compile-test
             - rust-test
             - nm-compile
@@ -740,11 +863,28 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v4
 
-            - name: Download bootstrap build artifacts
+            - name: Download playground site artifact
               uses: actions/download-artifact@v4
               with:
-                  name: bootstrap-build
-                  path: .
+                  name: playground-site
+                  path: dist
+
+            - name: Download optional Pages content artifact
+              continue-on-error: true
+              uses: actions/download-artifact@v4
+              with:
+                  name: pages-content
+                  path: dist
+
+            - name: Verify final Pages base
+              run: |
+                  if [ -d dist/dist ] && [ ! -f dist/index.html ]; then
+                    cp -a dist/dist/. dist/
+                    rm -rf dist/dist
+                  fi
+                  test -f dist/index.html
+                  test -f dist/tests.html
+                  test -f dist/testinfo.html
 
             - name: Download wasi test artifact
               continue-on-error: true
@@ -838,6 +978,7 @@ jobs:
                     "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
                     "head_sha": "${{ github.sha }}",
                     "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+                    "pages_content": "${{ needs['pages-content'].result }}",
                     "compile_test": "${{ needs['compile-test'].result }}",
                     "rust_test": "${{ needs['rust-test'].result }}",
                     "nm_compile": "${{ needs['nm-compile'].result }}",
@@ -879,10 +1020,8 @@ jobs:
 
     pages-final-deploy:
         runs-on: ubuntu-latest
-        needs:
-            - pages-fast-deploy
-            - pages-final-bundle
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.pages-fast-deploy.result == 'success' && needs.pages-final-bundle.result == 'success'
+        needs: pages-final-bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !cancelled() && needs.pages-final-bundle.result == 'success'
         timeout-minutes: 10
 
         environment:

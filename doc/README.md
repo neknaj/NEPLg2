@@ -28,6 +28,7 @@
 | [neplg2/gui_standard_library_spec.md](./neplg2/gui_standard_library_spec.md) | GUI / TUI を共通 UI substrate として扱う標準ライブラリ仕様 |
 | [neplg2/gui_tui_implementation_plan.md](./neplg2/gui_tui_implementation_plan.md) | `core/gui` / `alloc/gui` / `std/gui` / platform backend と既存 TUI 再設計の実装計画 |
 | [testing.md](./testing.md) | テスト（NEPLg2 現行） |
+| [ci_pages_deploy.md](./ci_pages_deploy.md) | GitHub Pages デプロイ設計 |
 | [../issues/](../issues/README.md) | 新 Issue 管理（旧 review20260425 から移行済み） |
 | [review20260425/](./review20260425/issues.md) | NEPLg2 実装レビュー Issue 台帳（履歴スナップショット） |
 | [debug.md](./debug.md) | デバッグ |

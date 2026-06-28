@@ -1,7 +1,3 @@
-# 2026-06-23 Pages Artifact サイズ対策（CI）
-
-- GitHub Pages に公開する構成を見直し、巨大な raw テスト結果は Pages ではなく別 artifact か短縮 summary に切り分ける
-
 2026-06-04 stdlib / examples Zenn audit
 
 - subagent の `stdlib/core` + `stdlib/alloc/collections` 監査結果を統合し、既存 issue と重複しない root cause を追加する

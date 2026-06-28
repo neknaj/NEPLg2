@@ -11,6 +11,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const https = require('node:https');
+const crypto = require('node:crypto');
 const { candidateDistDirs } = require('./util_paths');
 const { findCompilerDistDir } = require('./compiler_loader');
 const { buildEntriesFromAst } = require('./search');
@@ -517,12 +518,13 @@ async function main() {
     const htmlPlayAssets = outRootHtmlPlay ? prepareHtmlPlayAssets(outRootHtmlPlay) : null;
 
     let count = 0;
+    let inputOrdinal = 0;
 
     for (const input of inputs) {
         const inPath = path.resolve(input);
         if (isFile(inPath)) {
             const rel = path.basename(inPath);
-            count += genOne(inPath, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets, null, { siteName, descriptionPrefix }, null);
+            count += genOne(inPath, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets, null, { siteName, descriptionPrefix }, null, null);
             continue;
         }
         if (!isDir(inPath)) {
@@ -536,10 +538,12 @@ async function main() {
 
         // スコープ全体の検索インデックスを事前ビルドする（ファイル横断検索用）
         const scopeSearchIndex = buildScopeSearchIndex(inPath, files, excludeDirs);
+        const searchIndexFile = writeScopeSearchIndex(outRootHtmlPlay, inPath, inputOrdinal, scopeSearchIndex);
+        inputOrdinal += 1;
 
         for (const f of files) {
             const rel = path.relative(inPath, f);
-            count += genOne(f, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries, { siteName, descriptionPrefix, tocTitle }, scopeSearchIndex);
+            count += genOne(f, rel, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries, { siteName, descriptionPrefix, tocTitle }, scopeSearchIndex, searchIndexFile);
         }
     }
 
@@ -628,6 +632,28 @@ function buildScopeSearchIndex(inputRoot, files, excludeDirs) {
         }
     }
     return allEntries;
+}
+
+function makeSearchIndexFileName(inputRoot, ordinal) {
+    if (ordinal === 0) return 'search-index.json';
+    const base = path.basename(path.resolve(inputRoot))
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'scope';
+    const digest = crypto.createHash('sha256')
+        .update(toPosix(path.relative(process.cwd(), inputRoot)) || toPosix(path.resolve(inputRoot)))
+        .digest('hex')
+        .slice(0, 8);
+    return `search-index-${base}-${digest}.json`;
+}
+
+function writeScopeSearchIndex(outRootHtmlPlay, inputRoot, ordinal, searchIndex) {
+    if (!outRootHtmlPlay) return null;
+    const fileName = makeSearchIndexFileName(inputRoot, ordinal);
+    const outPath = path.join(outRootHtmlPlay, fileName);
+    ensureDir(path.dirname(outPath));
+    fs.writeFileSync(outPath, JSON.stringify(Array.isArray(searchIndex) ? searchIndex : []));
+    return fileName;
 }
 
 function humanizeDocName(outRel) {
@@ -900,7 +926,7 @@ function buildPageMeta(relPath, ast, { siteName, descriptionPrefix }) {
     return { title, description };
 }
 
-function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries, { siteName, descriptionPrefix, tocTitle }, scopeSearchIndex) {
+function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets, tocEntries, { siteName, descriptionPrefix, tocTitle }, scopeSearchIndex, searchIndexFile) {
     const { parseNmdAst } = getParserModule();
     const md = extractMarkdownForHtml(filePath);
     if (!md || md.trim().length === 0) {
@@ -937,6 +963,7 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
         const searchJsPath = `${prefix}${htmlPlayAssets.searchFile}`;
         const playgroundCssPath = `${prefix}${htmlPlayAssets.cssFile}`;
         const moduleJsPath = `${prefix}${htmlPlayAssets.jsFile}`;
+        const searchIndexPath = searchIndexFile ? `${prefix}${searchIndexFile}` : null;
         const htmlPlay = renderHtmlPlayground(ast, {
             title,
             description,
@@ -947,7 +974,8 @@ function genOne(filePath, relPath, outRootHtml, outRootHtmlPlay, htmlPlayAssets,
             playgroundCssPath,
             tocLinks: makePageTocLinks(outRel, tocEntries),
             tocTitle,
-            searchIndex: scopeSearchIndex || [],
+            searchIndex: searchIndexPath ? [] : (scopeSearchIndex || []),
+            searchIndexPath,
             rootPrefix: prefix,
         });
         const outPathPlay = path.join(outRootHtmlPlay, outRel);
