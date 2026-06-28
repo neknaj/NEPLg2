@@ -116,6 +116,8 @@ GuiFontResourceRequest:
 
 Resource path の normalization は platform boundary で一度だけ行う。空 path、absolute path、backslash、empty segment、`.`、`..` は typed error として拒否し、別 path へ推測変換しない。
 
+F5nm 以降、`std/gui/font_resource` の `gui_font_resource_path_validate_result` はこの rejection set を `GuiFontResourcePathErrorKind` として返し、compatibility constructor の `gui_font_resource_path_result` は同じ失敗を `GuiError::InvalidCommand` へ写像する。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。

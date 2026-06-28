@@ -1,3 +1,40 @@
+# 2026-06-29 Agent2 GUI font rendering F5nm std font resource canonical path validation
+
+## 目的
+
+- Web playground で font rendering engine による描画へ進む前に、`GuiFontResourcePath` の public authority を std layer で固定する。
+- Web VFS の canonical path normalizer と std constructor の拒否条件を揃え、`/fonts/...`、backslash、空 segment、`.`、`..` を font identity として受け取らない。
+- 次の `GuiFontResourceRequest -> typed font bytes provider` slice が display name / suffix / VFS internal path / browser font name を authority にしない前提を作る。
+
+## 現状判断
+
+- Web playground はまだ font rendering engine 経由で text/glyph を描画できる状態ではない。
+- HackGen font は Web VFS に mount され、SFNT / glyph mask / render2d / compositor 部品もあるが、NEPL guest から typed request で bytes を取得し、registry / glyph render / compositor presentation へ流す正式経路は未接続である。
+- 今回はその bytes provider の前段として、std 側の resource path validation が空文字だけを拒否していた不一致を修正する。
+
+## 変更内容
+
+- `stdlib/std/gui/font_resource.nepl` に `GuiFontResourcePathErrorKind`、`gui_font_resource_path_validate_result`、validation helper、error kind equality、`GuiError` 写像 helper を追加した。
+- `gui_font_resource_path_result` は detailed validation を通したうえで、invalid path を `GuiError::InvalidCommand` へ写像するようにした。
+- `tests/stdlib/gui_std.n.md` は empty / absolute / backslash / empty segment / dot segment / parent segment を typed reason で検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は std 側の canonical path validation と Web VFS 互換の rejection set を source policy として固定する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5nm checkpoint を記録した。
+
+## plan.md との差異
+
+- plan.md は言語仕様全体の方向性であり、今回は GUI font resource contract の実装であるため plan.md は変更していない。
+- 実装計画の古い F2 記述は、F5nm 以降 std layer が canonical path validation も担うことを追記して整合させた。
+
+## subagent review
+
+- Turing the 2nd の read-only review は、現時点では Web playground formal runnable glyph/text smoke は未実装であり、次の根本境界は `GuiFontResourceRequest -> typed bytes provider` だと確認した。
+- その指摘に沿い、今回の slice は provider 実装へ入る前提として public path authority の std/Web 不一致を解消する範囲に限定した。
+
+## 残り
+
+- 次 slice では `GuiFontResourceRequest` を Web VFS / native / bare provider に渡し、exact canonical path lookup、hash / decode policy validation、`MissingResource` / `InvalidPath` / `HashMismatch` / `PayloadNotBinary` などの typed error を持つ bytes provider を作る。
+- その後に font registry / face evidence、single glyph render bridge、Web compositor presentation smoke へ進む。
+
 # 2026-06-28 Agent2 GUI font rendering F5nl Web Playground readiness boundary
 
 ## 目的

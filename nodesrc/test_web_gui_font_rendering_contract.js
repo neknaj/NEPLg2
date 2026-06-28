@@ -871,13 +871,13 @@ assertMatch(
 );
 assertMatch(
     detailedDesign,
-    /F2 の `GuiFontResourceRequest` constructor は request shape だけを検査する[\s\S]*face_count[\s\S]*F4/,
-    "font detailed design must defer collection face_count validation until parser or registry phase",
+    /F2 の初期 `GuiFontResourceRequest` constructor は request shape だけを検査する[\s\S]*F5nm 以降[\s\S]*GuiFontResourcePath[\s\S]*canonical path validation[\s\S]*face_count[\s\S]*F4/,
+    "font detailed design must require F5nm canonical path validation while deferring collection face_count validation until parser or registry phase",
 );
 assertMatch(
     implementationPlan,
-    /GuiFontResourcePath[\s\S]*GuiResourceHash[\s\S]*F2 は request shape だけを検査する/,
-    "font implementation plan must use typed path/hash and keep F2 validation narrow",
+    /GuiFontResourcePath[\s\S]*GuiResourceHash[\s\S]*F2 の初期実装は request shape だけを検査する[\s\S]*F5nm 以降[\s\S]*canonical path validation/,
+    "font implementation plan must use typed path/hash and route F5nm canonical path validation through std layer",
 );
 assertMatch(
     spec,
@@ -2029,8 +2029,28 @@ assertMatch(
 );
 assertMatch(
     fontResourceImpl,
-    /pub\s+fn\s+gui_font_resource_path_result\s+%fn\s+str\s+Result\s+GuiFontResourcePath\s+GuiError[\s\S]*gt\s+len\s+path\s+0[\s\S]*GuiError::InvalidCommand/,
-    "std/gui/font_resource must reject empty resource paths",
+    /pub\s+enum\s+GuiFontResourcePathErrorKind:[\s\S]*Empty[\s\S]*Absolute[\s\S]*Backslash[\s\S]*EmptySegment[\s\S]*DotSegment[\s\S]*ParentSegment/,
+    "std/gui/font_resource must expose typed canonical resource path rejection reasons",
+);
+assertMatch(
+    fontResourceImpl,
+    /pub\s+fn\s+gui_font_resource_path_validate_result\s+%fn\s+str\s+Result\s+GuiFontResourcePath\s+GuiFontResourcePathErrorKind[\s\S]*eq\s+n\s+0[\s\S]*eq\s+first\s+'\/'[\s\S]*gui_font_resource_path_validate_loop/,
+    "std/gui/font_resource must validate canonical resource paths before constructing typed paths",
+);
+assertMatch(
+    fontResourceImpl,
+    /fn\s+gui_font_resource_path_validate_loop[\s\S]*eq\s+ch\s+'\\\\'[\s\S]*GuiFontResourcePathErrorKind::Backslash[\s\S]*eq\s+ch\s+'\/'[\s\S]*gui_font_resource_path_validate_segment/,
+    "std/gui/font_resource must reject backslashes and validate slash-delimited canonical path segments",
+);
+assertMatch(
+    fontResourceImpl,
+    /fn\s+gui_font_resource_path_validate_segment[\s\S]*GuiFontResourcePathErrorKind::DotSegment[\s\S]*GuiFontResourcePathErrorKind::ParentSegment/,
+    "std/gui/font_resource must reject dot and parent segments in canonical resource paths",
+);
+assertMatch(
+    fontResourceImpl,
+    /pub\s+fn\s+gui_font_resource_path_result\s+%fn\s+str\s+Result\s+GuiFontResourcePath\s+GuiError[\s\S]*gui_font_resource_path_validate_result[\s\S]*gui_font_resource_path_error_kind_to_gui_error[\s\S]*GuiError::InvalidCommand/,
+    "std/gui/font_resource public constructor must map invalid canonical paths to GuiError::InvalidCommand",
 );
 assertMatch(
     fontResourceImpl,

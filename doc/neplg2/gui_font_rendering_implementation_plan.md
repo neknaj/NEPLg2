@@ -5982,6 +5982,29 @@ plan review:
 - source policy が Web font mount と formal font drawing readiness を分けて検査する。
 - focused contract、documentation contract、`trunk build`、playground editor JSON が通る。
 
+## Phase F5nm: std font resource canonical path validation
+
+目的:
+
+- Formal Web font bytes provider へ進む前に、`GuiFontResourcePath` の authority を std layer で固定する。
+- Web VFS の canonical path normalizer と std constructor の拒否条件を揃え、`/fonts/...`、Windows separator、空 segment、`.`、`..` を font identity として受け取らない。
+- `GuiFontResourceRequest` から bytes provider へ進む次 slice で、display name、path suffix、browser-provided name、VFS internal path を authority にしない前提を作る。
+
+変更:
+
+- `stdlib/std/gui/font_resource.nepl` に `GuiFontResourcePathErrorKind` と `gui_font_resource_path_validate_result` を追加する。
+- canonical path は leading slash を持たず、separator は `/` のみとする。
+- 空 path、absolute path、backslash、empty segment、`.`、`..` は typed error kind で拒否する。
+- 既存の `gui_font_resource_path_result` は detailed error を `GuiError::InvalidCommand` へ写像し、public std facade の error contract を保つ。
+- `tests/stdlib/gui_std.n.md` と `nodesrc/test_web_gui_font_rendering_contract.js` で std / Web の path authority contract を固定する。
+
+完了条件:
+
+- std doctest が canonical valid path と invalid path reason を確認する。
+- source policy が `GuiFontResourcePathErrorKind`、canonical path validation loop、`GuiError::InvalidCommand` への写像を検査する。
+- Web VFS の internal `/fonts/...` path を public `GuiFontResourcePath` として受理しない。
+- 次の未実装境界は `GuiFontResourceRequest -> typed font bytes provider` として残す。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
@@ -7964,7 +7987,7 @@ Subagent review:
 - `stdlib/std/gui/font_resource.nepl` を追加する。
 - `GuiFontDecodePolicy`、`GuiFontResourceSource`、`GuiFontResourcePath`、`GuiResourceHash`、`GuiFontResourceRequest` を追加する。
 - `gui_font_resource_request` は typed path、face index、expected hash、decode policy を保持する。
-- F2 は request shape だけを検査する。`face_index` が `Some n` で `n < 0` の場合は `GuiError::InvalidCommand` とする。Collection font の `face_count` が必要な検査は F4 へ送る。
+- F2 の初期実装は request shape だけを検査する。F5nm 以降は `GuiFontResourcePath` の canonical path validation も std layer の責務とする。`face_index` が `Some n` で `n < 0` の場合は `GuiError::InvalidCommand` とする。Collection font の `face_count` が必要な検査は F4 へ送る。
 - `std/gui.nepl` facade から公開する。
 - `tests/stdlib/gui_std.n.md` に doctest を追加する。
 - `nodesrc/test_web_gui_font_rendering_contract.js` を追加し、標準 API に DOM / Canvas / FontFace / CoreText / DirectWrite / fontconfig handle が入らないことを固定する。
