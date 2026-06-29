@@ -219,6 +219,43 @@ F5no は `GuiFontResourceBytes` を `gui_font_resource_bytes_finish` で分解�
 
 F5no は global table / uniqueness、font family / display name authority、browser `FontFace`、Canvas / OS handle、cmap / hmtx / glyf lookup success、glyph mask、layout、render2d、presentation evidence を作らない。次の table phase は `GuiFontRegisteredFace` を消費して一意性や lookup table membership を別の owner として表す。
 
+## Font registered face table boundary
+
+F5np は `GuiFontRegisteredFace` を消費し、resource id / face id の一意な table membership を owner として表す。table は lookup 用の Copy metadata record だけを保持し、実 `GuiFontResourceBytes` owner は `GuiFontRegisteredFaceTableEntry` が保持する `GuiFontRegisteredFace` 側に残す。
+
+```text
+GuiFontRegisteredFaceRecord:
+    resource_id GuiFontResourceId
+    face_id GuiFontFaceId
+    selected_face_index i32
+    face_count i32
+    units_per_em i32
+    glyph_count i32
+    byte_len i32
+    actual_hash GuiResourceHash
+    source GuiFontResourceSource
+    decode_policy GuiFontDecodePolicy
+
+GuiFontRegisteredFaceTable:
+    records Vec GuiFontRegisteredFaceRecord
+
+GuiFontRegisteredFaceTableEntry:
+    face GuiFontRegisteredFace
+    record GuiFontRegisteredFaceRecord
+
+GuiFontRegisteredFaceTableRegistration:
+    table GuiFontRegisteredFaceTable
+    entry GuiFontRegisteredFaceTableEntry
+```
+
+`GuiFontRegisteredFaceTable` は `Vec GuiFontRegisteredFaceRecord` だけを所有する。`GuiFontRegisteredFaceTableEntry` は table に入った record と同じ metadata を持ち、登録済み face owner を保持する。成功時は `GuiFontRegisteredFaceTableRegistration` が table と entry を同時に返し、metadata だけが table に残って face owner が失われる partial registration を防ぐ。
+
+F5np の record projection は caller supplied record を受け取らない。`GuiFontRegisteredFace` から resource id、face id、resource bytes metadata、selected face index、SFNT metadata / metrics を読み、`selected_face_index == gui_sfnt_metadata_face_index`、`0 <= selected_face_index < face_count`、positive `byte_len`、positive `units_per_em`、non-negative glyph count、`SfntOnly` decode policy を再検査する。これは F5no success を盲信して table に入れるのではなく、後続 layout / rasterizer が table lookup を authority として使う前の fail-closed boundary である。
+
+Registration は `GuiFontRegisteredFaceTableRecord` を導出した後、`DuplicateResourceId`、`DuplicateFaceId` を `vec::push` より前に検査する。`vec::push` failure は `TablePushFailed` とし、returned `Vec` から復元した table、rejected face owner、`StdErrorKind` を error に保持する。duplicate failure でも table と rejected face owner を error に保持し、caller は recover / free できる。
+
+F5np は `gui_font_registered_face_finish_resource` や `gui_font_resource_bytes_finish` で bytes owner を分解しない。F5np は font family / display name authority、browser `FontFace`、Canvas / OS handle、cmap / hmtx / glyf lookup success、glyph mask、text shaping、layout、rasterization、render2d、presentation evidence を作らない。次の phase は table membership を authority として text shaping / layout または glyph lookup boundary へ進む。
+
 ## SFNT name table
 
 F4b は `alloc/gui/font/sfnt/name.nepl` が所有する。`alloc/gui/font/sfnt.nepl` は facade とし、numeric metadata parser は `alloc/gui/font/sfnt/metadata.nepl` に置く。`gui_sfnt_parse_metadata` は `name` table decode を行わず、`gui_sfnt_parse_names` は別 API として `GuiSfntNames` を返す。

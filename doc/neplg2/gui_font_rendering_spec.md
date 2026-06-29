@@ -129,6 +129,10 @@ F5no 以降、`alloc/gui/font/registered_face` の `GuiFontRegisteredFace` は `
 
 `GuiFontRegisteredFace` は `SfntOnly` decode policy だけを受け入れる。`SfntAndWoff` / `AllSupportedContainers` は WOFF decode 境界が来るまで `UnsupportedDecodePolicy` として parse 前に拒否し、resource owner を error に保持する。SFNT parse failure は `GuiSfntParseError` を保持し、fallback face selection や browser / OS font API へ進まない。
 
+F5np 以降、`alloc/gui/font/registered_face_table` の `GuiFontRegisteredFaceTable` は `GuiFontRegisteredFace` を消費して、resource id / face id の table membership を表す。table は `GuiFontRegisteredFaceRecord` という Copy metadata record だけを保持し、`GuiFontRegisteredFaceTableEntry` が実 `GuiFontRegisteredFace` owner を保持する。成功時は table と entry owner を同時に返すため、metadata record だけが残って bytes owner を失う partial registration を作らない。
+
+F5np の table registration は `DuplicateResourceId` と `DuplicateFaceId` を `vec::push` より前に拒否する。push failure は `TablePushFailed` として table と rejected face owner を回収できる。record projection は `GuiFontRegisteredFace` から resource metadata と SFNT metadata / metrics を再導出し、selected face index、face count、units per em、glyph count、byte length、decode policy を fail-closed に検査する。これは font family selection、text shaping、layout / rasterization / presentation の完成ではない。browser `FontFace`、Canvas `fillText`、OS font handle、display name authority、path suffix fallback は table membership の evidence ではない。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。
