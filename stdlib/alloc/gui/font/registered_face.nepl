@@ -1,0 +1,377 @@
+//: # alloc/gui/font/registered_face
+//: font resource bytes を formal font face owner へ[接続/せつぞく]する境界
+//:
+//: ### [目的/もくてき]
+//: - provider から[取得/しゅとく]した `GuiFontResourceBytes` を SFNT metadata parser へ[渡/わた]し、font face id と resource id を[結/むす]びつけた owner として[保持/ほじ]します。
+//: - platform font handle、browser `FontFace`、global registry table は[持/も]たず、後続の layout / rasterizer が[参照/さんしょう]する parser evidence だけを[公開/こうかい]します。
+//:
+//: ### [契約/けいやく]
+//: - `GuiFontResourceBytes` の request に[含/ふく]まれる face index を SFNT parser の authority とします。
+//: - `SfntOnly` 以外の decode policy は WOFF decode 境界が実装されるまで parse 前に fail-closed します。
+//: - parse failure でも `GuiFontRegisteredFaceError` が resource owner を[保持/ほじ]し、呼び出し側は recover / free できます。
+//: - この module は id と metadata の結合を[行/おこな]う境界であり、id の一意性管理や font family 選択は後続の table phase で[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/registered_face" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/sfnt" as *
+#import "alloc/io" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "alloc/gui/font/resource" as *
+
+//: GuiFontRegisteredFaceProof: constructor を通った registered face owner の module-private proof
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceProof:
+    resource_id %GuiFontResourceId
+    face_id %GuiFontFaceId
+    selected_face_index %i32
+
+//: gui_font_registered_face_proof: registered face owner 用の private proof を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_proof %fn GuiFontResourceId fn GuiFontFaceId fn i32 GuiFontRegisteredFaceProof \resource_id\face_id\selected_face_index:
+    GuiFontRegisteredFaceProof resource_id face_id selected_face_index
+
+//: GuiFontRegisteredFaceRequest: resource id と face id の登録要求
+//:
+//: id は checked constructor を通った opaque id です。global table の一意性検査はこの value では[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceRequest:
+    resource_id %GuiFontResourceId
+    face_id %GuiFontFaceId
+
+impl Clone for GuiFontRegisteredFaceRequest:
+    fn clone %fn &GuiFontRegisteredFaceRequest GuiFontRegisteredFaceRequest \request:
+        *request
+
+impl Copy for GuiFontRegisteredFaceRequest:
+    fn copy_mark %fn GuiFontRegisteredFaceRequest GuiFontRegisteredFaceRequest \request:
+        request
+
+//: GuiFontRegisteredFaceErrorKind: registered face boundary の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: parser 固有の `GuiSfntParseError` は error payload に[残/のこ]し、ここでは font owner 境界としての大分類を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceErrorKind:
+    UnsupportedDecodePolicy
+    MalformedFontResource
+    UnsupportedFontContainer
+    MissingRequiredTable
+    InvalidFaceIndex
+    FaceIndexRequired
+    UnsupportedFontFeature
+    MissingFontData
+
+impl Clone for GuiFontRegisteredFaceErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceErrorKind GuiFontRegisteredFaceErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceErrorKind GuiFontRegisteredFaceErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFace: parse 済み font face owner
+//:
+//: `GuiFontResourceBytes` を[所有/しょゆう]し、private proof で public constructor 偽造を[防/ふせ]ぐため、この型は Copy / Clone にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFace:
+    proof %GuiFontRegisteredFaceProof
+    resource_id %GuiFontResourceId
+    face_id %GuiFontFaceId
+    selected_face_index %i32
+    resource %GuiFontResourceBytes
+    metadata %GuiSfntMetadata
+
+//: GuiFontRegisteredFaceError: failure 時に resource owner を[返/かえ]す error
+//:
+//: resource owner を[保持/ほじ]するため、この型は Copy / Clone にしません。parse 前の失敗では `parse_error` は `None` です。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceError:
+    kind %GuiFontRegisteredFaceErrorKind
+    resource %GuiFontResourceBytes
+    parse_error %Option GuiSfntParseError
+
+//: gui_font_registered_face_request: checked id から登録要求を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_request %fn GuiFontResourceId fn GuiFontFaceId GuiFontRegisteredFaceRequest \resource_id\face_id:
+    GuiFontRegisteredFaceRequest resource_id face_id
+
+//: gui_font_registered_face_request_from_raw: raw id を[検査/けんさ]して登録要求を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_request_from_raw %fn i32 fn i32 Result GuiFontRegisteredFaceRequest GuiError \resource_id_raw\face_id_raw:
+    match gui_font_resource_id_result resource_id_raw:
+        Result::Err error:
+            Result::Err error
+        Result::Ok resource_id:
+            match gui_font_face_id_result face_id_raw:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok face_id:
+                    Result::Ok gui_font_registered_face_request resource_id face_id
+
+//: gui_font_registered_face_request_resource_id: 登録要求の resource id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_request_resource_id %fn &GuiFontRegisteredFaceRequest GuiFontResourceId \request:
+    *field::get_ref request "resource_id"
+
+//: gui_font_registered_face_request_face_id: 登録要求の face id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_request_face_id %fn &GuiFontRegisteredFaceRequest GuiFontFaceId \request:
+    *field::get_ref request "face_id"
+
+//: gui_font_registered_face_error_kind_eq: registered face error kind を[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_kind_eq %fn GuiFontRegisteredFaceErrorKind fn GuiFontRegisteredFaceErrorKind bool \a\b:
+    match a:
+        GuiFontRegisteredFaceErrorKind::UnsupportedDecodePolicy:
+            match b:
+                GuiFontRegisteredFaceErrorKind::UnsupportedDecodePolicy:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::MalformedFontResource:
+            match b:
+                GuiFontRegisteredFaceErrorKind::MalformedFontResource:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::UnsupportedFontContainer:
+            match b:
+                GuiFontRegisteredFaceErrorKind::UnsupportedFontContainer:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::MissingRequiredTable:
+            match b:
+                GuiFontRegisteredFaceErrorKind::MissingRequiredTable:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::InvalidFaceIndex:
+            match b:
+                GuiFontRegisteredFaceErrorKind::InvalidFaceIndex:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::FaceIndexRequired:
+            match b:
+                GuiFontRegisteredFaceErrorKind::FaceIndexRequired:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature:
+            match b:
+                GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceErrorKind::MissingFontData:
+            match b:
+                GuiFontRegisteredFaceErrorKind::MissingFontData:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_error_kind_to_gui_error: registered face error を core GUI error へ[写/うつ]す
+//:
+//: 詳細は registered face error / parse error に[残/のこ]し、互換 API では `GuiError` へ[畳/たた]みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_kind_to_gui_error %fn GuiFontRegisteredFaceErrorKind GuiError \kind:
+    match kind:
+        GuiFontRegisteredFaceErrorKind::UnsupportedDecodePolicy:
+            GuiError::Unsupported
+        GuiFontRegisteredFaceErrorKind::MalformedFontResource:
+            GuiError::InvalidCommand
+        GuiFontRegisteredFaceErrorKind::UnsupportedFontContainer:
+            GuiError::Unsupported
+        GuiFontRegisteredFaceErrorKind::MissingRequiredTable:
+            GuiError::InvalidCommand
+        GuiFontRegisteredFaceErrorKind::InvalidFaceIndex:
+            GuiError::InvalidCommand
+        GuiFontRegisteredFaceErrorKind::FaceIndexRequired:
+            GuiError::InvalidCommand
+        GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature:
+            GuiError::Unsupported
+        GuiFontRegisteredFaceErrorKind::MissingFontData:
+            GuiError::InvalidCommand
+
+//: gui_font_registered_face_decode_policy_supported: F5no で parse できる decode policy か[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_decode_policy_supported %fn GuiFontDecodePolicy bool \policy:
+    match policy:
+        GuiFontDecodePolicy::SfntOnly:
+            true
+        GuiFontDecodePolicy::SfntAndWoff:
+            false
+        GuiFontDecodePolicy::AllSupportedContainers:
+            false
+
+//: gui_font_registered_face_error_kind_from_sfnt_parse: SFNT parse error を registered face error へ[分類/ぶんるい]する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_error_kind_from_sfnt_parse %fn &GuiSfntParseError GuiFontRegisteredFaceErrorKind \parse_error:
+    match gui_sfnt_parse_error_kind parse_error:
+        GuiSfntParseErrorKind::UnexpectedEof:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::UnsupportedContainer:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontContainer
+        GuiSfntParseErrorKind::InvalidTableDirectory:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::InvalidTableOffset:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::MissingTable:
+            GuiFontRegisteredFaceErrorKind::MissingRequiredTable
+        GuiSfntParseErrorKind::InvalidFaceIndex:
+            GuiFontRegisteredFaceErrorKind::InvalidFaceIndex
+        GuiSfntParseErrorKind::FaceIndexRequired:
+            GuiFontRegisteredFaceErrorKind::FaceIndexRequired
+        GuiSfntParseErrorKind::UnsupportedNameTableFormat:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+        GuiSfntParseErrorKind::MalformedNameRecord:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::UnsupportedNameEncoding:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+        GuiSfntParseErrorKind::UnsupportedNameCharacter:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+        GuiSfntParseErrorKind::UnsupportedCmapEncoding:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+        GuiSfntParseErrorKind::UnsupportedCmapTableFormat:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+        GuiSfntParseErrorKind::MalformedCmapRecord:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::MissingGlyphMapping:
+            GuiFontRegisteredFaceErrorKind::MissingFontData
+        GuiSfntParseErrorKind::MalformedHmtxRecord:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::MissingGlyphMetric:
+            GuiFontRegisteredFaceErrorKind::MissingFontData
+        GuiSfntParseErrorKind::UnsupportedLocaFormat:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+        GuiSfntParseErrorKind::MalformedGlyfRecord:
+            GuiFontRegisteredFaceErrorKind::MalformedFontResource
+        GuiSfntParseErrorKind::MissingGlyphOutline:
+            GuiFontRegisteredFaceErrorKind::MissingFontData
+        GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+            GuiFontRegisteredFaceErrorKind::UnsupportedFontFeature
+
+//: gui_font_registered_face_resource_id: registered face owner の resource id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_resource_id %fn &GuiFontRegisteredFace GuiFontResourceId \face:
+    *field::get_ref face "resource_id"
+
+//: gui_font_registered_face_face_id: registered face owner の face id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_face_id %fn &GuiFontRegisteredFace GuiFontFaceId \face:
+    *field::get_ref face "face_id"
+
+//: gui_font_registered_face_selected_face_index: registered face owner の selected face index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_selected_face_index %fn &GuiFontRegisteredFace i32 \face:
+    *field::get_ref face "selected_face_index"
+
+//: gui_font_registered_face_resource_ref: registered face owner が[保持/ほじ]する resource bytes を[借/か]りる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_resource_ref %fn &GuiFontRegisteredFace &GuiFontResourceBytes \face:
+    field::get_ref face "resource"
+
+//: gui_font_registered_face_metadata: registered face owner の SFNT metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_metadata %fn &GuiFontRegisteredFace GuiSfntMetadata \face:
+    *field::get_ref face "metadata"
+
+//: gui_font_registered_face_finish_resource: registered face owner から resource bytes owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_finish_resource %fn GuiFontRegisteredFace GuiFontResourceBytes \face:
+    field::get face "resource"
+
+//: gui_font_registered_face_free: registered face owner が[保持/ほじ]する bytes を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_free %fn GuiFontRegisteredFace unit \face:
+    gui_font_resource_bytes_free gui_font_registered_face_finish_resource face
+
+//: gui_font_registered_face_error_kind: registered face error の kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_kind %fn &GuiFontRegisteredFaceError GuiFontRegisteredFaceErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_error_parse_error: registered face error の optional SFNT parse error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_parse_error %fn &GuiFontRegisteredFaceError Option GuiSfntParseError \error:
+    *field::get_ref error "parse_error"
+
+//: gui_font_registered_face_error_resource_ref: registered face error が[保持/ほじ]する resource bytes を[借/か]りる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_resource_ref %fn &GuiFontRegisteredFaceError &GuiFontResourceBytes \error:
+    field::get_ref error "resource"
+
+//: gui_font_registered_face_error_finish_resource: registered face error から resource bytes owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_finish_resource %fn GuiFontRegisteredFaceError GuiFontResourceBytes \error:
+    field::get error "resource"
+
+//: gui_font_registered_face_error_free: registered face error が[保持/ほじ]する bytes を[解放/かいほう]する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_error_free %fn GuiFontRegisteredFaceError unit \error:
+    gui_font_resource_bytes_free gui_font_registered_face_error_finish_resource error
+
+//: gui_font_registered_face_register_bytes: resource bytes を SFNT metadata と face id に[結/むす]ぶ
+//:
+//: [契約/けいやく]:
+//: - decode policy は `SfntOnly` だけを受け入れます。
+//: - face selection は `GuiFontResourceBytes` の request が[持/も]つ `face_index` を使います。
+//: - 成功時は resource bytes owner、selected face index、metadata を同じ owner に[束/たば]ねます。
+//: - 失敗時は parse error と resource bytes owner を error value に[残/のこ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_register_bytes %fn GuiFontRegisteredFaceRequest fn GuiFontResourceBytes Result GuiFontRegisteredFace GuiFontRegisteredFaceError \registered_request\resource:
+    let decode_policy %GuiFontDecodePolicy gui_font_resource_bytes_decode_policy &resource
+    if:
+        gui_font_registered_face_decode_policy_supported decode_policy
+        then:
+            let request %GuiFontResourceRequest gui_font_resource_bytes_request &resource
+            let face_index %Option i32 gui_font_resource_request_face_index &request
+            let bytes %&ByteBuf gui_font_resource_bytes_ref &resource
+            match gui_sfnt_parse_metadata bytes face_index:
+                Result::Err parse_error:
+                    let kind %GuiFontRegisteredFaceErrorKind gui_font_registered_face_error_kind_from_sfnt_parse &parse_error
+                    Result::Err GuiFontRegisteredFaceError kind resource some parse_error
+                Result::Ok metadata:
+                    let resource_id %GuiFontResourceId gui_font_registered_face_request_resource_id &registered_request
+                    let face_id %GuiFontFaceId gui_font_registered_face_request_face_id &registered_request
+                    let selected_face_index %i32 gui_sfnt_metadata_face_index &metadata
+                    let proof %GuiFontRegisteredFaceProof gui_font_registered_face_proof resource_id face_id selected_face_index
+                    Result::Ok GuiFontRegisteredFace proof resource_id face_id selected_face_index resource metadata
+        else:
+            Result::Err GuiFontRegisteredFaceError GuiFontRegisteredFaceErrorKind::UnsupportedDecodePolicy resource none

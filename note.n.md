@@ -82665,3 +82665,31 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_font_resource_provider_f5nn.json`
 - checked JSON: `tmp/playground_editor_font_resource_provider_f5nn.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+
+## 2026-06-29 Web font registered face owner boundary checkpoint
+
+- 2026-06-29 に Zenn の開発方針を再確認した。今回の slice では、F5nn の Web font resource bytes provider を rendering 完了 evidence と誤認せず、`GuiFontResourceBytes` を SFNT metadata parser と checked face id へ接続する F5no registered face owner boundary を追加した。plan.md は変更していない。
+- `stdlib/alloc/gui/font/resource.nepl` を追加し、F5nn で `std/gui/font_resource` に置いていた target-independent な font resource data / bytes owner contract を alloc layer へ移した。`std/gui/font_resource.nepl` は既存 import path の互換 facade として `alloc/gui/font/resource` を再公開する。これにより `alloc/gui/font/registered_face` が std layer を import せずに `GuiFontResourceBytes` を消費できるようにした。
+- `stdlib/alloc/gui/font/registered_face.nepl` を追加した。`GuiFontRegisteredFace` は private proof、`GuiFontResourceId`、`GuiFontFaceId`、metadata 由来 selected face index、`GuiFontResourceBytes` owner、`GuiSfntMetadata` を保持し、Copy / Clone は実装しない。metadata + ids だけで public caller が owner を偽造できない形にした。
+- `gui_font_registered_face_register_bytes` は decode policy を先に読み、`SfntOnly` 以外を `UnsupportedDecodePolicy` として parse 前に拒否する。`SfntOnly` の場合だけ request face index と bytes borrow を読み、`gui_sfnt_parse_metadata` を 1 回だけ呼び、成功時に private proof 付き owner を返す。
+- `GuiFontRegisteredFaceError` は owner-bearing error とし、parse failure では `Some GuiSfntParseError` と resource owner を保持し、unsupported decode policy では `parse_error None` と resource owner を保持する。error / success の free helper は bytes owner を閉じる。
+- `stdlib/alloc/gui/font.nepl` facade、`tests/stdlib/gui_font_registered_face.n.md`、`nodesrc/test_web_gui_font_rendering_contract.js`、font rendering specs、standard library spec、todo を更新した。F5no は global registry table、font family / display name authority、browser `FontFace`、Canvas / OS handle、glyph lookup success、glyph mask、layout、render2d、presentation へは進まない。
+- subagent review は、当初案の `std/gui/font_registry` module boundary と proof 不足を blocker / required として指摘したため、実装を `alloc/gui/font/registered_face` へ移し、private proof、owner-bearing unsupported decode policy error、source policy の no table / no platform / no render checksを追加して対応した。
+
+### 検証
+
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp/gui_font_registered_face_f5no.json -j 1`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/gui_font_registered_face_f5no.json`。1 passed / 0 failed。
+- pass: `node nodesrc/tests.js -i stdlib/std/gui/font_resource.nepl --no-tree -o tmp/std_gui_font_resource_facade_f5no.json -j 1`。1/1。
+- pass: `node nodesrc/analyze_tests_json.js tmp/std_gui_font_resource_facade_f5no.json`。1 passed / 0 failed。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/resource.nepl --no-tree -o tmp/alloc_gui_font_resource_f5no.json -j 1`。47/47。
+- pass: `node nodesrc/analyze_tests_json.js tmp/alloc_gui_font_resource_f5no.json`。47 passed / 0 failed。
+- timeout: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp/gui_std_f5no.json -j 1` は 360 秒で外側 timeout。F5no の直接変更範囲は上記の registered face doctest、std facade doctest、alloc resource doctest で検証した。
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js`
+- pass with LF/CRLF warnings only: `git diff --check`
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_font_registered_face_f5no.json`
+- checked JSON: `tmp/playground_editor_font_registered_face_f5no.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。

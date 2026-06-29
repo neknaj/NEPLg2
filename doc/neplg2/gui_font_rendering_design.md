@@ -212,6 +212,7 @@ stdlib/
                 vhea.nepl
                 vmtx.nepl
                 vorg.nepl
+                registered_face.nepl
                 font_face.nepl
                 glyph_outline.nepl
                 glyph_rasterizer.nepl
@@ -230,7 +231,6 @@ stdlib/
     std/
         gui/
             font_resource.nepl
-            font_registry.nepl
             font_cache.nepl
 
     platforms/
@@ -245,7 +245,7 @@ stdlib/
                 font_test_resource.nepl
 ```
 
-`core/gui/font` は id、metrics、writing mode、typed error の value contract だけを持つ。`alloc/gui/font` は TTF/SFNT parsing と rasterization を持つ。`std/gui/font_resource` は resource loading effect を持つ。Platform module は bytes の取得方法だけを実装する。
+`core/gui/font` は id、metrics、writing mode、typed error の value contract だけを持つ。`alloc/gui/font` は resource data contract、TTF/SFNT parsing、registered face owner、rasterization を持つ。`std/gui/font_resource` は std import path の facade と resource loading effect の入口を持つ。Platform module は bytes の取得方法だけを実装する。
 
 ## Font file support
 
