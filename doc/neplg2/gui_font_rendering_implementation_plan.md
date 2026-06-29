@@ -6058,6 +6058,46 @@ plan review:
 - implementation review で module boundary、owner evidence、error recovery、未接続範囲が確認済みである。
 - focused doctest、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 
+## Phase F5np: alloc font registered face table boundary
+
+目的:
+
+- F5no の `GuiFontRegisteredFace` を消費し、resource id / face id の一意な table membership を owner として表す。
+- table は lookup 用の Copy metadata record だけを保持し、実 `GuiFontResourceBytes` owner は registered face entry owner 側に残す。
+- duplicate、record invariant failure、Vec push failure は owner-bearing error とし、table と rejected face owner を回収できるようにする。
+- F5np は text shaping / layout、cmap / hmtx / glyf lookup success、glyph mask、rasterization、render2d、platform API、Web presentation へ進まない。
+
+変更:
+
+- `stdlib/alloc/gui/font/registered_face_table.nepl` を追加する。
+- `GuiFontRegisteredFaceRecord`、`GuiFontRegisteredFaceTable`、`GuiFontRegisteredFaceTableEntry`、`GuiFontRegisteredFaceTableRegistration`、`GuiFontRegisteredFaceTableRegisterErrorKind`、`GuiFontRegisteredFaceTableRegisterError` を追加する。
+- `GuiFontRegisteredFaceRecord` は `GuiFontResourceId`、`GuiFontFaceId`、selected face index、face count、units per em、glyph count、byte length、actual hash、source、decode policy を持つ Copy metadata とする。
+- `GuiFontRegisteredFaceTable` は `Vec GuiFontRegisteredFaceRecord` だけを持つ owner とし、Copy / Clone にしない。
+- `GuiFontRegisteredFaceTableEntry` は `GuiFontRegisteredFace` と同じ record を持つ owner とし、Copy / Clone にしない。
+- `gui_font_registered_face_table_record_from_face` は caller supplied record を受け取らず、registered face owner から resource id、face id、resource metadata、SFNT metadata / metrics を再導出する。`SfntOnly`、positive byte length、selected face index と metadata face index の一致、face count / selected index range、positive units per em、non-negative glyph count を検査する。
+- `gui_font_registered_face_table_register` は record 導出後、`DuplicateResourceId`、`DuplicateFaceId` を `vec::push` より前に検査し、`vec::push` は 1 回だけ呼ぶ。
+- push failure は `vec::vec_push_error_kind` と `vec::vec_push_error_vec` で returned table を復元し、`TablePushFailed` と rejected face owner を error に保持する。
+- `stdlib/alloc/gui/font.nepl` facade から registered face table boundary を再公開する。
+- `tests/stdlib/gui_font_registered_face.n.md` と `nodesrc/test_web_gui_font_rendering_contract.js` で success lookup、duplicate owner recovery、source policy、no platform / no render / no `gui_font_registered_face_finish_resource` / no `gui_font_resource_bytes_finish` を固定する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest が registered face table success、lookup、duplicate recovery を確認する。
+- source policy が Copy record、non-Copy owner、record projection の再検証、duplicate-before-push、push owner recovery、`vec::push` 1 回、`gui_font_registered_face_finish_resource` 非使用、`gui_font_resource_bytes_finish` 非使用、layout / raster / render2d / platform / presentation 禁止を検査する。
+- implementation review で table membership と owner lifetime が確認済みである。
+- focused doctest、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5np.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_table.nepl --no-tree -o tmp_gui_font_registered_face_table_f5np.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face.nepl --no-tree -o tmp_gui_font_registered_face_module_f5np.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

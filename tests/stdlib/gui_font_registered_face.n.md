@@ -11,7 +11,7 @@
 - WOFF decode 境界が来るまでは `SfntOnly` 以外の decode policy を parse 前に拒否します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=18 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=21 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -313,12 +313,165 @@ fn append_unsupported_decode_case %impure fn TestReport TestReport \report0:
                     let report2 %TestReport test_report_push report1 assert "unsupported decode no parse" parse_absent
                     test_report_push report2 assert_eq_i32 "unsupported decode owner len" 96 owner_len
 
+fn registered_face_table_register_error_kind_is %fn &GuiFontRegisteredFaceTableRegisterError fn GuiFontRegisteredFaceTableRegisterErrorKind bool \error\expected:
+    gui_font_registered_face_table_register_error_kind_eq gui_font_registered_face_table_register_error_kind error expected
+
+fn registered_face_table_decode_policy_is_sfnt_only %fn GuiFontDecodePolicy bool \policy:
+    match policy:
+        GuiFontDecodePolicy::SfntOnly:
+            true
+        _:
+            false
+
+fn build_registered_face_for_table %impure fn i32 impure fn i32 Result GuiFontRegisteredFace str \resource_raw\face_raw:
+    match build_valid_sfnt:
+        Result::Err message:
+            Result::Err message
+        Result::Ok bytes:
+            let resource %GuiFontResourceBytes registered_face_resource_from_bytes bytes none GuiFontDecodePolicy::SfntOnly
+            let registered_request %GuiFontRegisteredFaceRequest unwrap_ok gui_font_registered_face_request_from_raw resource_raw face_raw
+            match gui_font_registered_face_register_bytes registered_request resource:
+                Result::Ok face:
+                    Result::Ok face
+                Result::Err error:
+                    gui_font_registered_face_error_free error
+                    Result::Err "register"
+
+fn registered_face_table_success_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record &entry
+    let resource_id %GuiFontResourceId gui_font_registered_face_record_resource_id &record
+    let face_id %GuiFontFaceId gui_font_registered_face_record_face_id &record
+    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref &entry
+    let owner_resource %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
+    let len_ok %bool eq 1 gui_font_registered_face_table_len &table
+    let record_ok %bool and eq 13 gui_font_registered_face_record_resource_raw &record eq 17 gui_font_registered_face_record_face_raw &record
+    let metadata_ok %bool and eq 0 gui_font_registered_face_record_selected_face_index &record and eq 1 gui_font_registered_face_record_face_count &record and eq 2048 gui_font_registered_face_record_units_per_em &record eq 321 gui_font_registered_face_record_glyph_count &record
+    let resource_ok %bool and eq 96 gui_font_registered_face_record_byte_len &record and eq 96 gui_font_resource_bytes_len owner_resource registered_face_table_decode_policy_is_sfnt_only gui_font_registered_face_record_decode_policy &record
+    let lookup_resource_ok %bool match gui_font_registered_face_table_lookup_resource_id &table resource_id:
+        Option::Some lookup:
+            eq 17 gui_font_registered_face_record_face_raw &lookup
+        Option::None:
+            false
+    let lookup_face_ok %bool match gui_font_registered_face_table_lookup_face_id &table face_id:
+        Option::Some lookup:
+            eq 13 gui_font_registered_face_record_resource_raw &lookup
+        Option::None:
+            false
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and len_ok and record_ok and metadata_ok and resource_ok and lookup_resource_ok lookup_face_ok
+
+fn registered_face_table_success_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 2:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_table 13 17:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_table_success_callback
+
+fn registered_face_table_duplicate_rejected_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFace bool \table\face:
+    let face_resource %&GuiFontResourceBytes gui_font_registered_face_resource_ref &face
+    let recovered_ok %bool and eq 1 gui_font_registered_face_table_len &table eq 96 gui_font_resource_bytes_len face_resource
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_free face
+    recovered_ok
+
+fn registered_face_table_duplicate_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let first_record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record &entry
+    let resource_raw %i32 gui_font_registered_face_record_resource_raw &first_record
+    match build_registered_face_for_table resource_raw 43:
+        Result::Err _message:
+            gui_font_registered_face_table_free table
+            gui_font_registered_face_table_entry_free entry
+            false
+        Result::Ok duplicate_face:
+            match gui_font_registered_face_table_register table duplicate_face:
+                Result::Ok registration:
+                    gui_font_registered_face_table_registration_free registration
+                    gui_font_registered_face_table_entry_free entry
+                    false
+                Result::Err error:
+                    let kind_ok %bool registered_face_table_register_error_kind_is &error GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateResourceId
+                    let storage_ok %bool is_none gui_font_registered_face_table_register_error_storage_error &error
+                    let rejected %GuiFontRegisteredFaceTableRegisterRejected gui_font_registered_face_table_register_error_rejected error
+                    let rejected_ok %bool gui_font_registered_face_table_register_rejected_with rejected @registered_face_table_duplicate_rejected_callback
+                    gui_font_registered_face_table_entry_free entry
+                    and kind_ok and storage_ok rejected_ok
+
+fn registered_face_table_duplicate_recovery_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 2:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_table 31 41:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_table_duplicate_callback
+
+fn registered_face_table_duplicate_face_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let first_record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record &entry
+    let face_raw %i32 gui_font_registered_face_record_face_raw &first_record
+    match build_registered_face_for_table 53 face_raw:
+        Result::Err _message:
+            gui_font_registered_face_table_free table
+            gui_font_registered_face_table_entry_free entry
+            false
+        Result::Ok duplicate_face:
+            match gui_font_registered_face_table_register table duplicate_face:
+                Result::Ok registration:
+                    gui_font_registered_face_table_registration_free registration
+                    gui_font_registered_face_table_entry_free entry
+                    false
+                Result::Err error:
+                    let kind_ok %bool registered_face_table_register_error_kind_is &error GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateFaceId
+                    let storage_ok %bool is_none gui_font_registered_face_table_register_error_storage_error &error
+                    let rejected %GuiFontRegisteredFaceTableRegisterRejected gui_font_registered_face_table_register_error_rejected error
+                    let rejected_ok %bool gui_font_registered_face_table_register_rejected_with rejected @registered_face_table_duplicate_rejected_callback
+                    gui_font_registered_face_table_entry_free entry
+                    and kind_ok and storage_ok rejected_ok
+
+fn registered_face_table_duplicate_face_recovery_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 2:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_table 47 59:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_table_duplicate_face_callback
+
 fn main %impure fn void i32 \void:
     let report0 %TestReport parse_valid_registered_face
     let report1 %TestReport append_invalid_face_registered_case report0
     let report2 %TestReport append_malformed_registered_case report1
     let report3 %TestReport append_unsupported_decode_case report2
     let report4 %TestReport test_report_push report3 assert "invalid raw face id rejected" invalid_raw_face_id_rejected
-    let shown test_report_print_stdout report4
+    let report5 %TestReport test_report_push report4 assert "registered face table success" registered_face_table_success_ok
+    let report6 %TestReport test_report_push report5 assert "registered face table duplicate recovery" registered_face_table_duplicate_recovery_ok
+    let report7 %TestReport test_report_push report6 assert "registered face table duplicate face recovery" registered_face_table_duplicate_face_recovery_ok
+    let shown test_report_print_stdout report7
     test_report_exit_code shown
 ```

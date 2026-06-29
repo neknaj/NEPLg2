@@ -1,3 +1,46 @@
+# 2026-06-29 Agent2 GUI font rendering F5np registered face table boundary
+
+## 目的
+
+- Web Playground で font rendering engine による text drawing が可能になったかを再確認し、現状ではまだ formal text presentation が未接続であることを前提に、次の根になる registered face table membership を進める。
+- F5no の `GuiFontRegisteredFace` owner を消費し、resource id / face id の一意な table membership を `GuiFontRegisteredFaceTable` と `GuiFontRegisteredFaceTableEntry` の owner pair として表す。
+
+## 実装
+
+- `stdlib/alloc/gui/font/registered_face_table.nepl` を追加した。
+- `GuiFontRegisteredFaceRecord` は Copy metadata とし、resource id、face id、selected face index、face count、units per em、glyph count、byte length、actual hash、source、decode policy を保持する。
+- `GuiFontRegisteredFaceTable` は `Vec GuiFontRegisteredFaceRecord` だけを所有し、`GuiFontRegisteredFaceTableEntry` が実 `GuiFontRegisteredFace` owner と record を保持する。
+- `gui_font_registered_face_table_record_from_face` は caller supplied record を受け取らず、registered face owner から resource metadata と SFNT metadata / metrics を再導出して、selected face index、face count、units per em、glyph count、byte length、decode policy を fail-closed に検査する。
+- `gui_font_registered_face_table_register` は `DuplicateResourceId` / `DuplicateFaceId` を `vec::push` 前に拒否し、push failure では returned `Vec` から table を復元して rejected face owner と storage error を error に保持する。
+- `stdlib/alloc/gui/font.nepl` facade から registered face table boundary を再公開した。
+- `tests/stdlib/gui_font_registered_face.n.md` に table success / lookup / duplicate recovery を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js`、`doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` を F5np に合わせて更新した。
+- `todo.md` は未来作業だけに整理し、registered face table 後の native / bare / headless provider、text shaping / layout、glyph rasterization、render2d drain、Web compositor presentation を残した。
+
+## subagent review
+
+- Noether the 2nd の計画レビューは F5np を F5no 後続として妥当と判断した。Copy metadata record だけを table に保持し、bytes owner は entry 側に残すこと、duplicate / push failure で owner-bearing recovery を保つこと、F5np で layout / raster / platform / presentation へ進まないことを確認した。
+- Epicurus the 2nd の実装レビューは blocker なし。`GuiFontRegisteredFaceTable` が Copy record だけを保持し、bytes owner は entry 側に残ること、duplicate / push failure の owner recovery、layout / raster / render2d / platform / presentation へ踏み込んでいないことを確認した。
+- 残リスクとして `DuplicateFaceId` の実行 coverage が薄いと指摘されたため、focused doctest に duplicate face id recovery を追加した。`TablePushFailed` は source policy で `vec::vec_push_error_vec` から table を復元する owner flow を固定している。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5np.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_table.nepl --no-tree -o tmp_gui_font_registered_face_table_f5np.json -j 1`。52/52。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face.nepl --no-tree -o tmp_gui_font_registered_face_module_f5np.json -j 1`。28/28。
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存 baseline gap のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5np_registered_face_table.json`
+- checked JSON: `output/playground_editor_f5np_registered_face_table.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5np 後続として native / bare / headless provider、text shaping / layout、glyph lookup / rasterization、render2d drain、Web compositor presentation へ進める。
+
 # 2026-06-29 Agent2 GUI font rendering F5nm std font resource canonical path validation
 
 ## 目的

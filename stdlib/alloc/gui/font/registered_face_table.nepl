@@ -1,0 +1,639 @@
+//: # alloc/gui/font/registered_face_table
+//: registered face owner を metadata table membership へ[上/あ]げる境界
+//:
+//: ### [目的/もくてき]
+//: - `GuiFontRegisteredFace` を[消費/しょうひ]し、lookup 用の Copy metadata record だけを table に[登録/とうろく]します。
+//: - 実際の `GuiFontResourceBytes` owner は registered face owner 側に[残/のこ]し、table だけが dangling id を[持/も]つ状態を[防/ふせ]ぎます。
+//:
+//: ### [契約/けいやく]
+//: - table は `GuiFontRegisteredFaceRecord` の `Vec` だけを[持/も]ちます。
+//: - success は table と registered face entry owner を同時に[返/かえ]します。
+//: - duplicate / push failure では table と rejected face owner を error に[保持/ほじ]します。
+//: - layout、glyph lookup、rasterization、render2d、platform font API、browser `FontFace`、Canvas へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/registered_face_table" as *
+//: ```
+
+#indent 4
+
+#import "alloc/collections/vec" as vec
+#import "alloc/gui/font/registered_face" as *
+#import "alloc/gui/font/resource" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceRecord: table に[保持/ほじ]する Copy metadata
+//:
+//: bytes owner や platform handle は[含/ふく]めず、lookup と後続 boundary の検証に[必要/ひつよう]な typed metadata だけを[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceRecord:
+    resource_id %GuiFontResourceId
+    face_id %GuiFontFaceId
+    selected_face_index %i32
+    face_count %i32
+    units_per_em %i32
+    glyph_count %i32
+    byte_len %i32
+    actual_hash %GuiResourceHash
+    source %GuiFontResourceSource
+    decode_policy %GuiFontDecodePolicy
+
+impl Clone for GuiFontRegisteredFaceRecord:
+    fn clone %fn &GuiFontRegisteredFaceRecord GuiFontRegisteredFaceRecord \record:
+        *record
+
+impl Copy for GuiFontRegisteredFaceRecord:
+    fn copy_mark %fn GuiFontRegisteredFaceRecord GuiFontRegisteredFaceRecord \record:
+        record
+
+//: GuiFontRegisteredFaceTable: registered face metadata table owner
+//:
+//: `Vec` を[所有/しょゆう]するため、この型は Copy / Clone にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceTable:
+    records %Vec GuiFontRegisteredFaceRecord
+
+//: GuiFontRegisteredFaceTableEntry: table 登録済み face owner
+//:
+//: registered face owner と同じ record を[保持/ほじ]し、table record だけが dangling reference になることを[防/ふせ]ぎます。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceTableEntry:
+    face %GuiFontRegisteredFace
+    record %GuiFontRegisteredFaceRecord
+
+//: GuiFontRegisteredFaceTableRegistration: table と entry の同時 owner
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceTableRegistration:
+    table %GuiFontRegisteredFaceTable
+    entry %GuiFontRegisteredFaceTableEntry
+
+//: GuiFontRegisteredFaceTableRegisterErrorKind: table 登録の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceTableRegisterErrorKind:
+    InvalidResourceId
+    InvalidFaceId
+    UnsupportedDecodePolicy
+    ByteLenInvalid
+    SelectedFaceIndexMismatch
+    SelectedFaceIndexOutOfRange
+    FaceCountInvalid
+    UnitsPerEmInvalid
+    GlyphCountInvalid
+    DuplicateResourceId
+    DuplicateFaceId
+    TablePushFailed
+
+impl Clone for GuiFontRegisteredFaceTableRegisterErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceTableRegisterErrorKind GuiFontRegisteredFaceTableRegisterErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceTableRegisterErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceTableRegisterErrorKind GuiFontRegisteredFaceTableRegisterErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceTableRegisterError: 登録失敗時に table と face owner を[返/かえ]す error
+//:
+//: `table` と `face` を[所有/しょゆう]するため、この型は Copy / Clone にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceTableRegisterError:
+    kind %GuiFontRegisteredFaceTableRegisterErrorKind
+    table %GuiFontRegisteredFaceTable
+    face %GuiFontRegisteredFace
+    storage_error %Option StdErrorKind
+
+//: GuiFontRegisteredFaceTableRegisterRejected: rejected callback 用 owner pair
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceTableRegisterRejected:
+    table %GuiFontRegisteredFaceTable
+    face %GuiFontRegisteredFace
+
+//: gui_font_registered_face_table_owner: records Vec を table owner に[包/つつ]む
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_owner %fn Vec GuiFontRegisteredFaceRecord GuiFontRegisteredFaceTable \records:
+    GuiFontRegisteredFaceTable records
+
+//: gui_font_registered_face_table_entry: face owner と record を entry に[包/つつ]む
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_entry %fn GuiFontRegisteredFace fn GuiFontRegisteredFaceRecord GuiFontRegisteredFaceTableEntry \face\record:
+    GuiFontRegisteredFaceTableEntry face record
+
+//: gui_font_registered_face_table_registration: table と entry を同時 owner に[包/つつ]む
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_registration %fn GuiFontRegisteredFaceTable fn GuiFontRegisteredFaceTableEntry GuiFontRegisteredFaceTableRegistration \table\entry:
+    GuiFontRegisteredFaceTableRegistration table entry
+
+//: gui_font_registered_face_table_register_error: owner 回収付き登録 error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_register_error %fn GuiFontRegisteredFaceTableRegisterErrorKind fn GuiFontRegisteredFaceTable fn GuiFontRegisteredFace fn Option StdErrorKind GuiFontRegisteredFaceTableRegisterError \kind\table\face\storage_error:
+    GuiFontRegisteredFaceTableRegisterError kind table face storage_error
+
+//: gui_font_registered_face_table_register_error_simple: storage error なしの登録 error を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_register_error_simple %fn GuiFontRegisteredFaceTableRegisterErrorKind fn GuiFontRegisteredFaceTable fn GuiFontRegisteredFace GuiFontRegisteredFaceTableRegisterError \kind\table\face:
+    gui_font_registered_face_table_register_error kind table face none
+
+//: gui_font_registered_face_table_register_error_push_failed: Vec push failure を table 登録 error に[写/うつ]す
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_register_error_push_failed %fn GuiFontRegisteredFaceTable fn GuiFontRegisteredFace fn StdErrorKind GuiFontRegisteredFaceTableRegisterError \table\face\storage_error_value:
+    gui_font_registered_face_table_register_error GuiFontRegisteredFaceTableRegisterErrorKind::TablePushFailed table face some storage_error_value
+
+//: gui_font_registered_face_table_record: metadata record を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_record %fn GuiFontResourceId fn GuiFontFaceId fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiResourceHash fn GuiFontResourceSource fn GuiFontDecodePolicy GuiFontRegisteredFaceRecord \resource_id\face_id\selected_face_index\face_count\units_per_em\glyph_count\byte_len\actual_hash\source\decode_policy:
+    GuiFontRegisteredFaceRecord resource_id face_id selected_face_index face_count units_per_em glyph_count byte_len actual_hash source decode_policy
+
+//: gui_font_registered_face_table_decode_policy_supported: table 登録済み face として[扱/あつか]える decode policy か[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_decode_policy_supported %fn GuiFontDecodePolicy bool \policy:
+    match policy:
+        GuiFontDecodePolicy::SfntOnly:
+            true
+        GuiFontDecodePolicy::SfntAndWoff:
+            false
+        GuiFontDecodePolicy::AllSupportedContainers:
+            false
+
+//: gui_font_registered_face_record_resource_id: record の resource id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_resource_id %fn &GuiFontRegisteredFaceRecord GuiFontResourceId \record:
+    *field::get_ref record "resource_id"
+
+//: gui_font_registered_face_record_face_id: record の face id を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_face_id %fn &GuiFontRegisteredFaceRecord GuiFontFaceId \record:
+    *field::get_ref record "face_id"
+
+//: gui_font_registered_face_record_selected_face_index: record の selected face index を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_selected_face_index %fn &GuiFontRegisteredFaceRecord i32 \record:
+    *field::get_ref record "selected_face_index"
+
+//: gui_font_registered_face_record_face_count: record の face count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_face_count %fn &GuiFontRegisteredFaceRecord i32 \record:
+    *field::get_ref record "face_count"
+
+//: gui_font_registered_face_record_units_per_em: record の unitsPerEm を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_units_per_em %fn &GuiFontRegisteredFaceRecord i32 \record:
+    *field::get_ref record "units_per_em"
+
+//: gui_font_registered_face_record_glyph_count: record の glyph count を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_glyph_count %fn &GuiFontRegisteredFaceRecord i32 \record:
+    *field::get_ref record "glyph_count"
+
+//: gui_font_registered_face_record_byte_len: record の resource byte length を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_byte_len %fn &GuiFontRegisteredFaceRecord i32 \record:
+    *field::get_ref record "byte_len"
+
+//: gui_font_registered_face_record_actual_hash: record の actual hash を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_actual_hash %fn &GuiFontRegisteredFaceRecord GuiResourceHash \record:
+    *field::get_ref record "actual_hash"
+
+//: gui_font_registered_face_record_source: record の provider source を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_source %fn &GuiFontRegisteredFaceRecord GuiFontResourceSource \record:
+    *field::get_ref record "source"
+
+//: gui_font_registered_face_record_decode_policy: record の decode policy を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_decode_policy %fn &GuiFontRegisteredFaceRecord GuiFontDecodePolicy \record:
+    *field::get_ref record "decode_policy"
+
+//: gui_font_registered_face_record_resource_raw: record resource id の raw value を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_resource_raw %fn &GuiFontRegisteredFaceRecord i32 \record:
+    let resource_id %GuiFontResourceId gui_font_registered_face_record_resource_id record
+    gui_font_resource_id_raw &resource_id
+
+//: gui_font_registered_face_record_face_raw: record face id の raw value を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_face_raw %fn &GuiFontRegisteredFaceRecord i32 \record:
+    let face_id %GuiFontFaceId gui_font_registered_face_record_face_id record
+    gui_font_face_id_raw &face_id
+
+//: gui_font_registered_face_table_register_error_kind_eq: register error kind を[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register_error_kind_eq %fn GuiFontRegisteredFaceTableRegisterErrorKind fn GuiFontRegisteredFaceTableRegisterErrorKind bool \a\b:
+    match a:
+        GuiFontRegisteredFaceTableRegisterErrorKind::InvalidResourceId:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::InvalidResourceId:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::InvalidFaceId:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::InvalidFaceId:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::UnsupportedDecodePolicy:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::UnsupportedDecodePolicy:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::ByteLenInvalid:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::ByteLenInvalid:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::SelectedFaceIndexMismatch:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::SelectedFaceIndexMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::SelectedFaceIndexOutOfRange:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::SelectedFaceIndexOutOfRange:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::FaceCountInvalid:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::FaceCountInvalid:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::UnitsPerEmInvalid:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::UnitsPerEmInvalid:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::GlyphCountInvalid:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::GlyphCountInvalid:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateResourceId:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateResourceId:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateFaceId:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateFaceId:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableRegisterErrorKind::TablePushFailed:
+            match b:
+                GuiFontRegisteredFaceTableRegisterErrorKind::TablePushFailed:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_table_new: 指定 capacity の empty table を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_new %fn i32 Result GuiFontRegisteredFaceTable StdErrorKind \capacity:
+    let records_result %Result Vec GuiFontRegisteredFaceRecord StdErrorKind vec::with_capacity capacity
+    match records_result:
+        Result::Err storage_error:
+            Result::Err storage_error
+        Result::Ok records:
+            Result::Ok gui_font_registered_face_table_owner records
+
+//: gui_font_registered_face_table_len: table の record 数を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_len %fn &GuiFontRegisteredFaceTable i32 \table:
+    let records %&Vec GuiFontRegisteredFaceRecord field::get_ref table "records"
+    vec::len records
+
+//: gui_font_registered_face_resource_id_eq: resource id を raw value で[比/くら]べる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_resource_id_eq %fn GuiFontResourceId fn GuiFontResourceId bool \left\right:
+    eq gui_font_resource_id_raw &left gui_font_resource_id_raw &right
+
+//: gui_font_registered_face_face_id_eq: face id を raw value で[比/くら]べる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_face_id_eq %fn GuiFontFaceId fn GuiFontFaceId bool \left\right:
+    eq gui_font_face_id_raw &left gui_font_face_id_raw &right
+
+//: gui_font_registered_face_table_contains_resource_id: resource id が table に[登録/とうろく]済みか linear scan で[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_contains_resource_id %fn &GuiFontRegisteredFaceTable fn GuiFontResourceId bool \table\resource_id:
+    let records %&Vec GuiFontRegisteredFaceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut found %bool false
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_resource_id %GuiFontResourceId gui_font_registered_face_record_resource_id &record
+                            if gui_font_registered_face_resource_id_eq record_resource_id resource_id:
+                                then:
+                                    set found true
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    found
+
+//: gui_font_registered_face_table_contains_face_id: face id が table に[登録/とうろく]済みか linear scan で[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_contains_face_id %fn &GuiFontRegisteredFaceTable fn GuiFontFaceId bool \table\face_id:
+    let records %&Vec GuiFontRegisteredFaceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut found %bool false
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_face_id %GuiFontFaceId gui_font_registered_face_record_face_id &record
+                            if gui_font_registered_face_face_id_eq record_face_id face_id:
+                                then:
+                                    set found true
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    found
+
+//: gui_font_registered_face_table_lookup_resource_id: resource id に対応する metadata record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_lookup_resource_id %fn &GuiFontRegisteredFaceTable fn GuiFontResourceId Option GuiFontRegisteredFaceRecord \table\resource_id:
+    let records %&Vec GuiFontRegisteredFaceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut output %Option GuiFontRegisteredFaceRecord none
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_resource_id %GuiFontResourceId gui_font_registered_face_record_resource_id &record
+                            if gui_font_registered_face_resource_id_eq record_resource_id resource_id:
+                                then:
+                                    set output some record
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    output
+
+//: gui_font_registered_face_table_lookup_face_id: face id に対応する metadata record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_lookup_face_id %fn &GuiFontRegisteredFaceTable fn GuiFontFaceId Option GuiFontRegisteredFaceRecord \table\face_id:
+    let records %&Vec GuiFontRegisteredFaceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut output %Option GuiFontRegisteredFaceRecord none
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_face_id %GuiFontFaceId gui_font_registered_face_record_face_id &record
+                            if gui_font_registered_face_face_id_eq record_face_id face_id:
+                                then:
+                                    set output some record
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    output
+
+//: gui_font_registered_face_table_record_from_face: registered face owner を再検証して table record を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_record_from_face %fn &GuiFontRegisteredFace Result GuiFontRegisteredFaceRecord GuiFontRegisteredFaceTableRegisterErrorKind \face:
+    let resource_id %GuiFontResourceId gui_font_registered_face_resource_id face
+    let resource_raw %i32 gui_font_resource_id_raw &resource_id
+    if le resource_raw 0:
+        then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::InvalidResourceId
+        else:
+            let face_id %GuiFontFaceId gui_font_registered_face_face_id face
+            let face_raw %i32 gui_font_face_id_raw &face_id
+            if le face_raw 0:
+                then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::InvalidFaceId
+                else:
+                    let resource %&GuiFontResourceBytes gui_font_registered_face_resource_ref face
+                    let decode_policy %GuiFontDecodePolicy gui_font_resource_bytes_decode_policy resource
+                    if not gui_font_registered_face_table_decode_policy_supported decode_policy:
+                        then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::UnsupportedDecodePolicy
+                        else:
+                            let byte_len %i32 gui_font_resource_bytes_len resource
+                            if le byte_len 0:
+                                then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::ByteLenInvalid
+                                else:
+                                    let selected_face_index %i32 gui_font_registered_face_selected_face_index face
+                                    let metadata %GuiSfntMetadata gui_font_registered_face_metadata face
+                                    let metadata_face_index %i32 gui_sfnt_metadata_face_index &metadata
+                                    if ne selected_face_index metadata_face_index:
+                                        then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::SelectedFaceIndexMismatch
+                                        else:
+                                            let face_count %i32 gui_sfnt_metadata_face_count &metadata
+                                            if le face_count 0:
+                                                then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::FaceCountInvalid
+                                                else:
+                                                    if or lt selected_face_index 0 ge selected_face_index face_count:
+                                                        then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::SelectedFaceIndexOutOfRange
+                                                        else:
+                                                            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+                                                            let units_per_em %i32 gui_sfnt_metrics_units_per_em &metrics
+                                                            if le units_per_em 0:
+                                                                then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::UnitsPerEmInvalid
+                                                                else:
+                                                                    let glyph_count %i32 gui_sfnt_metrics_num_glyphs &metrics
+                                                                    if lt glyph_count 0:
+                                                                        then Result::Err GuiFontRegisteredFaceTableRegisterErrorKind::GlyphCountInvalid
+                                                                        else:
+                                                                            let actual_hash %GuiResourceHash gui_font_resource_bytes_actual_hash resource
+                                                                            let source %GuiFontResourceSource gui_font_resource_bytes_source resource
+                                                                            Result::Ok gui_font_registered_face_table_record resource_id face_id selected_face_index face_count units_per_em glyph_count byte_len actual_hash source decode_policy
+
+//: gui_font_registered_face_table_register: face owner を metadata table に[登録/とうろく]する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFace Result GuiFontRegisteredFaceTableRegistration GuiFontRegisteredFaceTableRegisterError \table\face:
+    match gui_font_registered_face_table_record_from_face &face:
+        Result::Err kind:
+            Result::Err gui_font_registered_face_table_register_error_simple kind table face
+        Result::Ok record:
+            let resource_id %GuiFontResourceId gui_font_registered_face_record_resource_id &record
+            if gui_font_registered_face_table_contains_resource_id &table resource_id:
+                then Result::Err gui_font_registered_face_table_register_error_simple GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateResourceId table face
+                else:
+                    let face_id %GuiFontFaceId gui_font_registered_face_record_face_id &record
+                    if gui_font_registered_face_table_contains_face_id &table face_id:
+                        then Result::Err gui_font_registered_face_table_register_error_simple GuiFontRegisteredFaceTableRegisterErrorKind::DuplicateFaceId table face
+                        else:
+                            let records %Vec GuiFontRegisteredFaceRecord field::get table "records"
+                            match vec::push records record:
+                                Result::Ok next_records:
+                                    let next_table %GuiFontRegisteredFaceTable gui_font_registered_face_table_owner next_records
+                                    let entry %GuiFontRegisteredFaceTableEntry gui_font_registered_face_table_entry face record
+                                    Result::Ok gui_font_registered_face_table_registration next_table entry
+                                Result::Err push_error:
+                                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                                    let returned_records %Vec GuiFontRegisteredFaceRecord vec::vec_push_error_vec push_error
+                                    let returned_table %GuiFontRegisteredFaceTable gui_font_registered_face_table_owner returned_records
+                                    Result::Err gui_font_registered_face_table_register_error_push_failed returned_table face storage_error_value
+
+//: gui_font_registered_face_table_entry_record: entry の metadata record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_record %fn &GuiFontRegisteredFaceTableEntry GuiFontRegisteredFaceRecord \entry:
+    *field::get_ref entry "record"
+
+//: gui_font_registered_face_table_entry_face_ref: entry が[保持/ほじ]する registered face owner を[借/か]りる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_face_ref %fn &GuiFontRegisteredFaceTableEntry &GuiFontRegisteredFace \entry:
+    field::get_ref entry "face"
+
+//: gui_font_registered_face_table_entry_finish_face: entry から registered face owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_finish_face %fn GuiFontRegisteredFaceTableEntry GuiFontRegisteredFace \entry:
+    field::get entry "face"
+
+//: gui_font_registered_face_table_entry_free: entry が[保持/ほじ]する face owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_free %fn GuiFontRegisteredFaceTableEntry unit \entry:
+    gui_font_registered_face_free gui_font_registered_face_table_entry_finish_face entry
+
+//: gui_font_registered_face_table_registration_record: registration 内の entry record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_registration_record %fn &GuiFontRegisteredFaceTableRegistration GuiFontRegisteredFaceRecord \registration:
+    let entry %&GuiFontRegisteredFaceTableEntry field::get_ref registration "entry"
+    gui_font_registered_face_table_entry_record entry
+
+//: gui_font_registered_face_table_registration_with: table と entry を callback へ同時に[渡/わた]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_registration_with <.R> %impure fn GuiFontRegisteredFaceTableRegistration impure fn impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry .R .R \registration\callback:
+    let table %GuiFontRegisteredFaceTable field::get registration "table"
+    let entry %GuiFontRegisteredFaceTableEntry field::get registration "entry"
+    callback table entry
+
+//: gui_font_registered_face_table_registration_free: table と entry owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_registration_free %impure fn GuiFontRegisteredFaceTableRegistration unit \registration:
+    let table %GuiFontRegisteredFaceTable field::get registration "table"
+    let entry %GuiFontRegisteredFaceTableEntry field::get registration "entry"
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+
+//: gui_font_registered_face_table_register_error_kind: 登録 error の kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register_error_kind %fn &GuiFontRegisteredFaceTableRegisterError GuiFontRegisteredFaceTableRegisterErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_table_register_error_storage_error: push failure の storage error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register_error_storage_error %fn &GuiFontRegisteredFaceTableRegisterError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_font_registered_face_table_register_error_rejected: error から rejected owner pair を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register_error_rejected %fn GuiFontRegisteredFaceTableRegisterError GuiFontRegisteredFaceTableRegisterRejected \error:
+    let table %GuiFontRegisteredFaceTable field::get error "table"
+    let face %GuiFontRegisteredFace field::get error "face"
+    GuiFontRegisteredFaceTableRegisterRejected table face
+
+//: gui_font_registered_face_table_register_rejected_with: rejected owner pair を callback へ同時に[渡/わた]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register_rejected_with <.R> %impure fn GuiFontRegisteredFaceTableRegisterRejected impure fn impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFace .R .R \rejected\callback:
+    let table %GuiFontRegisteredFaceTable field::get rejected "table"
+    let face %GuiFontRegisteredFace field::get rejected "face"
+    callback table face
+
+//: gui_font_registered_face_table_register_error_free: error に[保持/ほじ]された table と face owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_register_error_free %impure fn GuiFontRegisteredFaceTableRegisterError unit \error:
+    let table %GuiFontRegisteredFaceTable field::get error "table"
+    let face %GuiFontRegisteredFace field::get error "face"
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_free face
+
+//: gui_font_registered_face_table_free: table が[保持/ほじ]する metadata Vec を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_free %impure fn GuiFontRegisteredFaceTable unit \table:
+    let records %Vec GuiFontRegisteredFaceRecord field::get table "records"
+    vec::free records

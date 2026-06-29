@@ -406,6 +406,8 @@ const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
 const allocFontRegisteredFace = read("stdlib/alloc/gui/font/registered_face.nepl");
 const allocFontRegisteredFaceImpl = withoutComments(allocFontRegisteredFace);
+const allocFontRegisteredFaceTable = read("stdlib/alloc/gui/font/registered_face_table.nepl");
+const allocFontRegisteredFaceTableImpl = withoutComments(allocFontRegisteredFaceTable);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -2145,9 +2147,10 @@ assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/resource"\s+as\s+\*/, "alloc/gui/font facade must export font resource data contract");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "alloc/gui/font facade must export sfnt parser");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face"\s+as\s+\*/, "alloc/gui/font facade must export registered face owner boundary");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_table"\s+as\s+\*/, "alloc/gui/font facade must export registered face table boundary");
 assertMatch(
     allocFontFacade,
-    /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*font resource provider[\s\S]*global registry table[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
+    /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
     "alloc/gui/font facade docs must distinguish implemented glyph/render2d boundaries from missing Web text presentation",
 );
 assertMatch(
@@ -2215,6 +2218,85 @@ assertNoMatch(
     "registered face boundary must not enter platform text, glyph lookup, render2d, global table, family, or display-name authority",
 );
 assertMatch(
+    allocFontRegisteredFaceTable,
+    /pub\s+struct\s+GuiFontRegisteredFaceRecord:[\s\S]*resource_id\s+%GuiFontResourceId[\s\S]*face_id\s+%GuiFontFaceId[\s\S]*selected_face_index\s+%i32[\s\S]*face_count\s+%i32[\s\S]*units_per_em\s+%i32[\s\S]*glyph_count\s+%i32[\s\S]*byte_len\s+%i32[\s\S]*actual_hash\s+%GuiResourceHash[\s\S]*source\s+%GuiFontResourceSource[\s\S]*decode_policy\s+%GuiFontDecodePolicy/,
+    "registered face table must store Copy metadata records with ids, selected face, metrics, resource length, hash, source, and policy",
+);
+assertMatch(
+    allocFontRegisteredFaceTable,
+    /pub\s+struct\s+GuiFontRegisteredFaceTable:[\s\S]*records\s+%Vec\s+GuiFontRegisteredFaceRecord/,
+    "registered face table must own only a Vec of metadata records",
+);
+assertMatch(
+    allocFontRegisteredFaceTable,
+    /pub\s+struct\s+GuiFontRegisteredFaceTableEntry:[\s\S]*face\s+%GuiFontRegisteredFace[\s\S]*record\s+%GuiFontRegisteredFaceRecord/,
+    "registered face table entry must retain the registered face owner beside the metadata record",
+);
+assertMatch(
+    allocFontRegisteredFaceTable,
+    /pub\s+struct\s+GuiFontRegisteredFaceTableRegistration:[\s\S]*table\s+%GuiFontRegisteredFaceTable[\s\S]*entry\s+%GuiFontRegisteredFaceTableEntry/,
+    "registered face table registration must return the table and entry owner together",
+);
+assertNoMatch(
+    allocFontRegisteredFaceTableImpl,
+    /impl\s+(?:Clone|Copy)\s+for\s+GuiFontRegisteredFaceTable\b|impl\s+(?:Clone|Copy)\s+for\s+GuiFontRegisteredFaceTableEntry\b|impl\s+(?:Clone|Copy)\s+for\s+GuiFontRegisteredFaceTableRegistration\b|impl\s+(?:Clone|Copy)\s+for\s+GuiFontRegisteredFaceTableRegisterError\b/,
+    "registered face table owner, entry, registration, and register error must not be Copy or Clone",
+);
+assertMatch(
+    allocFontRegisteredFaceTable,
+    /pub\s+enum\s+GuiFontRegisteredFaceTableRegisterErrorKind:[\s\S]*InvalidResourceId[\s\S]*InvalidFaceId[\s\S]*UnsupportedDecodePolicy[\s\S]*ByteLenInvalid[\s\S]*SelectedFaceIndexMismatch[\s\S]*SelectedFaceIndexOutOfRange[\s\S]*FaceCountInvalid[\s\S]*UnitsPerEmInvalid[\s\S]*GlyphCountInvalid[\s\S]*DuplicateResourceId[\s\S]*DuplicateFaceId[\s\S]*TablePushFailed/,
+    "registered face table must expose typed validation, duplicate, and push failure reasons",
+);
+assertMatch(
+    allocFontRegisteredFaceTable,
+    /pub\s+struct\s+GuiFontRegisteredFaceTableRegisterError:[\s\S]*kind\s+%GuiFontRegisteredFaceTableRegisterErrorKind[\s\S]*table\s+%GuiFontRegisteredFaceTable[\s\S]*face\s+%GuiFontRegisteredFace[\s\S]*storage_error\s+%Option\s+StdErrorKind/,
+    "registered face table register error must preserve table, rejected face owner, and optional Vec storage error",
+);
+const registeredFaceTableRecordFromFace = functionSlice(allocFontRegisteredFaceTableImpl, "gui_font_registered_face_table_record_from_face");
+assertOrderedFragments(
+    registeredFaceTableRecordFromFace,
+    [
+        "gui_font_registered_face_resource_id",
+        "gui_font_registered_face_face_id",
+        "gui_font_registered_face_resource_ref",
+        "gui_font_resource_bytes_decode_policy",
+        "gui_font_registered_face_table_decode_policy_supported",
+        "gui_font_resource_bytes_len",
+        "gui_font_registered_face_selected_face_index",
+        "gui_font_registered_face_metadata",
+        "gui_sfnt_metadata_face_index",
+        "gui_sfnt_metadata_face_count",
+        "gui_sfnt_metadata_metrics",
+        "gui_sfnt_metrics_units_per_em",
+        "gui_sfnt_metrics_num_glyphs",
+        "gui_font_resource_bytes_actual_hash",
+        "gui_font_resource_bytes_source",
+    ],
+    "registered face table record projection must revalidate ids, resource metadata, selected face, and SFNT metrics from the owner",
+);
+const registeredFaceTableRegister = functionSlice(allocFontRegisteredFaceTableImpl, "gui_font_registered_face_table_register");
+assertOrderedFragments(
+    registeredFaceTableRegister,
+    [
+        "gui_font_registered_face_table_record_from_face",
+        "gui_font_registered_face_table_contains_resource_id",
+        "DuplicateResourceId",
+        "gui_font_registered_face_table_contains_face_id",
+        "DuplicateFaceId",
+        "field::get table \"records\"",
+        "vec::push",
+        "gui_font_registered_face_table_entry",
+        "vec::vec_push_error_kind",
+        "vec::vec_push_error_vec",
+    ],
+    "registered face table registration must derive a record, reject duplicates, push once, and recover the returned Vec on push failure",
+);
+assertNoMatch(
+    allocFontRegisteredFaceTableImpl,
+    /\b(?:FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|gui_sfnt_parse_metadata|gui_sfnt_lookup_glyph_id|gui_sfnt_lookup_horizontal_metric|gui_sfnt_lookup_glyph_bounds|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|HashMap|BTreeMap|family|displayName)\b/,
+    "registered face table must not parse again, split bytes owners, or enter platform text, glyph lookup, render2d, family, or display-name authority",
+);
+assertMatch(
     spec,
     /F5nl の Web Playground font drawing readiness boundary[\s\S]*fonts\/HackGenConsoleNF-Regular\.ttf[\s\S]*legacy stdout text transport[\s\S]*formal font resource provider \/ registry[\s\S]*text shaping \/ layout[\s\S]*Web compositor \/ video memory surface[\s\S]*FontFace[\s\S]*Canvas `fillText`[\s\S]*HostTextMeasurer[\s\S]*legacy stdout text/,
     "font spec must keep Web font resource mount separate from engine-driven text presentation readiness",
@@ -2245,9 +2327,24 @@ assertMatch(
     "font implementation plan must include F5no registered face owner phase and source policy",
 );
 assertMatch(
+    spec,
+    /F5np[\s\S]*alloc\/gui\/font\/registered_face_table[\s\S]*GuiFontRegisteredFaceTable[\s\S]*Copy metadata record[\s\S]*GuiFontRegisteredFaceTableEntry[\s\S]*DuplicateResourceId[\s\S]*layout \/ rasterization \/ presentation/,
+    "font spec must define F5np registered face table without claiming layout, rasterization, or presentation",
+);
+assertMatch(
+    detailedDesign,
+    /## Font registered face table boundary[\s\S]*GuiFontRegisteredFaceTable:[\s\S]*records Vec GuiFontRegisteredFaceRecord[\s\S]*GuiFontRegisteredFaceTableEntry:[\s\S]*face GuiFontRegisteredFace[\s\S]*DuplicateResourceId[\s\S]*TablePushFailed[\s\S]*layout[\s\S]*presentation/,
+    "font detailed design must document registered face table ownership, duplicate rejection, push recovery, and out-of-scope rendering paths",
+);
+assertMatch(
+    implementationPlan,
+    /## Phase F5np: alloc font registered face table boundary[\s\S]*GuiFontRegisteredFaceTable[\s\S]*GuiFontRegisteredFaceRecord[\s\S]*GuiFontRegisteredFaceTableEntry[\s\S]*DuplicateResourceId[\s\S]*DuplicateFaceId[\s\S]*vec::push[\s\S]*gui_font_registered_face_finish_resource[\s\S]*非使用/,
+    "font implementation plan must include F5np registered face table phase and source policy",
+);
+assertMatch(
     guiStandardLibrarySpec,
-    /alloc\/gui\/font\/registered_face[\s\S]*GuiFontRegisteredFace[\s\S]*UnsupportedDecodePolicy[\s\S]*GuiSfntParseError[\s\S]*global registry table[\s\S]*presentation path の完成を意味しない/,
-    "GUI standard library spec must distinguish registered face owner from registry, rasterization, and presentation completion",
+    /alloc\/gui\/font\/registered_face[\s\S]*GuiFontRegisteredFace[\s\S]*UnsupportedDecodePolicy[\s\S]*GuiSfntParseError[\s\S]*alloc\/gui\/font\/registered_face_table[\s\S]*GuiFontRegisteredFaceTable[\s\S]*DuplicateResourceId[\s\S]*presentation path の完成を意味しない/,
+    "GUI standard library spec must distinguish registered face owner and table from rasterization and presentation completion",
 );
 assertMatch(
     todo,
@@ -44199,8 +44296,8 @@ assertMatch(guiStdTests, /gui_font_resource_request_is_typed_boundary/, "gui_std
 assertMatch(guiStdTests, /gui_font_resource_bytes_owner_hash_contract/, "gui_std doctests must cover font resource bytes owner and hash boundary");
 assertMatch(
     guiFontRegisteredFaceTests,
-    /gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata[\s\S]*GuiFontResourceBytes[\s\S]*gui_font_registered_face_register_bytes[\s\S]*GuiFontDecodePolicy::SfntAndWoff/,
-    "registered face doctest must cover bytes-to-SFNT metadata success, owner-bearing parse failure, and unsupported decode policy",
+    /gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata[\s\S]*GuiFontResourceBytes[\s\S]*gui_font_registered_face_register_bytes[\s\S]*GuiFontDecodePolicy::SfntAndWoff[\s\S]*registered face table success[\s\S]*registered face table duplicate recovery[\s\S]*registered face table duplicate face recovery/,
+    "registered face doctest must cover bytes-to-SFNT metadata success, owner-bearing parse failure, unsupported decode policy, table registration, duplicate resource recovery, and duplicate face recovery",
 );
 
 assertMatch(

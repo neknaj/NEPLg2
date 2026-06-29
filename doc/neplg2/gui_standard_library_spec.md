@@ -2008,7 +2008,9 @@ Outline font rendering、font resource loading、ruby / furigana、Japanese vert
 
 `alloc/gui/font/resource` は resource path / hash / decode policy / provider bytes owner の target-independent 標準境界であり、`std/gui/font_resource` は既存 std import path の facade としてこれを再公開する。`GuiFontResourcePath` は slashless canonical path だけを受け取り、Web VFS internal path、display name、suffix、font family name を authority にしない。`GuiFontResourceBytes` は request、source、byte length、actual hash、decode policy、owned `ByteBuf` を保持し、provider は success 前に expected hash を検証する。Web backend は `platforms/gui/web/font_resource_provider` の `nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` で runtime VFS から binary payload を得る。
 
-`alloc/gui/font/registered_face` は `GuiFontResourceBytes` を SFNT metadata parser に接続し、checked `GuiFontResourceId` / `GuiFontFaceId` と metadata 由来 selected face index を private-proof 付き `GuiFontRegisteredFace` owner に束ねる。`SfntOnly` 以外の decode policy は parse 前に `UnsupportedDecodePolicy` として拒否し、parse failure は `GuiFontResourceBytes` owner と `GuiSfntParseError` を error に保持する。これは global registry table、layout、glyph rasterization、presentation path の完成を意味しない。
+`alloc/gui/font/registered_face` は `GuiFontResourceBytes` を SFNT metadata parser に接続し、checked `GuiFontResourceId` / `GuiFontFaceId` と metadata 由来 selected face index を private-proof 付き `GuiFontRegisteredFace` owner に束ねる。`SfntOnly` 以外の decode policy は parse 前に `UnsupportedDecodePolicy` として拒否し、parse failure は `GuiFontResourceBytes` owner と `GuiSfntParseError` を error に保持する。
+
+`alloc/gui/font/registered_face_table` は `GuiFontRegisteredFace` を消費して `GuiFontRegisteredFaceTable` に Copy metadata record だけを登録し、`GuiFontRegisteredFaceTableEntry` が実 face owner を保持する。resource id / face id の重複は `DuplicateResourceId` / `DuplicateFaceId` として `vec::push` 前に拒否し、push failure でも table と rejected face owner を回収できる。これは font family selection、text shaping、layout、glyph rasterization、render2d drain、presentation path の完成を意味しない。
 
 ## Mobile Lifecycle Contract
 
