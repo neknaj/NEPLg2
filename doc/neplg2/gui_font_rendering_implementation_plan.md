@@ -6016,7 +6016,7 @@ plan review:
 
 変更:
 
-- `stdlib/std/gui/font_resource.nepl` に `GuiFontResourceProviderErrorKind`、non-Copy `GuiFontResourceBytes` owner、ByteBuf FNV-1a hash、expected hash validation、owner access/free helper を追加する。
+- font resource data contract に `GuiFontResourceProviderErrorKind`、non-Copy `GuiFontResourceBytes` owner、ByteBuf FNV-1a hash、expected hash validation、owner access/free helper を追加する。F5no layering follow-up 以降、この target-independent 実体は `stdlib/alloc/gui/font/resource.nepl` が所有し、`stdlib/std/gui/font_resource.nepl` は facade として再公開する。
 - `stdlib/platforms/gui/web/font_resource_provider.nepl` を追加し、`nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` host import を通して Web VFS bytes を取得する。
 - `web/src/gui-font/font-resource-vfs.ts` に exact canonical binary read helper を追加し、missing resource、text payload、unsupported decode policy を typed reason として返す。
 - `web/src/runtime/worker.ts` に font resource host import を追加し、runtime VFS helper を使って guest memory へ bytes を copy する。
@@ -6029,6 +6029,34 @@ plan review:
 - Web VFS behavior test が exact lookup、copy、suffix-only missing、text payload rejection、unsupported decode policy を確認する。
 - source policy が dedicated Web host import、no `std/fs` / `path_open`、no suffix / display-name authority、no FontFace / Canvas / stdout fallback を検査する。
 - `npm --prefix web run build:ts`、contract tests、documentation contract、`trunk build`、playground editor JSON が通る。
+
+## Phase F5no: alloc font registered face owner boundary
+
+目的:
+
+- F5nn の `GuiFontResourceBytes` owner を `alloc/gui/font/sfnt` の metadata parser へ接続し、formal font engine が参照できる registered face owner を追加する。
+- success owner は caller supplied checked `GuiFontResourceId` / `GuiFontFaceId`、`GuiFontResourceBytes` owner、`GuiSfntMetadata`、metadata 由来 selected face index を同時に保持する。
+- owner は private proof を持ち、public caller が metadata + ids だけで registered face を偽造できないようにする。
+- F5no は global registry table / uniqueness、font family / display name authority、browser `FontFace`、Canvas / OS handle、cmap / hmtx / glyf lookup success、glyph mask、layout、render2d、presentation へ進まない。
+- `SfntOnly` 以外の decode policy は WOFF decode 境界が来るまで parse 前に `UnsupportedDecodePolicy` として fail-closed する。
+
+変更:
+
+- `stdlib/alloc/gui/font/registered_face.nepl` を追加する。
+- F5nn で std 側に置かれていた target-independent font resource data / bytes owner contract を `stdlib/alloc/gui/font/resource.nepl` へ移し、`stdlib/std/gui/font_resource.nepl` は互換 facade として再公開する。
+- `GuiFontRegisteredFaceProof`、`GuiFontRegisteredFaceRequest`、`GuiFontRegisteredFace`、`GuiFontRegisteredFaceErrorKind`、`GuiFontRegisteredFaceError` を追加する。
+- `gui_font_registered_face_register_bytes` は decode policy 検査、request face index 読み取り、`gui_sfnt_parse_metadata`、selected face index derivation、private proof sealing の順で進む。
+- parse failure は `GuiFontResourceBytes` owner と `Some GuiSfntParseError` を error に保持する。unsupported decode policy は `parse_error None` と resource owner を保持する。
+- `stdlib/alloc/gui/font.nepl` facade から registered face owner boundary を再公開する。
+- `tests/stdlib/gui_font_registered_face.n.md` と `nodesrc/test_web_gui_font_rendering_contract.js` で success、invalid face index、malformed bytes、unsupported decode policy、owner recovery、private proof / non-Copy owner、no platform / render / registry-table leakage を固定する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest が `GuiFontResourceBytes -> GuiFontRegisteredFace` success と owner-bearing error recovery を確認する。
+- source policy が `gui_sfnt_parse_metadata` exactly once、decode policy before parse、private proof、Clone/Copy 禁止、`gui_font_resource_bytes_finish` 非使用、no global table / FontFace / Canvas / stdout / render2d / glyph lookup を検査する。
+- implementation review で module boundary、owner evidence、error recovery、未接続範囲が確認済みである。
+- focused doctest、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
 
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 

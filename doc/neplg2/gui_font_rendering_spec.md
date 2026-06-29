@@ -104,6 +104,13 @@ GuiFontResourceRequest:
     face_index Option i32
     expected_hash Option GuiResourceHash
     decode_policy GuiFontDecodePolicy
+
+GuiFontRegisteredFace:
+    resource_id GuiFontResourceId
+    face_id GuiFontFaceId
+    selected_face_index i32
+    resource GuiFontResourceBytes
+    metadata GuiSfntMetadata
 ```
 
 `face_index` は collection font の face 選択を明示する。存在しない face index は先頭 face へ fallback せず error にする。
@@ -116,7 +123,11 @@ GuiFontResourceRequest:
 
 Resource path の normalization は platform boundary で一度だけ行う。空 path、absolute path、backslash、empty segment、`.`、`..` は typed error として拒否し、別 path へ推測変換しない。
 
-F5nm 以降、`std/gui/font_resource` の `gui_font_resource_path_validate_result` はこの rejection set を `GuiFontResourcePathErrorKind` として返し、compatibility constructor の `gui_font_resource_path_result` は同じ失敗を `GuiError::InvalidCommand` へ写像する。
+F5nm 以降、target-independent な font resource data contract の `gui_font_resource_path_validate_result` はこの rejection set を `GuiFontResourcePathErrorKind` として返し、compatibility constructor の `gui_font_resource_path_result` は同じ失敗を `GuiError::InvalidCommand` へ写像する。F5no 以降、この data contract の実体は `alloc/gui/font/resource` が所有し、`std/gui/font_resource` は既存 std import path の facade として再公開する。
+
+F5no 以降、`alloc/gui/font/registered_face` の `GuiFontRegisteredFace` は `GuiFontResourceBytes` owner、checked `GuiFontResourceId`、checked `GuiFontFaceId`、SFNT metadata、metadata 由来 selected face index を同時に保持する。`GuiSfntMetadata` と ids だけで registered face owner を偽造できないように、owner には module-private proof を含める。これは global registry table や font family selection ではなく、formal font engine が同じ bytes owner と selected face を後続 layout / rasterizer へ渡すための境界である。
+
+`GuiFontRegisteredFace` は `SfntOnly` decode policy だけを受け入れる。`SfntAndWoff` / `AllSupportedContainers` は WOFF decode 境界が来るまで `UnsupportedDecodePolicy` として parse 前に拒否し、resource owner を error に保持する。SFNT parse failure は `GuiSfntParseError` を保持し、fallback face selection や browser / OS font API へ進まない。
 
 ### SFNT representative names
 

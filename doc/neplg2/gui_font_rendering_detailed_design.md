@@ -83,11 +83,13 @@ core/gui/font
     glyph paint bridge
 
 alloc/gui/font
+    resource request / bytes owner
     sfnt table directory
     cmap / head / hhea / hmtx / maxp / name / os2
     loca / glyf / CFF / CFF2
     gsub / gpos / kern
     vhea / vmtx / vorg
+    registered face owner
     variation tables
     shaped run
     glyph outline
@@ -102,10 +104,8 @@ alloc/gui/text
     math inline bridge
 
 std/gui/font_resource
-    resource request
-    VFS / filesystem / embedded blob source descriptor
-    decode policy
-    font collection registration boundary
+    std facade for font resource data contract
+    platform provider boundary
 
 platforms/gui/web
     bundled font VFS mapping
@@ -125,7 +125,7 @@ platforms/gui/headless
     no present / screenshot fallback
 ```
 
-依存方向は上から下へ流れない。`core/gui/font` は `alloc`、`std`、`platforms` を import しない。`std/gui/font_resource` は platform resource provider の抽象 request だけを作り、OS handle や browser object を持たない。
+依存方向は上から下へ流れない。`core/gui/font` は `alloc`、`std`、`platforms` を import しない。`alloc/gui/font/resource` は platform resource provider の抽象 request と bytes owner だけを作り、OS handle や browser object を持たない。`std/gui/font_resource` は既存 std import path の facade としてこの data contract を再公開する。
 
 ## Resource flow
 
@@ -136,7 +136,9 @@ resource root
     -> fonts/HackGenConsoleNF-Regular.ttf
     -> GuiFontResourceRequest
     -> std/gui resource provider
-    -> alloc/gui sfnt parser
+    -> GuiFontResourceBytes
+    -> alloc/gui font registered face owner
+    -> alloc/gui sfnt parser evidence
     -> GuiFontFaceId
     -> shaped run / metrics / glyph masks
     -> render2d pixel buffer
@@ -176,7 +178,46 @@ GuiFontFaceSelection:
 
 この規則は source policy と doctest で固定する。
 
-F2 の初期 `GuiFontResourceRequest` constructor は request shape だけを検査する。F5nm 以降は、request construction の前段で `GuiFontResourcePath` が canonical path validation を行い、空 path、absolute path、backslash、empty segment、`.`、`..` を拒否する。`GuiFontResourceRequest` 自体は typed path、`face_index` が `Some n` の場合に `n >= 0` であること、hash value が typed `GuiResourceHash` であること、decode policy が enum value であることを確認する。Collection font の `face_count` を必要とする `FaceIndexRequired` / out-of-range 判定は、F4 の sfnt metadata parser または font registry が font bytes を読める段階で行う。
+F2 の初期 `GuiFontResourceRequest` constructor は request shape だけを検査する。F5nm 以降は、request construction の前段で `GuiFontResourcePath` が canonical path validation を行い、空 path、absolute path、backslash、empty segment、`.`、`..` を拒否する。`GuiFontResourceRequest` 自体は typed path、`face_index` が `Some n` の場合に `n >= 0` であること、hash value が typed `GuiResourceHash` であること、decode policy が enum value であることを確認する。Collection font の `face_count` を必要とする `FaceIndexRequired` / out-of-range 判定は、F4 の sfnt metadata parser または F5no の registered face owner boundary が font bytes を読める段階で行う。
+
+## Font registered face owner boundary
+
+F5no は F5nn の `GuiFontResourceBytes` owner を `alloc/gui/font/sfnt` の `gui_sfnt_parse_metadata` へ接続し、呼び出し側が渡した `GuiFontResourceId` / `GuiFontFaceId` と parser evidence を同じ owner に束ねる。これは global registry table や一意性検査ではなく、後続の layout / rasterizer が同じ resource owner と selected face を参照できるようにする境界である。
+
+```text
+GuiFontRegisteredFace:
+    proof GuiFontRegisteredFaceProof
+    resource_id GuiFontResourceId
+    face_id GuiFontFaceId
+    selected_face_index i32
+    resource GuiFontResourceBytes
+    metadata GuiSfntMetadata
+
+GuiFontRegisteredFaceError:
+    kind GuiFontRegisteredFaceErrorKind
+    resource GuiFontResourceBytes
+    parse_error Option GuiSfntParseError
+```
+
+`GuiFontRegisteredFaceProof` は module-private であり、public caller は `GuiSfntMetadata` と ids だけから `GuiFontRegisteredFace` を偽造できない。`GuiFontRegisteredFace` と `GuiFontRegisteredFaceError` はどちらも `GuiFontResourceBytes` を所有するため `Clone` / `Copy` を実装しない。
+
+F5no は次の順序を固定する。
+
+```text
+read GuiFontResourceBytes.decode_policy
+    -> reject non-SfntOnly as UnsupportedDecodePolicy
+    -> read request.face_index
+    -> borrow resource bytes
+    -> gui_sfnt_parse_metadata(bytes, face_index)
+    -> derive selected_face_index from GuiSfntMetadata
+    -> seal GuiFontRegisteredFace with private proof
+```
+
+`SfntAndWoff` / `AllSupportedContainers` は WOFF decode boundary が来るまで parse 前に typed error として拒否する。parse failure は `GuiSfntParseError` を `Some` で保持し、unsupported decode policy のような parse 前失敗では `parse_error` を `None` にする。どちらの失敗でも `GuiFontResourceBytes` owner は error に残り、caller は recover / free できる。
+
+F5no は `GuiFontResourceBytes` を `gui_font_resource_bytes_finish` で分解しない。resource request、source、byte length、actual hash、decode policy は bytes owner から読む。metadata 由来の selected face index は owner に重複保持するが、registration 時に `gui_sfnt_metadata_face_index` からだけ導く。
+
+F5no は global table / uniqueness、font family / display name authority、browser `FontFace`、Canvas / OS handle、cmap / hmtx / glyf lookup success、glyph mask、layout、render2d、presentation evidence を作らない。次の table phase は `GuiFontRegisteredFace` を消費して一意性や lookup table membership を別の owner として表す。
 
 ## SFNT name table
 
