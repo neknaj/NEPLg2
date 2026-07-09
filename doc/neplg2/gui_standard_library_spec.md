@@ -2012,6 +2012,8 @@ Outline font rendering、font resource loading、ruby / furigana、Japanese vert
 
 `alloc/gui/font/registered_face_table` は `GuiFontRegisteredFace` を消費して `GuiFontRegisteredFaceTable` に Copy metadata record だけを登録し、`GuiFontRegisteredFaceTableEntry` が実 face owner を保持する。resource id / face id の重複は `DuplicateResourceId` / `DuplicateFaceId` として `vec::push` 前に拒否し、push failure でも table と rejected face owner を回収できる。これは font family selection、text shaping、layout、glyph rasterization、render2d drain、presentation path の完成を意味しない。
 
+`alloc/gui/font/registered_face_glyph_lookup` は `GuiFontRegisteredFaceTableEntry` を借用し、entry record と face owner から再導出した record を照合してから SFNT `cmap` lookup を行う。成功時は table record、code point、`GuiGlyphId` の Copy mapping を返し、失敗時は record / code point / lower parse error または table validation error の Copy evidence を返す。entry owner は caller が保持し、hmtx / glyf lookup、text shaping、layout、rasterization、render2d drain、presentation path は後続境界で扱う。
+
 ## Mobile Lifecycle Contract
 
 Mobile backend は native desktop の一種として扱わない。少なくとも次の状態遷移を event contract として表す。

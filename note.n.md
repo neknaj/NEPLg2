@@ -1,3 +1,55 @@
+# 2026-07-10 Agent2 GUI font rendering F5nq registered face table-backed glyph lookup boundary
+
+## 目的
+
+- Web Playground はまだ font rendering engine 経由の text/glyph presentation に到達していないため、F5np の registered face table membership を authority として、次の glyph lookup 境界を接続する。
+- `GuiFontRegisteredFaceTableEntry` を借用し、entry record と face owner から再導出した record を照合したうえで `gui_sfnt_lookup_glyph_id` へ渡す。
+- F5nq では text shaping / layout、hmtx / glyf lookup、glyph mask、rasterization、render2d drain、Web compositor presentation へ進まない。
+
+## 実装
+
+- `stdlib/alloc/gui/font/registered_face_glyph_lookup.nepl` を追加した。
+- `GuiFontRegisteredFaceGlyphMapping` は Copy evidence とし、table record、code point、`GuiGlyphId` を保持する。
+- `GuiFontRegisteredFaceGlyphLookupError` は Copy evidence とし、kind、record、optional `GuiSfntParseError`、optional `GuiFontRegisteredFaceTableRegisterErrorKind`、code point を保持する。entry owner は消費しない。
+- `gui_font_registered_face_glyph_lookup` は `&GuiFontRegisteredFaceTableEntry` を受け取り、`gui_font_registered_face_table_record_from_face` で face owner 由来 record を再導出し、resource id、face id、selected face index、face count、units per em、glyph count、byte length、actual hash、source、decode policy を entry record と照合する。
+- record 照合後、再導出 record の `selected_face_index` を `some selected_face_index` として `gui_sfnt_lookup_glyph_id` に渡す。fallback、browser `FontFace`、Canvas、OS font API、display name / suffix authority は使わない。
+- `stdlib/alloc/gui/font.nepl` facade から F5nq boundary を再公開した。
+- `tests/stdlib/gui_font_registered_face.n.md` に cmap 付き SFNT fixture を追加し、`A -> glyph 36` の success mapping と `B -> MissingGlyphMapping` の typed error を検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は F5np module の glyph lookup 禁止を維持し、F5nq module だけが `gui_sfnt_lookup_glyph_id` を exactly once 呼ぶこと、entry borrowing、record 全 field 照合、owner split 禁止、layout / raster / render2d / platform / presentation 禁止を固定する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`todo.md` を F5nq に合わせて更新した。
+
+## plan.md との差異
+
+- plan.md は言語仕様全体の方向性であり、今回は GUI font rendering の registered face table-backed glyph lookup 境界の実装であるため plan.md は変更していない。
+- F5nq は GUI font rendering implementation plan の F5np 後続境界として追加した。text shaping / layout と Web presentation はまだ完了していない。
+
+## subagent review
+
+- Locke the 2nd の計画レビューは、F5np 後続として table membership を authority にした glyph lookup boundary は妥当とした。ただし entry owner を消費せず借用すること、entry record と face owner 由来 record を再照合すること、layout / raster / render2d / platform / presentation へ進まないことを CHANGES_REQUESTED として指摘した。
+- その指摘に沿い、当初の owner-consuming success/error 形を破棄し、F5nq は borrowed entry と Copy mapping / Copy error evidence へ修正した。
+- Kierkegaard the 2nd の実装レビューは blocker なし。entry borrowing、selected face index authority、`gui_sfnt_lookup_glyph_id bytes some selected_face_index code_point`、範囲外禁止は確認済み。CHANGES_REQUESTED として `note.n.md` 未更新、record 全 field 照合の source policy 不足、module-focused doctest 計画の実効性不足を指摘した。
+- その指摘に沿い、この note を追加し、source policy に record 全 field 比較を固定し、implementation plan の検証コマンドを実 behavior test である `tests/stdlib/gui_font_registered_face.n.md` 中心に修正した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5nq.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_glyph_lookup.nepl --no-tree -o tmp_gui_font_registered_face_glyph_lookup_f5nq.json -j 1`。23/23。ただし実 behavior coverage は `tests/stdlib/gui_font_registered_face.n.md` 側で担保する。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_table.nepl --no-tree -o tmp_gui_font_registered_face_table_f5nq.json -j 1`。52/52。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face.nepl --no-tree -o tmp_gui_font_registered_face_module_f5nq.json -j 1`。28/28。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存 baseline gap のみ。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。LF/CRLF warning のみ。
+- pass: `trunk build`
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nq_registered_face_glyph_lookup.json`
+- checked JSON: `output/playground_editor_f5nq_registered_face_glyph_lookup.json` は `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+
+## 残件
+
+- F5nq 後続として hmtx / glyf lookup owner、text shaping / layout、glyph rasterization、render2d drain、Web compositor presentation へ進める。
+- native / bare / headless provider は exact canonical path lookup、hash / decode policy validation、typed error、no suffix / display-name authority の同じ contract で追加する。
+
 # 2026-06-29 Agent2 GUI font rendering F5np registered face table boundary
 
 ## 目的

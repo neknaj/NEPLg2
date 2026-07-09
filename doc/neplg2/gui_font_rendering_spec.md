@@ -133,6 +133,10 @@ F5np 以降、`alloc/gui/font/registered_face_table` の `GuiFontRegisteredFaceT
 
 F5np の table registration は `DuplicateResourceId` と `DuplicateFaceId` を `vec::push` より前に拒否する。push failure は `TablePushFailed` として table と rejected face owner を回収できる。record projection は `GuiFontRegisteredFace` から resource metadata と SFNT metadata / metrics を再導出し、selected face index、face count、units per em、glyph count、byte length、decode policy を fail-closed に検査する。これは font family selection、text shaping、layout / rasterization / presentation の完成ではない。browser `FontFace`、Canvas `fillText`、OS font handle、display name authority、path suffix fallback は table membership の evidence ではない。
 
+F5nq 以降、`alloc/gui/font/registered_face_glyph_lookup` は `GuiFontRegisteredFaceTableEntry` を借用し、entry record と face owner から再導出した record を照合してから `gui_sfnt_lookup_glyph_id` を 1 回だけ呼ぶ。成功時は `GuiFontRegisteredFaceGlyphMapping` として table record、code point、`GuiGlyphId` の Copy evidence を返す。失敗時は owner を消費せず、同じ record、code point、`GuiSfntParseError` または table record validation error を `GuiFontRegisteredFaceGlyphLookupError` として返す。F5nq は selected face index を table membership 由来の authority とし、resource request、display name、path suffix、browser / OS font API を glyph lookup authority にしない。
+
+F5nq は text shaping、layout、hmtx / glyf lookup、glyph mask、rasterization、render2d、Web compositor presentation を完成させない。`GuiFontRegisteredFaceTable` の Copy record だけ、browser `FontFace`、Canvas `fillText`、host text measurement、fallback font は glyph lookup success evidence ではない。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。
