@@ -6098,6 +6098,42 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face.nepl --no-tree -o
 git diff --check
 ```
 
+## Phase F5nq: registered face table-backed glyph lookup boundary
+
+目的:
+
+- `GuiFontRegisteredFaceTableEntry` を authority として、1 code point から `GuiGlyphId` への cmap lookup boundary を作る。
+- entry は借用し、glyph lookup のために owner を消費しない。caller は同じ entry を後続 hmtx / glyf / layout / raster phase へ渡せる。
+- lookup 前に entry record と face owner から再導出した record を照合し、Copy record だけを glyph lookup authority にしない。
+- F5nq は text shaping / layout、hmtx / glyf lookup、glyph mask、rasterization、render2d、platform API、Web presentation へ進まない。
+
+変更:
+
+- `stdlib/alloc/gui/font/registered_face_glyph_lookup.nepl` を追加する。
+- `GuiFontRegisteredFaceGlyphMapping` は table record、code point、glyph id を持つ Copy evidence とする。
+- `GuiFontRegisteredFaceGlyphLookupError` は owner を持たず、kind、record、optional `GuiSfntParseError`、optional `GuiFontRegisteredFaceTableRegisterErrorKind`、code point を持つ Copy evidence とする。
+- `gui_font_registered_face_glyph_lookup` は `&GuiFontRegisteredFaceTableEntry` を受け、`gui_font_registered_face_table_record_from_face` で record を再導出し、entry record と全 field を照合する。
+- record 照合後、再導出 record の `selected_face_index` を `some selected_face_index` として `gui_sfnt_lookup_glyph_id` へ渡す。`gui_sfnt_lookup_glyph_id` は 1 回だけ呼ぶ。
+- `stdlib/alloc/gui/font.nepl` facade から registered face glyph lookup boundary を再公開する。
+- `tests/stdlib/gui_font_registered_face.n.md` は cmap 付き SFNT fixture を追加し、success mapping と `MissingGlyphMapping` error が entry を消費せず確認できることを検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は F5np module で glyph lookup 禁止を維持し、F5nq module だけが `gui_sfnt_lookup_glyph_id` を exactly once 呼ぶこと、no owner split / no layout / no raster / no render2d / no platform / no fallback を固定する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest が table-backed glyph lookup success と typed missing glyph mapping error を確認する。
+- source policy が borrowed entry、record 再検査、selected face index authority、`gui_sfnt_lookup_glyph_id` exactly once、Copy mapping/error、owner split 禁止、layout / raster / render2d / platform / presentation 禁止を検査する。
+- implementation review で F5nq が entry owner lifetime と F5np table boundary を崩していないことが確認済みである。
+- focused doctest、source policy、documentation contract、`git diff --check`、`trunk build`、playground editor JSON が通る。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5nq.json -j 1
+git diff --check
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

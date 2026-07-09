@@ -408,6 +408,8 @@ const allocFontRegisteredFace = read("stdlib/alloc/gui/font/registered_face.nepl
 const allocFontRegisteredFaceImpl = withoutComments(allocFontRegisteredFace);
 const allocFontRegisteredFaceTable = read("stdlib/alloc/gui/font/registered_face_table.nepl");
 const allocFontRegisteredFaceTableImpl = withoutComments(allocFontRegisteredFaceTable);
+const allocFontRegisteredFaceGlyphLookup = read("stdlib/alloc/gui/font/registered_face_glyph_lookup.nepl");
+const allocFontRegisteredFaceGlyphLookupImpl = withoutComments(allocFontRegisteredFaceGlyphLookup);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -2148,9 +2150,10 @@ assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/resource"\s+as\s+\*/,
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "alloc/gui/font facade must export sfnt parser");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face"\s+as\s+\*/, "alloc/gui/font facade must export registered face owner boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_table"\s+as\s+\*/, "alloc/gui/font facade must export registered face table boundary");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_glyph_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face glyph lookup boundary");
 assertMatch(
     allocFontFacade,
-    /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
+    /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph lookup[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
     "alloc/gui/font facade docs must distinguish implemented glyph/render2d boundaries from missing Web text presentation",
 );
 assertMatch(
@@ -2295,6 +2298,76 @@ assertNoMatch(
     allocFontRegisteredFaceTableImpl,
     /\b(?:FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|gui_sfnt_parse_metadata|gui_sfnt_lookup_glyph_id|gui_sfnt_lookup_horizontal_metric|gui_sfnt_lookup_glyph_bounds|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|HashMap|BTreeMap|family|displayName)\b/,
     "registered face table must not parse again, split bytes owners, or enter platform text, glyph lookup, render2d, family, or display-name authority",
+);
+assertMatch(
+    allocFontRegisteredFaceGlyphLookup,
+    /pub\s+struct\s+GuiFontRegisteredFaceGlyphMapping:[\s\S]*record\s+%GuiFontRegisteredFaceRecord[\s\S]*code_point\s+%i32[\s\S]*glyph\s+%GuiGlyphId/,
+    "registered face glyph lookup must return Copy mapping evidence with table record, code point, and glyph id",
+);
+assertMatch(
+    allocFontRegisteredFaceGlyphLookup,
+    /pub\s+struct\s+GuiFontRegisteredFaceGlyphLookupError:[\s\S]*kind\s+%GuiFontRegisteredFaceGlyphLookupErrorKind[\s\S]*record\s+%GuiFontRegisteredFaceRecord[\s\S]*parse_error\s+%Option\s+GuiSfntParseError[\s\S]*table_error\s+%Option\s+GuiFontRegisteredFaceTableRegisterErrorKind[\s\S]*code_point\s+%i32/,
+    "registered face glyph lookup error must be Copy evidence and preserve lower parse/table errors",
+);
+assertNoMatch(
+    allocFontRegisteredFaceGlyphLookup,
+    /pub\s+struct\s+GuiFontRegisteredFaceGlyphLookup:[\s\S]*entry\s+%GuiFontRegisteredFaceTableEntry/,
+    "registered face glyph lookup must not introduce a success owner that consumes the table entry",
+);
+const registeredFaceGlyphLookup = functionSlice(allocFontRegisteredFaceGlyphLookupImpl, "gui_font_registered_face_glyph_lookup");
+const registeredFaceGlyphLookupRecordEq = functionSlice(allocFontRegisteredFaceGlyphLookupImpl, "gui_font_registered_face_glyph_lookup_record_eq");
+assertOrderedFragments(
+    registeredFaceGlyphLookupRecordEq,
+    [
+        "gui_font_registered_face_record_actual_hash left",
+        "gui_font_registered_face_record_actual_hash right",
+        "gui_font_registered_face_record_source left",
+        "gui_font_registered_face_record_source right",
+        "gui_font_registered_face_record_decode_policy left",
+        "gui_font_registered_face_record_decode_policy right",
+        "gui_font_registered_face_record_resource_raw left",
+        "gui_font_registered_face_record_resource_raw right",
+        "gui_font_registered_face_record_face_raw left",
+        "gui_font_registered_face_record_face_raw right",
+        "gui_font_registered_face_record_selected_face_index left",
+        "gui_font_registered_face_record_selected_face_index right",
+        "gui_font_registered_face_record_face_count left",
+        "gui_font_registered_face_record_face_count right",
+        "gui_font_registered_face_record_units_per_em left",
+        "gui_font_registered_face_record_units_per_em right",
+        "gui_font_registered_face_record_glyph_count left",
+        "gui_font_registered_face_record_glyph_count right",
+        "gui_font_registered_face_record_byte_len left",
+        "gui_font_registered_face_record_byte_len right",
+        "gui_font_registered_face_glyph_lookup_hash_eq left_hash right_hash",
+        "gui_font_registered_face_glyph_lookup_source_eq left_source right_source",
+        "gui_font_registered_face_glyph_lookup_decode_policy_eq left_policy right_policy",
+    ],
+    "registered face glyph lookup record comparison must pin every table record field",
+);
+assertOrderedFragments(
+    registeredFaceGlyphLookup,
+    [
+        "gui_font_registered_face_table_entry_record",
+        "gui_font_registered_face_table_entry_face_ref",
+        "gui_font_registered_face_table_record_from_face",
+        "gui_font_registered_face_glyph_lookup_record_eq",
+        "gui_font_registered_face_record_selected_face_index",
+        "gui_font_registered_face_resource_ref",
+        "gui_font_resource_bytes_ref",
+        "gui_sfnt_lookup_glyph_id",
+        "gui_font_registered_face_glyph_mapping",
+    ],
+    "registered face glyph lookup must borrow entry, rederive the record, use selected face index, and call cmap glyph lookup",
+);
+assert(
+    (allocFontRegisteredFaceGlyphLookupImpl.match(/\bgui_sfnt_lookup_glyph_id\b/g) || []).length === 1,
+    "registered face glyph lookup boundary must call gui_sfnt_lookup_glyph_id exactly once",
+);
+assertNoMatch(
+    allocFontRegisteredFaceGlyphLookupImpl,
+    /\b(?:FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|gui_sfnt_lookup_horizontal_metric|gui_sfnt_lookup_glyph_bounds|gui_sfnt_lookup_simple_glyph|gui_font_registered_face_table_entry_finish_face|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|HashMap|BTreeMap|family|displayName|fallback)\b/,
+    "registered face glyph lookup must not split owners or enter layout, raster, render2d, platform, family, display-name, or fallback paths",
 );
 assertMatch(
     spec,
