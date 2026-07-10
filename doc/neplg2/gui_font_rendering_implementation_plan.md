@@ -6192,6 +6192,63 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nr_registered_face_horizontal_metric_lookup.json
 ```
 
+## Phase F5ns: registered face simple glyph point stream lookup boundary
+
+目的:
+
+- F5nq mappingと同じ registered face entryから、simple glyphのchecked topology / raw point-stream rangeを解決する。
+- entryとmappingは借用し、success / errorはCopy evidenceとする。bytes ownerはentry側に残す。
+- point streamはownerではないため、後続decodeもentryとevidenceを同時に借用して再検証する契約を固定する。
+- F5nsはpoint decode、path construction、metric join、scale、shaping / layout、raster / render2d、platform / Web presentationへ進まない。
+
+plan review:
+
+- Ampere plan review 1は`CHANGES_REQUESTED`。
+- simple / composite glyphのcmap mapping、missing-loca / missing-glyfでもregistrationとmappingが成功するfixture構造、malformed payloadを具体化する必要がある。
+- source policyでfacade、Copy evidence、validation order、single lower call、lower error preservation、owner close / decode / path / raster / render / platform / fallback禁止を個別に固定する必要がある。
+- revised planは`A -> glyph 36 simple`、`B -> glyph 37 composite`、unknown-tag missing table、coordinate不足 malformed fixtureと具体的source-policy assertionを追加する。
+- Ampere revised plan reviewはownership、API order、Copy evidence、`glyf`-relative offset lifetime、fixture variants、typed lower error、no fallback scopeが整合したとして`PLAN_APPROVED`。
+
+変更:
+
+- `stdlib/alloc/gui/font/registered_face_simple_glyph_lookup.nepl`を追加する。
+- `GuiFontRegisteredFaceSimpleGlyphPointStream`はmappingと`GuiSfntSimpleGlyphPointStream`を持つCopy evidenceとする。
+- `GuiFontRegisteredFaceSimpleGlyphLookupError`はkind、entry record、mapping、optional shared validation error、optional `GuiSfntParseError`を持つCopy evidenceとする。
+- public lookupはborrowed entry / mappingを受け、shared entry validation、mapping record comparison、entry bytes、canonical selected face index、mapping glyphの順に進み、`gui_sfnt_lookup_simple_glyph_point_stream`をexactly once呼ぶ。
+- mapping mismatchはlower parser前に拒否し、cmap / hmtx lookupを再実行しない。
+- facadeからF5ns boundaryを再公開する。
+- `tests/stdlib/gui_font_registered_face.n.md`のcanonical registered face fixtureへ`loca` / `glyf`を追加し、success topology / bounds / point-stream range、missing table、malformed glyf、unsupported composite glyph、foreign mapping mismatch、entry lifetimeを検査する。fixtureを用途別に複製せず、cmap / hmtx / loca / glyfを持つcomprehensive fixtureへ集約する。
+- comprehensive fixtureのcmapは`A -> simple glyph 36`、`B -> composite glyph 37`を固定する。short locaはglyph 36のsimple point-stream payloadとglyph 37のnegative-contour composite headerを別rangeとして指す。successは`A`、unsupported compositeは`B`を使い、cmap lookup自体の成功後に`UnsupportedGlyphOutlineFormat`へ到達することを確認する。
+- missing-loca / missing-glyf fixtureは同じvalid head / hhea / maxp / cmap / hmtx bytesを保ち、対象table record tagだけをunknown tagへ置換する。registered face registrationとglyph mappingは成功したままF5nsで`MissingTable`になることを確認する。
+- malformed fixtureはvalid table directory / loca rangeを保ちつつ、glyph 36のsimple point dataをcoordinate bytes不足にして`MalformedGlyfRecord`を返す。foreign mapping fixtureは別resource / face recordの`A` mappingを作る。
+- source policyはfacade export、success/errorの`Clone` / `Copy`、shared entry validation -> mapping record comparison -> entry bytes -> selected face index -> mapping glyph -> exactly one `gui_sfnt_lookup_simple_glyph_point_stream` callの順序、lower `GuiSfntParseError`のpayload保持を固定する。
+- source policyはsuccess owner / entry consumption、entry close / resource finish、cmap / hmtx recomputation、point coordinate decode、path construction、raster、render2d、platform API、fallback APIがF5ns moduleに存在しないことを固定する。
+- spec、detailed design、standard library spec、`note.n.md`、`todo.md`を更新する。
+
+完了条件:
+
+- focused behavior testがsuccess、missing、malformed、unsupported composite、foreign mapping mismatch、entry reuse / single freeを確認する。
+- source policyがCopy evidence/error、validation order、single lower call、scope exclusionを確認する。
+- subagent implementation reviewがoffset lifetime、typed lower error、no fallback、owner lifetimeを承認する。
+- focused test、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+
+implementation review:
+
+- Ampere implementation reviewは実装 / fixture / source policyにdefectなしとし、progress artifactsとgenerated test artifact cleanupだけを指摘した。`note.n.md` / `todo.md`更新とcleanup後の再レビューは`REVIEW_APPROVED`。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5ns.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+node nodesrc/issues.js check --dir issues
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5ns_registered_face_simple_glyph_lookup.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

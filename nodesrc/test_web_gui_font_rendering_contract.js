@@ -412,6 +412,8 @@ const allocFontRegisteredFaceGlyphLookup = read("stdlib/alloc/gui/font/registere
 const allocFontRegisteredFaceGlyphLookupImpl = withoutComments(allocFontRegisteredFaceGlyphLookup);
 const allocFontRegisteredFaceHorizontalMetricLookup = read("stdlib/alloc/gui/font/registered_face_horizontal_metric_lookup.nepl");
 const allocFontRegisteredFaceHorizontalMetricLookupImpl = withoutComments(allocFontRegisteredFaceHorizontalMetricLookup);
+const allocFontRegisteredFaceSimpleGlyphLookup = read("stdlib/alloc/gui/font/registered_face_simple_glyph_lookup.nepl");
+const allocFontRegisteredFaceSimpleGlyphLookupImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphLookup);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -2154,9 +2156,10 @@ assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face"\s+as
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_table"\s+as\s+\*/, "alloc/gui/font facade must export registered face table boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_glyph_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face glyph lookup boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_horizontal_metric_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face horizontal metric lookup boundary");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face simple glyph lookup boundary");
 assertMatch(
     allocFontFacade,
-        /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph \/ horizontal metric lookup[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
+        /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph \/ horizontal metric \/ simple glyph point-stream lookup[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
     "alloc/gui/font facade docs must distinguish implemented glyph/render2d boundaries from missing Web text presentation",
 );
 assertMatch(
@@ -2444,6 +2447,45 @@ assertNoMatch(
     allocFontRegisteredFaceHorizontalMetricLookupImpl,
     /\b(?:MetricGlyphMismatch|gui_sfnt_lookup_glyph_id|gui_sfnt_lookup_glyph_bounds|gui_sfnt_lookup_simple_glyph|FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|gui_font_registered_face_table_entry_finish_face|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|HashMap|BTreeMap|family|displayName|fallback)\b/,
     "registered face horizontal metric lookup must not recompute cmap, split owners, or enter layout, raster, render, platform, or fallback paths",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphLookup,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphPointStream:[\s\S]*mapping\s+%GuiFontRegisteredFaceGlyphMapping[\s\S]*stream\s+%GuiSfntSimpleGlyphPointStream[\s\S]*impl\s+Clone\s+for\s+GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphPointStream/,
+    "registered face simple glyph lookup must return Copy mapping and point-stream evidence",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphLookup,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphLookupError:[\s\S]*record\s+%GuiFontRegisteredFaceRecord[\s\S]*mapping\s+%GuiFontRegisteredFaceGlyphMapping[\s\S]*validation_error\s+%Option\s+GuiFontRegisteredFaceTableEntryValidationError[\s\S]*parse_error\s+%Option\s+GuiSfntParseError[\s\S]*impl\s+Clone\s+for\s+GuiFontRegisteredFaceSimpleGlyphLookupError[\s\S]*impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphLookupError/,
+    "registered face simple glyph lookup error must be Copy and preserve exact validation/parser evidence",
+);
+const registeredFaceSimpleGlyphLookup = functionSlice(allocFontRegisteredFaceSimpleGlyphLookupImpl, "gui_font_registered_face_simple_glyph_lookup");
+assertOrderedFragments(
+    registeredFaceSimpleGlyphLookup,
+    [
+        "gui_font_registered_face_table_entry_record",
+        "gui_font_registered_face_table_entry_validate",
+        "gui_font_registered_face_glyph_mapping_record",
+        "gui_font_registered_face_record_eq",
+        "MappingRecordMismatch",
+        "gui_font_registered_face_table_entry_face_ref",
+        "gui_font_registered_face_resource_ref",
+        "gui_font_resource_bytes_ref",
+        "gui_font_registered_face_record_selected_face_index",
+        "gui_font_registered_face_glyph_mapping_glyph",
+        "gui_sfnt_lookup_simple_glyph_point_stream",
+        "some parse_error",
+        "gui_font_registered_face_simple_glyph_point_stream",
+    ],
+    "registered face simple glyph lookup must validate entry and mapping before one lower point-stream call and preserve lower errors",
+);
+assert(
+    (allocFontRegisteredFaceSimpleGlyphLookupImpl.match(/\bgui_sfnt_lookup_simple_glyph_point_stream\b/g) || []).length === 1,
+    "registered face simple glyph lookup boundary must call gui_sfnt_lookup_simple_glyph_point_stream exactly once",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphLookupImpl,
+    /\b(?:gui_sfnt_lookup_glyph_id|gui_sfnt_lookup_horizontal_metric|gui_sfnt_lookup_simple_glyph_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_lookup_simple_glyph_path_contour_step|gui_font_registered_face_table_entry_finish_face|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|HashMap|BTreeMap|family|displayName|fallback)\b/,
+    "registered face simple glyph lookup must not split owners, recompute cmap/hmtx, decode points/paths, or enter raster, render, platform, or fallback paths",
 );
 assertMatch(
     spec,

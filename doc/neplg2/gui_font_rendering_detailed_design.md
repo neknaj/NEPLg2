@@ -306,6 +306,32 @@ public lookup は `&GuiFontRegisteredFaceTableEntry` と `&GuiFontRegisteredFace
 
 F5nr は cmap lookup を再実行せず、mapping の code point / glyph provenance を保持する。`MissingTable`、`MalformedHmtxRecord`、`MissingGlyphMetric` は lower `GuiSfntParseError` を保持した typed error とし、host text measurement や fallback font へ切り替えない。metric は font units のまま返し、scale、shaping、layout、glyph outline / raster、render2d、platform / Web presentation は後続境界に残す。
 
+## Font registered face simple glyph point stream lookup boundary
+
+F5ns は F5nq mapping を同じ registered face entry の `loca` / `glyf` authorityへ接続する。public lookupは `&GuiFontRegisteredFaceTableEntry` と `&GuiFontRegisteredFaceGlyphMapping` を受け、shared entry validation、canonical recordとmapping recordの照合、entry faceからbytes借用、canonical selected face index取得、mapping glyph取得の順に進み、`gui_sfnt_lookup_simple_glyph_point_stream`を1回だけ呼ぶ。
+
+```text
+GuiFontRegisteredFaceSimpleGlyphPointStream:
+    mapping GuiFontRegisteredFaceGlyphMapping
+    stream GuiSfntSimpleGlyphPointStream
+
+GuiFontRegisteredFaceSimpleGlyphLookupErrorKind:
+    EntryValidationFailed
+    MappingRecordMismatch
+    SfntParseFailed
+
+GuiFontRegisteredFaceSimpleGlyphLookupError:
+    kind GuiFontRegisteredFaceSimpleGlyphLookupErrorKind
+    record GuiFontRegisteredFaceRecord
+    mapping GuiFontRegisteredFaceGlyphMapping
+    validation_error Option GuiFontRegisteredFaceTableEntryValidationError
+    parse_error Option GuiSfntParseError
+```
+
+success / errorはCopy evidenceであり、entry ownerを保持しない。`GuiSfntSimpleGlyphPointStream`はtopology、flag / x / y / trailing dataの`glyf` table-relative rangeを持つが、bytesそのものは持たない。このため後続readerはentryとF5ns evidenceを同時に借用し、entry validatorとmapping record comparisonを再実行する。Copy stream単体をownerとして扱ったり、entry close後にoffsetを読むAPIは作らない。
+
+F5nsはcmap / hmtx lookupを再実行せず、foreign mappingをlower parser前に拒否する。`MissingTable`、`UnsupportedLocaFormat`、`MalformedGlyfRecord`、`MissingGlyphOutline`、`UnsupportedGlyphOutlineFormat`はexact lower `GuiSfntParseError`を保持する。composite glyphをsimple glyphへfallbackせず、point decode、path construction、metric join、scale、shaping / layout、raster / render2d、platform / Web presentationは後続境界に残す。
+
 ## SFNT name table
 
 F4b は `alloc/gui/font/sfnt/name.nepl` が所有する。`alloc/gui/font/sfnt.nepl` は facade とし、numeric metadata parser は `alloc/gui/font/sfnt/metadata.nepl` に置く。`gui_sfnt_parse_metadata` は `name` table decode を行わず、`gui_sfnt_parse_names` は別 API として `GuiSfntNames` を返す。

@@ -1,3 +1,53 @@
+# 2026-07-10 Agent2 GUI font rendering F5ns registered face simple glyph point stream lookup boundary
+
+## 目的
+
+- F5nqのtable-backed glyph mappingを、同じregistered face entryの`loca` / `glyf` authorityへ接続する。
+- bytes ownerを複製せず、simple glyph topology / bounds / raw point-stream rangeをCopy evidenceとして後続decodeへ渡す。
+- point-stream offsetはentry bytesに従属するため、後続readerでもentryとevidenceの同時借用と再検証を要求する。
+
+## 実装
+
+- `stdlib/alloc/gui/font/registered_face_simple_glyph_lookup.nepl`を追加した。
+- public lookupはborrowed entry / mappingを受け、shared entry validation、mapping record comparison、entry bytes、canonical selected face index、mapping glyphの順に進み、`gui_sfnt_lookup_simple_glyph_point_stream`を1回だけ呼ぶ。
+- successはmappingと`GuiSfntSimpleGlyphPointStream`のCopy evidence、failureはentry record、mapping、optional shared validation error、optional exact lower parse errorのCopy evidenceとした。
+- `tests/stdlib/gui_font_registered_face.n.md`へhead / hhea / maxp / cmap / hmtx / loca / glyfを持つcomprehensive fixtureを追加した。cmapは`A -> simple glyph 36`、`B -> composite glyph 37`を固定する。
+- short locaはglyph 36の34-byte simple point streamとglyph 37の10-byte composite headerを別rangeとして指す。successはbounds、topology、flag / x / y / trailing rangeを検査する。
+- missing loca / glyfは対象record tagだけをunknown tagへ置換し、registration / cmap mapping成功後に`MissingTable`を確認する。malformedはcoordinate bytesを1 byte不足させ、compositeはnegative contour headerで`UnsupportedGlyphOutlineFormat`を確認する。
+- foreign mapping mismatchはlower parser前に拒否する。cmap / hmtx再計算、entry close、point decode、path construction、raster、render2d、platform API、fallbackは追加していない。
+- facade、font rendering spec / detailed design / implementation plan、GUI standard library spec、source policy、`todo.md`をF5nsへ更新した。
+
+## plan.md との差異
+
+- `plan.md`は言語全体の方向性であるため変更していない。F5nsはGUI font rendering implementation planのF5nr後続として追加した。
+- point coordinate decode / path construction、metric join、shaping / layout、raster / render2d、platform presentationは未完了であり、`todo.md`に残している。
+
+## subagent review
+
+- Ampere plan review 1はsimple / composite cmap mapping、missing tableでもregistrationが成功するfixture、malformed payload、具体的source-policy assertionを`CHANGES_REQUESTED`とした。
+- revised planへ`A -> glyph 36 simple`、`B -> glyph 37 composite`、unknown tag missing table、coordinate不足 malformed、facade / Copy / order / exactly-one / prohibited call assertionを追加し、再レビューは`PLAN_APPROVED`。
+- Ampere implementation reviewは実装 / fixture / source policyにdefectなしとし、`note.n.md` / `todo.md`更新とgenerated test artifact cleanupだけを`CHANGES_REQUESTED`とした。このcheckpointでprogress artifactsを更新し、最終gate後にgenerated artifactsを削除する。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: focused registered face behavior test。`partial: false`、1/1、31 assertions。
+- pass: registered face simple glyph lookup module doctests。15/15。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存baseline gapのみ。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。LF / CRLF warningのみ。
+- pass: `trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5ns_registered_face_simple_glyph_lookup.json`。
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Ampere implementation re-reviewはprogress artifactsとgenerated artifact cleanupを確認し、`REVIEW_APPROVED`。
+
+## 残件
+
+- F5ns evidenceと同じentryを再検証してpoint coordinate / contour / pathを読むregistered-face reader boundaryを追加する。
+- horizontal metric evidenceとoutline evidenceをjoinし、scale、shaping / layout、raster / render2dへ接続する。
+- native / bare / headless providerとWeb compositor presentationを同じno-fallback contractで接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nr registered face horizontal metric lookup boundary
 
 ## 目的
