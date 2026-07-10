@@ -2016,6 +2016,8 @@ Outline font rendering、font resource loading、ruby / furigana、Japanese vert
 
 `alloc/gui/font/registered_face_horizontal_metric_lookup` は同じ borrowed entry と glyph mapping を受け、canonical record と mapping record を照合してから SFNT `hmtx` lookup を行う。成功時は mapping と raw font-unit horizontal metric の Copy evidence、失敗時は record / mapping / lower parse error または entry validation error の Copy evidence を返す。entry owner は caller が保持し、mapping mismatch では parser を呼ばない。scaling、glyf lookup、text shaping、layout、rasterization、render2d drain、presentation path は後続境界で扱う。
 
+`alloc/gui/font/registered_face_simple_glyph_lookup`は同じborrowed entryとglyph mappingを受け、shared entry validationとmapping record照合後にSFNT `loca` / `glyf`からsimple glyph point streamを得る。successはmappingとCopy point-stream evidence、failureはrecord / mapping / shared validation error / exact lower parse errorを返す。point-stream rangeはbytes ownerではないため、後続readerもentryとevidenceを同時に借用して再検証する。composite glyph fallback、point/path decode、metric join、layout、rasterization、render2d、presentationは後続境界で扱う。
+
 ## Mobile Lifecycle Contract
 
 Mobile backend は native desktop の一種として扱わない。少なくとも次の状態遷移を event contract として表す。

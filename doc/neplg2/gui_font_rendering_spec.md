@@ -141,6 +141,10 @@ F5nr 以降、`alloc/gui/font/registered_face_horizontal_metric_lookup` は借�
 
 成功時の `GuiFontRegisteredFaceGlyphHorizontalMetric` は mapping と raw font-unit `GuiSfntHorizontalMetric` を保持する Copy evidence である。失敗時の `GuiFontRegisteredFaceHorizontalMetricLookupError` は entry record、mapping、optional table entry validation error、optional `GuiSfntParseError` を保持し、entry owner を消費しない。`MissingTable`、`MalformedHmtxRecord`、`MissingGlyphMetric` は fallback や host measurement に置換せず typed lower error として保持する。F5nr は scaling、text shaping、layout、glyf lookup、rasterization、render2d、platform API、Web presentation を完成させない。
 
+F5ns 以降、`alloc/gui/font/registered_face_simple_glyph_lookup` は借用した `GuiFontRegisteredFaceTableEntry` と F5nq mapping を受け、shared entry validation と mapping record 照合の後に `gui_sfnt_lookup_simple_glyph_point_stream` を 1 回だけ呼ぶ。success の `GuiFontRegisteredFaceSimpleGlyphPointStream` は mapping と `GuiSfntSimpleGlyphPointStream` の Copy evidence を保持する。別 entry 由来 mapping は `glyf` parse 前に拒否し、cmap / hmtx lookup を再実行しない。
+
+point stream 内の offset / length は registered face bytes 内 `glyf` table に対する範囲であり、bytes ownerではない。後続 point decode / path construction は同じ entry と F5ns evidence を借用し、entry validation と mapping record を再照合してからbytesを読む。entry close後のCopy streamだけをoutline authorityとして使ってはならない。`MissingTable`、`UnsupportedLocaFormat`、`MalformedGlyfRecord`、`MissingGlyphOutline`、`UnsupportedGlyphOutlineFormat` はtyped lower errorとして保持し、fallback glyphやhost font APIへ切り替えない。F5nsはpoint coordinate decode、path construction、metricとの結合、scaling、shaping / layout、rasterization、render2d、platform presentationを完成させない。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。

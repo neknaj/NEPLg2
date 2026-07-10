@@ -11,7 +11,7 @@
 - WOFF decode 境界が来るまでは `SfntOnly` 以外の decode policy を parse 前に拒否します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=26 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=31 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"registered face simple glyph success and composite rejection\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"registered face simple glyph missing loca\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"registered face simple glyph missing glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"registered face simple glyph malformed point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"registered face simple glyph mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -251,6 +251,206 @@ fn sfnt_push_valid_hmtx_table %impure fn ByteBuilder Result ByteBuilder str \bui
                                 Result::Ok b4:
                                     sfnt_push_zero_run b4 6
 
+fn sfnt_push_format4_ab_segment %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 4:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 32:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 0:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 4:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_zero_run b4 6:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u16_be b5 'B':
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u16_be b6 65535:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u16_be b7 0:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    match sfnt_push_u16_be b8 'A':
+                                                                        Result::Err message:
+                                                                            Result::Err message
+                                                                        Result::Ok b9:
+                                                                            match sfnt_push_u16_be b9 65535:
+                                                                                Result::Err message:
+                                                                                    Result::Err message
+                                                                                Result::Ok b10:
+                                                                                    match sfnt_push_u16_be b10 65507:
+                                                                                        Result::Err message:
+                                                                                            Result::Err message
+                                                                                        Result::Ok b11:
+                                                                                            match sfnt_push_u16_be b11 1:
+                                                                                                Result::Err message:
+                                                                                                    Result::Err message
+                                                                                                Result::Ok b12:
+                                                                                                    match sfnt_push_u16_be b12 0:
+                                                                                                        Result::Err message:
+                                                                                                            Result::Err message
+                                                                                                        Result::Ok b13:
+                                                                                                            sfnt_push_u16_be b13 0
+
+fn sfnt_push_valid_cmap_ab_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_ab_segment b3
+
+fn sfnt_push_comprehensive_records %impure fn ByteBuilder impure fn i32 impure fn i32 impure fn i32 Result ByteBuilder str \builder\glyf_length\loca_tag\glyf_tag:
+    match sfnt_push_record builder sfnt_tag4 'h' 'e' 'a' 'd' 124 52:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_record b1 sfnt_tag4 'h' 'h' 'e' 'a' 176 36:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_record b2 sfnt_tag4 'm' 'a' 'x' 'p' 212 6:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_record b3 sfnt_tag4 'c' 'm' 'a' 'p' 218 44:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_record b4 sfnt_tag4 'h' 'm' 't' 'x' 262 82:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_record b5 loca_tag 344 82:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    sfnt_push_record b6 glyf_tag 426 glyf_length
+
+fn sfnt_push_comprehensive_loca %impure fn ByteBuilder impure fn bool Result ByteBuilder str \builder\malformed:
+    match sfnt_push_zero_run builder 74:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            let simple_end %i32 if malformed then 15 else 17
+            let composite_end %i32 if malformed then 20 else 22
+            match sfnt_push_u16_be b1 simple_end:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 composite_end:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 composite_end:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_u16_be b4 composite_end
+
+fn sfnt_push_glyf_header %impure fn ByteBuilder impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result ByteBuilder str \builder\contours\x_min\y_min\x_max\y_max:
+    match sfnt_push_u16_be builder contours:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 x_min:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 y_min:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 x_max:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_u16_be b4 y_max
+
+fn sfnt_push_comprehensive_simple_glyph %impure fn ByteBuilder impure fn bool Result ByteBuilder str \builder\malformed:
+    match sfnt_push_glyf_header builder 2 65526 65516 100 200:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 3:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 1:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_u8 b4 77:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u8 b5 0:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u8 b6 18:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u8 b7 36:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    match sfnt_push_u8 b8 48:
+                                                                        Result::Err message:
+                                                                            Result::Err message
+                                                                        Result::Ok b9:
+                                                                            if:
+                                                                                malformed
+                                                                                then:
+                                                                                    sfnt_push_zero_run b9 9
+                                                                                else:
+                                                                                    match sfnt_push_zero_run b9 10:
+                                                                                        Result::Err message:
+                                                                                            Result::Err message
+                                                                                        Result::Ok b10:
+                                                                                            match sfnt_push_u8 b10 171:
+                                                                                                Result::Err message:
+                                                                                                    Result::Err message
+                                                                                                Result::Ok b11:
+                                                                                                    match sfnt_push_u8 b11 205:
+                                                                                                        Result::Err message:
+                                                                                                            Result::Err message
+                                                                                                        Result::Ok b12:
+                                                                                                            sfnt_push_u8 b12 239
+
+fn sfnt_push_comprehensive_glyf %impure fn ByteBuilder impure fn bool Result ByteBuilder str \builder\malformed:
+    match sfnt_push_comprehensive_simple_glyph builder malformed:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            sfnt_push_glyf_header b1 65535 0 0 10 10
+
 fn sfnt_push_cmap_hmtx_tables %impure fn ByteBuilder Result ByteBuilder str \builder:
     match sfnt_push_zero_run builder 18:
         Result::Err message:
@@ -297,6 +497,69 @@ fn sfnt_push_cmap_hmtx_tables %impure fn ByteBuilder Result ByteBuilder str \bui
                                                                                             Result::Err message
                                                                                         Result::Ok b11:
                                                                                             sfnt_push_valid_hmtx_table b11
+
+fn sfnt_push_comprehensive_tables %impure fn ByteBuilder impure fn bool Result ByteBuilder str \builder\malformed:
+    match sfnt_push_zero_run builder 18:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 2048:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_zero_run b2 30:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 0:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_zero_run b4 4:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u16_be b5 1900:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u16_be b6 65036:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u16_be b7 200:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    match sfnt_push_zero_run b8 24:
+                                                                        Result::Err message:
+                                                                            Result::Err message
+                                                                        Result::Ok b9:
+                                                                            match sfnt_push_u16_be b9 1:
+                                                                                Result::Err message:
+                                                                                    Result::Err message
+                                                                                Result::Ok b10:
+                                                                                    match sfnt_push_u32_be b10 65536:
+                                                                                        Result::Err message:
+                                                                                            Result::Err message
+                                                                                        Result::Ok b11:
+                                                                                            match sfnt_push_u16_be b11 40:
+                                                                                                Result::Err message:
+                                                                                                    Result::Err message
+                                                                                                Result::Ok b12:
+                                                                                                    match sfnt_push_valid_cmap_ab_table b12:
+                                                                                                        Result::Err message:
+                                                                                                            Result::Err message
+                                                                                                        Result::Ok b13:
+                                                                                                            match sfnt_push_valid_hmtx_table b13:
+                                                                                                                Result::Err message:
+                                                                                                                    Result::Err message
+                                                                                                                Result::Ok b14:
+                                                                                                                    match sfnt_push_comprehensive_loca b14 malformed:
+                                                                                                                        Result::Err message:
+                                                                                                                            Result::Err message
+                                                                                                                        Result::Ok b15:
+                                                                                                                            sfnt_push_comprehensive_glyf b15 malformed
 
 fn sfnt_push_cmap_sfnt_prefix %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\cmap_length:
     match sfnt_push_header builder 4:
@@ -396,6 +659,23 @@ fn build_cmap_hmtx_sfnt %impure fn i32 Result ByteBuf str \hmtx_length:
                             Result::Ok b2:
                                 sfnt_push_cmap_hmtx_tables b2
 
+fn build_comprehensive_glyph_sfnt %impure fn i32 impure fn i32 impure fn bool Result ByteBuf str \loca_tag\glyf_tag\malformed:
+    let glyf_length %i32 if malformed then 40 else 44
+    match byte_builder_with_capacity 470:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_header b0 7:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        match sfnt_push_comprehensive_records b1 glyf_length loca_tag glyf_tag:
+                            Result::Err message:
+                                Result::Err message
+                            Result::Ok b2:
+                                sfnt_push_comprehensive_tables b2 malformed
+
 fn registered_face_resource_from_bytes %fn ByteBuf fn Option i32 fn GuiFontDecodePolicy GuiFontResourceBytes \bytes\face_index\decode_policy:
     let path %GuiFontResourcePath unwrap_ok gui_font_resource_path_result "fonts/Test-Regular.ttf"
     let request %GuiFontResourceRequest unwrap_ok gui_font_resource_request path face_index none decode_policy
@@ -433,6 +713,18 @@ fn sfnt_parse_error_kind_is %fn GuiSfntParseErrorKind fn GuiSfntParseErrorKind b
         GuiSfntParseErrorKind::MalformedHmtxRecord:
             match expected:
                 GuiSfntParseErrorKind::MalformedHmtxRecord:
+                    true
+                _:
+                    false
+        GuiSfntParseErrorKind::MalformedGlyfRecord:
+            match expected:
+                GuiSfntParseErrorKind::MalformedGlyfRecord:
+                    true
+                _:
+                    false
+        GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+            match expected:
+                GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
                     true
                 _:
                     false
@@ -591,6 +883,20 @@ fn build_registered_face_for_glyph_lookup %impure fn i32 impure fn i32 Result Gu
 
 fn build_registered_face_for_horizontal_metric %impure fn i32 impure fn i32 impure fn i32 Result GuiFontRegisteredFace str \resource_raw\face_raw\hmtx_length:
     match build_cmap_hmtx_sfnt hmtx_length:
+        Result::Err message:
+            Result::Err message
+        Result::Ok bytes:
+            let resource %GuiFontResourceBytes registered_face_resource_from_bytes bytes none GuiFontDecodePolicy::SfntOnly
+            let registered_request %GuiFontRegisteredFaceRequest unwrap_ok gui_font_registered_face_request_from_raw resource_raw face_raw
+            match gui_font_registered_face_register_bytes registered_request resource:
+                Result::Ok face:
+                    Result::Ok face
+                Result::Err error:
+                    gui_font_registered_face_error_free error
+                    Result::Err "register"
+
+fn build_registered_face_for_simple_glyph %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn bool Result GuiFontRegisteredFace str \resource_raw\face_raw\loca_tag\glyf_tag\malformed:
+    match build_comprehensive_glyph_sfnt loca_tag glyf_tag malformed:
         Result::Err message:
             Result::Err message
         Result::Ok bytes:
@@ -964,6 +1270,210 @@ fn registered_face_horizontal_metric_mismatch_ok %impure fn void bool \void:
                         Result::Ok registration:
                             gui_font_registered_face_table_registration_with registration @registered_face_horizontal_metric_mismatch_callback
 
+fn registered_face_simple_glyph_error_kind_is %fn &GuiFontRegisteredFaceSimpleGlyphLookupError fn GuiFontRegisteredFaceSimpleGlyphLookupErrorKind bool \error\expected:
+    gui_font_registered_face_simple_glyph_lookup_error_kind_eq gui_font_registered_face_simple_glyph_lookup_error_kind error expected
+
+fn registered_face_simple_glyph_parse_error_is %fn &GuiFontRegisteredFaceSimpleGlyphLookupError fn GuiSfntParseErrorKind bool \error\expected:
+    match gui_font_registered_face_simple_glyph_lookup_error_parse_error error:
+        Option::None:
+            false
+        Option::Some parse_error:
+            sfnt_parse_error_kind_is gui_sfnt_parse_error_kind &parse_error expected
+
+fn registered_face_simple_glyph_success_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let success_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Err _error:
+                    false
+                Result::Ok evidence:
+                    let evidence_mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_simple_glyph_point_stream_mapping &evidence
+                    let stream %GuiSfntSimpleGlyphPointStream gui_font_registered_face_simple_glyph_point_stream_stream &evidence
+                    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+                    let bounds %GuiSfntGlyphBounds gui_sfnt_simple_glyph_topology_bounds &topology
+                    let glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph &evidence_mapping
+                    and eq 36 gui_glyph_id_raw &glyph and eq 2 gui_sfnt_simple_glyph_topology_contour_count &topology and eq 4 gui_sfnt_simple_glyph_topology_point_count &topology and eq 1 gui_sfnt_simple_glyph_topology_instruction_length &topology and eq -10 gui_sfnt_glyph_bounds_x_min &bounds and eq -20 gui_sfnt_glyph_bounds_y_min &bounds and eq 100 gui_sfnt_glyph_bounds_x_max &bounds and eq 200 gui_sfnt_glyph_bounds_y_max &bounds and eq 17 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream and eq 4 gui_sfnt_simple_glyph_point_stream_flag_data_length &stream and eq 21 gui_sfnt_simple_glyph_point_stream_x_data_offset &stream and eq 5 gui_sfnt_simple_glyph_point_stream_x_data_length &stream and eq 26 gui_sfnt_simple_glyph_point_stream_y_data_offset &stream and eq 5 gui_sfnt_simple_glyph_point_stream_y_data_length &stream and eq 31 gui_sfnt_simple_glyph_point_stream_trailing_data_offset &stream eq 3 gui_sfnt_simple_glyph_point_stream_trailing_data_length &stream
+    let composite_ok %bool match gui_font_registered_face_glyph_lookup &entry 'B':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_simple_glyph_error_kind_is &error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed registered_face_simple_glyph_parse_error_is &error GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok record:
+            and eq 151 gui_font_registered_face_record_resource_raw &record eq 157 gui_font_registered_face_record_face_raw &record
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and success_ok and composite_ok entry_reusable
+
+fn registered_face_simple_glyph_success_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 151 157 sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'g' 'l' 'y' 'f' false:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_simple_glyph_success_callback
+
+fn registered_face_simple_glyph_missing_loca_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let missing_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_simple_glyph_error_kind_is &error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed registered_face_simple_glyph_parse_error_is &error GuiSfntParseErrorKind::MissingTable
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok _record:
+            true
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and missing_ok entry_reusable
+
+fn registered_face_simple_glyph_missing_loca_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 163 167 sfnt_tag4 'z' 'z' 'z' 'z' sfnt_tag4 'g' 'l' 'y' 'f' false:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_simple_glyph_missing_loca_callback
+
+fn registered_face_simple_glyph_missing_glyf_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let missing_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_simple_glyph_error_kind_is &error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed registered_face_simple_glyph_parse_error_is &error GuiSfntParseErrorKind::MissingTable
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok _record:
+            true
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and missing_ok entry_reusable
+
+fn registered_face_simple_glyph_missing_glyf_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 173 179 sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'z' 'z' 'z' 'z' false:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_simple_glyph_missing_glyf_callback
+
+fn registered_face_simple_glyph_malformed_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let malformed_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_simple_glyph_error_kind_is &error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed registered_face_simple_glyph_parse_error_is &error GuiSfntParseErrorKind::MalformedGlyfRecord
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok _record:
+            true
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and malformed_ok entry_reusable
+
+fn registered_face_simple_glyph_malformed_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 181 191 sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'g' 'l' 'y' 'f' true:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_simple_glyph_malformed_callback
+
+fn registered_face_simple_glyph_mismatch_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let mismatch_ok %bool match registered_face_foreign_mapping:
+        Option::None:
+            false
+        Option::Some mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_simple_glyph_error_kind_is &error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::MappingRecordMismatch is_none gui_font_registered_face_simple_glyph_lookup_error_parse_error &error
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok record:
+            and eq 193 gui_font_registered_face_record_resource_raw &record eq 197 gui_font_registered_face_record_face_raw &record
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and mismatch_ok entry_reusable
+
+fn registered_face_simple_glyph_mismatch_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 193 197 sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'g' 'l' 'y' 'f' false:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_simple_glyph_mismatch_callback
+
 fn main %impure fn void i32 \void:
     let report0 %TestReport parse_valid_registered_face
     let report1 %TestReport append_invalid_face_registered_case report0
@@ -978,6 +1488,11 @@ fn main %impure fn void i32 \void:
     let report10 %TestReport test_report_push report9 assert "registered face horizontal metric missing table" registered_face_horizontal_metric_missing_ok
     let report11 %TestReport test_report_push report10 assert "registered face horizontal metric malformed table" registered_face_horizontal_metric_malformed_ok
     let report12 %TestReport test_report_push report11 assert "registered face horizontal metric mapping mismatch" registered_face_horizontal_metric_mismatch_ok
-    let shown test_report_print_stdout report12
+    let report13 %TestReport test_report_push report12 assert "registered face simple glyph success and composite rejection" registered_face_simple_glyph_success_ok
+    let report14 %TestReport test_report_push report13 assert "registered face simple glyph missing loca" registered_face_simple_glyph_missing_loca_ok
+    let report15 %TestReport test_report_push report14 assert "registered face simple glyph missing glyf" registered_face_simple_glyph_missing_glyf_ok
+    let report16 %TestReport test_report_push report15 assert "registered face simple glyph malformed point data" registered_face_simple_glyph_malformed_ok
+    let report17 %TestReport test_report_push report16 assert "registered face simple glyph mapping mismatch" registered_face_simple_glyph_mismatch_ok
+    let shown test_report_print_stdout report17
     test_report_exit_code shown
 ```

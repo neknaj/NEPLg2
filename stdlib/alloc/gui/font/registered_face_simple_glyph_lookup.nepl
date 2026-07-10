@@ -1,0 +1,195 @@
+//: # alloc/gui/font/registered_face_simple_glyph_lookup
+//: registered face glyph mapping から simple glyph point stream を[解決/かいけつ]する境界
+//:
+//: ### [目的/もくてき]
+//: - table登録済みface ownerとcmap mappingのprovenanceを保ったまま、SFNT `loca` / `glyf`からchecked point-stream rangeを[引/ひ]きます。
+//: - stream evidenceはCopy valueとして[返/かえ]し、bytes ownerはcallerが[保持/ほじ]するentry側に[残/のこ]します。
+//:
+//: ### [契約/けいやく]
+//: - entryとmappingは[借用/しゃくよう]し、消費しません。
+//: - entry validationとmapping record照合を`glyf` parseより前に行います。
+//: - point streamはbytes ownerではないため、後続readerも同じentryとevidenceを借用して再検証します。
+//: - cmap / hmtx再計算、point decode、path、raster、render2d、platform API、fallbackへは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face" as *
+#import "alloc/gui/font/registered_face_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_table" as *
+#import "alloc/gui/font/resource" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphPointStream: mappingとraw point-stream rangeのCopy evidence
+//:
+//: [注意/ちゅうい]:
+//: - stream内のoffsetはentry bytesの`glyf` table-relative rangeであり、単体のownerではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphPointStream:
+    mapping %GuiFontRegisteredFaceGlyphMapping
+    stream %GuiSfntSimpleGlyphPointStream
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphPointStream:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphPointStream GuiFontRegisteredFaceSimpleGlyphPointStream \evidence:
+        *evidence
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphPointStream:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphPointStream GuiFontRegisteredFaceSimpleGlyphPointStream \evidence:
+        evidence
+
+//: GuiFontRegisteredFaceSimpleGlyphLookupErrorKind: simple glyph lookup境界の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphLookupErrorKind:
+    EntryValidationFailed
+    MappingRecordMismatch
+    SfntParseFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphLookupErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphLookupErrorKind GuiFontRegisteredFaceSimpleGlyphLookupErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphLookupErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphLookupErrorKind GuiFontRegisteredFaceSimpleGlyphLookupErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphLookupError: lookup失敗時のCopy evidence
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphLookupError:
+    kind %GuiFontRegisteredFaceSimpleGlyphLookupErrorKind
+    record %GuiFontRegisteredFaceRecord
+    mapping %GuiFontRegisteredFaceGlyphMapping
+    validation_error %Option GuiFontRegisteredFaceTableEntryValidationError
+    parse_error %Option GuiSfntParseError
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphLookupError:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphLookupError GuiFontRegisteredFaceSimpleGlyphLookupError \error:
+        *error
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphLookupError:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphLookupError GuiFontRegisteredFaceSimpleGlyphLookupError \error:
+        error
+
+//: gui_font_registered_face_simple_glyph_point_stream: success evidenceを[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_point_stream %fn GuiFontRegisteredFaceGlyphMapping fn GuiSfntSimpleGlyphPointStream GuiFontRegisteredFaceSimpleGlyphPointStream \mapping\stream:
+    GuiFontRegisteredFaceSimpleGlyphPointStream mapping stream
+
+//: gui_font_registered_face_simple_glyph_lookup_error: Copy error evidenceを[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_lookup_error %fn GuiFontRegisteredFaceSimpleGlyphLookupErrorKind fn GuiFontRegisteredFaceRecord fn GuiFontRegisteredFaceGlyphMapping fn Option GuiFontRegisteredFaceTableEntryValidationError fn Option GuiSfntParseError GuiFontRegisteredFaceSimpleGlyphLookupError \kind\record\mapping\validation_error\parse_error:
+    GuiFontRegisteredFaceSimpleGlyphLookupError kind record mapping validation_error parse_error
+
+//: gui_font_registered_face_simple_glyph_point_stream_mapping: success evidenceのmappingを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_point_stream_mapping %fn &GuiFontRegisteredFaceSimpleGlyphPointStream GuiFontRegisteredFaceGlyphMapping \evidence:
+    *field::get_ref evidence "mapping"
+
+//: gui_font_registered_face_simple_glyph_point_stream_stream: success evidenceのpoint streamを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_point_stream_stream %fn &GuiFontRegisteredFaceSimpleGlyphPointStream GuiSfntSimpleGlyphPointStream \evidence:
+    *field::get_ref evidence "stream"
+
+//: gui_font_registered_face_simple_glyph_lookup_error_kind_eq: error kindを[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup_error_kind_eq %fn GuiFontRegisteredFaceSimpleGlyphLookupErrorKind fn GuiFontRegisteredFaceSimpleGlyphLookupErrorKind bool \a\b:
+    match a:
+        GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::EntryValidationFailed:
+            match b:
+                GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::EntryValidationFailed:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::MappingRecordMismatch:
+            match b:
+                GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::MappingRecordMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed:
+            match b:
+                GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_simple_glyph_lookup_error_kind: error kindを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphLookupError GuiFontRegisteredFaceSimpleGlyphLookupErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_lookup_error_record: canonical entry record evidenceを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup_error_record %fn &GuiFontRegisteredFaceSimpleGlyphLookupError GuiFontRegisteredFaceRecord \error:
+    *field::get_ref error "record"
+
+//: gui_font_registered_face_simple_glyph_lookup_error_mapping: failed mapping evidenceを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup_error_mapping %fn &GuiFontRegisteredFaceSimpleGlyphLookupError GuiFontRegisteredFaceGlyphMapping \error:
+    *field::get_ref error "mapping"
+
+//: gui_font_registered_face_simple_glyph_lookup_error_validation_error: optional entry validation errorを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup_error_validation_error %fn &GuiFontRegisteredFaceSimpleGlyphLookupError Option GuiFontRegisteredFaceTableEntryValidationError \error:
+    *field::get_ref error "validation_error"
+
+//: gui_font_registered_face_simple_glyph_lookup_error_parse_error: optional lower parser errorを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup_error_parse_error %fn &GuiFontRegisteredFaceSimpleGlyphLookupError Option GuiSfntParseError \error:
+    *field::get_ref error "parse_error"
+
+//: gui_font_registered_face_simple_glyph_lookup: registered mappingのsimple glyph point streamを[引/ひ]く
+//:
+//: [契約/けいやく]:
+//: - entry validationとmapping record照合に成功した場合だけ`loca` / `glyf` parserを呼びます。
+//: - `gui_sfnt_lookup_simple_glyph_point_stream`は1回だけ呼びます。
+//: - success streamはentry bytesを所有しないため、後続readerへentryも同時に渡します。
+//:
+//: [計算量/けいさんりょう]: SFNT table数`n`とglyph point数`p`に対してO(n + p)
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_lookup %fn &GuiFontRegisteredFaceTableEntry fn &GuiFontRegisteredFaceGlyphMapping Result GuiFontRegisteredFaceSimpleGlyphPointStream GuiFontRegisteredFaceSimpleGlyphLookupError \entry\mapping:
+    let entry_record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record entry
+    let mapping_value %GuiFontRegisteredFaceGlyphMapping *mapping
+    match gui_font_registered_face_table_entry_validate entry:
+        Result::Err validation_error:
+            Result::Err gui_font_registered_face_simple_glyph_lookup_error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::EntryValidationFailed entry_record mapping_value some validation_error none
+        Result::Ok canonical_record:
+            let mapping_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record mapping
+            if:
+                not gui_font_registered_face_record_eq &canonical_record &mapping_record
+                then:
+                    Result::Err gui_font_registered_face_simple_glyph_lookup_error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::MappingRecordMismatch canonical_record mapping_value none none
+                else:
+                    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+                    let resource_ref %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
+                    let bytes %&ByteBuf gui_font_resource_bytes_ref resource_ref
+                    let selected_face_index %i32 gui_font_registered_face_record_selected_face_index &canonical_record
+                    let glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph mapping
+                    match gui_sfnt_lookup_simple_glyph_point_stream bytes some selected_face_index glyph:
+                        Result::Err parse_error:
+                            Result::Err gui_font_registered_face_simple_glyph_lookup_error GuiFontRegisteredFaceSimpleGlyphLookupErrorKind::SfntParseFailed canonical_record mapping_value none some parse_error
+                        Result::Ok stream:
+                            Result::Ok gui_font_registered_face_simple_glyph_point_stream mapping_value stream
