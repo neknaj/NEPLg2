@@ -422,6 +422,8 @@ const allocFontRegisteredFaceSimpleGlyphCollection = read("stdlib/alloc/gui/font
 const allocFontRegisteredFaceSimpleGlyphCollectionImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphCollection);
 const allocFontRegisteredFaceSimpleGlyphIndexedPath = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_path.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPath);
+const allocFontRegisteredFaceSimpleGlyphIndexedAction = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_action.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedActionImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedAction);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -2972,6 +2974,74 @@ assertMatch(
     "alloc/gui/font facade must export the registered indexed path owner boundary",
 );
 assertMatch(
+    allocFontFacade,
+    /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_indexed_action"\s+as\s+\*/,
+    "alloc/gui/font facade must export the registered indexed action owner boundary",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedAction,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner:[\s\S]*path\s+%GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner[\s\S]*state\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionState/,
+    "F5nxa action owner must bind the registered path authority and private action state",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    /pub\s+(?:struct|enum|fn)\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionState|pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_action_(?:owner|packet|step_value|error|budget_step)\b/,
+    "F5nxa action state and owner-bearing constructors must remain private",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionStep",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must not be Clone or Copy because it transports registered path authority`,
+    );
+}
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_action_(?:take_path|take_indexed|take_collection|take_storage)|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|collection_contour_span|path_sink_action_start_cursor|path_sink_action_step_item/,
+    "F5nxa must not expose raw owner splits or return to collection-backed action traversal",
+);
+const registeredIndexedActionNeedStep = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_step_need_sink_step",
+);
+assertOrderedFragments(
+    registeredIndexedActionNeedStep,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_path_error_kind &path_error",
+        "gui_font_registered_face_simple_glyph_indexed_path_error_lookup_error &path_error",
+        "gui_font_registered_face_simple_glyph_indexed_path_error_contour_step_error &path_error",
+        "gui_font_registered_face_simple_glyph_indexed_path_error_take_owner path_error",
+    ],
+    "F5nxa must read all lower failure metadata before recovering the path owner",
+);
+const registeredIndexedActionTailStep = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_step_tail_pending",
+);
+assertNoMatch(
+    registeredIndexedActionTailStep,
+    /indexed_path_step|span_lookup|read_item|collection_contour_span/,
+    "F5nxa TailPending must emit the saved Tail action without lower traversal",
+);
+const registeredIndexedActionBudget = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_drain_budget",
+);
+assertOrderedFragments(
+    registeredIndexedActionBudget,
+    [
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed",
+        "if le remaining_steps 0:",
+        "gui_font_registered_face_simple_glyph_indexed_action_step owner",
+    ],
+    "F5nxa budget traversal must check terminal, then zero budget, then at most one action",
+);
+assertMatch(
     allocFontRegisteredFaceSimpleGlyphIndexedPath,
     /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner:[\s\S]*indexed\s+%GuiFontRegisteredFaceSimpleGlyphIndexedOwner[\s\S]*policy\s+%GuiSfntSimpleGlyphPathSinkPolicy[\s\S]*state\s+%GuiFontRegisteredFaceSimpleGlyphIndexedPathState/,
     "F5nw registered path owner must bind registered index, policy, and private state",
@@ -3034,6 +3104,16 @@ assertMatch(
     guiFontRegisteredFaceTests,
     /registered_face_simple_glyph_indexed_path_drain_ok[\s\S]*indexed_path_drain_budget next_owner 0[\s\S]*Completed[\s\S]*eq next_emitted_count 8[\s\S]*eq next_close_count 2[\s\S]*registered_face_simple_glyph_indexed_path_ok[\s\S]*indexed_path_drain_budget path 0[\s\S]*PendingContour[\s\S]*registered_face_simple_glyph_indexed_path_drain_ok/,
     "registered behavior test must cover zero-budget pending and completed states, all sink steps, and explicit contour closure",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /indexed_action_sink_step_source_same[\s\S]*previous_primary[\s\S]*indexed_action_drain_budget completed 0[\s\S]*IndexedActionBudgetStatus::Completed[\s\S]*AlreadyCompleted[\s\S]*eq action_count 16[\s\S]*eq close_count 2[\s\S]*eq no_action_count 6/,
+    "F5nxa registered behavior must cover source-identical Primary/Tail pairs, completed zero budget, direct-step rejection, and exact action counts",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /let path_ok[\s\S]*collection_drain_ok entry owner 0 false[\s\S]*let action_ok[\s\S]*collection_drain_ok entry owner 0 true[\s\S]*and path_ok and action_ok/,
+    "registered behavior must execute separate F5nw and F5nxa owner chains from the same evidence",
 );
 assertMatch(
     guiFontSfntGlyfIndexedPathTests,

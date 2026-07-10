@@ -1,0 +1,455 @@
+//: # alloc/gui/font/registered_face_simple_glyph_indexed_action
+//: registered indexed glyph の sink step を順序付き action stream へ射影する
+//:
+//: ### [目的/もくてき]
+//: - registered indexed owner から始まる F5nw path authority を action 完了まで同じ owner に保持します。
+//: - 各 sink step を `Primary`、`Tail` の順に一度ずつ公開し、`NoAction` も明示的な operation として数えます。
+//: - lower path failure では metadata を先に読み、回収した path owner を action state と再結合します。
+//:
+//: ### [契約/けいやく]
+//: - raw collection、cursor、path owner を分離する public API は提供しません。
+//: - `NeedSinkStep` だけが lower path step を一度呼び、`TailPending` は保存済み sink step だけを読みます。
+//: - budget は terminal、budget 0、最大一 action の順に判定し、常に owner と Copy status を返します。
+//: - action summary、storage、command、stroke state は所有しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: sink step 数 s に対して全 action 射影は O(s)、追加 allocation は O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//:
+//: fn run_one_action %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner unit \owner:
+//:     match gui_font_registered_face_simple_glyph_indexed_action_drain_budget owner 1:
+//:         Result::Err error:
+//:             gui_font_registered_face_simple_glyph_indexed_action_error_free error
+//:         Result::Ok budget_step:
+//:             gui_font_registered_face_simple_glyph_indexed_action_budget_step_free budget_step
+//:
+//: fn main %fn void i32 \void:
+//:     let completed %bool match GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Completed:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Completed: true
+//:         _: false
+//:     test_assertion_exit_code assert "registered indexed action completion is typed" completed
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn forge_action_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \path:
+//:     gui_font_registered_face_simple_glyph_indexed_action_owner path GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep
+//:
+//: fn main %fn void i32 \void:
+//:     0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resource.cell.moved
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn take_budget_owner_twice %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep unit \step:
+//:     let first %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_budget_step_take_owner step
+//:     let second %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_budget_step_take_owner step
+//:     gui_font_registered_face_simple_glyph_indexed_action_owner_free first
+//:     gui_font_registered_face_simple_glyph_indexed_action_owner_free second
+//:
+//: fn main %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep i32 \step:
+//:     take_budget_owner_twice step
+//:     0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn main %fn void i32 \void:
+//:     gui_font_registered_face_simple_glyph_indexed_action_packet
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn main %fn void i32 \void:
+//:     gui_font_registered_face_simple_glyph_indexed_action_step_value
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn main %fn void i32 \void:
+//:     gui_font_registered_face_simple_glyph_indexed_action_error
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn main %fn void i32 \void:
+//:     gui_font_registered_face_simple_glyph_indexed_action_budget_step
+//: ```
+
+#import "alloc/gui/font/registered_face_simple_glyph_collection" as *
+#import "alloc/gui/font/registered_face_simple_glyph_indexed_path" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionState: lower step 待ち、tail 待ち、完了を分ける内部状態
+//:
+//: neplg2:test[skip]
+enum GuiFontRegisteredFaceSimpleGlyphIndexedActionState:
+    NeedSinkStep
+    TailPending %GuiSfntSimpleGlyphPathSinkStep
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedActionState:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionState GuiFontRegisteredFaceSimpleGlyphIndexedActionState \state:
+        *state
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedActionState:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionState GuiFontRegisteredFaceSimpleGlyphIndexedActionState \state:
+        state
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner: F5nw path authority と action 継続状態の owner
+//:
+//: [注意/ちゅうい]: path owner を所有するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner:
+    path %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedActionState
+
+//: gui_font_registered_face_simple_glyph_indexed_action_owner: path authority と private state を分離不能に束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedActionState GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \path\state:
+    GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner path state
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket: 一 action と由来 sink step を運ぶ Copy packet
+//:
+//: [契約/けいやく]: slot は `Primary` または `Tail` であり、action は同じ sink step の pure projection です。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket:
+    sink_step %GuiSfntSimpleGlyphPathSinkStep
+    slot %GuiSfntSimpleGlyphPathSinkActionSlot
+    action %GuiSfntSimpleGlyphPathSinkAction
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket \packet:
+        *packet
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket \packet:
+        packet
+
+//: gui_font_registered_face_simple_glyph_indexed_action_packet: sink step、slot、action を一つの packet に束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_packet %fn GuiSfntSimpleGlyphPathSinkStep fn GuiSfntSimpleGlyphPathSinkActionSlot fn GuiSfntSimpleGlyphPathSinkAction GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket \sink_step\slot\action:
+    GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket sink_step slot action
+
+//: gui_font_registered_face_simple_glyph_indexed_action_packet_sink_step: action の由来 sink step を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_packet_sink_step %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket GuiSfntSimpleGlyphPathSinkStep \packet:
+    *field::get_ref packet "sink_step"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_packet_slot: packet の action slot を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_packet_slot %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket GuiSfntSimpleGlyphPathSinkActionSlot \packet:
+    *field::get_ref packet "slot"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_packet_action: packet の typed action を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_packet_action %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket GuiSfntSimpleGlyphPathSinkAction \packet:
+    *field::get_ref packet "action"
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionStep: emitted packet と唯一の継続 owner
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedActionStep:
+    packet %GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step_value: packet と継続 owner を束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_step_value %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner GuiFontRegisteredFaceSimpleGlyphIndexedActionStep \packet\owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedActionStep packet owner
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind: action traversal failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind:
+    PathStepFailed
+    AlreadyCompleted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionError: lower metadata と回収可能 action owner
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedActionError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind
+    path_error_kind %Option GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind
+    lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError
+    contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error: failure metadata と owner を一体化する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiFontRegisteredFaceSimpleGlyphIndexedActionError \owner\kind\path_error_kind\lookup_error\contour_step_error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedActionError owner kind path_error_kind lookup_error contour_step_error
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus: one-action budget の Copy status
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus:
+    Emitted %GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus \status:
+        *status
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus \status:
+        status
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep: 常に一つの owner と Copy status を返す budget 結果
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus
+
+//: gui_font_registered_face_simple_glyph_indexed_action_budget_step: owner-bearing terminal を作らず budget 結果を束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_budget_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep \owner\status:
+    GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep owner status
+
+//: gui_font_registered_face_simple_glyph_indexed_action_start: registered indexed owner から sealed action owner を開始する
+//:
+//: [契約/けいやく]: borrowed policy を同じ call で F5nw start に渡し、lower path owner を一度だけ作ります。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn &GuiSfntSimpleGlyphPathSinkPolicy GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \indexed\policy:
+    let path %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_start indexed policy
+    gui_font_registered_face_simple_glyph_indexed_action_owner path GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step_packet: emitted action packet を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_step_packet %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionStep GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket \step:
+    *field::get_ref step "packet"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step_take_owner: step から唯一の継続 owner を回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionStep GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \step:
+    field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step_free: emitted packet と継続 owner を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_action_owner_free field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error_kind: outer failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionError GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error_path_error_kind: lower path failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_error_path_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionError Option GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind \error:
+    *field::get_ref error "path_error_kind"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error_lookup_error: lower span lookup metadata を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_error_lookup_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+    *field::get_ref error "lookup_error"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error_contour_step_error: lower checked-span step metadata を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_error_contour_step_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \error:
+    *field::get_ref error "contour_step_error"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error_take_owner: failure から recoverable action owner を回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionError GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \error:
+    field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_error_free: failure metadata と action owner を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_action_owner_free field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step_need_sink_step: lower path を一度進めて Primary packet を作る
+//:
+//: [契約/けいやく]: lower error metadata は path owner を take する前にすべて Copy します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_step_need_sink_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedActionStep GuiFontRegisteredFaceSimpleGlyphIndexedActionError \path:
+    match gui_font_registered_face_simple_glyph_indexed_path_step path:
+        Result::Err path_error:
+            let path_error_kind %GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind gui_font_registered_face_simple_glyph_indexed_path_error_kind &path_error
+            let lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError gui_font_registered_face_simple_glyph_indexed_path_error_lookup_error &path_error
+            let contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError gui_font_registered_face_simple_glyph_indexed_path_error_contour_step_error &path_error
+            let recovered_path %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_error_take_owner path_error
+            let recovered_owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_owner recovered_path GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep
+            Result::Err gui_font_registered_face_simple_glyph_indexed_action_error recovered_owner GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind::PathStepFailed some path_error_kind lookup_error contour_step_error
+        Result::Ok path_step:
+            let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_font_registered_face_simple_glyph_indexed_path_step_sink_step &path_step
+            let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_step_action_at &sink_step GuiSfntSimpleGlyphPathSinkActionSlot::Primary
+            let packet %GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket gui_font_registered_face_simple_glyph_indexed_action_packet sink_step GuiSfntSimpleGlyphPathSinkActionSlot::Primary action
+            let next_path %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_step_take_owner path_step
+            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_owner next_path GuiFontRegisteredFaceSimpleGlyphIndexedActionState::TailPending sink_step
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_action_step_value packet next_owner
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step_tail_pending: 保存済み sink step の Tail packet を作る
+//:
+//: [契約/けいやく]: lower step、lookup、collection read は行わず、full-path progress だけで次状態を決めます。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_action_step_tail_pending %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiSfntSimpleGlyphPathSinkStep Result GuiFontRegisteredFaceSimpleGlyphIndexedActionStep GuiFontRegisteredFaceSimpleGlyphIndexedActionError \path\sink_step:
+    let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_step_action_at &sink_step GuiSfntSimpleGlyphPathSinkActionSlot::Tail
+    let packet %GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket gui_font_registered_face_simple_glyph_indexed_action_packet sink_step GuiSfntSimpleGlyphPathSinkActionSlot::Tail action
+    let next_state %GuiFontRegisteredFaceSimpleGlyphIndexedActionState match gui_font_registered_face_simple_glyph_indexed_path_progress_kind &path:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed:
+            GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::PendingContour:
+            GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::ActiveContour:
+            GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep
+    let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_owner path next_state
+    Result::Ok gui_font_registered_face_simple_glyph_indexed_action_step_value packet next_owner
+
+//: gui_font_registered_face_simple_glyph_indexed_action_step: action stream を最大一 operation 進める
+//:
+//: [契約/けいやく]: completed direct step は silent success にせず、同じ owner を持つ `AlreadyCompleted` を返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedActionStep GuiFontRegisteredFaceSimpleGlyphIndexedActionError \owner:
+    let state %GuiFontRegisteredFaceSimpleGlyphIndexedActionState *field::get_ref &owner "state"
+    let path %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get owner "path"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep:
+            gui_font_registered_face_simple_glyph_indexed_action_step_need_sink_step path
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::TailPending sink_step:
+            gui_font_registered_face_simple_glyph_indexed_action_step_tail_pending path sink_step
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed:
+            let recovered_owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_owner path state
+            Result::Err gui_font_registered_face_simple_glyph_indexed_action_error recovered_owner GuiFontRegisteredFaceSimpleGlyphIndexedActionErrorKind::AlreadyCompleted none none none
+
+//: gui_font_registered_face_simple_glyph_indexed_action_drain_budget: terminal-before-budget で最大一 action 進める
+//:
+//: [契約/けいやく]: nonterminal budget 0 は lower call と action emit を行いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_drain_budget %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedActionError \owner\remaining_steps:
+    let state %GuiFontRegisteredFaceSimpleGlyphIndexedActionState *field::get_ref &owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_action_budget_step owner GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep:
+            if le remaining_steps 0:
+                then:
+                    Result::Ok gui_font_registered_face_simple_glyph_indexed_action_budget_step owner GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::StepBudgetExhausted
+                else:
+                    match gui_font_registered_face_simple_glyph_indexed_action_step owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok step:
+                            let packet %GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket gui_font_registered_face_simple_glyph_indexed_action_step_packet &step
+                            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_step_take_owner step
+                            Result::Ok gui_font_registered_face_simple_glyph_indexed_action_budget_step next_owner GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Emitted packet
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::TailPending _sink_step:
+            if le remaining_steps 0:
+                then:
+                    Result::Ok gui_font_registered_face_simple_glyph_indexed_action_budget_step owner GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::StepBudgetExhausted
+                else:
+                    match gui_font_registered_face_simple_glyph_indexed_action_step owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok step:
+                            let packet %GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket gui_font_registered_face_simple_glyph_indexed_action_step_packet &step
+                            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner gui_font_registered_face_simple_glyph_indexed_action_step_take_owner step
+                            Result::Ok gui_font_registered_face_simple_glyph_indexed_action_budget_step next_owner GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Emitted packet
+
+//: gui_font_registered_face_simple_glyph_indexed_action_budget_step_status: budget 結果の Copy status を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus \step:
+    *field::get_ref step "status"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_budget_step_take_owner: budget 結果から唯一の owner を回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \step:
+    field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_budget_step_free: budget status と owner を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_action_owner_free field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_action_owner_free: action state と embedded path authority を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_path_owner_free field::get owner "path"

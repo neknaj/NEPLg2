@@ -163,6 +163,12 @@ entry、mapping record、canonical `glyf` table、source glyphの検証は`alloc
 
 F5nwのindex buildと全contour sink-step traversalはpoint数p、contour数c、sink step数aに対してO(p + c + a)、storage O(c)である。F5nwはindexed contour sink-step traversalまでを完了境界とし、既存path action cursor / summary、endpoint / edge / command tag drain、command value / stream、stroke provenanceのindexed owner移行はF5nxで行う。F5nx完了前にそれらをnew full path pipelineの完了と扱わない。
 
+F5nx以降のnew registered path storage pipelineは、F5nwが保持するregistered evidence、collection、contour span indexをsource authorityとして継承する。action、outline storage、command storage、stroke provenanceの各phaseは別のnon-Copy owner型で表し、前phase ownerを消費して次phase ownerを返す連続owner chainとする。全phaseを1つの巨大enum ownerへ格納せず、どのphase ownerもregistered authorityを内部に保持する。raw collection、lower indexed owner、path owner、storageだけを分離するpublic consuming accessor、phase ownerのpublic constructor、別glyph由来resourceをpairingするpublic APIを提供しない。
+
+F5nxはF5nwで完了済みのshared provenance validationを再実行して別authorityを作らない。F5nxcでoutline storageを確保する前には、継承したcompleted action ownerから導出したglyph / contour / point / edge / command capacityとcaller limitだけを検査する。allocation後の各phaseは同じregistered authorityを輸送し、foreign collectionやCopy summaryを再注入してprovenanceを再構成しない。失敗時はlower error metadataをowner回収前に読み、同じphase ownerを回収可能なtyped errorを返す。
+
+F5nxのbudget resultは各phaseで唯一のownerとCopy statusを持つ。owner-bearing terminal variantを複数作らない。budget単位はphase-localなsuccessful operationであり、terminal確認、budget 0確認、最大1 operationの順で進む。terminalはbudget 0より優先され、nonterminal budget 0はlookup、read、allocation、pushを行わない。action phaseではPrimaryとTailを別operationとして数え、TailがNoActionでも省略しない。全migration完了後のindex build、action、storage、command、stroke source traversalは合計O(p + c + a)、追加storage O(p + c + a)である。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。
