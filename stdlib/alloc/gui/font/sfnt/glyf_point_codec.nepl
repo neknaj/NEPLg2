@@ -1,0 +1,177 @@
+//: # alloc/gui/font/sfnt/glyf_point_codec
+//: TrueType simple glyph point flag と coordinate delta の共通 codec
+//:
+//: ### [目的/もくてき]
+//: - random-access compatibility reader と sequential reader が同じ flag bit / coordinate encoding 規則を使うための単一 authority です。
+//: - checked x / y byte range から 1 coordinate delta と消費 byte 数を O(1) で復元します。
+//:
+//: ### [契約/けいやく]
+//: - bytes と table record は借用し、ownerを保持しません。
+//: - range外readは`MalformedGlyfRecord`として返し、別経路へ切り替えません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/sfnt/glyf_point_codec" as *
+//: ```
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./metadata" as *
+
+//: GuiSfntSimpleGlyphCoordinateDelta: coordinate delta と raw stream の消費 byte 数
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphCoordinateDelta:
+    value %i32
+    byte_length %i32
+
+impl Clone for GuiSfntSimpleGlyphCoordinateDelta:
+    fn clone %fn &GuiSfntSimpleGlyphCoordinateDelta GuiSfntSimpleGlyphCoordinateDelta \delta:
+        *delta
+
+impl Copy for GuiSfntSimpleGlyphCoordinateDelta:
+    fn copy_mark %fn GuiSfntSimpleGlyphCoordinateDelta GuiSfntSimpleGlyphCoordinateDelta \delta:
+        delta
+
+//: gui_sfnt_simple_glyph_coordinate_delta: 検査済みdeltaを束ねる内部constructor
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_coordinate_delta %fn i32 fn i32 GuiSfntSimpleGlyphCoordinateDelta \value\byte_length:
+    GuiSfntSimpleGlyphCoordinateDelta value byte_length
+
+//: gui_sfnt_simple_glyph_coordinate_delta_value: delta valueを返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_coordinate_delta_value %fn &GuiSfntSimpleGlyphCoordinateDelta i32 \delta:
+    *field::get_ref delta "value"
+
+//: gui_sfnt_simple_glyph_coordinate_delta_byte_length: raw streamの消費byte数を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_coordinate_delta_byte_length %fn &GuiSfntSimpleGlyphCoordinateDelta i32 \delta:
+    *field::get_ref delta "byte_length"
+
+//: gui_sfnt_simple_glyph_point_flag_has_bit: TrueType point flagの指定bitを検査する
+//:
+//: [計算量/けいさんりょう]: O(1)
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_flag_has_bit %fn i32 fn i32 bool \flag\mask:
+    not eq and flag mask 0
+
+//: gui_sfnt_simple_glyph_point_coordinate_byte_length: short / same bitから座標byte数を決める
+//:
+//: [戻/もど]り[値/ち]: shortなら1、non-shortかつsameなら0、それ以外は2です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_coordinate_byte_length %fn i32 fn i32 fn i32 i32 \flag\short_mask\same_mask:
+    if:
+        gui_sfnt_simple_glyph_point_flag_has_bit flag short_mask
+        then:
+            1
+        else:
+            if:
+                gui_sfnt_simple_glyph_point_flag_has_bit flag same_mask
+                then:
+                    0
+                else:
+                    2
+
+//: gui_sfnt_simple_glyph_point_x_byte_length: x coordinateの消費byte数を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_byte_length %fn i32 i32 \flag:
+    gui_sfnt_simple_glyph_point_coordinate_byte_length flag 2 16
+
+//: gui_sfnt_simple_glyph_point_y_byte_length: y coordinateの消費byte数を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_y_byte_length %fn i32 i32 \flag:
+    gui_sfnt_simple_glyph_point_coordinate_byte_length flag 4 32
+
+//: gui_sfnt_simple_glyph_point_codec_range_is_valid: checked stream内のread rangeを検査する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_codec_range_is_valid %fn i32 fn i32 fn i32 fn i32 bool \start\length\offset\width:
+    and ge start 0 and ge length 0 and ge offset start and ge width 0 le add offset width add start length
+
+//: gui_sfnt_simple_glyph_point_codec_malformed: table-relative位置をtyped parse errorへ変換する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_codec_malformed %fn &GuiSfntTableRecord fn i32 GuiSfntParseError \glyf\relative_offset:
+    gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset glyf relative_offset
+
+//: gui_sfnt_simple_glyph_point_codec_read_u8: checked coordinate rangeから1 byteを読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_codec_read_u8 %fn &ByteBuf fn &GuiSfntTableRecord fn i32 fn i32 fn i32 Result i32 GuiSfntParseError \bytes\glyf\start\length\offset:
+    if:
+        not gui_sfnt_simple_glyph_point_codec_range_is_valid start length offset 1
+        then:
+            Result::Err gui_sfnt_simple_glyph_point_codec_malformed glyf offset
+        else:
+            match io_bytebuf_byte_at bytes add gui_sfnt_table_record_offset glyf offset:
+                Option::None:
+                    Result::Err gui_sfnt_simple_glyph_point_codec_malformed glyf offset
+                Option::Some byte:
+                    Result::Ok byte
+
+//: gui_sfnt_simple_glyph_point_codec_read_i16_be: checked coordinate rangeからsigned big-endian i16を読む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_codec_read_i16_be %fn &ByteBuf fn &GuiSfntTableRecord fn i32 fn i32 fn i32 Result i32 GuiSfntParseError \bytes\glyf\start\length\offset:
+    match gui_sfnt_simple_glyph_point_codec_read_u8 bytes glyf start length offset:
+        Result::Err error:
+            Result::Err error
+        Result::Ok hi:
+            match gui_sfnt_simple_glyph_point_codec_read_u8 bytes glyf start length add offset 1:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok lo:
+                    let raw %i32 add shl hi 8 lo
+                    if ge raw 32768 Result::Ok sub raw 65536 else Result::Ok raw
+
+//: gui_sfnt_simple_glyph_point_decode_coordinate_delta: flag規則とchecked rangeからdeltaを復元する
+//:
+//: [計算量/けいさんりょう]: 最大2 byteだけを読むためO(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_decode_coordinate_delta %fn &ByteBuf fn &GuiSfntTableRecord fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphCoordinateDelta GuiSfntParseError \bytes\glyf\start\length\cursor\flag\short_mask\same_mask:
+    if:
+        gui_sfnt_simple_glyph_point_flag_has_bit flag short_mask
+        then:
+            match gui_sfnt_simple_glyph_point_codec_read_u8 bytes glyf start length cursor:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok byte:
+                    let value %i32 if gui_sfnt_simple_glyph_point_flag_has_bit flag same_mask byte else sub 0 byte
+                    Result::Ok gui_sfnt_simple_glyph_coordinate_delta value 1
+        else:
+            if:
+                gui_sfnt_simple_glyph_point_flag_has_bit flag same_mask
+                then:
+                    Result::Ok gui_sfnt_simple_glyph_coordinate_delta 0 0
+                else:
+                    match gui_sfnt_simple_glyph_point_codec_read_i16_be bytes glyf start length cursor:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok value:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta value 2
+
+//: gui_sfnt_simple_glyph_point_decode_x_delta: x flag maskでcoordinate deltaを復元する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_decode_x_delta %fn &ByteBuf fn &GuiSfntTableRecord fn i32 fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphCoordinateDelta GuiSfntParseError \bytes\glyf\start\length\cursor\flag:
+    gui_sfnt_simple_glyph_point_decode_coordinate_delta bytes glyf start length cursor flag 2 16
+
+//: gui_sfnt_simple_glyph_point_decode_y_delta: y flag maskでcoordinate deltaを復元する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_decode_y_delta %fn &ByteBuf fn &GuiSfntTableRecord fn i32 fn i32 fn i32 fn i32 Result GuiSfntSimpleGlyphCoordinateDelta GuiSfntParseError \bytes\glyf\start\length\cursor\flag:
+    gui_sfnt_simple_glyph_point_decode_coordinate_delta bytes glyf start length cursor flag 4 32

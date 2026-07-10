@@ -1,0 +1,370 @@
+//: # alloc/gui/font/registered_face_simple_glyph_reader
+//: registered face simple glyph source を逐次 point decoder へ[接続/せつぞく]する境界
+//:
+//: ### [目的/もくてき]
+//: - F5ns evidence と同じ registered face entry を再検証し、source-bound cursor で glyph point を先頭から一度ずつ[読/よ]みます。
+//: - registered cursor に evidence と lower cursor を[束/たば]ね、step 時の source [差/さ]し[替/か]えを API shape で[防/ふせ]ぎます。
+//:
+//: ### [契約/けいやく]
+//: - entry、evidence、cursor は消費しません。bytes owner は entry に[残/のこ]ります。
+//: - entry record、face-owned metadata の `glyf` record、mapping glyph、source identity を bytes read より前に[照合/しょうごう]します。
+//: - 旧 random-access point / outline drain、path、raster、render2d、platform API、fallback は使いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 1 step は償却 O(1)、全 point / contour は O(p + c)、追加 storage は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/registered_face_simple_glyph_reader" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face" as *
+#import "alloc/gui/font/registered_face_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_table" as *
+#import "alloc/gui/font/resource" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor: registered provenance と lower cursor の Copy evidence
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor:
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    lower %GuiSfntSimpleGlyphSequentialPointCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor \cursor:
+        *cursor
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor \cursor:
+        cursor
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_cursor: provenance と lower cursor を束ねる内部constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_sequential_reader_cursor %fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphSequentialPointCursor GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor \evidence\lower:
+    GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor evidence lower
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_cursor_evidence: cursor の F5ns evidence を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_cursor_evidence %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor GuiFontRegisteredFaceSimpleGlyphPointStream \cursor:
+    *field::get_ref cursor "evidence"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower: lower source-bound cursor を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor GuiSfntSimpleGlyphSequentialPointCursor \cursor:
+    *field::get_ref cursor "lower"
+
+//: GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind: registered reader の typed failure stage
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind:
+    EntryValidationFailed
+    EvidenceRecordMismatch
+    SourceTableMismatch
+    SourceIdentityMismatch
+    SourceGlyphMismatch
+    SequentialStartFailed
+    SequentialStepFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphSequentialReaderError: ownerを消費しない失敗 evidence
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphSequentialReaderError:
+    kind %GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind
+    record %GuiFontRegisteredFaceRecord
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    cursor %Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor
+    validation_error %Option GuiFontRegisteredFaceTableEntryValidationError
+    parse_error %Option GuiSfntParseError
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphSequentialReaderError:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \error:
+        *error
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphSequentialReaderError:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderError GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \error:
+        error
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error: failure stage と回収可能な evidence を束ねる内部constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_sequential_reader_error %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind fn GuiFontRegisteredFaceRecord fn GuiFontRegisteredFaceSimpleGlyphPointStream fn Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor fn Option GuiFontRegisteredFaceTableEntryValidationError fn Option GuiSfntParseError GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \kind\record\evidence\cursor\validation_error\parse_error:
+    GuiFontRegisteredFaceSimpleGlyphSequentialReaderError kind record evidence cursor validation_error parse_error
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_kind_eq: error kind を[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_kind_eq %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind bool \left\right:
+    match left:
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EntryValidationFailed:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EntryValidationFailed:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EvidenceRecordMismatch:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EvidenceRecordMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceTableMismatch:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceTableMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceIdentityMismatch:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceIdentityMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceGlyphMismatch:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceGlyphMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SequentialStartFailed:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SequentialStartFailed:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SequentialStepFailed:
+            match right:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SequentialStepFailed:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_record: failure時のcanonical entry recordを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_record %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError GuiFontRegisteredFaceRecord \error:
+    *field::get_ref error "record"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_evidence: failure時のF5ns evidenceを[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_evidence %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError GuiFontRegisteredFaceSimpleGlyphPointStream \error:
+    *field::get_ref error "evidence"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_cursor: step failure 時の cursor を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor \error:
+    *field::get_ref error "cursor"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_validation_error: entry validation error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_validation_error %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError Option GuiFontRegisteredFaceTableEntryValidationError \error:
+    *field::get_ref error "validation_error"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_error_parse_error: lower parse error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_error_parse_error %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderError Option GuiSfntParseError \error:
+    *field::get_ref error "parse_error"
+
+//: GuiFontRegisteredFaceSimpleGlyphSequentialValidation: bytes read 前に確定した canonical provenance の内部結果
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphSequentialValidation:
+    record %GuiFontRegisteredFaceRecord
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    source %GuiSfntSimpleGlyphPointStreamSource
+
+//: gui_font_registered_face_simple_glyph_sequential_validation: canonical record、evidence、source を束ねる内部constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_sequential_validation %fn GuiFontRegisteredFaceRecord fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphPointStreamSource GuiFontRegisteredFaceSimpleGlyphSequentialValidation \record\evidence\source:
+    GuiFontRegisteredFaceSimpleGlyphSequentialValidation record evidence source
+
+//: gui_font_registered_face_simple_glyph_table_record_eq: `glyf` record の authority field を全て比較する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_table_record_eq %fn &GuiSfntTableRecord fn &GuiSfntTableRecord bool \left\right:
+    and eq gui_sfnt_table_record_tag left gui_sfnt_table_record_tag right and eq gui_sfnt_table_record_offset left gui_sfnt_table_record_offset right eq gui_sfnt_table_record_length left gui_sfnt_table_record_length right
+
+//: gui_font_registered_face_simple_glyph_sequential_validate: owner、record、source identity を bytes read 前に検証する
+//:
+//: [計算量/けいさんりょう]: 固定個数のCopy field比較だけを行うためO(1)です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_sequential_validate %fn &GuiFontRegisteredFaceTableEntry fn GuiFontRegisteredFaceSimpleGlyphPointStream fn Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor Result GuiFontRegisteredFaceSimpleGlyphSequentialValidation GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \entry\evidence\cursor:
+    let entry_record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record entry
+    match gui_font_registered_face_table_entry_validate entry:
+        Result::Err validation_error:
+            Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EntryValidationFailed entry_record evidence cursor some validation_error none
+        Result::Ok canonical_record:
+            let mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_simple_glyph_point_stream_mapping &evidence
+            let mapping_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record &mapping
+            if:
+                not gui_font_registered_face_record_eq &canonical_record &mapping_record
+                then:
+                    Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EvidenceRecordMismatch canonical_record evidence cursor none none
+                else:
+                    let source %GuiSfntSimpleGlyphPointStreamSource gui_font_registered_face_simple_glyph_point_stream_source &evidence
+                    let cursor_source_matches %bool match cursor:
+                        Option::None:
+                            true
+                        Option::Some reader_cursor:
+                            let lower_cursor %GuiSfntSimpleGlyphSequentialPointCursor gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower &reader_cursor
+                            let lower_source %GuiSfntSimpleGlyphPointStreamSource gui_sfnt_simple_glyph_sequential_point_cursor_source &lower_cursor
+                            gui_sfnt_simple_glyph_point_stream_source_eq &source &lower_source
+                    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+                    let metadata %GuiSfntMetadata gui_font_registered_face_metadata face_ref
+                    let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+                    let canonical_glyf %Option GuiSfntTableRecord gui_sfnt_directory_glyf &directory
+                    let source_glyf %GuiSfntTableRecord gui_sfnt_simple_glyph_point_stream_source_glyf &source
+                    let table_matches %bool match canonical_glyf:
+                        Option::None:
+                            false
+                        Option::Some glyf:
+                            gui_font_registered_face_simple_glyph_table_record_eq &glyf &source_glyf
+                    if:
+                        not table_matches
+                        then:
+                            Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceTableMismatch canonical_record evidence cursor none none
+                        else:
+                            if:
+                                not cursor_source_matches
+                                then:
+                                    Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceIdentityMismatch canonical_record evidence cursor none none
+                                else:
+                                    let stream %GuiSfntSimpleGlyphPointStream gui_sfnt_simple_glyph_point_stream_source_stream &source
+                                    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+                                    let source_glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+                                    let mapping_glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph &mapping
+                                    if:
+                                        ne gui_glyph_id_raw &mapping_glyph gui_glyph_id_raw &source_glyph
+                                        then:
+                                            Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SourceGlyphMismatch canonical_record evidence cursor none none
+                                        else:
+                                            Result::Ok gui_font_registered_face_simple_glyph_sequential_validation canonical_record evidence source
+
+//: GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep: decoded point と next cursor
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep:
+    point %GuiSfntSimpleGlyphPoint
+    next_cursor %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep \step:
+        *step
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep \step:
+        step
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_step_value: decoded point と next cursor を束ねる内部constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_sequential_reader_step_value %fn GuiSfntSimpleGlyphPoint fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep \point\next_cursor:
+    GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep point next_cursor
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_step_point: decoded point を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_step_point %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep GuiSfntSimpleGlyphPoint \step:
+    *field::get_ref step "point"
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_step_next_cursor: next cursor を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_step_next_cursor %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor \step:
+    *field::get_ref step "next_cursor"
+
+//: GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal: registered reader の point / end terminal
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal:
+    Point %GuiFontRegisteredFaceSimpleGlyphSequentialReaderStep
+    End %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal \terminal:
+        *terminal
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal \terminal:
+        terminal
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_start: F5ns evidence から registered cursor を[始/はじ]める
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_start %fn &GuiFontRegisteredFaceTableEntry fn &GuiFontRegisteredFaceSimpleGlyphPointStream Result GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \entry\evidence_ref:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream *evidence_ref
+    match gui_font_registered_face_simple_glyph_sequential_validate entry evidence none:
+        Result::Err error:
+            Result::Err error
+        Result::Ok validation:
+            let source %GuiSfntSimpleGlyphPointStreamSource *field::get_ref &validation "source"
+            let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+            let resource_ref %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
+            let bytes %&ByteBuf gui_font_resource_bytes_ref resource_ref
+            match gui_sfnt_simple_glyph_sequential_point_start bytes source:
+                Result::Err lower_error:
+                    let parse_error %GuiSfntParseError gui_sfnt_simple_glyph_sequential_point_error_parse_error &lower_error
+                    let record %GuiFontRegisteredFaceRecord *field::get_ref &validation "record"
+                    Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SequentialStartFailed record evidence none none some parse_error
+                Result::Ok lower_cursor:
+                    Result::Ok gui_font_registered_face_simple_glyph_sequential_reader_cursor evidence lower_cursor
+
+//: gui_font_registered_face_simple_glyph_sequential_reader_step: registered cursor を 1 point [進/すす]める
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_sequential_reader_step %fn &GuiFontRegisteredFaceTableEntry fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor Result GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \entry\cursor:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_sequential_reader_cursor_evidence &cursor
+    match gui_font_registered_face_simple_glyph_sequential_validate entry evidence some cursor:
+        Result::Err error:
+            Result::Err error
+        Result::Ok validation:
+            let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+            let resource_ref %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
+            let bytes %&ByteBuf gui_font_resource_bytes_ref resource_ref
+            let lower_cursor %GuiSfntSimpleGlyphSequentialPointCursor gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower &cursor
+            match gui_sfnt_simple_glyph_sequential_point_step bytes lower_cursor:
+                Result::Err lower_error:
+                    let parse_error %GuiSfntParseError gui_sfnt_simple_glyph_sequential_point_error_parse_error &lower_error
+                    let record %GuiFontRegisteredFaceRecord *field::get_ref &validation "record"
+                    Result::Err gui_font_registered_face_simple_glyph_sequential_reader_error GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::SequentialStepFailed record evidence some cursor none some parse_error
+                Result::Ok terminal:
+                    match terminal:
+                        GuiSfntSimpleGlyphSequentialPointTerminal::End end_cursor:
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::End gui_font_registered_face_simple_glyph_sequential_reader_cursor evidence end_cursor
+                        GuiSfntSimpleGlyphSequentialPointTerminal::Point lower_step:
+                            let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_sequential_point_step_point &lower_step
+                            let next_lower %GuiSfntSimpleGlyphSequentialPointCursor gui_sfnt_simple_glyph_sequential_point_step_next_cursor &lower_step
+                            let next_cursor %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor gui_font_registered_face_simple_glyph_sequential_reader_cursor evidence next_lower
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::Point gui_font_registered_face_simple_glyph_sequential_reader_step_value point next_cursor

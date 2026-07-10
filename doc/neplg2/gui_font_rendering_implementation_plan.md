@@ -6249,6 +6249,51 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5ns_registered_face_simple_glyph_lookup.json
 ```
 
+## Phase F5nt: registered face simple glyph sequential reader source boundary
+
+目的:
+
+- registered faceが登録時から所有する`GuiSfntMetadata`を再利用し、`glyf` table recordとchecked point streamを一体のCopy source evidenceにする。
+- F5ns evidenceを同じentryで再検証し、metadata / topology / point-stream rangeを再解析せずsequential point decodeへ接続する。
+- flag repeat run、x / y cursor、累積座標、contour endpointをcursorへ保持し、全point / contourをO(p + c)で読むsource authorityを固定する。
+- 現行random-access point APIと既存outline drainがO(p^2)であることを明文化し、新しいfull outline pipelineでは使わない。
+- fallback、host font API、path construction、metric join、scale、shaping / layout、raster / render2d、platform presentationへは進まない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl`へmetadata-backed stream resolverを追加し、`alloc/gui/font/sfnt/glyf_sequential.nepl`へ`GuiSfntSimpleGlyphPointStreamSource`、sequential cursor / start / step / terminalを分離して追加する。
+- `alloc/gui/font/sfnt/glyf_point_codec.nepl`へflag bit interpretation、x / y byte length、coordinate delta decode、typed range errorを集約し、既存random-access compatibility readerと新sequential readerの双方が同じcodecを使う。
+- sourceはcanonical `glyf` table recordと`GuiSfntSimpleGlyphPointStream`を保持するCopy valueとし、bytes ownerを保持しない。raw source constructorはprivate、public source accessorは`glyf` / streamだけとする。
+- sequential cursorはsource identity、logical index、flag cursor、active flag / repeat remaining、x / y cursor、累積x / y、contour index / endpointを保持する。raw cursor constructorはprivateとし、stepは別sourceを受けない。start / stepはtyped lower parse errorを返し、全point / contourでO(p + c)、追加storage O(1)とする。
+- F5ns success evidenceをmapping + sourceへ変更し、登録後の`gui_sfnt_parse_metadata` / `gui_sfnt_lookup_simple_glyph_point_stream`再実行を除去する。既存stream accessorはsourceからstreamを投影する。
+- F5ns evidenceへpublic source accessorを追加する。registered evidence / source constructorはprivateを維持し、F5ns lookupだけをregistered source成功経路とする。
+- `alloc/gui/font/registered_face_simple_glyph_reader.nepl`を追加する。reader cursorはF5ns evidenceとlower cursorを保持しconstructorをprivateにする。startはentry + evidence、stepはentry + reader cursorだけを受ける。
+- registered start / stepはentry validation、evidence mapping record comparison、face-owned metadata、canonical metadata `glyf` record全field comparison、mapping glyph / source topology glyph comparison、entry bytes、lower sequential start / stepの順序を固定する。
+- reader errorは`EntryValidationFailed`、`EvidenceRecordMismatch`、`SourceTableMismatch`、`SourceIdentityMismatch`、`SourceGlyphMismatch`、`SequentialStartFailed`、`SequentialStepFailed`をenumで表し、record、F5ns evidence、optional failed cursor、optional validation / lower parse errorをpublic accessorから回収できるCopy payloadに保持する。
+- lower専用testはsource A cursorへsource Bを混在できないAPI shape、repeat run、2 contour遷移、flag / x / y cursorと累積座標、normal / repeated Endを検査する。registered public behavior testはcomprehensive fixtureを再利用し、全pointのlinear decode、normal End、foreign evidence rejection、entry reuse / single freeを検査する。source table / glyph mismatchはprivate constructorによりpublic testから偽造せず、defensive source-policy branchとして固定する。
+- source policyはlower sourceのCopy shape / private constructor / public accessors、metadata-backed resolver、F5nsからmetadata parser / public reparsing lookupが消えること、reader validation order、source-bound sequential cursor field set、registered cursor private constructor、owner consumption / old O(p^2) API use / path / raster / render / platform / fallback禁止を固定する。禁止対象は`gui_sfnt_lookup_simple_glyph_point`、`gui_sfnt_glyf_read_push_point_x`、`gui_sfnt_glyf_read_push_point_y`、`gui_sfnt_simple_glyph_outline_storage_read_point`とそのstep / drain familyを具体名で検査する。
+- spec、detailed design、standard library spec、`note.n.md`、`todo.md`を更新する。
+
+完了条件:
+
+- focused behavior testがsource provenance、repeat flag、全point / contourの順次decode、normal / repeated end、foreign evidence rejection、entry lifetimeを確認する。
+- source policyがmetadata reuse、Copy source、private constructors、validation order、source-bound sequential cursor state、defensive source mismatch、旧O(p^2) API非使用、scope exclusionを確認する。
+- subagent plan / implementation reviewがownership、O(p + c) sequential contract、旧O(p^2) full-outline pathの隔離、typed lower errors、no fallbackを承認する。
+- focused test、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5nt.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+node nodesrc/issues.js check --dir issues
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nt_registered_face_simple_glyph_reader.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
