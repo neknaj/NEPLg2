@@ -308,11 +308,15 @@ F5nr は cmap lookup を再実行せず、mapping の code point / glyph provena
 
 ## Font registered face simple glyph point stream lookup boundary
 
-F5ns は F5nq mapping を同じ registered face entry の `loca` / `glyf` authorityへ接続する。public lookupは `&GuiFontRegisteredFaceTableEntry` と `&GuiFontRegisteredFaceGlyphMapping` を受け、shared entry validation、canonical recordとmapping recordの照合、entry faceからbytes借用、canonical selected face index取得、mapping glyph取得の順に進み、`gui_sfnt_lookup_simple_glyph_point_stream`を1回だけ呼ぶ。
+F5ns は F5nq mapping を同じ registered face entry の `loca` / `glyf` authorityへ接続する。public lookupは `&GuiFontRegisteredFaceTableEntry` と `&GuiFontRegisteredFaceGlyphMapping` を受け、shared entry validation、canonical recordとmapping recordの照合、entry faceからbytes / 登録時metadata借用、mapping glyph取得の順に進み、metadata-backed source resolverを1回だけ呼ぶ。登録後に `gui_sfnt_parse_metadata` を再実行しない。
 
 ```text
 GuiFontRegisteredFaceSimpleGlyphPointStream:
     mapping GuiFontRegisteredFaceGlyphMapping
+    source GuiSfntSimpleGlyphPointStreamSource
+
+GuiSfntSimpleGlyphPointStreamSource:
+    glyf GuiSfntTableRecord
     stream GuiSfntSimpleGlyphPointStream
 
 GuiFontRegisteredFaceSimpleGlyphLookupErrorKind:
@@ -328,9 +332,23 @@ GuiFontRegisteredFaceSimpleGlyphLookupError:
     parse_error Option GuiSfntParseError
 ```
 
-success / errorはCopy evidenceであり、entry ownerを保持しない。`GuiSfntSimpleGlyphPointStream`はtopology、flag / x / y / trailing dataの`glyf` table-relative rangeを持つが、bytesそのものは持たない。このため後続readerはentryとF5ns evidenceを同時に借用し、entry validatorとmapping record comparisonを再実行する。Copy stream単体をownerとして扱ったり、entry close後にoffsetを読むAPIは作らない。
+success / errorはCopy evidenceであり、entry ownerを保持しない。`GuiSfntSimpleGlyphPointStreamSource`はcanonical `glyf` recordとtopology、flag / x / y / trailing dataのtable-relative rangeを持つが、bytesそのものは持たない。このため後続readerはentryとF5ns evidenceを同時に借用し、entry validatorとmapping record comparisonを再実行する。Copy source単体をownerとして扱ったり、entry close後にoffsetを読むAPIは作らない。
 
 F5nsはcmap / hmtx lookupを再実行せず、foreign mappingをlower parser前に拒否する。`MissingTable`、`UnsupportedLocaFormat`、`MalformedGlyfRecord`、`MissingGlyphOutline`、`UnsupportedGlyphOutlineFormat`はexact lower `GuiSfntParseError`を保持する。composite glyphをsimple glyphへfallbackせず、point decode、path construction、metric join、scale、shaping / layout、raster / render2d、platform / Web presentationは後続境界に残す。
+
+## Font registered face simple glyph sequential reader source boundary
+
+F5nt はF5nsのsource evidenceをsequential point decodeへ接続する。lower SFNT層は `gui_sfnt_simple_glyph_point_stream_source_from_metadata` で登録時metadataからcanonical `glyf` recordとchecked streamを一度だけ束ねる。raw source constructorはmodule-privateとし、public source accessorは`glyf` recordとstreamのCopy投影だけを返す。F5nsは`gui_font_registered_face_simple_glyph_point_stream_source`を公開し、既存stream accessorはsourceからの投影として維持する。
+
+`GuiSfntSimpleGlyphSequentialPointCursor`はsource identity、次のlogical index、次のraw flag byte、現在のrepeat flag / 残数、次のx / y byte、累積x / y、現在のcontour index / endpointを保持する。raw cursor constructorはmodule-privateである。startはsourceのshape、stream glyph、flag / x / y range、最初のendpointを検証する。stepはcursorが保持するsourceをauthorityとし、別source引数を受けない。active runまたは次のflag recordを一度だけ消費し、x / y deltaを一度ずつ読み、endpoint到達時だけ次のendpointを読む。terminalは`Point`と`End`をenumで分け、point terminalはpointとnext cursorを保持する。`End`への再stepは同じcursorの`End`を返す。これにより全point / contour decodeはO(p + c)、追加storageはO(1)となる。
+
+TrueType point flagのbit interpretation、x / y coordinate byte length、short / same bitによるdelta復元、coordinate range外のtyped errorは`sfnt/glyf_point_codec.nepl`を単一authorityとする。既存random-access compatibility readerとsequential readerはこのcodecを共有し、同じ規則を別実装しない。codecはbytes / table recordを借用するだけで、point stream owner、registered provenance、cursor stateを保持しない。
+
+`GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor`はF5ns evidenceとlower sequential cursorを一体化し、constructorをmodule-privateにする。registered startはentryとevidenceを受けるが、registered stepはentryとreader cursorだけを受け、別evidence/sourceの混在をAPI shapeで不可能にする。`GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind` は`EntryValidationFailed`、`EvidenceRecordMismatch`、`SourceTableMismatch`、`SourceIdentityMismatch`、`SourceGlyphMismatch`、`SequentialStartFailed`、`SequentialStepFailed`を持つ。errorはcanonical record、F5ns evidence、optional failed reader cursor、optional shared validation error、optional `GuiSfntParseError`をpublic accessorから回収できるCopy payloadとして保持する。registered start / stepはentry validation、evidence mapping record比較、face-owned metadata取得、canonical metadata `glyf` recordとsource recordの全field比較、cursor source identity比較、mapping glyphとsource topology glyph比較、entry bytes借用、lower start / stepの順に進む。
+
+`GuiSfntMetadata` / directory / table recordにはpublic constructorがあるが、registered evidence / reader cursorのconstructorはprivateであり、registered sourceの成功経路はface-owned metadataを渡すF5ns lookupだけとする。foreign evidenceはpublic behavior testで拒否を確認する。source table / identity / glyph mismatchはpublic APIから偽造できないdefensive branchなので、source-policyで各分類、全field比較、bytes read前の順序を固定する。lower source resolver自体はraw parser APIとして公開するが、registered provenanceを与えるものではない。
+
+現行`GuiSfntSimpleGlyphOutlinePointReadCursor`と既存budgeted drainは各pointのflag lookupおよびx / y readerが先頭から再走査するためO(p^2)である。互換APIとして残すが、新しいfull outline pipelineはF5nt sequential cursorをsource authorityとし、後続phaseでcollection / path sinkへlinearにdrainする。F5ntはfull outline owner、path、metric join、scale、shaping / layout、raster / render2d、platform presentation、fallbackを追加しない。
 
 ## SFNT name table
 

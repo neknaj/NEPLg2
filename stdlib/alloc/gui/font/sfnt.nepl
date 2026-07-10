@@ -29,3 +29,4 @@ pub #import "./sfnt/name" as @merge
 pub #import "./sfnt/cmap" as @merge
 pub #import "./sfnt/hmtx" as @merge
 pub #import "./sfnt/glyf" as @merge
+pub #import "./sfnt/glyf_sequential" as @merge

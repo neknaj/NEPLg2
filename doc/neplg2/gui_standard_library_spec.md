@@ -2016,7 +2016,9 @@ Outline font rendering、font resource loading、ruby / furigana、Japanese vert
 
 `alloc/gui/font/registered_face_horizontal_metric_lookup` は同じ borrowed entry と glyph mapping を受け、canonical record と mapping record を照合してから SFNT `hmtx` lookup を行う。成功時は mapping と raw font-unit horizontal metric の Copy evidence、失敗時は record / mapping / lower parse error または entry validation error の Copy evidence を返す。entry owner は caller が保持し、mapping mismatch では parser を呼ばない。scaling、glyf lookup、text shaping、layout、rasterization、render2d drain、presentation path は後続境界で扱う。
 
-`alloc/gui/font/registered_face_simple_glyph_lookup`は同じborrowed entryとglyph mappingを受け、shared entry validationとmapping record照合後にSFNT `loca` / `glyf`からsimple glyph point streamを得る。successはmappingとCopy point-stream evidence、failureはrecord / mapping / shared validation error / exact lower parse errorを返す。point-stream rangeはbytes ownerではないため、後続readerもentryとevidenceを同時に借用して再検証する。composite glyph fallback、point/path decode、metric join、layout、rasterization、render2d、presentationは後続境界で扱う。
+`alloc/gui/font/registered_face_simple_glyph_lookup`は同じborrowed entryとglyph mappingを受け、shared entry validationとmapping record照合後に、registered faceが登録時から保持するSFNT metadataを再利用して`loca` / `glyf`からsimple glyph point-stream sourceを得る。successはmapping、canonical `glyf` table record、checked point streamのCopy evidence、failureはrecord / mapping / shared validation error / exact lower parse errorを返す。登録後にmetadata parserを再実行しない。sourceはbytes ownerではないため、後続readerもentryとevidenceを同時に借用して再検証する。
+
+`alloc/gui/font/registered_face_simple_glyph_reader`は同じentryとpoint-stream source evidenceを再検証し、source identity、flag repeat run、x / y byte cursor、累積座標、contour endpointを保持するsequential cursorでlogical pointを復元する。registered cursorはevidenceとlower cursorを一体化し、stepは別source/evidenceを受けない。全point / contourはO(p + c)、追加storage O(1)で進む。既存random-access point APIと旧outline drainはpointごとにstream先頭から再走査してO(p^2)となるため、新しいfull outline / contour / path pipelineでは使わない。composite glyph fallback、metric join、layout、rasterization、render2d、presentationはこのreader境界では扱わない。
 
 ## Mobile Lifecycle Contract
 

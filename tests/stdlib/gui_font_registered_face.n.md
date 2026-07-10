@@ -1280,6 +1280,100 @@ fn registered_face_simple_glyph_parse_error_is %fn &GuiFontRegisteredFaceSimpleG
         Option::Some parse_error:
             sfnt_parse_error_kind_is gui_sfnt_parse_error_kind &parse_error expected
 
+fn registered_face_simple_glyph_reader_points_ok %fn &GuiFontRegisteredFaceTableEntry fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor fn i32 bool \entry\cursor\expected_index:
+    match gui_font_registered_face_simple_glyph_sequential_reader_step entry cursor:
+        Result::Err _error:
+            false
+        Result::Ok terminal:
+            if:
+                eq expected_index 4
+                then:
+                    match terminal:
+                        GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::Point _step:
+                            false
+                        GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::End end_cursor:
+                            let lower %GuiSfntSimpleGlyphSequentialPointCursor gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower &end_cursor
+                            if:
+                                ne gui_sfnt_simple_glyph_sequential_point_cursor_logical_index &lower 4
+                                then:
+                                    false
+                                else:
+                                    match gui_font_registered_face_simple_glyph_sequential_reader_step entry end_cursor:
+                                        Result::Err _error:
+                                            false
+                                        Result::Ok repeated_terminal:
+                                            match repeated_terminal:
+                                                GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::Point _step:
+                                                    false
+                                                GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::End repeated_cursor:
+                                                    let repeated_lower %GuiSfntSimpleGlyphSequentialPointCursor gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower &repeated_cursor
+                                                    eq gui_sfnt_simple_glyph_sequential_point_cursor_logical_index &repeated_lower 4
+                else:
+                    match terminal:
+                        GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::End _end_cursor:
+                            false
+                        GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::Point step:
+                            let point %GuiSfntSimpleGlyphPoint gui_font_registered_face_simple_glyph_sequential_reader_step_point &step
+                            let next_cursor %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor gui_font_registered_face_simple_glyph_sequential_reader_step_next_cursor &step
+                            let expected_end %bool or eq expected_index 1 eq expected_index 3
+                            let actual_end %bool gui_sfnt_simple_glyph_point_end_of_contour &point
+                            let end_ok %bool if expected_end actual_end else not actual_end
+                            and eq gui_sfnt_simple_glyph_point_index &point expected_index and eq gui_sfnt_simple_glyph_point_x &point 0 and eq gui_sfnt_simple_glyph_point_y &point 0 and not gui_sfnt_simple_glyph_point_on_curve &point and end_ok registered_face_simple_glyph_reader_points_ok entry next_cursor add expected_index 1
+
+fn registered_face_simple_glyph_reader_ok %fn &GuiFontRegisteredFaceTableEntry fn &GuiFontRegisteredFaceSimpleGlyphPointStream bool \entry\evidence:
+    match gui_font_registered_face_simple_glyph_sequential_reader_start entry evidence:
+        Result::Err _error:
+            false
+        Result::Ok cursor:
+            registered_face_simple_glyph_reader_points_ok entry cursor 0
+
+fn registered_face_foreign_simple_glyph_evidence_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry Option GuiFontRegisteredFaceSimpleGlyphPointStream \table\entry:
+    let evidence %Option GuiFontRegisteredFaceSimpleGlyphPointStream match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            none
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Err _error:
+                    none
+                Result::Ok value:
+                    some value
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    evidence
+
+fn registered_face_foreign_simple_glyph_evidence %impure fn void Option GuiFontRegisteredFaceSimpleGlyphPointStream \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            none
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 181 191 sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'g' 'l' 'y' 'f' false:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    none
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            none
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_foreign_simple_glyph_evidence_callback
+
+fn registered_face_simple_glyph_foreign_evidence_rejected %impure fn &GuiFontRegisteredFaceTableEntry bool \entry:
+    match registered_face_foreign_simple_glyph_evidence:
+        Option::None:
+            false
+        Option::Some evidence:
+            match gui_font_registered_face_simple_glyph_sequential_reader_start entry &evidence:
+                Result::Ok _cursor:
+                    false
+                Result::Err error:
+                    let kind %GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind gui_font_registered_face_simple_glyph_sequential_reader_error_kind &error
+                    let record %GuiFontRegisteredFaceRecord gui_font_registered_face_simple_glyph_sequential_reader_error_record &error
+                    let error_evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_sequential_reader_error_evidence &error
+                    let error_mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_simple_glyph_point_stream_mapping &error_evidence
+                    let foreign_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record &error_mapping
+                    and gui_font_registered_face_simple_glyph_sequential_reader_error_kind_eq kind GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EvidenceRecordMismatch and eq 151 gui_font_registered_face_record_resource_raw &record and eq 157 gui_font_registered_face_record_face_raw &record and eq 181 gui_font_registered_face_record_resource_raw &foreign_record and eq 191 gui_font_registered_face_record_face_raw &foreign_record and is_none gui_font_registered_face_simple_glyph_sequential_reader_error_cursor &error and is_none gui_font_registered_face_simple_glyph_sequential_reader_error_validation_error &error is_none gui_font_registered_face_simple_glyph_sequential_reader_error_parse_error &error
+
 fn registered_face_simple_glyph_success_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
     let success_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
         Result::Err _error:
@@ -1294,7 +1388,7 @@ fn registered_face_simple_glyph_success_callback %impure fn GuiFontRegisteredFac
                     let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
                     let bounds %GuiSfntGlyphBounds gui_sfnt_simple_glyph_topology_bounds &topology
                     let glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph &evidence_mapping
-                    and eq 36 gui_glyph_id_raw &glyph and eq 2 gui_sfnt_simple_glyph_topology_contour_count &topology and eq 4 gui_sfnt_simple_glyph_topology_point_count &topology and eq 1 gui_sfnt_simple_glyph_topology_instruction_length &topology and eq -10 gui_sfnt_glyph_bounds_x_min &bounds and eq -20 gui_sfnt_glyph_bounds_y_min &bounds and eq 100 gui_sfnt_glyph_bounds_x_max &bounds and eq 200 gui_sfnt_glyph_bounds_y_max &bounds and eq 17 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream and eq 4 gui_sfnt_simple_glyph_point_stream_flag_data_length &stream and eq 21 gui_sfnt_simple_glyph_point_stream_x_data_offset &stream and eq 5 gui_sfnt_simple_glyph_point_stream_x_data_length &stream and eq 26 gui_sfnt_simple_glyph_point_stream_y_data_offset &stream and eq 5 gui_sfnt_simple_glyph_point_stream_y_data_length &stream and eq 31 gui_sfnt_simple_glyph_point_stream_trailing_data_offset &stream eq 3 gui_sfnt_simple_glyph_point_stream_trailing_data_length &stream
+                    and eq 36 gui_glyph_id_raw &glyph and eq 2 gui_sfnt_simple_glyph_topology_contour_count &topology and eq 4 gui_sfnt_simple_glyph_topology_point_count &topology and eq 1 gui_sfnt_simple_glyph_topology_instruction_length &topology and eq -10 gui_sfnt_glyph_bounds_x_min &bounds and eq -20 gui_sfnt_glyph_bounds_y_min &bounds and eq 100 gui_sfnt_glyph_bounds_x_max &bounds and eq 200 gui_sfnt_glyph_bounds_y_max &bounds and eq 17 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream and eq 4 gui_sfnt_simple_glyph_point_stream_flag_data_length &stream and eq 21 gui_sfnt_simple_glyph_point_stream_x_data_offset &stream and eq 5 gui_sfnt_simple_glyph_point_stream_x_data_length &stream and eq 26 gui_sfnt_simple_glyph_point_stream_y_data_offset &stream and eq 5 gui_sfnt_simple_glyph_point_stream_y_data_length &stream and eq 31 gui_sfnt_simple_glyph_point_stream_trailing_data_offset &stream and eq 3 gui_sfnt_simple_glyph_point_stream_trailing_data_length &stream registered_face_simple_glyph_reader_ok &entry &evidence
     let composite_ok %bool match gui_font_registered_face_glyph_lookup &entry 'B':
         Result::Err _error:
             false
@@ -1309,9 +1403,10 @@ fn registered_face_simple_glyph_success_callback %impure fn GuiFontRegisteredFac
             false
         Result::Ok record:
             and eq 151 gui_font_registered_face_record_resource_raw &record eq 157 gui_font_registered_face_record_face_raw &record
+    let foreign_evidence_rejected %bool registered_face_simple_glyph_foreign_evidence_rejected &entry
     gui_font_registered_face_table_free table
     gui_font_registered_face_table_entry_free entry
-    and success_ok and composite_ok entry_reusable
+    and success_ok and composite_ok and foreign_evidence_rejected entry_reusable
 
 fn registered_face_simple_glyph_success_ok %impure fn void bool \void:
     match gui_font_registered_face_table_new 1:

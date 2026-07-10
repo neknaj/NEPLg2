@@ -1,3 +1,54 @@
+# 2026-07-10 Agent2 GUI font rendering F5nt registered face simple glyph sequential reader source boundary
+
+## 目的
+
+- registered faceが所有するmetadataを再利用し、canonical `glyf` recordとchecked point streamを一体化したCopy sourceからpointを逐次decodeする。
+- flag repeat、座標delta、contour endpointをcursorへ保持し、全point / contourをO(p + c)、追加storage O(1)で読む。
+- entry / evidence / source identityをbytes read前に再検証し、owner非消費とtyped failure stageを保つ。
+
+## 実装
+
+- `sfnt/glyf.nepl`へmetadata-backed stream resolverを追加し、`sfnt/glyf_sequential.nepl`へsource-bound sequential cursor / start / step / terminalを分離した。
+- sourceはcanonical `glyf` recordとstreamを保持し、cursorはsource identity、flag repeat state、x / y cursor、累積座標、contour stateを保持する。constructorはprivateで、stepは別sourceを受けない。
+- `sfnt/glyf_point_codec.nepl`へflag bit、coordinate byte length、short / same delta decode、typed range errorを集約し、旧random-access compatibility readerと新sequential readerの二重実装を除去した。
+- F5ns registered lookupをface-owned metadataからsourceを解決する形へ変更し、metadata parseとpublic lookupの再実行を除去した。
+- registered readerはentry record、F5ns evidence、canonical table、cursor source identity、glyph identityをlower decode前に検証する。table mismatch、cursor identity mismatch、glyph mismatch、lower start / step failureを別error kindにした。
+- reader errorはcanonical record、F5ns evidence、optional failed cursor、validation error、parse errorをCopy payloadとして保持し、public accessorから回収できる。
+- lower focused testはrepeat flag、2 contour、cursor progression、normal / repeated End、malformed errorを検査する。registered behavior testは全4 point、contour end、foreign evidence rejection、entry reuse、ownerのsingle freeを検査する。
+- source policyはprivate constructor、source/cursor field、metadata reuse、validation順序、typed mismatch分類、旧random-access O(p^2) APIとlater path/raster/render/platform経路の非使用を固定する。
+
+## plan.md との差異
+
+- `plan.md`は言語全体の方向性であるため変更していない。F5ntはGUI font rendering implementation planのF5ns後続として追加した。
+- sequential point collection / path construction、metric join、shaping / layout、raster / render2d、native / bare / headless / Web presentationは未完了であり、`todo.md`に残している。
+
+## subagent review
+
+- Kant plan reviewは初期のbudgeted random-access drainがO(p^2)であること、cursor source identity、error stage、test contract不足を指摘した。source-bound sequential cursorへ再設計し、3回目のreviewで`PLAN_APPROVED`となった。
+- Arendt implementation reviewはsource-policy、foreign evidence test、error payload accessor、source identity error分類、implementation planのmodule配置を指摘した。すべて実装・test・docへ反映した。
+- Arendt implementation re-reviewはsource equalityの全field固定、旧O(p^2) step / drain具体名、metadata-backed resolver検査、旧/new decoder間のflag規則重複を指摘した。source-policyを具体化し、共通point codecを追加して双方を同じauthorityへ移した。
+- Arendt final implementation re-reviewは共有codec、source / topology / table全field、metadata resolver、旧O(p^2) API禁止、ownership / O(p + c)契約を確認し、`REVIEW_APPROVED`。
+- Godelは新しいlower moduleのprivate declaration doc / doctest gapを監査し、実装を変えずに21 helperの日本語docを補完した。
+
+## 検証
+
+- pass: lower sequential point reader focused behavior test、1/1。
+- pass: registered face focused behavior test、1/1、31 assertions。
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存baseline gapのみ。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。LF / CRLF warningのみ。
+- pass: `trunk build`。
+- pass: playground editor JSON、`caseCount: 13`、`passedCount: 13`、`failedCount: 0`。
+- pass: subagent final implementation re-review、`REVIEW_APPROVED`。
+
+## 残件
+
+- sequential sourceからallocator-backed outline / path ownerへ一度だけdrainするlinear collection boundaryを追加する。
+- horizontal metric evidenceとoutline evidenceをjoinし、scale、shaping / layout、raster / render2dへ接続する。
+- native / bare / headless providerとWeb compositor presentationを同じno-fallback contractで接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5ns registered face simple glyph point stream lookup boundary
 
 ## 目的

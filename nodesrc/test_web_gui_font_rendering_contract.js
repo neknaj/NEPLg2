@@ -414,19 +414,25 @@ const allocFontRegisteredFaceHorizontalMetricLookup = read("stdlib/alloc/gui/fon
 const allocFontRegisteredFaceHorizontalMetricLookupImpl = withoutComments(allocFontRegisteredFaceHorizontalMetricLookup);
 const allocFontRegisteredFaceSimpleGlyphLookup = read("stdlib/alloc/gui/font/registered_face_simple_glyph_lookup.nepl");
 const allocFontRegisteredFaceSimpleGlyphLookupImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphLookup);
+const allocFontRegisteredFaceSimpleGlyphReader = read("stdlib/alloc/gui/font/registered_face_simple_glyph_reader.nepl");
+const allocFontRegisteredFaceSimpleGlyphReaderImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphReader);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
 const allocFontSfntCmap = read("stdlib/alloc/gui/font/sfnt/cmap.nepl");
 const allocFontSfntHmtx = read("stdlib/alloc/gui/font/sfnt/hmtx.nepl");
 const allocFontSfntGlyf = read("stdlib/alloc/gui/font/sfnt/glyf.nepl");
-const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx, allocFontSfntGlyf].join("\n");
+const allocFontSfntGlyfPointCodec = read("stdlib/alloc/gui/font/sfnt/glyf_point_codec.nepl");
+const allocFontSfntGlyfSequential = read("stdlib/alloc/gui/font/sfnt/glyf_sequential.nepl");
+const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx, allocFontSfntGlyf, allocFontSfntGlyfPointCodec, allocFontSfntGlyfSequential].join("\n");
 const allocFontSfntImpl = withoutComments(allocFontSfnt);
 const allocFontSfntMetadataImpl = withoutComments(allocFontSfntMetadata);
 const allocFontSfntNameImpl = withoutComments(allocFontSfntName);
 const allocFontSfntCmapImpl = withoutComments(allocFontSfntCmap);
 const allocFontSfntHmtxImpl = withoutComments(allocFontSfntHmtx);
 const allocFontSfntGlyfImpl = withoutComments(allocFontSfntGlyf);
+const allocFontSfntGlyfPointCodecImpl = withoutComments(allocFontSfntGlyfPointCodec);
+const allocFontSfntGlyfSequentialImpl = withoutComments(allocFontSfntGlyfSequential);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
@@ -2157,9 +2163,10 @@ assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_table
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_glyph_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face glyph lookup boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_horizontal_metric_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face horizontal metric lookup boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face simple glyph lookup boundary");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_reader"\s+as\s+\*/, "alloc/gui/font facade must export registered face simple glyph sequential reader boundary");
 assertMatch(
     allocFontFacade,
-        /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph \/ horizontal metric \/ simple glyph point-stream lookup[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
+        /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph \/ horizontal metric \/ simple glyph point-stream source \/ sequential reader[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
     "alloc/gui/font facade docs must distinguish implemented glyph/render2d boundaries from missing Web text presentation",
 );
 assertMatch(
@@ -2450,8 +2457,8 @@ assertNoMatch(
 );
 assertMatch(
     allocFontRegisteredFaceSimpleGlyphLookup,
-    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphPointStream:[\s\S]*mapping\s+%GuiFontRegisteredFaceGlyphMapping[\s\S]*stream\s+%GuiSfntSimpleGlyphPointStream[\s\S]*impl\s+Clone\s+for\s+GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphPointStream/,
-    "registered face simple glyph lookup must return Copy mapping and point-stream evidence",
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphPointStream:[\s\S]*mapping\s+%GuiFontRegisteredFaceGlyphMapping[\s\S]*source\s+%GuiSfntSimpleGlyphPointStreamSource[\s\S]*impl\s+Clone\s+for\s+GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphPointStream/,
+    "registered face simple glyph lookup must return Copy mapping and source-bound point-stream evidence",
 );
 assertMatch(
     allocFontRegisteredFaceSimpleGlyphLookup,
@@ -2470,22 +2477,214 @@ assertOrderedFragments(
         "gui_font_registered_face_table_entry_face_ref",
         "gui_font_registered_face_resource_ref",
         "gui_font_resource_bytes_ref",
-        "gui_font_registered_face_record_selected_face_index",
+        "gui_font_registered_face_metadata",
         "gui_font_registered_face_glyph_mapping_glyph",
-        "gui_sfnt_lookup_simple_glyph_point_stream",
+        "gui_sfnt_simple_glyph_point_stream_source_from_metadata",
         "some parse_error",
         "gui_font_registered_face_simple_glyph_point_stream",
     ],
-    "registered face simple glyph lookup must validate entry and mapping before one lower point-stream call and preserve lower errors",
+    "registered face simple glyph lookup must validate entry and mapping before one metadata-backed source resolution and preserve lower errors",
 );
 assert(
-    (allocFontRegisteredFaceSimpleGlyphLookupImpl.match(/\bgui_sfnt_lookup_simple_glyph_point_stream\b/g) || []).length === 1,
-    "registered face simple glyph lookup boundary must call gui_sfnt_lookup_simple_glyph_point_stream exactly once",
+    (allocFontRegisteredFaceSimpleGlyphLookupImpl.match(/\bgui_sfnt_simple_glyph_point_stream_source_from_metadata\b/g) || []).length === 1,
+    "registered face simple glyph lookup boundary must resolve one metadata-backed source exactly once",
 );
 assertNoMatch(
     allocFontRegisteredFaceSimpleGlyphLookupImpl,
-    /\b(?:gui_sfnt_lookup_glyph_id|gui_sfnt_lookup_horizontal_metric|gui_sfnt_lookup_simple_glyph_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_lookup_simple_glyph_path_contour_step|gui_font_registered_face_table_entry_finish_face|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|HashMap|BTreeMap|family|displayName|fallback)\b/,
-    "registered face simple glyph lookup must not split owners, recompute cmap/hmtx, decode points/paths, or enter raster, render, platform, or fallback paths",
+    /\b(?:gui_sfnt_parse_metadata|gui_sfnt_lookup_simple_glyph_point_stream|gui_sfnt_lookup_glyph_id|gui_sfnt_lookup_horizontal_metric|gui_sfnt_lookup_simple_glyph_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_lookup_simple_glyph_path_contour_step|gui_font_registered_face_table_entry_finish_face|gui_font_registered_face_finish_resource|gui_font_resource_bytes_finish|FontFace|Canvas|fillText|measureText|stdout|render2d|RenderCommand|AlphaMask|HashMap|BTreeMap|family|displayName|fallback)\b/,
+    "registered face simple glyph lookup must not reparse metadata, split owners, recompute cmap/hmtx, decode points/paths, or enter raster, render, platform, or fallback paths",
+);
+assertMatch(
+    allocFontSfntGlyfSequential,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPointStreamSource:[\s\S]*glyf\s+%GuiSfntTableRecord[\s\S]*stream\s+%GuiSfntSimpleGlyphPointStream[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointStreamSource/,
+    "sequential glyf source must bind the canonical glyf table record to a Copy point stream",
+);
+assertNoMatch(
+    allocFontSfntGlyfSequentialImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_point_stream_source\b/,
+    "sequential glyf source constructor must remain private",
+);
+const sequentialPointStreamSourceEq = functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_point_stream_source_eq");
+assertOrderedFragments(
+    sequentialPointStreamSourceEq,
+    [
+        "gui_sfnt_simple_glyph_point_stream_source_glyf",
+        "gui_sfnt_simple_glyph_point_stream_source_glyf",
+        "gui_sfnt_simple_glyph_point_stream_source_stream",
+        "gui_sfnt_simple_glyph_point_stream_source_stream",
+        "gui_sfnt_table_record_tag",
+        "gui_sfnt_table_record_tag",
+        "gui_sfnt_table_record_offset",
+        "gui_sfnt_table_record_offset",
+        "gui_sfnt_table_record_length",
+        "gui_sfnt_table_record_length",
+        "gui_sfnt_simple_glyph_point_stream_eq",
+    ],
+    "sequential glyf source equality must compare canonical table authority and the complete checked stream",
+);
+const sequentialPointStreamEq = functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_point_stream_eq");
+assertOrderedFragments(
+    sequentialPointStreamEq,
+    [
+        "gui_sfnt_simple_glyph_topology_eq",
+        "gui_sfnt_simple_glyph_point_stream_flag_data_offset",
+        "gui_sfnt_simple_glyph_point_stream_flag_data_length",
+        "gui_sfnt_simple_glyph_point_stream_x_data_offset",
+        "gui_sfnt_simple_glyph_point_stream_x_data_length",
+        "gui_sfnt_simple_glyph_point_stream_y_data_offset",
+        "gui_sfnt_simple_glyph_point_stream_y_data_length",
+        "gui_sfnt_simple_glyph_point_stream_trailing_data_offset",
+        "gui_sfnt_simple_glyph_point_stream_trailing_data_length",
+    ],
+    "sequential glyf source identity must include topology and every flag, coordinate, and trailing range",
+);
+const sequentialTopologyEq = functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_topology_eq");
+assertOrderedFragments(
+    sequentialTopologyEq,
+    [
+        "gui_sfnt_simple_glyph_topology_glyph",
+        "gui_sfnt_simple_glyph_topology_glyph",
+        "gui_sfnt_simple_glyph_topology_bounds",
+        "gui_sfnt_simple_glyph_topology_bounds",
+        "gui_sfnt_glyph_bounds_glyph",
+        "gui_sfnt_glyph_bounds_glyph",
+        "gui_sfnt_glyph_bounds_x_min",
+        "gui_sfnt_glyph_bounds_y_min",
+        "gui_sfnt_glyph_bounds_x_max",
+        "gui_sfnt_glyph_bounds_y_max",
+        "gui_sfnt_simple_glyph_topology_contour_count",
+        "gui_sfnt_simple_glyph_topology_point_count",
+        "gui_sfnt_simple_glyph_topology_instruction_length",
+        "gui_sfnt_simple_glyph_topology_point_data_offset",
+        "gui_sfnt_simple_glyph_topology_point_data_length",
+    ],
+    "sequential source identity must include glyph, bounds, topology counts, and point-data range",
+);
+const metadataBackedPointStreamSource = functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_point_stream_source_from_metadata");
+assertOrderedFragments(
+    metadataBackedPointStreamSource,
+    [
+        "gui_sfnt_metadata_directory",
+        "gui_sfnt_directory_glyf",
+        "gui_sfnt_lookup_simple_glyph_point_stream_from_metadata",
+        "gui_sfnt_simple_glyph_point_stream_source",
+    ],
+    "metadata-backed source resolver must use the supplied directory and metadata-backed stream resolver",
+);
+assertNoMatch(
+    metadataBackedPointStreamSource,
+    /\b(?:gui_sfnt_parse_metadata|gui_sfnt_lookup_simple_glyph_point_stream)\b/,
+    "metadata-backed source resolver must not reparse metadata or enter the public reparsing lookup",
+);
+assertMatch(
+    allocFontSfntGlyfPointCodec,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_point_flag_has_bit[\s\S]*pub\s+fn\s+gui_sfnt_simple_glyph_point_coordinate_byte_length[\s\S]*pub\s+fn\s+gui_sfnt_simple_glyph_point_decode_coordinate_delta/,
+    "shared point codec must own flag interpretation, byte length, and coordinate delta decoding",
+);
+const legacyDecodeX = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_decode_x_delta");
+const sequentialDecodeX = functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_sequential_decode_x_delta");
+assertMatch(legacyDecodeX, /gui_sfnt_simple_glyph_point_decode_x_delta/, "legacy glyph reader must use the shared x coordinate codec");
+assertMatch(sequentialDecodeX, /gui_sfnt_simple_glyph_point_decode_x_delta/, "sequential glyph reader must use the shared x coordinate codec");
+const legacyDecodeY = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_decode_y_delta");
+const sequentialDecodeY = functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_sequential_decode_y_delta");
+assertMatch(legacyDecodeY, /gui_sfnt_simple_glyph_point_decode_y_delta/, "legacy glyph reader must use the shared y coordinate codec");
+assertMatch(sequentialDecodeY, /gui_sfnt_simple_glyph_point_decode_y_delta/, "sequential glyph reader must use the shared y coordinate codec");
+assertMatch(
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_flag_has_bit"),
+    /gui_sfnt_simple_glyph_point_flag_has_bit/,
+    "legacy glyph reader must use the shared flag-bit authority",
+);
+assertMatch(
+    functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_sequential_flag_has_bit"),
+    /gui_sfnt_simple_glyph_point_flag_has_bit/,
+    "sequential glyph reader must use the shared flag-bit authority",
+);
+assertMatch(
+    functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_sequential_x_byte_length"),
+    /gui_sfnt_simple_glyph_point_x_byte_length/,
+    "sequential glyph reader must use the shared x byte-length authority",
+);
+assertMatch(
+    functionSlice(allocFontSfntGlyfSequentialImpl, "gui_sfnt_simple_glyph_sequential_y_byte_length"),
+    /gui_sfnt_simple_glyph_point_y_byte_length/,
+    "sequential glyph reader must use the shared y byte-length authority",
+);
+assertMatch(
+    allocFontSfntGlyfSequential,
+    /pub\s+struct\s+GuiSfntSimpleGlyphSequentialPointCursor:[\s\S]*source\s+%GuiSfntSimpleGlyphPointStreamSource[\s\S]*logical_index\s+%i32[\s\S]*flag_cursor\s+%i32[\s\S]*active_flag\s+%i32[\s\S]*active_repeat_remaining\s+%i32[\s\S]*x_cursor\s+%i32[\s\S]*y_cursor\s+%i32[\s\S]*x\s+%i32[\s\S]*y\s+%i32[\s\S]*contour_index\s+%i32[\s\S]*contour_endpoint\s+%i32[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphSequentialPointCursor/,
+    "sequential glyf cursor must carry source identity and all amortized O(1) decoding state",
+);
+assertNoMatch(
+    allocFontSfntGlyfSequentialImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_sequential_point_cursor\b/,
+    "sequential glyf cursor constructor must remain private",
+);
+assertMatch(
+    allocFontSfntGlyfSequential,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_sequential_point_step\s+%fn\s+&ByteBuf\s+fn\s+GuiSfntSimpleGlyphSequentialPointCursor\s+Result/,
+    "sequential glyf step must accept only owner bytes and the source-bound cursor",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphReader,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor:[\s\S]*evidence\s+%GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*lower\s+%GuiSfntSimpleGlyphSequentialPointCursor[\s\S]*impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor/,
+    "registered sequential reader cursor must bind F5ns evidence to the lower source-bound cursor",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphReaderImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_sequential_reader_cursor\b/,
+    "registered sequential reader cursor constructor must remain private",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphReader,
+    /pub\s+enum\s+GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind:[\s\S]*EntryValidationFailed[\s\S]*EvidenceRecordMismatch[\s\S]*SourceTableMismatch[\s\S]*SourceIdentityMismatch[\s\S]*SourceGlyphMismatch[\s\S]*SequentialStartFailed[\s\S]*SequentialStepFailed/,
+    "registered sequential reader must preserve validation, provenance, start, and step failure stages",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphReader,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphSequentialReaderError:[\s\S]*record\s+%GuiFontRegisteredFaceRecord[\s\S]*evidence\s+%GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*cursor\s+%Option\s+GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor[\s\S]*validation_error\s+%Option\s+GuiFontRegisteredFaceTableEntryValidationError[\s\S]*parse_error\s+%Option\s+GuiSfntParseError/,
+    "registered sequential reader error must preserve the canonical record, F5ns evidence, failed cursor, and typed lower failures",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphReader,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_sequential_reader_error_record[\s\S]*pub\s+fn\s+gui_font_registered_face_simple_glyph_sequential_reader_error_evidence/,
+    "registered sequential reader must expose its recoverable record and F5ns evidence payloads",
+);
+assertOrderedFragments(
+    allocFontRegisteredFaceSimpleGlyphReaderImpl,
+    [
+        "gui_font_registered_face_table_entry_validate",
+        "gui_font_registered_face_glyph_mapping_record",
+        "gui_sfnt_simple_glyph_point_stream_source_eq",
+        "gui_font_registered_face_metadata",
+        "gui_sfnt_directory_glyf",
+        "gui_sfnt_simple_glyph_point_stream_source_glyf",
+        "gui_sfnt_simple_glyph_sequential_point_start",
+        "gui_sfnt_simple_glyph_sequential_point_step",
+    ],
+    "registered sequential reader must validate owner and source provenance before lower start and step",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphReaderImpl,
+    /not\s+table_matches[\s\S]*SourceTableMismatch[\s\S]*not\s+cursor_source_matches[\s\S]*SourceIdentityMismatch[\s\S]*SourceGlyphMismatch/,
+    "registered sequential reader must classify table, cursor identity, and glyph provenance failures separately before byte decoding",
+);
+const registeredSequentialTableRecordEq = functionSlice(allocFontRegisteredFaceSimpleGlyphReaderImpl, "gui_font_registered_face_simple_glyph_table_record_eq");
+assertOrderedFragments(
+    registeredSequentialTableRecordEq,
+    [
+        "gui_sfnt_table_record_tag",
+        "gui_sfnt_table_record_tag",
+        "gui_sfnt_table_record_offset",
+        "gui_sfnt_table_record_offset",
+        "gui_sfnt_table_record_length",
+        "gui_sfnt_table_record_length",
+    ],
+    "registered sequential reader must compare every canonical glyf table record field",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphReaderImpl,
+    /\b(?:gui_sfnt_lookup_simple_glyph_point|gui_sfnt_glyf_read_push_point_x|gui_sfnt_glyf_read_push_point_y|gui_sfnt_simple_glyph_outline_storage_read_point|gui_sfnt_simple_glyph_outline_point_read_step|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_step|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_path_contour_step)\b/,
+    "registered sequential reader must not re-enter O(p squared) random-access or later outline/path drains",
 );
 assertMatch(
     spec,
@@ -3070,13 +3269,9 @@ assert(
 const flagXByteLength = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_flag_x_byte_length");
 const flagYByteLength = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_flag_y_byte_length");
 assert(
-    flagXByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 2") &&
-        flagXByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 16") &&
-        flagXByteLength.includes("2") &&
-        flagYByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 4") &&
-        flagYByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 32") &&
-        flagYByteLength.includes("2"),
-    "alloc/gui/font/sfnt/glyf must derive x/y coordinate byte lengths from short and same bits",
+    flagXByteLength.includes("gui_sfnt_simple_glyph_point_x_byte_length") &&
+        flagYByteLength.includes("gui_sfnt_simple_glyph_point_y_byte_length"),
+    "alloc/gui/font/sfnt/glyf must derive x/y coordinate byte lengths through the shared point codec",
 );
 const pointStreamFromTopology = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_point_stream_from_topology");
 for (const fragment of [
@@ -3097,13 +3292,13 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_read_u8_in_stream_range[\s\S]*gui_sfnt_glyf_stream_relative_range_is_valid[\s\S]*GuiSfntParseErrorKind::MalformedGlyfRecord[\s\S]*gui_sfnt_glyf_read_i16_in_stream_range[\s\S]*gui_sfnt_glyf_stream_relative_range_is_valid/,
-    "alloc/gui/font/sfnt/glyf point decode must read flags and coordinates only inside F4g-derived ranges",
+    /gui_sfnt_glyf_read_u8_in_stream_range[\s\S]*gui_sfnt_glyf_stream_relative_range_is_valid[\s\S]*GuiSfntParseErrorKind::MalformedGlyfRecord/,
+    "alloc/gui/font/sfnt/glyf point decode must read flags only inside F4g-derived ranges",
 );
 assertMatch(
-    allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_decode_x_delta[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+2[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+16[\s\S]*sub\s+0\s+byte[\s\S]*gui_sfnt_glyf_read_i16_in_stream_range[\s\S]*gui_sfnt_glyf_decode_y_delta[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+4[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+32[\s\S]*sub\s+0\s+byte/,
-    "alloc/gui/font/sfnt/glyf point decode must implement short/same signed coordinate delta semantics",
+    allocFontSfntGlyfPointCodecImpl,
+    /gui_sfnt_simple_glyph_point_decode_coordinate_delta[\s\S]*short_mask[\s\S]*same_mask[\s\S]*sub\s+0\s+byte[\s\S]*gui_sfnt_simple_glyph_point_codec_read_i16_be/,
+    "shared point codec must implement short/same signed coordinate delta semantics",
 );
 assertMatch(
     allocFontSfntGlyfImpl,
@@ -26142,9 +26337,9 @@ assert(
     "docs must record F5bp drain-start cursor boundary, Planck blocker corrections, and no pixel-write scope",
 );
 const renderFillAlphaMaskSoftwareDrainStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:");
-const renderFillAlphaMaskSoftwareDrainEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:", renderFillAlphaMaskSoftwareDrainStartIndex);
+const renderFillAlphaMaskSoftwareDrainEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphPointDecodeState:", renderFillAlphaMaskSoftwareDrainStartIndex);
 const renderFillAlphaMaskSoftwareDrainRegion = allocFontSfntGlyfImpl.slice(renderFillAlphaMaskSoftwareDrainStartIndex, renderFillAlphaMaskSoftwareDrainEndIndex);
-assert(renderFillAlphaMaskSoftwareDrainStartIndex >= 0 && renderFillAlphaMaskSoftwareDrainEndIndex > renderFillAlphaMaskSoftwareDrainStartIndex, "alloc/gui/font/sfnt/glyf F5bp software drain region must exist before coordinate delta code");
+assert(renderFillAlphaMaskSoftwareDrainStartIndex >= 0 && renderFillAlphaMaskSoftwareDrainEndIndex > renderFillAlphaMaskSoftwareDrainStartIndex, "alloc/gui/font/sfnt/glyf F5bp software drain region must exist before point decode state code");
 for (const fragment of [
     "struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:",
     "prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner",
