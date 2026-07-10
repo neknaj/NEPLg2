@@ -1,0 +1,291 @@
+//: # alloc/gui/font/sfnt/glyf_indexed_path
+//: contour span index を使う simple glyph contour event traversal
+//:
+//: ### [目的/もくてき]
+//: - indexed collection owner から contour 開始時に span を exactly once 読み、contour 終了まで同じ span を再利用します。
+//: - point、edge、curve、event の検証は `sfnt/glyf` の checked-span core を authority とし、この module では複製しません。
+//: - registered evidence と resource ownership は上位 module が保持できるよう、下位 traversal state は allocation のない Copy value とします。
+//:
+//: ### [状態/じょうたい]
+//: - `PendingContour` はまだ span を読んでいない contour cursor です。
+//: - `ActiveContour` は一度だけ読んだ span と次の cursor を保持します。
+//: - `Completed` は contour の全 event を読み終えた terminal です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - pending step の span lookup は O(1)、active step は O(1) であり、1 contour の全 traversal は event 数 a に対して O(a) です。
+//: - state は Copy value だけを保持し、追加 allocation はありません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/sfnt/glyf_indexed_path" as *
+//:| #import "std/test" as *
+//:
+//: fn main %fn void i32 \void:
+//:     let rejected %bool match GuiSfntSimpleGlyphIndexedPathContourStepErrorKind::AlreadyCompleted:
+//:         GuiSfntSimpleGlyphIndexedPathContourStepErrorKind::AlreadyCompleted: true
+//:         _: false
+//:     test_assertion_exit_code assert "indexed contour terminal misuse is typed" rejected
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/font" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./glyf" as *
+#import "./glyf_span_index" as *
+
+//: GuiSfntSimpleGlyphIndexedPathActiveContour: checked span を保持する active contour state
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphIndexedPathActiveContour:
+    span %GuiSfntSimpleGlyphContourSpan
+    cursor %GuiSfntSimpleGlyphPathContourCursor
+
+impl Clone for GuiSfntSimpleGlyphIndexedPathActiveContour:
+    fn clone %fn &GuiSfntSimpleGlyphIndexedPathActiveContour GuiSfntSimpleGlyphIndexedPathActiveContour \active:
+        *active
+
+impl Copy for GuiSfntSimpleGlyphIndexedPathActiveContour:
+    fn copy_mark %fn GuiSfntSimpleGlyphIndexedPathActiveContour GuiSfntSimpleGlyphIndexedPathActiveContour \active:
+        active
+
+//: gui_sfnt_simple_glyph_indexed_path_active_contour: span と cursor を active state に封印する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_indexed_path_active_contour %fn GuiSfntSimpleGlyphContourSpan fn GuiSfntSimpleGlyphPathContourCursor GuiSfntSimpleGlyphIndexedPathActiveContour \span\cursor:
+    GuiSfntSimpleGlyphIndexedPathActiveContour span cursor
+
+//: gui_sfnt_simple_glyph_indexed_path_active_contour_span: active state の checked span を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_active_contour_span %fn &GuiSfntSimpleGlyphIndexedPathActiveContour GuiSfntSimpleGlyphContourSpan \active:
+    *field::get_ref active "span"
+
+//: gui_sfnt_simple_glyph_indexed_path_active_contour_cursor: active state の next cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_active_contour_cursor %fn &GuiSfntSimpleGlyphIndexedPathActiveContour GuiSfntSimpleGlyphPathContourCursor \active:
+    *field::get_ref active "cursor"
+
+//: GuiSfntSimpleGlyphIndexedPathContourCompleted: contour terminal identity
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphIndexedPathContourCompleted:
+    glyph %GuiGlyphId
+    contour_index %i32
+
+impl Clone for GuiSfntSimpleGlyphIndexedPathContourCompleted:
+    fn clone %fn &GuiSfntSimpleGlyphIndexedPathContourCompleted GuiSfntSimpleGlyphIndexedPathContourCompleted \completed:
+        *completed
+
+impl Copy for GuiSfntSimpleGlyphIndexedPathContourCompleted:
+    fn copy_mark %fn GuiSfntSimpleGlyphIndexedPathContourCompleted GuiSfntSimpleGlyphIndexedPathContourCompleted \completed:
+        completed
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_completed: completed contour identity を作る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_indexed_path_contour_completed %fn GuiGlyphId fn i32 GuiSfntSimpleGlyphIndexedPathContourCompleted \glyph\contour_index:
+    GuiSfntSimpleGlyphIndexedPathContourCompleted glyph contour_index
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_completed_glyph: completed contour の glyph を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_completed_glyph %fn &GuiSfntSimpleGlyphIndexedPathContourCompleted GuiGlyphId \completed:
+    *field::get_ref completed "glyph"
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_completed_index: completed contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_completed_index %fn &GuiSfntSimpleGlyphIndexedPathContourCompleted i32 \completed:
+    *field::get_ref completed "contour_index"
+
+//: GuiSfntSimpleGlyphIndexedPathContourState: indexed contour traversal の明示的状態
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphIndexedPathContourState:
+    PendingContour %GuiSfntSimpleGlyphPathContourCursor
+    ActiveContour %GuiSfntSimpleGlyphIndexedPathActiveContour
+    Completed %GuiSfntSimpleGlyphIndexedPathContourCompleted
+
+impl Clone for GuiSfntSimpleGlyphIndexedPathContourState:
+    fn clone %fn &GuiSfntSimpleGlyphIndexedPathContourState GuiSfntSimpleGlyphIndexedPathContourState \state:
+        *state
+
+impl Copy for GuiSfntSimpleGlyphIndexedPathContourState:
+    fn copy_mark %fn GuiSfntSimpleGlyphIndexedPathContourState GuiSfntSimpleGlyphIndexedPathContourState \state:
+        state
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_start: lookup 前の pending contour を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - indexed owner は借用し、capacity glyph から first event cursor を作ります。
+//: - span lookup と collection item read は行いません。contour index の検査は最初の step が typed lookup error として返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_start %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner fn i32 GuiSfntSimpleGlyphIndexedPathContourState \owner\contour_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_contour_span_indexed_collection_capacity owner
+    let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+    let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index 0 GuiSfntSimpleGlyphPathSinkEventSlot::First
+    GuiSfntSimpleGlyphIndexedPathContourState::PendingContour cursor
+
+//: GuiSfntSimpleGlyphIndexedPathContourStepResult: emitted contour step と next state
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphIndexedPathContourStepResult:
+    step %GuiSfntSimpleGlyphPathContourStep
+    state %GuiSfntSimpleGlyphIndexedPathContourState
+
+impl Clone for GuiSfntSimpleGlyphIndexedPathContourStepResult:
+    fn clone %fn &GuiSfntSimpleGlyphIndexedPathContourStepResult GuiSfntSimpleGlyphIndexedPathContourStepResult \result:
+        *result
+
+impl Copy for GuiSfntSimpleGlyphIndexedPathContourStepResult:
+    fn copy_mark %fn GuiSfntSimpleGlyphIndexedPathContourStepResult GuiSfntSimpleGlyphIndexedPathContourStepResult \result:
+        result
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_result: emitted step と next state を束ねる
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_indexed_path_contour_step_result %fn GuiSfntSimpleGlyphPathContourStep fn GuiSfntSimpleGlyphIndexedPathContourState GuiSfntSimpleGlyphIndexedPathContourStepResult \step\state:
+    GuiSfntSimpleGlyphIndexedPathContourStepResult step state
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_result_step: emitted contour step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step_result_step %fn &GuiSfntSimpleGlyphIndexedPathContourStepResult GuiSfntSimpleGlyphPathContourStep \result:
+    *field::get_ref result "step"
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_result_state: next traversal state を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step_result_state %fn &GuiSfntSimpleGlyphIndexedPathContourStepResult GuiSfntSimpleGlyphIndexedPathContourState \result:
+    *field::get_ref result "state"
+
+//: GuiSfntSimpleGlyphIndexedPathContourStepErrorKind: indexed contour step failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphIndexedPathContourStepErrorKind:
+    SpanIndexLookupFailed
+    ContourStepFailed
+    AlreadyCompleted
+
+impl Clone for GuiSfntSimpleGlyphIndexedPathContourStepErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphIndexedPathContourStepErrorKind GuiSfntSimpleGlyphIndexedPathContourStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphIndexedPathContourStepErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphIndexedPathContourStepErrorKind GuiSfntSimpleGlyphIndexedPathContourStepErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphIndexedPathContourStepError: state と typed lower error を保持する failure context
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphIndexedPathContourStepError:
+    kind %GuiSfntSimpleGlyphIndexedPathContourStepErrorKind
+    state %GuiSfntSimpleGlyphIndexedPathContourState
+    lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError
+    contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+impl Clone for GuiSfntSimpleGlyphIndexedPathContourStepError:
+    fn clone %fn &GuiSfntSimpleGlyphIndexedPathContourStepError GuiSfntSimpleGlyphIndexedPathContourStepError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphIndexedPathContourStepError:
+    fn copy_mark %fn GuiSfntSimpleGlyphIndexedPathContourStepError GuiSfntSimpleGlyphIndexedPathContourStepError \error:
+        error
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_error: state を失わない typed error を作る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_indexed_path_contour_step_error %fn GuiSfntSimpleGlyphIndexedPathContourStepErrorKind fn GuiSfntSimpleGlyphIndexedPathContourState fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphIndexedPathContourStepError \kind\state\lookup_error\contour_step_error:
+    GuiSfntSimpleGlyphIndexedPathContourStepError kind state lookup_error contour_step_error
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_error_kind: failure kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step_error_kind %fn &GuiSfntSimpleGlyphIndexedPathContourStepError GuiSfntSimpleGlyphIndexedPathContourStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_error_state: retry / diagnosis 用 state を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step_error_state %fn &GuiSfntSimpleGlyphIndexedPathContourStepError GuiSfntSimpleGlyphIndexedPathContourState \error:
+    *field::get_ref error "state"
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_error_lookup_error: indexed lookup sub-error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step_error_lookup_error %fn &GuiSfntSimpleGlyphIndexedPathContourStepError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+    *field::get_ref error "lookup_error"
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_error_contour_step_error: checked-span contour step sub-error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step_error_contour_step_error %fn &GuiSfntSimpleGlyphIndexedPathContourStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \error:
+    *field::get_ref error "contour_step_error"
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_next_state: contour step の next を active / completed state へ写す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_indexed_path_contour_next_state %fn GuiSfntSimpleGlyphContourSpan fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphIndexedPathContourState \span\step:
+    let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_step_cursor step
+    let glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor
+    let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor
+    match gui_sfnt_simple_glyph_path_contour_step_next step:
+        GuiSfntSimpleGlyphPathContourNext::Continue next_cursor:
+            GuiSfntSimpleGlyphIndexedPathContourState::ActiveContour gui_sfnt_simple_glyph_indexed_path_active_contour span next_cursor
+        GuiSfntSimpleGlyphPathContourNext::EndContour:
+            GuiSfntSimpleGlyphIndexedPathContourState::Completed gui_sfnt_simple_glyph_indexed_path_contour_completed glyph contour_index
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step_checked_span: 保存済み span で1 eventを進める
+//:
+//: [契約/けいやく]:
+//: - span index lookup を行わず、`glyf`のchecked-span contour stepだけを呼びます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_indexed_path_contour_step_checked_span %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner fn GuiSfntSimpleGlyphContourSpan fn GuiSfntSimpleGlyphIndexedPathContourState fn GuiSfntSimpleGlyphPathContourCursor Result GuiSfntSimpleGlyphIndexedPathContourStepResult GuiSfntSimpleGlyphIndexedPathContourStepError \owner\span\state\cursor:
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_indexed_collection_ref owner
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_checked_span collection span cursor:
+        Result::Err contour_step_error_value:
+            let lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError none
+            let contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError some contour_step_error_value
+            Result::Err gui_sfnt_simple_glyph_indexed_path_contour_step_error GuiSfntSimpleGlyphIndexedPathContourStepErrorKind::ContourStepFailed state lookup_error contour_step_error
+        Result::Ok step:
+            let next_state %GuiSfntSimpleGlyphIndexedPathContourState gui_sfnt_simple_glyph_indexed_path_contour_next_state span &step
+            Result::Ok gui_sfnt_simple_glyph_indexed_path_contour_step_result step next_state
+
+//: gui_sfnt_simple_glyph_indexed_path_contour_step: indexed state を1 eventだけ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - `PendingContour`だけがspan index lookupをexactly once呼び、成功したspanを`ActiveContour`へ保存します。
+//: - `ActiveContour`は保存済みspanだけを使い、span index lookupを呼びません。
+//: - `Completed`はsilent successにせず`AlreadyCompleted`を返します。
+//: - lookup errorは旧full-scan errorへ変換せず、`GuiSfntSimpleGlyphContourSpanIndexLookupError`のまま保持します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_indexed_path_contour_step %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner fn GuiSfntSimpleGlyphIndexedPathContourState Result GuiSfntSimpleGlyphIndexedPathContourStepResult GuiSfntSimpleGlyphIndexedPathContourStepError \owner\state:
+    match state:
+        GuiSfntSimpleGlyphIndexedPathContourState::PendingContour cursor:
+            let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor
+            match gui_sfnt_simple_glyph_contour_span_index_lookup owner contour_index:
+                Result::Err lookup_error_value:
+                    let lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError some lookup_error_value
+                    let contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError none
+                    Result::Err gui_sfnt_simple_glyph_indexed_path_contour_step_error GuiSfntSimpleGlyphIndexedPathContourStepErrorKind::SpanIndexLookupFailed state lookup_error contour_step_error
+                Result::Ok span:
+                    gui_sfnt_simple_glyph_indexed_path_contour_step_checked_span owner span state cursor
+        GuiSfntSimpleGlyphIndexedPathContourState::ActiveContour active:
+            let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_indexed_path_active_contour_span &active
+            let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_indexed_path_active_contour_cursor &active
+            gui_sfnt_simple_glyph_indexed_path_contour_step_checked_span owner span state cursor
+        GuiSfntSimpleGlyphIndexedPathContourState::Completed _completed:
+            let lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError none
+            let contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError none
+            Result::Err gui_sfnt_simple_glyph_indexed_path_contour_step_error GuiSfntSimpleGlyphIndexedPathContourStepErrorKind::AlreadyCompleted state lookup_error contour_step_error

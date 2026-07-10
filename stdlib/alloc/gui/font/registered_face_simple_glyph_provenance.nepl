@@ -1,0 +1,198 @@
+//: # alloc/gui/font/registered_face_simple_glyph_provenance
+//: registered face simple glyph evidence の canonical provenance を[検証/けんしょう]する
+//:
+//: ### [目的/もくてき]
+//: - reader、collection index、path consumer が同じ entry / mapping / `glyf` / glyph identity 検証を共有できるようにします。
+//: - bytes read や allocation より前に、Copy evidence だけで不一致を typed error として返します。
+//:
+//: ### [契約/けいやく]
+//: - entry と evidence は借用し、owner を消費しません。
+//: - cursor identity、point decode、allocation、path、fallback は扱いません。
+//: - success と error は Copy value であり、resource ownership を隠し持ちません。
+//:
+//: ### [計算量/けいさんりょう]
+//: 固定個数の field 比較だけを行うため、時間 O(1)、追加 storage O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_provenance" as *
+//:| #import "std/test" as *
+//:
+//: fn main %fn void i32 \void:
+//:     let rejected %bool match GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind::SourceGlyphMismatch:
+//:         GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind::SourceGlyphMismatch: true
+//:         _: false
+//:     test_assertion_exit_code assert "provenance error kind is typed" rejected
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face" as *
+#import "alloc/gui/font/registered_face_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_table" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind: canonical provenance failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind:
+    EntryValidationFailed
+    EvidenceRecordMismatch
+    SourceTableMismatch
+    SourceGlyphMismatch
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphProvenance: canonical record、evidence、source の検証済みCopy value
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphProvenance:
+    record %GuiFontRegisteredFaceRecord
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    source %GuiSfntSimpleGlyphPointStreamSource
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphProvenance:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphProvenance GuiFontRegisteredFaceSimpleGlyphProvenance \provenance:
+        *provenance
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphProvenance:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphProvenance GuiFontRegisteredFaceSimpleGlyphProvenance \provenance:
+        provenance
+
+//: GuiFontRegisteredFaceSimpleGlyphProvenanceError: rejected evidence と shared entry error を保持する
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphProvenanceError:
+    kind %GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind
+    record %GuiFontRegisteredFaceRecord
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    validation_error %Option GuiFontRegisteredFaceTableEntryValidationError
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphProvenanceError:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphProvenanceError GuiFontRegisteredFaceSimpleGlyphProvenanceError \error:
+        *error
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphProvenanceError:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphProvenanceError GuiFontRegisteredFaceSimpleGlyphProvenanceError \error:
+        error
+
+//: gui_font_registered_face_simple_glyph_provenance: 検証済みprovenance valueを構築する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_provenance %fn GuiFontRegisteredFaceRecord fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphPointStreamSource GuiFontRegisteredFaceSimpleGlyphProvenance \record\evidence\source:
+    GuiFontRegisteredFaceSimpleGlyphProvenance record evidence source
+
+//: gui_font_registered_face_simple_glyph_provenance_error: rejected evidenceを失わないtyped errorを構築する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_provenance_error %fn GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind fn GuiFontRegisteredFaceRecord fn GuiFontRegisteredFaceSimpleGlyphPointStream fn Option GuiFontRegisteredFaceTableEntryValidationError GuiFontRegisteredFaceSimpleGlyphProvenanceError \kind\record\evidence\validation_error:
+    GuiFontRegisteredFaceSimpleGlyphProvenanceError kind record evidence validation_error
+
+//: gui_font_registered_face_simple_glyph_provenance_table_record_eq: table identityをtag、offset、lengthで比較する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_provenance_table_record_eq %fn &GuiSfntTableRecord fn &GuiSfntTableRecord bool \left\right:
+    and eq gui_sfnt_table_record_tag left gui_sfnt_table_record_tag right and eq gui_sfnt_table_record_offset left gui_sfnt_table_record_offset right eq gui_sfnt_table_record_length left gui_sfnt_table_record_length right
+
+//: gui_font_registered_face_simple_glyph_provenance_record: canonical entry record を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_record %fn &GuiFontRegisteredFaceSimpleGlyphProvenance GuiFontRegisteredFaceRecord \provenance:
+    *field::get_ref provenance "record"
+
+//: gui_font_registered_face_simple_glyph_provenance_evidence: 検証済み evidence を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_evidence %fn &GuiFontRegisteredFaceSimpleGlyphProvenance GuiFontRegisteredFaceSimpleGlyphPointStream \provenance:
+    *field::get_ref provenance "evidence"
+
+//: gui_font_registered_face_simple_glyph_provenance_source: 検証済み source を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_source %fn &GuiFontRegisteredFaceSimpleGlyphProvenance GuiSfntSimpleGlyphPointStreamSource \provenance:
+    *field::get_ref provenance "source"
+
+//: gui_font_registered_face_simple_glyph_provenance_error_kind: failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphProvenanceError GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_provenance_error_record: failure 時のcanonical candidate recordを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_error_record %fn &GuiFontRegisteredFaceSimpleGlyphProvenanceError GuiFontRegisteredFaceRecord \error:
+    *field::get_ref error "record"
+
+//: gui_font_registered_face_simple_glyph_provenance_error_evidence: rejected evidence を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_error_evidence %fn &GuiFontRegisteredFaceSimpleGlyphProvenanceError GuiFontRegisteredFaceSimpleGlyphPointStream \error:
+    *field::get_ref error "evidence"
+
+//: gui_font_registered_face_simple_glyph_provenance_error_validation_error: shared entry validation error を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_error_validation_error %fn &GuiFontRegisteredFaceSimpleGlyphProvenanceError Option GuiFontRegisteredFaceTableEntryValidationError \error:
+    *field::get_ref error "validation_error"
+
+//: gui_font_registered_face_simple_glyph_provenance_validate: registered evidence を canonical entry へ照合する
+//:
+//: [契約/けいやく]:
+//: - entry、mapping record、canonical `glyf` record、mapping / topology glyph の順に検査します。
+//: - 失敗時に parser、bytes read、allocation、fallback は呼びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_provenance_validate %fn &GuiFontRegisteredFaceTableEntry fn &GuiFontRegisteredFaceSimpleGlyphPointStream Result GuiFontRegisteredFaceSimpleGlyphProvenance GuiFontRegisteredFaceSimpleGlyphProvenanceError \entry\evidence_ref:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream *evidence_ref
+    let entry_record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record entry
+    match gui_font_registered_face_table_entry_validate entry:
+        Result::Err validation_error:
+            Result::Err gui_font_registered_face_simple_glyph_provenance_error GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind::EntryValidationFailed entry_record evidence some validation_error
+        Result::Ok canonical_record:
+            let mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_simple_glyph_point_stream_mapping &evidence
+            let mapping_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record &mapping
+            if not gui_font_registered_face_record_eq &canonical_record &mapping_record:
+                then:
+                    Result::Err gui_font_registered_face_simple_glyph_provenance_error GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind::EvidenceRecordMismatch canonical_record evidence none
+                else:
+                    let source %GuiSfntSimpleGlyphPointStreamSource gui_font_registered_face_simple_glyph_point_stream_source &evidence
+                    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+                    let metadata %GuiSfntMetadata gui_font_registered_face_metadata face_ref
+                    let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+                    let canonical_glyf %Option GuiSfntTableRecord gui_sfnt_directory_glyf &directory
+                    let source_glyf %GuiSfntTableRecord gui_sfnt_simple_glyph_point_stream_source_glyf &source
+                    let table_matches %bool match canonical_glyf:
+                        Option::None:
+                            false
+                        Option::Some glyf:
+                            gui_font_registered_face_simple_glyph_provenance_table_record_eq &glyf &source_glyf
+                    if not table_matches:
+                        then:
+                            Result::Err gui_font_registered_face_simple_glyph_provenance_error GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind::SourceTableMismatch canonical_record evidence none
+                        else:
+                            let stream %GuiSfntSimpleGlyphPointStream gui_sfnt_simple_glyph_point_stream_source_stream &source
+                            let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+                            let source_glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+                            let mapping_glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph &mapping
+                            if ne gui_glyph_id_raw &mapping_glyph gui_glyph_id_raw &source_glyph:
+                                then:
+                                    Result::Err gui_font_registered_face_simple_glyph_provenance_error GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind::SourceGlyphMismatch canonical_record evidence none
+                                else:
+                                    Result::Ok gui_font_registered_face_simple_glyph_provenance canonical_record evidence source

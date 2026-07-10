@@ -31,3 +31,4 @@ pub #import "./sfnt/hmtx" as @merge
 pub #import "./sfnt/glyf" as @merge
 pub #import "./sfnt/glyf_sequential" as @merge
 pub #import "./sfnt/glyf_span_index" as @merge
+pub #import "./sfnt/glyf_indexed_path" as @merge

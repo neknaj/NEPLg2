@@ -1,0 +1,382 @@
+//: # alloc/gui/font/registered_face_simple_glyph_indexed_path
+//: registered indexed glyph owner を policy 適用済み contour sink-step stream へ接続する
+//:
+//: ### [目的/もくてき]
+//: - registered evidence、span index、private traversal state を同じ owner に保持します。
+//: - contour ごとに span index lookup を一度だけ行い、同じ span を contour 終了まで再利用します。
+//: - event を既存 pure sink-step projection へ渡し、off-curve と closure policy を明示的に適用します。
+//:
+//: ### [契約/けいやく]
+//: - raw cursor、raw collection、lower indexed owner を public API の引数にしません。
+//: - budget 0 は span lookup、collection read、contour step を行いません。
+//: - step / lookup failure は owner を回収可能な typed error として返し、fallback しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: contour 数 c、sink step 数 a に対して全 traversal は O(c + a)、追加 allocation は O(1) です。
+//:
+//: ### [典型例/てんけいれい]
+//: registered index build 済み owner を受け取った scheduler は、status を読んでから唯一の owner を回収します。実フォントから indexed owner を作る前段は `tests/stdlib/gui_font_registered_face.n.md` で実行検査します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_path" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//:
+//: fn run_one_slice %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner unit \owner:
+//:     match gui_font_registered_face_simple_glyph_indexed_path_drain_budget owner 1:
+//:         Result::Err error:
+//:             gui_font_registered_face_simple_glyph_indexed_path_error_free error
+//:         Result::Ok budget_step:
+//:             let status %GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus gui_font_registered_face_simple_glyph_indexed_path_budget_step_status &budget_step
+//:             match status:
+//:                 GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Emitted _sink_step:
+//:                     gui_font_registered_face_simple_glyph_indexed_path_owner_free gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+//:                 GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Completed:
+//:                     gui_font_registered_face_simple_glyph_indexed_path_owner_free gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+//:                 GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::StepBudgetExhausted:
+//:                     gui_font_registered_face_simple_glyph_indexed_path_owner_free gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+//:
+//: fn main %fn void i32 \void:
+//:     let completed %bool match GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed: true
+//:         _: false
+//:     test_assertion_exit_code assert "registered indexed path completion is typed" completed
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face_simple_glyph_collection" as *
+#import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind: public diagnostics 用 traversal state 分類
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind:
+    PendingContour
+    ActiveContour
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathActive: contour中に再利用するchecked spanとcursor
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedPathActive:
+    span %GuiSfntSimpleGlyphContourSpan
+    cursor %GuiSfntSimpleGlyphPathContourCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathActive:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathActive GuiFontRegisteredFaceSimpleGlyphIndexedPathActive \active:
+        *active
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathActive:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathActive GuiFontRegisteredFaceSimpleGlyphIndexedPathActive \active:
+        active
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathState: lookup前、contour処理中、完了を分離する内部状態
+//:
+//: neplg2:test[skip]
+enum GuiFontRegisteredFaceSimpleGlyphIndexedPathState:
+    PendingContour %i32
+    ActiveContour %GuiFontRegisteredFaceSimpleGlyphIndexedPathActive
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathState:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathState GuiFontRegisteredFaceSimpleGlyphIndexedPathState \state:
+        *state
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathState:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathState GuiFontRegisteredFaceSimpleGlyphIndexedPathState \state:
+        state
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner: registered index、policy、private traversal state の owner
+//:
+//: [注意/ちゅうい]: indexed owner を所有するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner:
+    indexed %GuiFontRegisteredFaceSimpleGlyphIndexedOwner
+    policy %GuiSfntSimpleGlyphPathSinkPolicy
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedPathState
+
+//: gui_font_registered_face_simple_glyph_indexed_path_active: 同一contourで再利用するspanとcursorを束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_active %fn GuiSfntSimpleGlyphContourSpan fn GuiSfntSimpleGlyphPathContourCursor GuiFontRegisteredFaceSimpleGlyphIndexedPathActive \span\cursor:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathActive span cursor
+
+//: gui_font_registered_face_simple_glyph_indexed_path_owner: index、policy、継続状態を分離不能なownerへ束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn GuiSfntSimpleGlyphPathSinkPolicy fn GuiFontRegisteredFaceSimpleGlyphIndexedPathState GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner \indexed\policy\state:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner indexed policy state
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathStep: emitted sink step と継続 owner
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathStep:
+    sink_step %GuiSfntSimpleGlyphPathSinkStep
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner
+
+//: gui_font_registered_face_simple_glyph_indexed_path_step_value: emitted stepと唯一の継続ownerを束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_step_value %fn GuiSfntSimpleGlyphPathSinkStep fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathStep \sink_step\owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathStep sink_step owner
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind: registered indexed path failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind:
+    SpanIndexLookupFailed
+    ContourStepFailed
+    AlreadyCompleted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathError: failure metadata と回収可能 path owner
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind
+    lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError
+    contour_step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+//: gui_font_registered_face_simple_glyph_indexed_path_error: failure metadataと回収可能ownerを束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiFontRegisteredFaceSimpleGlyphIndexedPathError \owner\kind\lookup_error\contour_step_error:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathError owner kind lookup_error contour_step_error
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus: one-step budget traversal のCopy status
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus:
+    Emitted %GuiSfntSimpleGlyphPathSinkStep
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus \status:
+        *status
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus \status:
+        status
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep: 常に1つのownerとCopy statusを返すbudget結果
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus
+
+//: gui_font_registered_face_simple_glyph_indexed_path_budget_step: 常に唯一のownerとCopy statusを返す
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_budget_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep \owner\status:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep owner status
+
+//: gui_font_registered_face_simple_glyph_indexed_path_start: lookupなしで最初のpending contour ownerを作る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn &GuiSfntSimpleGlyphPathSinkPolicy GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner \indexed\policy:
+    gui_font_registered_face_simple_glyph_indexed_path_owner indexed *policy GuiFontRegisteredFaceSimpleGlyphIndexedPathState::PendingContour 0
+
+//: gui_font_registered_face_simple_glyph_indexed_path_progress_kind: raw cursorを公開せず現在stateを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedPathState field::get_ref owner "state"
+    match *state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathState::PendingContour _contour_index:
+            GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::PendingContour
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathState::ActiveContour _active:
+            GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::ActiveContour
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathState::Completed:
+            GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed
+
+//: gui_font_registered_face_simple_glyph_indexed_path_step_sink_step: emitted sink stepを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_step_sink_step %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathStep GuiSfntSimpleGlyphPathSinkStep \step:
+    *field::get_ref step "sink_step"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_step_take_owner: emitted stepから継続ownerを回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathStep GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner \step:
+    field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_step_free: emitted stepと継続ownerを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_path_owner_free field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_error_kind: failure kindを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathError GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_error_lookup_error: exact indexed lookup errorを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_error_lookup_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+    *field::get_ref error "lookup_error"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_error_contour_step_error: checked-span contour errorを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_error_contour_step_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \error:
+    *field::get_ref error "contour_step_error"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_error_take_owner: failureからpath ownerを回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathError GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner \error:
+    field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_error_free: failureとpath ownerを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_path_owner_free field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_next_state: contour step後のactive、pending、completedを決定する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_next_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn &GuiSfntSimpleGlyphPathContourStep GuiFontRegisteredFaceSimpleGlyphIndexedPathState \indexed\span\contour_index\contour_step:
+    match gui_sfnt_simple_glyph_path_contour_step_next contour_step:
+        GuiSfntSimpleGlyphPathContourNext::Continue next_cursor:
+            GuiFontRegisteredFaceSimpleGlyphIndexedPathState::ActiveContour gui_font_registered_face_simple_glyph_indexed_path_active span next_cursor
+        GuiSfntSimpleGlyphPathContourNext::EndContour:
+            if lt add contour_index 1 gui_font_registered_face_simple_glyph_indexed_owner_span_count indexed:
+                then:
+                    GuiFontRegisteredFaceSimpleGlyphIndexedPathState::PendingContour add contour_index 1
+                else:
+                    GuiFontRegisteredFaceSimpleGlyphIndexedPathState::Completed
+
+//: gui_font_registered_face_simple_glyph_indexed_path_step_with_span: 保存済みchecked spanで1 sink stepだけ進める
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_step_with_span %fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn GuiSfntSimpleGlyphPathSinkPolicy fn GuiFontRegisteredFaceSimpleGlyphIndexedPathState fn GuiSfntSimpleGlyphContourSpan fn GuiSfntSimpleGlyphPathContourCursor Result GuiFontRegisteredFaceSimpleGlyphIndexedPathStep GuiFontRegisteredFaceSimpleGlyphIndexedPathError \indexed\policy\state\span\cursor:
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_font_registered_face_simple_glyph_indexed_owner_collection_ref &indexed
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_checked_span collection span cursor:
+        Result::Err contour_error:
+            let owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_owner indexed policy state
+            Result::Err gui_font_registered_face_simple_glyph_indexed_path_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind::ContourStepFailed none some contour_error
+        Result::Ok contour_step:
+            let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor
+            let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_sfnt_simple_glyph_path_sink_step_from_contour_step &policy &contour_step
+            let next_state %GuiFontRegisteredFaceSimpleGlyphIndexedPathState gui_font_registered_face_simple_glyph_indexed_path_next_state &indexed span contour_index &contour_step
+            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_owner indexed policy next_state
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_path_step_value sink_step next_owner
+
+//: gui_font_registered_face_simple_glyph_indexed_path_step: registered traversalを1 sink step進める
+//:
+//: [契約/けいやく]: `PendingContour`だけがspan lookupを1回呼び、`ActiveContour`は保存済みspanを使います。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathStep GuiFontRegisteredFaceSimpleGlyphIndexedPathError \owner:
+    let policy %GuiSfntSimpleGlyphPathSinkPolicy *field::get_ref &owner "policy"
+    let state %GuiFontRegisteredFaceSimpleGlyphIndexedPathState *field::get_ref &owner "state"
+    let indexed %GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get owner "indexed"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathState::PendingContour contour_index:
+            match gui_font_registered_face_simple_glyph_indexed_owner_span_lookup &indexed contour_index:
+                Result::Err lookup_error:
+                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_owner indexed policy state
+                    Result::Err gui_font_registered_face_simple_glyph_indexed_path_error recovered GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind::SpanIndexLookupFailed some lookup_error none
+                Result::Ok span:
+                    let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span
+                    let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor span_glyph contour_index 0 GuiSfntSimpleGlyphPathSinkEventSlot::First
+                    gui_font_registered_face_simple_glyph_indexed_path_step_with_span indexed policy state span cursor
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathState::ActiveContour active:
+            let span %GuiSfntSimpleGlyphContourSpan *field::get_ref &active "span"
+            let cursor %GuiSfntSimpleGlyphPathContourCursor *field::get_ref &active "cursor"
+            gui_font_registered_face_simple_glyph_indexed_path_step_with_span indexed policy state span cursor
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathState::Completed:
+            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_owner indexed policy state
+            Result::Err gui_font_registered_face_simple_glyph_indexed_path_error recovered GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind::AlreadyCompleted none none
+
+//: gui_font_registered_face_simple_glyph_indexed_path_drain_budget: terminal-before-budgetで最大1 sink step進める
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_drain_budget %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathError \owner\remaining_steps:
+    match gui_font_registered_face_simple_glyph_indexed_path_progress_kind &owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_path_budget_step owner GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::PendingContour:
+            if le remaining_steps 0:
+                then:
+                    Result::Ok gui_font_registered_face_simple_glyph_indexed_path_budget_step owner GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::StepBudgetExhausted
+                else:
+                    match gui_font_registered_face_simple_glyph_indexed_path_step owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok step:
+                            let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_font_registered_face_simple_glyph_indexed_path_step_sink_step &step
+                            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_step_take_owner step
+                            Result::Ok gui_font_registered_face_simple_glyph_indexed_path_budget_step next_owner GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Emitted sink_step
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::ActiveContour:
+            if le remaining_steps 0:
+                then:
+                    Result::Ok gui_font_registered_face_simple_glyph_indexed_path_budget_step owner GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::StepBudgetExhausted
+                else:
+                    match gui_font_registered_face_simple_glyph_indexed_path_step owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok step:
+                            let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_font_registered_face_simple_glyph_indexed_path_step_sink_step &step
+                            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_step_take_owner step
+                            Result::Ok gui_font_registered_face_simple_glyph_indexed_path_budget_step next_owner GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Emitted sink_step
+
+//: gui_font_registered_face_simple_glyph_indexed_path_budget_step_status: budget結果のCopy statusを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus \step:
+    *field::get_ref step "status"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner: budget結果から継続ownerを回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner \step:
+    field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_budget_step_free: budget結果とownerを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_path_owner_free field::get step "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_path_owner_free: traversalとregistered indexed collectionを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_owner_free field::get owner "indexed"

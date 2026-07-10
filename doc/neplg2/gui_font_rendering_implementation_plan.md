@@ -6388,6 +6388,67 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nv_glyf_span_index.json
 ```
 
+## Phase F5nw: registered contour span index and indexed contour path boundary
+
+目的:
+
+- F5nu completed ownerのregistered evidenceとcollectionを分離せず、entry再検証後にF5nv index builderへ移す。
+- contour開始時のO(1) index lookupをexactly onceにし、同じchecked spanをpoint / edge / curve / event計算へ伝播して旧per-lookup全走査を除く。
+- registered indexed owner、policy、typed traversal stateを同じnon-Copy ownerへ束ね、別entry / owner由来cursorをpublic APIで構築不能にする。
+- index buildと全contour sink-step traversalをO(p + c + a)にし、budget、closure、off-curve semanticsを既存契約のまま維持する。
+- action summary、endpoint / edge / command tag drain、command value / stream、stroke provenance、metric join、layout、raster / render、platform presentation、fallbackへ進まない。これらのindexed移行はF5nxとする。
+
+変更:
+
+- `alloc/gui/font/registered_face_simple_glyph_provenance.nepl`を追加する。reader固有cursorから独立したCopy validation resultとtyped errorを定義し、entry / mapping / canonical `glyf` / source glyphを検証する。readerはshared errorを既存reader errorへ明示的にmappingし、cursor source identityだけをreader内で追加検証する。
+- existing public `gui_font_registered_face_simple_glyph_collected_owner_take_collection`を削除する。registered span index adapterはprivate completed owner constructor / field transferを使える`registered_face_simple_glyph_collection.nepl`に実装し、collectionだけをprovenanceから分離するpublic transfer APIを作らない。
+- registered index startはcompleted ownerを消費するが、shared provenanceとcollection shapeをallocation前に検証する。validation failureは元completed owner、lower start failureはcollectionを回収して再構成したcompleted owner、step / complete failureはregistered builder ownerを回収可能にする。
+- registered builder ownerはevidenceとF5nv builder owner、registered indexed ownerはevidenceとF5nv indexed ownerを保持する。constructorはprivate、`Clone` / `Copy`なし、lower owner / raw collection / span storageのconsuming accessorなし、borrowed evidence / progress / capacity / span count / lookupとfreeだけを公開する。
+- startはtopology contour countからcaller limitを検査しlower F5nv startへ進む。lower start failureはcollectionを先に回収し、evidenceと再結合する。step / completeもlower error metadataを借用してからlower ownerを回収し、registered ownerへ再結合する。
+- `sfnt/glyf.nepl`のexisting point / edge / curve / event実装をchecked-span coreとlegacy full-scan adapterへ分割する。legacy adapterと新規`sfnt/glyf_indexed_path.nepl`は同じcoreを呼び、validation logicを複製しない。coreはspan lookup zero、nested point / edge / curve / event callへ同じspanを渡す。
+- `alloc/gui/font/registered_face_simple_glyph_indexed_path.nepl`を追加する。registered indexed owner、sink policy、private typed stateを同じnon-Copy traversal ownerへ束ね、public start / step / drainはこのownerだけを消費して返す。raw cursor、raw collection、lower indexed ownerを別引数で受けない。
+- private state enumは`PendingContour contour_index`、`ActiveContour span cursor`、`Completed`を持つ。startはlookupなしで`PendingContour 0`を作る。stepはpendingでだけindex lookupをexactly once呼び、activeでは保存済みspanを使う。contour stepをexisting `gui_sfnt_simple_glyph_path_sink_step_from_contour_step`へ渡してoff-curve / closure policyを適用し、次stateを確定する。
+- budgeted drainは`Completed`判定、budget 0判定、stepの順で進む。結果は常に1つのpath ownerとCopy status `Emitted sink_step` / `Completed` / `StepBudgetExhausted`を持ち、owner-bearing terminal enumへ分岐しない。terminalはbudget 0でもcompleted ownerを返し、nonterminal budget 0はlookup / readなしで同じownerを返す。1 successful sink stepだけbudgetを1消費する。step errorはpath ownerをsingle recovery / freeできる形にする。
+- lower behavior testはunequal multi-contour、single point、on-curve line、off-curve start、consecutive off-curve quadratic lookahead、`KeepOpen` / `EmitCloseAfterFinalEvent`、lookup failure、cursor/span contour mismatchを確認する。registered real-font fixtureはpartial budget resume、pending / completed terminal with zero budget、low-limit start failure recovery、premature complete failure recovery、completed traversal direct-step failure freeを確認する。foreign cursorはprivate constructor / split API不在と実動`CursorContourMismatch`の両方で検査する。
+- source policyはpublic collection take削除、registered owner constructors private、non-Copy、raw ownership splitなし、shared provenance validation-before-allocationを固定する。checked-span coreでspan lookup zero、indexed path moduleでold full-scan span helperとold collection-backed point / edge / curve / event / action wrapperを0件、registered traversalのpending branchでindex lookupを1箇所、budget 0 branchより前のstep / lookup / readを0件に固定する。registered traversal public signatureがpath ownerだけを受けることも固定する。
+- facade、spec、detailed design、standard library spec、`note.n.md`、`todo.md`を同じF5nw境界へ更新する。
+
+完了条件:
+
+- registered evidenceがstart / step / completeのsuccessとfailure全経路でcollection / index ownerから脱落せず、public collection-only transferが存在しない。
+- indexed contour traversalが旧full-scan helperを呼ばず、1 contour entryにつき1 lookup、同一spanのnested propagation、foreign cursor構築不能、budget / closure semanticsを確認できる。
+- focused behavior test、module doctest、F5nu / F5nv lower regression、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+- subagent plan / implementation reviewがownership recovery、shared provenance authority、O(p + c + a)、explicit-span propagation、cursor identity、F5nxとのscope境界を承認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_simple_glyph_indexed_path_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_indexed_path_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_simple_glyph_provenance.nepl --no-tree -o tmp_gui_font_registered_face_simple_glyph_provenance_doc_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_simple_glyph_collection.nepl --no-tree -o tmp_gui_font_registered_face_simple_glyph_collection_doc_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf_indexed_path.nepl --no-tree -o tmp_gui_font_sfnt_glyf_indexed_path_doc_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_path.nepl --no-tree -o tmp_gui_font_registered_face_simple_glyph_indexed_path_doc_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_regression_f5nw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_span_index.n.md --no-tree -o tmp_gui_font_sfnt_glyf_span_index_regression_f5nw.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+node nodesrc/issues.js check --dir issues
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nw_registered_indexed_path.json
+```
+
+## Phase F5nx: indexed path action and command storage migration
+
+目的:
+
+- F5nw registered indexed contour traversalを使い、path action summary、endpoint / edge / command tag drain、command value / stream、stroke provenanceを旧collection-backed span discoveryから移行する。
+- full path storage pipeline全体をO(p + c + a)へ接続し、旧full-scan helperをnew registered pipelineから完全に排除する。
+
+F5nxの詳細なowner / storage / recovery契約はF5nw完了後、既存drainごとのresource obligationを監査して追記する。F5nwの完了をF5nxの完了として扱わない。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
