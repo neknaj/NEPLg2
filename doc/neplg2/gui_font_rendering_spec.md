@@ -169,6 +169,12 @@ F5nxはF5nwで完了済みのshared provenance validationを再実行して別au
 
 F5nxのbudget resultは各phaseで唯一のownerとCopy statusを持つ。owner-bearing terminal variantを複数作らない。budget単位はphase-localなsuccessful operationであり、terminal確認、budget 0確認、最大1 operationの順で進む。terminalはbudget 0より優先され、nonterminal budget 0はlookup、read、allocation、pushを行わない。action phaseではPrimaryとTailを別operationとして数え、TailがNoActionでも省略しない。全migration完了後のindex build、action、storage、command、stroke source traversalは合計O(p + c + a)、追加storage O(p + c + a)である。
 
+F5nxbのregistered action summaryは、registered indexed ownerとborrowed sink policyだけをpublic start入力とする。同じcall内でindexed ownerのcollectionからcanonical outline capacityをCopyし、F5nxa action ownerとzero apply stateを作る。途中まで進んだF5nxa owner、caller supplied apply state / capacity / summary、raw path ownerをsummary startへ渡すpublic APIは提供しない。
+
+summary ownerはF5nxa action owner、canonical capacity、apply state、private phaseを一体所有する。phase payloadはRunning Option last-status、Rejected reason、Completed concrete last-statusであり、terminal phaseとterminal metadataを別fieldにしない。旧collection-backed consumer summaryのCopy continuation / advanceは保持しない。EmitEvent、Reject、CloseContour、NoActionのpure state更新だけはshared apply helperをexactly once再利用する。Rejectはparse failureではなくdomain terminalであり、更新済みreject countとstatusをcommitした後、同じsink stepのTailと後続pathを消費しない。CompletedはF5nxa full-path progressだけをauthorityとし、contour-local close / no-actionから推測しない。F5nxa progressはprivate action stateのNeedSinkStepとTailPendingをActive、CompletedだけをCompletedへ写す。lower pathがfinal Primary後にCompletedでもTailPendingはActiveであり、final Tailを適用するまでsummary completionへ進まない。
+
+summary budgetはterminal、remaining stepsが0以下、最大1 actionの順で進む。non-reject actionを適用したcallはApplied statusを返し、final Tail適用後のowner phaseはCompletedになる。次回budget callはbudget値に関係なくCompletedを返す。Reject適用callはRejected reasonを返し、以後のbudget callもlower actionを進めずRejectedを返す。budget resultは常に唯一のsummary ownerとCopy statusを持つ。F5nxcへ渡せるauthorityはCompleted phaseをchecked sealしたcompleted ownerだけであり、Rejected ownerはdiagnostics / free専用とする。completed / rejected terminal ownerはlast apply statusを非optionalで返し、rejected ownerだけがreject reasonを非optionalで返す。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。
