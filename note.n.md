@@ -1,3 +1,53 @@
+# 2026-07-10 Agent2 GUI font rendering F5nv simple glyph contour span index owner boundary
+
+## 目的
+
+- completed classified point collectionのcontour spanを一度だけ線形に導出し、後続path traversalからper-lookup全走査を除く。
+- collectionとspan indexを同じnon-Copy ownerに封印し、O(p + c) build、O(c)追加storage、O(1) lookupを保証する。
+- point stepとcompletionを分離し、owner recovery、typed failure、no fallbackを公開APIとsource policyで固定する。
+
+## 実装
+
+- `stdlib/alloc/gui/font/sfnt/glyf_span_index.nepl`を追加し、exact contour capacityのspan storage、point / contour / start progress、collectionを持つbuilder ownerを実装した。
+- startはcapacity、complete item count、Vec shape、caller limitをallocation前に検査する。失敗は元collectionを所有するtyped errorとして返し、回収またはfreeを要求する。
+- point stepはexactly 1 itemを読み、point index、glyph、point由来kindの順に検証し、endpointのときだけ1 spanをcommitする。push failureはlower metadataを読んでVecを回収し、pre-step progressへ戻す。
+- current compilerのowner obligation検査で、collectionとspan Vecを持つownerをterminal enum payloadに包む設計がuse-after-moveになることをfocused testで検出した。場当たりにテストを弱めず、point stepは同じbuilder ownerを直接返し、別completion APIだけがindexed ownerへ移す設計へ変更した。
+- completionはread / pushを行わずterminal progressだけを検査する。span連続性はprivate constructorとendpoint transitionの`next start = end + 1`でby-constructionに保証し、冗長なO(c)再走査を行わない。
+- indexed ownerのlookupはowner参照とcontour indexだけを受け、`vec::get`をexactly once呼ぶ。collection readと旧full-scan contour helperは呼ばない。
+- facade、font rendering spec、detailed design、implementation plan、GUI standard library spec、focused behavior test、module doctest、source policyを同じF5nv境界へ更新した。
+
+## plan.md との差異
+
+- `plan.md`は言語全体の方向性であるため変更していない。F5nvはGUI font rendering implementation planのF5nu後続である。
+- registered evidenceとindexed ownerのadapter、indexed path traversal、metric join、scale、shaping / layout、raster / render2d、native / bare / headless / Web presentationは未完了であり、`todo.md`をF5nw以降へ進めた。
+
+## subagent review
+
+- plan reviewは、旧contour lookupをpath actionごとに呼ぶとO(a * p)になる根本問題を指摘したため、F5nvをpath scanではなくsingle-pass span index前提境界へ変更した。
+- 再レビューはglyph / kind検証、point / completion read契約、malformed endpoint、owner recovery、owner-only lookup、具体的source policy、実行module doctestを要求した。全項目を文書へ反映し`PLAN_APPROVED`後に実装した。
+- 実装中レビューはterminal enumのowner obligation問題を確認し、point step / completion分離案を`PLAN_APPROVED`とした。
+- implementation reviewはstep error回収証拠、by-construction span continuityの文書化、lower collection regression、public `Result` APIのerror条件、進捗成果物整理を指摘した。behavior test、source policy、doc comment、検証手順、note / todoへ反映した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_span_index.n.md --no-tree -o tmp_gui_font_sfnt_glyf_span_index_f5nv.json -j 1`。1/1。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf_span_index.nepl --no-tree -o tmp_gui_font_sfnt_glyf_span_index_doc_f5nv.json -j 1`。45/45。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_sfnt_glyf_collection_regression_f5nv.json -j 1`。1/1。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt.nepl --no-tree -o tmp_gui_font_sfnt_facade_f5nv.json -j 1`。1/1。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass with LF/CRLF warnings only: `git diff --check`。
+- pass: `trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nv_glyf_span_index.json`。13/13。
+
+## 残件
+
+- F5nwでF5nu registered completed ownerからcollectionをF5nv indexed ownerへ移し、registered evidenceと同じowner境界へ束ねる。
+- indexed span authorityだけを使うpath traversalへ移行し、旧per-lookup full scan helperを新pipelineから除外する。
+- metric join、scale、shaping / layout、glyph rasterization、render2d、platform presentationをno-fallback contractで接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nu registered face simple glyph linear collection owner boundary
 
 ## 目的

@@ -424,6 +424,7 @@ const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
 const allocFontSfntCmap = read("stdlib/alloc/gui/font/sfnt/cmap.nepl");
 const allocFontSfntHmtx = read("stdlib/alloc/gui/font/sfnt/hmtx.nepl");
 const allocFontSfntGlyf = read("stdlib/alloc/gui/font/sfnt/glyf.nepl");
+const allocFontSfntGlyfSpanIndex = read("stdlib/alloc/gui/font/sfnt/glyf_span_index.nepl");
 const allocFontSfntGlyfPointCodec = read("stdlib/alloc/gui/font/sfnt/glyf_point_codec.nepl");
 const allocFontSfntGlyfSequential = read("stdlib/alloc/gui/font/sfnt/glyf_sequential.nepl");
 const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx, allocFontSfntGlyf, allocFontSfntGlyfPointCodec, allocFontSfntGlyfSequential].join("\n");
@@ -433,6 +434,7 @@ const allocFontSfntNameImpl = withoutComments(allocFontSfntName);
 const allocFontSfntCmapImpl = withoutComments(allocFontSfntCmap);
 const allocFontSfntHmtxImpl = withoutComments(allocFontSfntHmtx);
 const allocFontSfntGlyfImpl = withoutComments(allocFontSfntGlyf);
+const allocFontSfntGlyfSpanIndexImpl = withoutComments(allocFontSfntGlyfSpanIndex);
 const allocFontSfntGlyfPointCodecImpl = withoutComments(allocFontSfntGlyfPointCodec);
 const allocFontSfntGlyfSequentialImpl = withoutComments(allocFontSfntGlyfSequential);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
@@ -443,6 +445,7 @@ const guiDirtyRegionSetTests = read("tests/stdlib/gui_dirty_region_set.n.md");
 const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_command.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontRegisteredFaceTests = read("tests/stdlib/gui_font_registered_face.n.md");
+const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
@@ -2803,6 +2806,177 @@ assertMatch(
     /registered_face_simple_glyph_foreign_evidence_rejected[\s\S]*GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::ReaderStartFailed[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_capacity_check[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_alloc_error/,
     "registered face behavior tests must prove foreign evidence is rejected before capacity planning and allocation",
 );
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /struct\s+GuiSfntSimpleGlyphContourSpanIndexBuilderOwner:[\s\S]*collection\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollection[\s\S]*spans\s+%Vec\s+GuiSfntSimpleGlyphContourSpan[\s\S]*next_point_index\s+%i32[\s\S]*next_contour_index\s+%i32[\s\S]*contour_start_index\s+%i32/,
+    "F5nv span index builder must bind the classified collection, span storage, and resumable progress",
+);
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /struct\s+GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner:[\s\S]*collection\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollection[\s\S]*spans\s+%Vec\s+GuiSfntSimpleGlyphContourSpan/,
+    "F5nv indexed owner must seal the collection and its contour span index together",
+);
+assertNoMatch(
+    allocFontSfntGlyfSpanIndexImpl,
+    /pub\s+fn\s+(?:gui_sfnt_simple_glyph_contour_span_index_(?:builder_owner|start_error|step_error)|gui_sfnt_simple_glyph_contour_span_indexed_collection_owner)\b/,
+    "F5nv owner and owner-bearing error constructors must remain private",
+);
+for (const ownerType of [
+    "GuiSfntSimpleGlyphContourSpanIndexBuilderOwner",
+    "GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner",
+    "GuiSfntSimpleGlyphContourSpanIndexStartError",
+    "GuiSfntSimpleGlyphContourSpanIndexStepError",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfSpanIndexImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must not be Clone or Copy because it transports collection or index ownership`,
+    );
+}
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection[\s\S]*pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_start_error_free/,
+    "F5nv start errors must support explicit collection recovery and explicit disposal",
+);
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_step_error_take_owner[\s\S]*pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_step_error_free/,
+    "F5nv step errors must support explicit builder recovery and explicit disposal",
+);
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /enum\s+GuiSfntSimpleGlyphContourSpanIndexStepErrorKind:[\s\S]*CollectionReadFailed[\s\S]*PointIndexMismatch[\s\S]*ItemGlyphMismatch[\s\S]*ItemKindMismatch[\s\S]*ContourCountExceeded[\s\S]*InvalidSpanRange[\s\S]*SpanStoragePushFailed[\s\S]*MissingFinalEndpoint[\s\S]*ContourCountMismatch[\s\S]*CompletionInvariantInvalid/,
+    "F5nv step errors must preserve typed item, topology, storage, and completion failures",
+);
+const contourSpanIndexStart = functionSlice(
+    allocFontSfntGlyfSpanIndexImpl,
+    "gui_sfnt_simple_glyph_contour_span_index_start",
+);
+assertOrderedFragments(
+    contourSpanIndexStart,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap",
+        "gui_sfnt_simple_glyph_contour_span_index_limit_max_contours",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid",
+        "vec::with_capacity contour_count",
+    ],
+    "F5nv start must validate collection shape and caller limit before exact contour allocation",
+);
+const contourSpanIndexStep = functionSlice(
+    allocFontSfntGlyfSpanIndexImpl,
+    "gui_sfnt_simple_glyph_contour_span_index_step",
+);
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_step\s+%impure\s+fn\s+GuiSfntSimpleGlyphContourSpanIndexBuilderOwner\s+Result\s+GuiSfntSimpleGlyphContourSpanIndexBuilderOwner\s+GuiSfntSimpleGlyphContourSpanIndexStepError/,
+    "F5nv point step must return the same builder owner type directly",
+);
+assertNoMatch(
+    allocFontSfntGlyfSpanIndexImpl,
+    /enum\s+GuiSfntSimpleGlyphContourSpanIndexStep\b/,
+    "F5nv must not wrap the two-resource builder and indexed owners in a terminal enum",
+);
+assert(
+    (contourSpanIndexStep.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item\b/g) || []).length === 1,
+    "F5nv point step must contain exactly one classified collection read location",
+);
+assert(
+    (contourSpanIndexStep.match(/\bvec::push\b/g) || []).length === 1,
+    "F5nv point step must contain exactly one endpoint span push location",
+);
+const contourSpanIndexCompletion = functionSlice(
+    allocFontSfntGlyfSpanIndexImpl,
+    "gui_sfnt_simple_glyph_contour_span_index_complete",
+);
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_complete\s+%impure\s+fn\s+GuiSfntSimpleGlyphContourSpanIndexBuilderOwner\s+Result\s+GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner\s+GuiSfntSimpleGlyphContourSpanIndexStepError/,
+    "F5nv completion must directly transform the builder owner into the indexed owner",
+);
+assertNoMatch(
+    contourSpanIndexCompletion,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item\b|\bvec::push\b/,
+    "F5nv completion API must perform zero collection reads and zero span pushes",
+);
+const contourSpanIndexPointBranch = textSliceBetween(
+    contourSpanIndexStep,
+    "match gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item",
+    "\nfn ",
+);
+assertOrderedFragments(
+    contourSpanIndexPointBranch,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item",
+        "gui_sfnt_simple_glyph_point_index",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_glyph",
+        "gui_sfnt_simple_glyph_point_glyph",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point",
+        "gui_sfnt_simple_glyph_point_end_of_contour",
+        "gui_sfnt_simple_glyph_contour_span",
+        "vec::push",
+    ],
+    "F5nv point step must validate index, glyph, and kind before endpoint-only span commit",
+);
+assertNoMatch(
+    contourSpanIndexPointBranch,
+    /\bwhile\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span\b/,
+    "F5nv point step must not loop or call the old full-collection contour span helper",
+);
+assertMatch(
+    contourSpanIndexPointBranch,
+    /gui_sfnt_simple_glyph_contour_span_index_builder_owner\s+collection\s+next_spans\s+add\s+next_point_index\s+1\s+add\s+next_contour_index\s+1\s+add\s+next_point_index\s+1/,
+    "F5nv endpoint commit must establish the next contiguous contour start by construction",
+);
+const contourSpanIndexPushFailure = textSliceBetween(
+    contourSpanIndexPointBranch,
+    "Result::Err push_error:",
+    "\nfn ",
+);
+assertOrderedFragments(
+    contourSpanIndexPushFailure,
+    [
+        "vec::vec_push_error_kind",
+        "vec::vec_push_error_vec",
+        "next_point_index",
+        "next_contour_index",
+        "contour_start_index",
+    ],
+    "F5nv push failure must read metadata, recover span storage, and preserve pre-step progress",
+);
+const contourSpanIndexedLookup = functionSlice(
+    allocFontSfntGlyfSpanIndexImpl,
+    "gui_sfnt_simple_glyph_contour_span_index_lookup",
+);
+assert(
+    (contourSpanIndexedLookup.match(/\bvec::get\b/g) || []).length === 1,
+    "F5nv indexed span lookup must contain exactly one Vec get location",
+);
+assertNoMatch(
+    contourSpanIndexedLookup,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span\b/,
+    "F5nv indexed span lookup must not read the collection or call the old full scan helper",
+);
+assertMatch(
+    allocFontSfntGlyfSpanIndex,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_contour_span_index_lookup\s+%fn\s+&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphContourSpan/,
+    "F5nv indexed lookup must accept only the sealed indexed owner and contour index",
+);
+assertNoMatch(
+    allocFontSfntGlyfSpanIndexImpl,
+    /\b(?:gui_sfnt_lookup_simple_glyph_point|gui_sfnt_glyf_read_push_point_x|gui_sfnt_glyf_read_push_point_y|gui_sfnt_simple_glyph_outline_storage_read_point|gui_sfnt_simple_glyph_outline_point_read_step|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_step|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_path_contour_step|path_sink|metric|raster|RenderCommand|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|fallback)\b/,
+    "F5nv span index must remain independent from random access, path, storage, metric, raster, render, platform, and fallback paths",
+);
+for (const [pattern, label] of [
+    [/span_index_equal_contours_ok[\s\S]*span_index_unequal_contours_ok[\s\S]*span_index_single_contour_ok/, "equal, unequal, and single contour spans"],
+    [/span_index_extra_endpoint_recovery_ok[\s\S]*span_index_contour_count_mismatch_recovery_ok[\s\S]*span_index_missing_final_endpoint_recovery_ok/, "extra, missing-count, and missing-final endpoint failures"],
+    [/span_index_collection_count_mismatch_recovery_ok[\s\S]*gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection[\s\S]*gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item/, "incomplete collection owner recovery and readability"],
+    [/span_index_invalid_limit_recovery_ok[\s\S]*span_index_limit_rejection_recovery_ok/, "limit rejection recovery"],
+    [/span_index_start_error_free_ok[\s\S]*span_index_step_error_free_ok[\s\S]*span_index_completion_without_progress_ok/, "explicit disposal and zero-progress completion observation"],
+]) {
+    assertMatch(guiFontSfntGlyfSpanIndexTests, pattern, `F5nv behavior tests must cover ${label}`);
+}
 assertMatch(
     spec,
     /F5nl の Web Playground font drawing readiness boundary[\s\S]*fonts\/HackGenConsoleNF-Regular\.ttf[\s\S]*legacy stdout text transport[\s\S]*formal font resource provider \/ registry[\s\S]*text shaping \/ layout[\s\S]*Web compositor \/ video memory surface[\s\S]*FontFace[\s\S]*Canvas `fillText`[\s\S]*HostTextMeasurer[\s\S]*legacy stdout text/,

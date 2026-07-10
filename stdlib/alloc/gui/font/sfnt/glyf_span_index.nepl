@@ -1,0 +1,701 @@
+//: # alloc/gui/font/sfnt/glyf_span_index
+//: completed simple glyph point collection から contour span index を線形構築する owner 境界
+//:
+//: ### [目的/もくてき]
+//: - classified point collection を一度だけ順次検査し、contour span を O(1) で参照できる index を作ります。
+//: - collection と index を同じ owner に束ね、異なる glyph や collection の index を組み合わせられないようにします。
+//:
+//: ### [契約/けいやく]
+//: - point step は exactly 1 item を読み、endpoint のときだけ最大 1 span を追加します。
+//: - completion step は item read と span push を行いません。
+//: - owner を保持する型は `Clone` / `Copy` を実装せず、失敗時も回収または明示的な free を要求します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - p point と c contour に対する全 build は O(p + c)、追加 storage は O(c)、indexed lookup は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/sfnt/glyf_span_index" as *
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/sfnt" as *
+//:| #import "core/gui/font" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 41
+//:     let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity glyph 1 1 1 1 2
+//:     let collection_limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 1
+//:     match gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc &capacity &collection_limit:
+//:         Result::Err _error:
+//:             1
+//:         Result::Ok empty:
+//:             let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_point glyph 0 10 20 true true
+//:             let item %GuiSfntSimpleGlyphOutlinePointStreamItem gui_sfnt_simple_glyph_outline_point_stream_item point
+//:             match gui_sfnt_simple_glyph_outline_point_stream_item_collection_push empty item:
+//:                 Result::Err push_error:
+//:                     gui_sfnt_simple_glyph_outline_point_stream_item_collection_free gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error
+//:                     2
+//:                 Result::Ok collection:
+//:                     let limit %GuiSfntSimpleGlyphContourSpanIndexLimit gui_sfnt_simple_glyph_contour_span_index_limit 1
+//:                     match gui_sfnt_simple_glyph_contour_span_index_start collection &limit:
+//:                         Result::Err error:
+//:                             gui_sfnt_simple_glyph_contour_span_index_start_error_free error
+//:                             3
+//:                         Result::Ok owner:
+//:                             match gui_sfnt_simple_glyph_contour_span_index_step owner:
+//:                                 Result::Err error:
+//:                                     gui_sfnt_simple_glyph_contour_span_index_step_error_free error
+//:                                     4
+//:                                 Result::Ok ready:
+//:                                     match gui_sfnt_simple_glyph_contour_span_index_complete ready:
+//:                                         Result::Err error:
+//:                                             gui_sfnt_simple_glyph_contour_span_index_step_error_free error
+//:                                             5
+//:                                         Result::Ok completed:
+//:                                             let ok %bool match gui_sfnt_simple_glyph_contour_span_index_lookup &completed 0:
+//:                                                 Result::Err _error: false
+//:                                                 Result::Ok span: eq 1 gui_sfnt_simple_glyph_contour_span_point_count &span
+//:                                             gui_sfnt_simple_glyph_contour_span_indexed_collection_free completed
+//:                                             if ok:
+//:                                                 then: 0
+//:                                                 else: 6
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/sfnt" as *
+//:| #import "core/gui/font" as *
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//: fn push_point %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiGlyphId impure fn i32 impure fn bool Result GuiSfntSimpleGlyphOutlinePointStreamItemCollection i32 \collection\glyph\index\endpoint:
+//:     let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_point glyph index index index true endpoint
+//:     match gui_sfnt_simple_glyph_outline_point_stream_item_collection_push collection gui_sfnt_simple_glyph_outline_point_stream_item point:
+//:         Result::Ok next: Result::Ok next
+//:         Result::Err error:
+//:             gui_sfnt_simple_glyph_outline_point_stream_item_collection_free gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection error
+//:             Result::Err 1
+//: fn main %impure fn void i32 \void:
+//:     let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 42
+//:     let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity glyph 2 2 2 2 4
+//:     let collection_limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 2
+//:     match gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc &capacity &collection_limit:
+//:         Result::Err _error: 2
+//:         Result::Ok empty:
+//:             match push_point empty glyph 0 true:
+//:                 Result::Err code: code
+//:                 Result::Ok one:
+//:                     match push_point one glyph 1 true:
+//:                         Result::Err code: code
+//:                         Result::Ok collection:
+//:                             let limit %GuiSfntSimpleGlyphContourSpanIndexLimit gui_sfnt_simple_glyph_contour_span_index_limit 2
+//:                             match gui_sfnt_simple_glyph_contour_span_index_start collection &limit:
+//:                                 Result::Err error:
+//:                                     gui_sfnt_simple_glyph_contour_span_index_start_error_free error
+//:                                     3
+//:                                 Result::Ok owner0:
+//:                                     match gui_sfnt_simple_glyph_contour_span_index_step owner0:
+//:                                         Result::Err error:
+//:                                             gui_sfnt_simple_glyph_contour_span_index_step_error_free error
+//:                                             4
+//:                                         Result::Ok owner1:
+//:                                             match gui_sfnt_simple_glyph_contour_span_index_step owner1:
+//:                                                 Result::Err error:
+//:                                                     gui_sfnt_simple_glyph_contour_span_index_step_error_free error
+//:                                                     5
+//:                                                 Result::Ok ready:
+//:                                                     match gui_sfnt_simple_glyph_contour_span_index_complete ready:
+//:                                                         Result::Err error:
+//:                                                             gui_sfnt_simple_glyph_contour_span_index_step_error_free error
+//:                                                             6
+//:                                                         Result::Ok completed:
+//:                                                             let ok %bool eq 2 gui_sfnt_simple_glyph_contour_span_indexed_collection_span_count &completed
+//:                                                             gui_sfnt_simple_glyph_contour_span_indexed_collection_free completed
+//:                                                             if ok:
+//:                                                                 then: 0
+//:                                                                 else: 7
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/sfnt" as *
+//:| #import "core/gui/font" as *
+//:| #import "core/result" as *
+//: fn main %impure fn void i32 \void:
+//:     let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 43
+//:     let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity glyph 1 1 1 1 2
+//:     let collection_limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 1
+//:     match gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc &capacity &collection_limit:
+//:         Result::Err _error: 1
+//:         Result::Ok empty:
+//:             let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_point glyph 0 0 0 true true
+//:             match gui_sfnt_simple_glyph_outline_point_stream_item_collection_push empty gui_sfnt_simple_glyph_outline_point_stream_item point:
+//:                 Result::Err push_error:
+//:                     gui_sfnt_simple_glyph_outline_point_stream_item_collection_free gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error
+//:                     2
+//:                 Result::Ok collection:
+//:                     let invalid_limit %GuiSfntSimpleGlyphContourSpanIndexLimit gui_sfnt_simple_glyph_contour_span_index_limit 0
+//:                     match gui_sfnt_simple_glyph_contour_span_index_start collection &invalid_limit:
+//:                         Result::Ok owner:
+//:                             gui_sfnt_simple_glyph_contour_span_index_builder_free owner
+//:                             3
+//:                         Result::Err error:
+//:                             let recovered %GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection error
+//:                             let readable %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item &recovered 0:
+//:                                 Result::Ok _item: true
+//:                                 Result::Err _read_error: false
+//:                             gui_sfnt_simple_glyph_outline_point_stream_item_collection_free recovered
+//:                             if readable:
+//:                                 then: 0
+//:                                 else: 4
+//: ```
+
+#indent 4
+
+#import "alloc/collections/vec" as vec
+#import "core/field" as field
+#import "core/gui/font" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./glyf" as *
+
+//: GuiSfntSimpleGlyphContourSpanIndexLimit: contour span storage の caller 指定上限
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpanIndexLimit:
+    max_contours %i32
+
+impl Clone for GuiSfntSimpleGlyphContourSpanIndexLimit:
+    fn clone %fn &GuiSfntSimpleGlyphContourSpanIndexLimit GuiSfntSimpleGlyphContourSpanIndexLimit \limit:
+        *limit
+
+impl Copy for GuiSfntSimpleGlyphContourSpanIndexLimit:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourSpanIndexLimit GuiSfntSimpleGlyphContourSpanIndexLimit \limit:
+        limit
+
+//: gui_sfnt_simple_glyph_contour_span_index_limit: contour 上限を作る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_limit %fn i32 GuiSfntSimpleGlyphContourSpanIndexLimit \max_contours:
+    GuiSfntSimpleGlyphContourSpanIndexLimit max_contours
+
+//: gui_sfnt_simple_glyph_contour_span_index_limit_max_contours: contour 上限を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_limit_max_contours %fn &GuiSfntSimpleGlyphContourSpanIndexLimit i32 \limit:
+    *field::get_ref limit "max_contours"
+
+//: GuiSfntSimpleGlyphContourSpanIndexBuilderOwner: collection と partial span index の再開可能 owner
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpanIndexBuilderOwner:
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    spans %Vec GuiSfntSimpleGlyphContourSpan
+    next_point_index %i32
+    next_contour_index %i32
+    contour_start_index %i32
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_owner: 検証済み progress を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_span_index_builder_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn Vec GuiSfntSimpleGlyphContourSpan fn i32 fn i32 fn i32 GuiSfntSimpleGlyphContourSpanIndexBuilderOwner \collection\spans\next_point_index\next_contour_index\contour_start_index:
+    GuiSfntSimpleGlyphContourSpanIndexBuilderOwner collection spans next_point_index next_contour_index contour_start_index
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_collection_ref: indexed 元 collection を借用する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_builder_collection_ref %fn &GuiSfntSimpleGlyphContourSpanIndexBuilderOwner &GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
+    field::get_ref owner "collection"
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_next_point_index: 次に検査する point index を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_builder_next_point_index %fn &GuiSfntSimpleGlyphContourSpanIndexBuilderOwner i32 \owner:
+    *field::get_ref owner "next_point_index"
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_next_contour_index: 次に確定する contour index を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_builder_next_contour_index %fn &GuiSfntSimpleGlyphContourSpanIndexBuilderOwner i32 \owner:
+    *field::get_ref owner "next_contour_index"
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_contour_start_index: 未確定 contour の開始 index を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_builder_contour_start_index %fn &GuiSfntSimpleGlyphContourSpanIndexBuilderOwner i32 \owner:
+    *field::get_ref owner "contour_start_index"
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_span_count: commit 済み span 数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_builder_span_count %fn &GuiSfntSimpleGlyphContourSpanIndexBuilderOwner i32 \owner:
+    let spans %&Vec GuiSfntSimpleGlyphContourSpan field::get_ref owner "spans"
+    vec::len spans
+
+//: gui_sfnt_simple_glyph_contour_span_index_builder_free: builder と全 storage を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_builder_free %impure fn GuiSfntSimpleGlyphContourSpanIndexBuilderOwner unit \owner:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_free field::get owner "collection"
+    vec::free field::get owner "spans"
+
+//: GuiSfntSimpleGlyphContourSpanIndexStartErrorKind: index build 開始失敗の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphContourSpanIndexStartErrorKind:
+    InvalidCapacity
+    CollectionCountMismatch
+    CollectionStorageMismatch
+    InvalidLimit
+    CapacityRejected
+    SpanStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphContourSpanIndexStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphContourSpanIndexStartErrorKind GuiSfntSimpleGlyphContourSpanIndexStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphContourSpanIndexStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourSpanIndexStartErrorKind GuiSfntSimpleGlyphContourSpanIndexStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphContourSpanIndexStartError: collection owner を失わない start failure
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpanIndexStartError:
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    limit %GuiSfntSimpleGlyphContourSpanIndexLimit
+    kind %GuiSfntSimpleGlyphContourSpanIndexStartErrorKind
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_contour_span_index_start_error: start failure metadata と collection owner を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_span_index_start_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphContourSpanIndexLimit fn GuiSfntSimpleGlyphContourSpanIndexStartErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphContourSpanIndexStartError \collection\limit\kind\storage_error:
+    GuiSfntSimpleGlyphContourSpanIndexStartError collection limit kind storage_error
+
+//: gui_sfnt_simple_glyph_contour_span_index_start_error_kind: start failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_start_error_kind %fn &GuiSfntSimpleGlyphContourSpanIndexStartError GuiSfntSimpleGlyphContourSpanIndexStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_contour_span_index_start_error_limit: rejected limit を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_start_error_limit %fn &GuiSfntSimpleGlyphContourSpanIndexStartError GuiSfntSimpleGlyphContourSpanIndexLimit \error:
+    *field::get_ref error "limit"
+
+//: gui_sfnt_simple_glyph_contour_span_index_start_error_storage_error: allocation failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_start_error_storage_error %fn &GuiSfntSimpleGlyphContourSpanIndexStartError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection: 元 collection owner を回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection %fn GuiSfntSimpleGlyphContourSpanIndexStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollection \error:
+    field::get error "collection"
+
+//: gui_sfnt_simple_glyph_contour_span_index_start_error_free: recovery しない start failure を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_start_error_free %impure fn GuiSfntSimpleGlyphContourSpanIndexStartError unit \error:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_free field::get error "collection"
+
+//: gui_sfnt_simple_glyph_contour_span_index_start: complete collection を検証して span storage を確保する
+//:
+//: [契約/けいやく]:
+//: - collection shape と caller limit を allocation より先に検査します。
+//: - capacity、item count、Vec shape、limit、allocation の失敗を個別の `GuiSfntSimpleGlyphContourSpanIndexStartErrorKind` で返します。
+//: - `Err` は元 collection を所有するため、metadata を読んだ後に `start_error_take_collection` で回収するか `start_error_free` で閉じます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_start %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn &GuiSfntSimpleGlyphContourSpanIndexLimit Result GuiSfntSimpleGlyphContourSpanIndexBuilderOwner GuiSfntSimpleGlyphContourSpanIndexStartError \collection\limit:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity &collection
+    let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count &collection
+    let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len &collection
+    let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap &collection
+    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+    let max_contours %i32 gui_sfnt_simple_glyph_contour_span_index_limit_max_contours limit
+    let no_storage_error %Option StdErrorKind none
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::InvalidCapacity no_storage_error
+        else:
+            if or le contour_count 0 le point_count 0:
+                then:
+                    Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::InvalidCapacity no_storage_error
+                else:
+                    if ne item_count point_count:
+                        then:
+                            Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::CollectionCountMismatch no_storage_error
+                        else:
+                            if or ne items_len point_count ne items_cap point_count:
+                                then:
+                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::CollectionStorageMismatch no_storage_error
+                                else:
+                                    if le max_contours 0:
+                                        then:
+                                            Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::InvalidLimit no_storage_error
+                                        else:
+                                            if gt contour_count max_contours:
+                                                then:
+                                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::CapacityRejected no_storage_error
+                                                else:
+                                                    let spans_result %Result Vec GuiSfntSimpleGlyphContourSpan StdErrorKind vec::with_capacity contour_count
+                                                    match spans_result:
+                                                        Result::Ok spans:
+                                                            Result::Ok gui_sfnt_simple_glyph_contour_span_index_builder_owner collection spans 0 0 0
+                                                        Result::Err storage_error:
+                                                            Result::Err gui_sfnt_simple_glyph_contour_span_index_start_error collection *limit GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::SpanStorageAllocFailed some storage_error
+
+//: GuiSfntSimpleGlyphContourSpanIndexStepErrorKind: point または completion step failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphContourSpanIndexStepErrorKind:
+    CollectionReadFailed
+    PointIndexMismatch
+    ItemGlyphMismatch
+    ItemKindMismatch
+    ContourCountExceeded
+    InvalidSpanRange
+    SpanStoragePushFailed
+    MissingFinalEndpoint
+    ContourCountMismatch
+    CompletionInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphContourSpanIndexStepErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphContourSpanIndexStepErrorKind GuiSfntSimpleGlyphContourSpanIndexStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphContourSpanIndexStepErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourSpanIndexStepErrorKind GuiSfntSimpleGlyphContourSpanIndexStepErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphContourSpanIndexStepError: partial index owner を失わない typed failure
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpanIndexStepError:
+    owner %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner
+    kind %GuiSfntSimpleGlyphContourSpanIndexStepErrorKind
+    read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    rejected_span %Option GuiSfntSimpleGlyphContourSpan
+    storage_error %Option StdErrorKind
+    expected_value %i32
+    actual_value %i32
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error: recoverable builder と typed step metadata を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_span_index_step_error %fn GuiSfntSimpleGlyphContourSpanIndexBuilderOwner fn GuiSfntSimpleGlyphContourSpanIndexStepErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError fn Option GuiSfntSimpleGlyphOutlinePointStreamItem fn Option GuiSfntSimpleGlyphContourSpan fn Option StdErrorKind fn i32 fn i32 GuiSfntSimpleGlyphContourSpanIndexStepError \owner\kind\read_error\rejected_item\rejected_span\storage_error\expected_value\actual_value:
+    GuiSfntSimpleGlyphContourSpanIndexStepError owner kind read_error rejected_item rejected_span storage_error expected_value actual_value
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_kind: step failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_kind %fn &GuiSfntSimpleGlyphContourSpanIndexStepError GuiSfntSimpleGlyphContourSpanIndexStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_read_error: collection read failure を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_read_error %fn &GuiSfntSimpleGlyphContourSpanIndexStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \error:
+    *field::get_ref error "read_error"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_rejected_item: validation で拒否した item を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_rejected_item %fn &GuiSfntSimpleGlyphContourSpanIndexStepError Option GuiSfntSimpleGlyphOutlinePointStreamItem \error:
+    *field::get_ref error "rejected_item"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_rejected_span: commit できなかった span を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_rejected_span %fn &GuiSfntSimpleGlyphContourSpanIndexStepError Option GuiSfntSimpleGlyphContourSpan \error:
+    *field::get_ref error "rejected_span"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_storage_error: span storage failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_storage_error %fn &GuiSfntSimpleGlyphContourSpanIndexStepError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_expected_value: failure の期待値を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_expected_value %fn &GuiSfntSimpleGlyphContourSpanIndexStepError i32 \error:
+    *field::get_ref error "expected_value"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_actual_value: failure の実値を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_actual_value %fn &GuiSfntSimpleGlyphContourSpanIndexStepError i32 \error:
+    *field::get_ref error "actual_value"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_take_owner: metadata 確認後に builder を回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_take_owner %fn GuiSfntSimpleGlyphContourSpanIndexStepError GuiSfntSimpleGlyphContourSpanIndexBuilderOwner \error:
+    field::get error "owner"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_error_free: recovery しない step failure を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step_error_free %impure fn GuiSfntSimpleGlyphContourSpanIndexStepError unit \error:
+    gui_sfnt_simple_glyph_contour_span_index_builder_free field::get error "owner"
+
+//: GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner: collection と完成済み span index の sealed owner
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner:
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    spans %Vec GuiSfntSimpleGlyphContourSpan
+
+//: gui_sfnt_simple_glyph_contour_span_indexed_collection_owner: 検証済み collection と span index を封印する内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_span_indexed_collection_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn Vec GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner \collection\spans:
+    GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner collection spans
+
+//: gui_sfnt_simple_glyph_contour_span_indexed_collection_ref: indexed collection を借用する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_indexed_collection_ref %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner &GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
+    field::get_ref owner "collection"
+
+//: gui_sfnt_simple_glyph_contour_span_indexed_collection_capacity: indexed collection capacity を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_indexed_collection_capacity %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity gui_sfnt_simple_glyph_contour_span_indexed_collection_ref owner
+
+//: gui_sfnt_simple_glyph_contour_span_indexed_collection_span_count: indexed contour 数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_indexed_collection_span_count %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner i32 \owner:
+    let spans %&Vec GuiSfntSimpleGlyphContourSpan field::get_ref owner "spans"
+    vec::len spans
+
+//: GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind: O(1) indexed lookup failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind:
+    ContourIndexOutOfRange
+    SpanStorageMissing
+    SpanInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphContourSpanIndexLookupError: indexed lookup の typed context
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpanIndexLookupError:
+    kind %GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind
+    requested_index %i32
+    span_count %i32
+
+impl Clone for GuiSfntSimpleGlyphContourSpanIndexLookupError:
+    fn clone %fn &GuiSfntSimpleGlyphContourSpanIndexLookupError GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphContourSpanIndexLookupError:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourSpanIndexLookupError GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+        error
+
+//: gui_sfnt_simple_glyph_contour_span_index_lookup_error: indexed lookup failure context を作る内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_span_index_lookup_error %fn GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind fn i32 fn i32 GuiSfntSimpleGlyphContourSpanIndexLookupError \kind\requested_index\span_count:
+    GuiSfntSimpleGlyphContourSpanIndexLookupError kind requested_index span_count
+
+//: gui_sfnt_simple_glyph_contour_span_index_lookup_error_kind: lookup failure kind を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_lookup_error_kind %fn &GuiSfntSimpleGlyphContourSpanIndexLookupError GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_contour_span_index_lookup: owner に束ねた span を O(1) で読む
+//:
+//: [契約/けいやく]:
+//: - `vec::get` を exactly once 呼び、collection scan は行いません。
+//: - 範囲外 index、欠落 slot、span identity / range 不変条件を別の `GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind` で返します。
+//: - owner は借用するため、成功と失敗のどちらでも caller が同じ indexed owner を保持します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_lookup %fn &GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_contour_span_indexed_collection_capacity owner
+    let span_count %i32 gui_sfnt_simple_glyph_contour_span_indexed_collection_span_count owner
+    if or lt contour_index 0 ge contour_index span_count:
+        then:
+            Result::Err gui_sfnt_simple_glyph_contour_span_index_lookup_error GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind::ContourIndexOutOfRange contour_index span_count
+        else:
+            let spans %&Vec GuiSfntSimpleGlyphContourSpan field::get_ref owner "spans"
+            match vec::get spans contour_index:
+                Option::None:
+                    Result::Err gui_sfnt_simple_glyph_contour_span_index_lookup_error GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind::SpanStorageMissing contour_index span_count
+                Option::Some span:
+                    let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                    let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span
+                    let start_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                    let end_index %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                    let point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+                    let expected_count %i32 add sub end_index start_index 1
+                    let glyph_matches %bool eq gui_glyph_id_raw &glyph gui_glyph_id_raw &span_glyph
+                    let contour_matches %bool eq contour_index gui_sfnt_simple_glyph_contour_span_index &span
+                    let start_is_valid %bool ge start_index 0
+                    let end_is_valid %bool ge end_index start_index
+                    let count_matches %bool eq point_count expected_count
+                    let range_is_valid %bool and start_is_valid end_is_valid
+                    let identity_is_valid %bool and glyph_matches contour_matches
+                    let span_is_valid %bool and identity_is_valid and range_is_valid count_matches
+                    if span_is_valid:
+                        then:
+                            Result::Ok span
+                        else:
+                            Result::Err gui_sfnt_simple_glyph_contour_span_index_lookup_error GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind::SpanInvariantInvalid contour_index span_count
+
+//: gui_sfnt_simple_glyph_contour_span_indexed_collection_free: indexed owner と全 storage を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_indexed_collection_free %impure fn GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner unit \owner:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_free field::get owner "collection"
+    vec::free field::get owner "spans"
+
+//: gui_sfnt_simple_glyph_contour_span_index_step_failure: metadata だけの step failure を同じ owner progress から作る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_span_index_step_failure %fn GuiSfntSimpleGlyphContourSpanIndexBuilderOwner fn GuiSfntSimpleGlyphContourSpanIndexStepErrorKind fn i32 fn i32 GuiSfntSimpleGlyphContourSpanIndexStepError \owner\kind\expected_value\actual_value:
+    gui_sfnt_simple_glyph_contour_span_index_step_error owner kind none none none none expected_value actual_value
+
+//: gui_sfnt_simple_glyph_contour_span_index_step: exactly 1 item を検査して builder を進める
+//:
+//: [契約/けいやく]:
+//: - pointが残る場合だけexactly 1 itemを読み、index、glyph、kindの順に検証し、endpointの場合だけ1 spanを追加します。
+//: - completion可能なprogressではitemを読まず`CompletionInvariantInvalid`を返し、completion専用APIとの責務を混ぜません。
+//: - `CollectionReadFailed`、payload mismatch、contour超過、span range、storage push failureをtyped kindで返します。
+//: - `Err`はpre-step progressのbuilderを所有するため、metadataを読んだ後に`step_error_take_owner`で再開するか`step_error_free`で閉じます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_step %impure fn GuiSfntSimpleGlyphContourSpanIndexBuilderOwner Result GuiSfntSimpleGlyphContourSpanIndexBuilderOwner GuiSfntSimpleGlyphContourSpanIndexStepError \owner:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity gui_sfnt_simple_glyph_contour_span_index_builder_collection_ref &owner
+    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+    let next_point_index %i32 gui_sfnt_simple_glyph_contour_span_index_builder_next_point_index &owner
+    let next_contour_index %i32 gui_sfnt_simple_glyph_contour_span_index_builder_next_contour_index &owner
+    let contour_start_index %i32 gui_sfnt_simple_glyph_contour_span_index_builder_contour_start_index &owner
+    let span_count %i32 gui_sfnt_simple_glyph_contour_span_index_builder_span_count &owner
+    if ge next_point_index point_count:
+        then:
+            Result::Err gui_sfnt_simple_glyph_contour_span_index_step_failure owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::CompletionInvariantInvalid point_count next_point_index
+        else:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item gui_sfnt_simple_glyph_contour_span_index_builder_collection_ref &owner next_point_index:
+                        Result::Err read_error:
+                            Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::CollectionReadFailed some read_error none none none next_point_index next_point_index
+                        Result::Ok item:
+                            let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_outline_point_stream_item_point &item
+                            let point_index %i32 gui_sfnt_simple_glyph_point_index &point
+                            if ne point_index next_point_index:
+                                then:
+                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::PointIndexMismatch none some item none none next_point_index point_index
+                                else:
+                                    let expected_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                                    let actual_glyph %GuiGlyphId gui_sfnt_simple_glyph_point_glyph &point
+                                    let expected_glyph_raw %i32 gui_glyph_id_raw &expected_glyph
+                                    let actual_glyph_raw %i32 gui_glyph_id_raw &actual_glyph
+                                    if ne expected_glyph_raw actual_glyph_raw:
+                                        then:
+                                            Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::ItemGlyphMismatch none some item none none expected_glyph_raw actual_glyph_raw
+                                        else:
+                                            if not gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item:
+                                                then:
+                                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::ItemKindMismatch none some item none none next_point_index point_index
+                                                else:
+                                                    let endpoint %bool gui_sfnt_simple_glyph_point_end_of_contour &point
+                                                    if not endpoint:
+                                                        then:
+                                                            let collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection field::get owner "collection"
+                                                            let spans %Vec GuiSfntSimpleGlyphContourSpan field::get owner "spans"
+                                                            let next_owner %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner gui_sfnt_simple_glyph_contour_span_index_builder_owner collection spans add next_point_index 1 next_contour_index contour_start_index
+                                                            Result::Ok next_owner
+                                                        else:
+                                                            if ge next_contour_index contour_count:
+                                                                then:
+                                                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::ContourCountExceeded none some item none none contour_count add next_contour_index 1
+                                                                else:
+                                                                    let span_point_count %i32 add sub next_point_index contour_start_index 1
+                                                                    let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_span expected_glyph next_contour_index contour_start_index next_point_index span_point_count
+                                                                    if or le span_point_count 0 gt contour_start_index next_point_index:
+                                                                        then:
+                                                                            Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::InvalidSpanRange none some item some span none 1 span_point_count
+                                                                        else:
+                                                                            let collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection field::get owner "collection"
+                                                                            let spans %Vec GuiSfntSimpleGlyphContourSpan field::get owner "spans"
+                                                                            match vec::push spans span:
+                                                                                Result::Ok next_spans:
+                                                                                    let next_owner %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner gui_sfnt_simple_glyph_contour_span_index_builder_owner collection next_spans add next_point_index 1 add next_contour_index 1 add next_point_index 1
+                                                                                    Result::Ok next_owner
+                                                                                Result::Err push_error:
+                                                                                    let storage_error %StdErrorKind vec::vec_push_error_kind &push_error
+                                                                                    let returned_spans %Vec GuiSfntSimpleGlyphContourSpan vec::vec_push_error_vec push_error
+                                                                                    let returned_owner %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner gui_sfnt_simple_glyph_contour_span_index_builder_owner collection returned_spans next_point_index next_contour_index contour_start_index
+                                                                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_step_error returned_owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::SpanStoragePushFailed none some item some span some storage_error span_count span_count
+
+//: gui_sfnt_simple_glyph_contour_span_index_complete: point build 完了を検証して indexed owner へ移す
+//:
+//: [契約/けいやく]:
+//: - collection item read と span push は行わず、exact terminal progress だけを検証します。
+//: - pointが残る場合は`CompletionInvariantInvalid`、final endpoint欠落は`MissingFinalEndpoint`、contour不足は`ContourCountMismatch`を返します。
+//: - span連続性はprivate constructorとendpoint transitionで構築時に保証し、ここでは再走査しません。
+//: - `Err`はbuilderを所有するため回収またはfreeでき、`Ok`だけがsealed indexed ownerへownershipを移します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_complete %impure fn GuiSfntSimpleGlyphContourSpanIndexBuilderOwner Result GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner GuiSfntSimpleGlyphContourSpanIndexStepError \owner:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity gui_sfnt_simple_glyph_contour_span_index_builder_collection_ref &owner
+    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+    let next_point_index %i32 gui_sfnt_simple_glyph_contour_span_index_builder_next_point_index &owner
+    let next_contour_index %i32 gui_sfnt_simple_glyph_contour_span_index_builder_next_contour_index &owner
+    let contour_start_index %i32 gui_sfnt_simple_glyph_contour_span_index_builder_contour_start_index &owner
+    let span_count %i32 gui_sfnt_simple_glyph_contour_span_index_builder_span_count &owner
+    if ne next_point_index point_count:
+        then:
+            Result::Err gui_sfnt_simple_glyph_contour_span_index_step_failure owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::CompletionInvariantInvalid point_count next_point_index
+        else:
+            if ne contour_start_index point_count:
+                then:
+                    Result::Err gui_sfnt_simple_glyph_contour_span_index_step_failure owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::MissingFinalEndpoint point_count contour_start_index
+                else:
+                    if ne next_contour_index contour_count:
+                        then:
+                            Result::Err gui_sfnt_simple_glyph_contour_span_index_step_failure owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::ContourCountMismatch contour_count next_contour_index
+                        else:
+                            let spans %&Vec GuiSfntSimpleGlyphContourSpan field::get_ref &owner "spans"
+                            if or ne span_count contour_count ne vec::cap spans contour_count:
+                                then:
+                                    Result::Err gui_sfnt_simple_glyph_contour_span_index_step_failure owner GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::CompletionInvariantInvalid contour_count span_count
+                                else:
+                                    let collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection field::get owner "collection"
+                                    let completed_spans %Vec GuiSfntSimpleGlyphContourSpan field::get owner "spans"
+                                    Result::Ok gui_sfnt_simple_glyph_contour_span_indexed_collection_owner collection completed_spans

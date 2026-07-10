@@ -6337,6 +6337,57 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nu_registered_face_linear_collection.json
 ```
 
+## Phase F5nv: simple glyph classified collection contour span index owner boundary
+
+目的:
+
+- existing `collection_contour_span`のper-lookup全走査を新しいpath pipelineから除き、各collection itemを一度だけ読むcontour span indexを作る。
+- complete classified collectionとspan indexを同じnon-Copy ownerに束ね、別collection / indexの差し替えをAPI shapeで防ぐ。
+- 1 public stepで最大1 itemを読み、endpoint itemでだけ最大1 spanをcommitするowner-bearing state machineにする。
+- read / allocation / push / endpoint / completion failureでcollectionとpartial indexを失わずtyped recoveryを提供する。
+- path action / command、outline storage、registered provenance、metric join、scale、shaping / layout、raster / render2d、platform presentation、fallbackへ進まない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf_span_index.nepl`を追加し、`alloc/gui/font/sfnt.nepl` facadeから公開する。
+- `GuiSfntSimpleGlyphContourSpanIndexLimit`をCopy valueとして追加し、callerが最大contour数を明示する。0以下はunlimited扱いにしない。
+- `GuiSfntSimpleGlyphContourSpanIndexBuilderOwner`はcollection owner、`Vec GuiSfntSimpleGlyphContourSpan`、next point index、next contour index、contour start indexを所有する。constructorはprivate、`Clone` / `Copy`なし、borrowed progress / collection accessorとfreeを持つ。
+- startはcapacity shape、positive contour / point count、item count / len / cap、limitを検査し、span Vecをexact contour capacityで確保する。start error kindは`InvalidCapacity`、`CollectionCountMismatch`、`CollectionStorageMismatch`、`InvalidLimit`、`CapacityRejected`、`SpanStorageAllocFailed`とし、collection owner、limit、optional storage errorを保持する。errorはcollection recoveryとfreeを持つ。
+- `next_point_index < point_count`のpoint stepは`gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`をexactly once呼ぶ。point indexとcursor index、point glyphとcapacity glyph、item kindとpointから再導出したkindの一致を確認する。non-endpointではnext pointだけを進め、endpointではcurrent start / pointからspanを作って`vec::push`をexactly once呼ぶ。
+- endpoint spanはcapacity glyph、next contour index、current contour start、current point index、checked point countを持つ。empty / reversed span、contour超過、endpoint順序不正はtyped errorとする。
+- push failureはlower `Vec` error kindを先に読み、Vecを回収してcollectionとpre-push progressへ再結合する。
+- p pointをp point stepで読み、各successは同じbuilder owner型を直接返す。完了済みbuilderへのpoint stepはtyped progress errorとする。p step後は別のcompletion APIがread / pushを一度も行わずindexed ownerを直接返す。completionへのnext point != point countはtyped invariant errorとする。completionはnext contour == contour count、contour start == point count、span len / cap == contour countを検証する。span連続性はprivate builder constructorと、endpoint commitごとに`next start = end + 1`を保持するtransitionでby-constructionに保証し、completionでO(c)再走査しない。
+- `GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner`はcollectionとspan Vecを所有し、borrowed collection / capacity / span count accessor、O(1) checked span lookup、freeを持つ。lookup signatureは`&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner`とcontour indexだけを受け、collection / span Vecを別引数にしない。lookupは`vec::get`をexactly once呼び、collection readとold full-scan helperを呼ばない。collection / span Vecを別々に取り出すpublic accessorは作らず、`Clone` / `Copy`なしとする。
+- resourceを二重に持つbuilder / indexed ownerをterminal enumへ包まない。point stepは`Result builder_owner step_error`、completionは`Result indexed_owner step_error`とし、owner obligationをpublic signatureで単純化する。
+- step error kindは`CollectionReadFailed`、`PointIndexMismatch`、`ItemGlyphMismatch`、`ItemKindMismatch`、`ContourCountExceeded`、`InvalidSpanRange`、`SpanStoragePushFailed`、`MissingFinalEndpoint`、`ContourCountMismatch`、`CompletionInvariantInvalid`とする。errorはrecoverable builder owner、optional read error、optional rejected span、optional storage error、expected / actual point / contour contextを保持し、owner recovery / freeを持つ。
+- behavior testはpublic collection APIから構築できるequal 2-contour fixture、不均一contour `[0,1]` / `[2,4]`、single contour、expected contour数より早いextra endpoint、final pointはendpointだがendpoint総数不足、missing final endpoint、partial item count、invalid limit、limit capacity rejectionを個別のtyped kindで確認する。start / step errorから回収したownerのpoint / contour / span progressとcollection再読取、recoveryしない`error_free`経路も確認する。public collection pushが事前に拒否するpoint index / glyph / kind corruptionと、owner aggregate constructor制限により外部から構築不能なVec len / cap / invalid capacity corruptionはunsafe test constructorを追加せず、既存lower behavior testとF5nv source policyでbranchと検証順序を固定する。
+- source policyはprivate constructors、non-Copy builder / indexed owner / owner-bearing errors、terminal enum不在、validation-before-allocation、exact contour capacityを固定する。point stepの具体的function sliceで`read_item`、point index検証、capacity glyph検証、`kind_matches_point`検証、endpoint判定、span構築 / pushの順序を固定する。`read_item`呼出し箇所は1つだけ、stepに`while` / full collection scanなし、`vec::push`呼出し箇所はendpoint branch内に1つだけとする。completion APIはread / push zero、lookupは`vec::get` exactly onceかつcollection read / old helper zero、push errorはmetadata読取後にVecを回収してpre-step progressへ戻すことを検査する。byte-backed / random-access / path / storage / metric / raster / render / platform / fallback禁止も固定する。
+- module documentationにはsimple single-contour usage、典型的なmulti-contour build、typed errorからのowner recoveryを実行するdoc testを置く。documentation contract baselineだけに依存せず、focused doctestでこれらを実行する。
+- spec、detailed design、standard library spec、sfnt facade、`note.n.md`、`todo.md`を同じF5nv境界へ更新する。
+
+完了条件:
+
+- focused behavior testがequal / unequal contour span、point step progress、separate completion、publicに到達可能なtyped endpoint / collection invariant、limit、start / step owner recoveryとfreeを確認し、外部構築不能なpayload / storage corruptionはlower behavior testとsource policyで固定する。
+- source policyがsingle-pass build、endpoint branchだけのone push、O(1) one-get lookup、old full-scan span helperとcollection readのlookup内非使用、private non-Copy owner、owner recovery順序、scope exclusionを具体的function sliceで固定する。
+- module doc testがsingle contour、multi-contour、typed recoveryのsimple / typical / failure usageを実行する。
+- subagent plan / implementation reviewがeach-item-once、O(p + c)、index / collection pairing、malformed endpoint、owner lifecycleを承認する。
+- focused test、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_span_index.n.md --no-tree -o tmp_gui_font_sfnt_glyf_span_index_f5nv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf_span_index.nepl --no-tree -o tmp_gui_font_sfnt_glyf_span_index_doc_f5nv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_sfnt_glyf_collection_regression_f5nv.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+node nodesrc/issues.js check --dir issues
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nv_glyf_span_index.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
