@@ -1,0 +1,195 @@
+//: # alloc/gui/font/registered_face_horizontal_metric_lookup
+//: registered face glyph mapping から horizontal metric を[解決/かいけつ]する境界
+//:
+//: ### [目的/もくてき]
+//: - table 登録済み face owner と cmap mapping の provenance を保ったまま、SFNT `hmtx` から raw font-unit metric を[引/ひ]きます。
+//: - metric evidence は Copy value として[返/かえ]し、bytes owner は caller が[保持/ほじ]する entry 側に[残/のこ]します。
+//:
+//: ### [契約/けいやく]
+//: - entry と mapping は[借用/しゃくよう]し、消費しません。
+//: - entry validation と mapping record 照合を `hmtx` parse より前に行います。
+//: - cmap lookup は再実行せず、mapping 内の glyph id だけを metric lookup に使います。
+//: - scaling、text shaping、layout、glyf lookup、rasterization、render2d、platform API、fallback へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/registered_face_horizontal_metric_lookup" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face" as *
+#import "alloc/gui/font/registered_face_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_table" as *
+#import "alloc/gui/font/resource" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceGlyphHorizontalMetric: glyph mapping と raw font-unit metric の Copy evidence
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceGlyphHorizontalMetric:
+    mapping %GuiFontRegisteredFaceGlyphMapping
+    metric %GuiSfntHorizontalMetric
+
+impl Clone for GuiFontRegisteredFaceGlyphHorizontalMetric:
+    fn clone %fn &GuiFontRegisteredFaceGlyphHorizontalMetric GuiFontRegisteredFaceGlyphHorizontalMetric \evidence:
+        *evidence
+
+impl Copy for GuiFontRegisteredFaceGlyphHorizontalMetric:
+    fn copy_mark %fn GuiFontRegisteredFaceGlyphHorizontalMetric GuiFontRegisteredFaceGlyphHorizontalMetric \evidence:
+        evidence
+
+//: GuiFontRegisteredFaceHorizontalMetricLookupErrorKind: metric lookup 境界の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceHorizontalMetricLookupErrorKind:
+    EntryValidationFailed
+    MappingRecordMismatch
+    SfntParseFailed
+
+impl Clone for GuiFontRegisteredFaceHorizontalMetricLookupErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceHorizontalMetricLookupErrorKind GuiFontRegisteredFaceHorizontalMetricLookupErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceHorizontalMetricLookupErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceHorizontalMetricLookupErrorKind GuiFontRegisteredFaceHorizontalMetricLookupErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceHorizontalMetricLookupError: lookup 失敗時の Copy evidence
+//:
+//: [目的/もくてき]:
+//: - entry record、mapping、shared validation error、lower parser error を owner なしで[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceHorizontalMetricLookupError:
+    kind %GuiFontRegisteredFaceHorizontalMetricLookupErrorKind
+    record %GuiFontRegisteredFaceRecord
+    mapping %GuiFontRegisteredFaceGlyphMapping
+    validation_error %Option GuiFontRegisteredFaceTableEntryValidationError
+    parse_error %Option GuiSfntParseError
+
+impl Clone for GuiFontRegisteredFaceHorizontalMetricLookupError:
+    fn clone %fn &GuiFontRegisteredFaceHorizontalMetricLookupError GuiFontRegisteredFaceHorizontalMetricLookupError \error:
+        *error
+
+impl Copy for GuiFontRegisteredFaceHorizontalMetricLookupError:
+    fn copy_mark %fn GuiFontRegisteredFaceHorizontalMetricLookupError GuiFontRegisteredFaceHorizontalMetricLookupError \error:
+        error
+
+//: gui_font_registered_face_glyph_horizontal_metric: success evidence を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_glyph_horizontal_metric %fn GuiFontRegisteredFaceGlyphMapping fn GuiSfntHorizontalMetric GuiFontRegisteredFaceGlyphHorizontalMetric \mapping\metric:
+    GuiFontRegisteredFaceGlyphHorizontalMetric mapping metric
+
+//: gui_font_registered_face_horizontal_metric_lookup_error: Copy error evidence を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_horizontal_metric_lookup_error %fn GuiFontRegisteredFaceHorizontalMetricLookupErrorKind fn GuiFontRegisteredFaceRecord fn GuiFontRegisteredFaceGlyphMapping fn Option GuiFontRegisteredFaceTableEntryValidationError fn Option GuiSfntParseError GuiFontRegisteredFaceHorizontalMetricLookupError \kind\record\mapping\validation_error\parse_error:
+    GuiFontRegisteredFaceHorizontalMetricLookupError kind record mapping validation_error parse_error
+
+//: gui_font_registered_face_glyph_horizontal_metric_mapping: success evidence の mapping を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_glyph_horizontal_metric_mapping %fn &GuiFontRegisteredFaceGlyphHorizontalMetric GuiFontRegisteredFaceGlyphMapping \evidence:
+    *field::get_ref evidence "mapping"
+
+//: gui_font_registered_face_glyph_horizontal_metric_metric: success evidence の metric を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_glyph_horizontal_metric_metric %fn &GuiFontRegisteredFaceGlyphHorizontalMetric GuiSfntHorizontalMetric \evidence:
+    *field::get_ref evidence "metric"
+
+//: gui_font_registered_face_horizontal_metric_lookup_error_kind_eq: error kind を[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup_error_kind_eq %fn GuiFontRegisteredFaceHorizontalMetricLookupErrorKind fn GuiFontRegisteredFaceHorizontalMetricLookupErrorKind bool \a\b:
+    match a:
+        GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::EntryValidationFailed:
+            match b:
+                GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::EntryValidationFailed:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::MappingRecordMismatch:
+            match b:
+                GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::MappingRecordMismatch:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::SfntParseFailed:
+            match b:
+                GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::SfntParseFailed:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_horizontal_metric_lookup_error_kind: error kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup_error_kind %fn &GuiFontRegisteredFaceHorizontalMetricLookupError GuiFontRegisteredFaceHorizontalMetricLookupErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_horizontal_metric_lookup_error_record: canonical entry record evidence を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup_error_record %fn &GuiFontRegisteredFaceHorizontalMetricLookupError GuiFontRegisteredFaceRecord \error:
+    *field::get_ref error "record"
+
+//: gui_font_registered_face_horizontal_metric_lookup_error_mapping: failed mapping evidence を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup_error_mapping %fn &GuiFontRegisteredFaceHorizontalMetricLookupError GuiFontRegisteredFaceGlyphMapping \error:
+    *field::get_ref error "mapping"
+
+//: gui_font_registered_face_horizontal_metric_lookup_error_validation_error: optional entry validation error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup_error_validation_error %fn &GuiFontRegisteredFaceHorizontalMetricLookupError Option GuiFontRegisteredFaceTableEntryValidationError \error:
+    *field::get_ref error "validation_error"
+
+//: gui_font_registered_face_horizontal_metric_lookup_error_parse_error: optional lower parser error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup_error_parse_error %fn &GuiFontRegisteredFaceHorizontalMetricLookupError Option GuiSfntParseError \error:
+    *field::get_ref error "parse_error"
+
+//: gui_font_registered_face_horizontal_metric_lookup: registered mapping の raw horizontal metric を[引/ひ]く
+//:
+//: [契約/けいやく]:
+//: - entry validation と mapping record 照合に成功した場合だけ `hmtx` parser を呼びます。
+//: - `gui_sfnt_lookup_horizontal_metric` は 1 回だけ呼びます。
+//: - lower parser が返す metric は、mapping から渡した同じ checked glyph id を保持します。
+//:
+//: [計算量/けいさんりょう]: SFNT table 数 `n` に対して O(n)、metric slot read は O(1)
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_horizontal_metric_lookup %fn &GuiFontRegisteredFaceTableEntry fn &GuiFontRegisteredFaceGlyphMapping Result GuiFontRegisteredFaceGlyphHorizontalMetric GuiFontRegisteredFaceHorizontalMetricLookupError \entry\mapping:
+    let entry_record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record entry
+    let mapping_value %GuiFontRegisteredFaceGlyphMapping *mapping
+    match gui_font_registered_face_table_entry_validate entry:
+        Result::Err validation_error:
+            Result::Err gui_font_registered_face_horizontal_metric_lookup_error GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::EntryValidationFailed entry_record mapping_value some validation_error none
+        Result::Ok canonical_record:
+            let mapping_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record mapping
+            if:
+                not gui_font_registered_face_record_eq &canonical_record &mapping_record
+                then:
+                    Result::Err gui_font_registered_face_horizontal_metric_lookup_error GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::MappingRecordMismatch canonical_record mapping_value none none
+                else:
+                    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+                    let resource_ref %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
+                    let bytes %&ByteBuf gui_font_resource_bytes_ref resource_ref
+                    let selected_face_index %i32 gui_font_registered_face_record_selected_face_index &canonical_record
+                    let glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph mapping
+                    match gui_sfnt_lookup_horizontal_metric bytes some selected_face_index glyph:
+                        Result::Err parse_error:
+                            Result::Err gui_font_registered_face_horizontal_metric_lookup_error GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::SfntParseFailed canonical_record mapping_value none some parse_error
+                        Result::Ok metric:
+                            Result::Ok gui_font_registered_face_glyph_horizontal_metric mapping_value metric

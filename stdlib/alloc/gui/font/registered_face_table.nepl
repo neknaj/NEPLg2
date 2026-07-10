@@ -71,6 +71,40 @@ pub struct GuiFontRegisteredFaceTableEntry:
     face %GuiFontRegisteredFace
     record %GuiFontRegisteredFaceRecord
 
+//: GuiFontRegisteredFaceTableEntryValidationErrorKind: entry 再検査の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceTableEntryValidationErrorKind:
+    InvalidFaceProjection
+    RecordMismatch
+
+impl Clone for GuiFontRegisteredFaceTableEntryValidationErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceTableEntryValidationErrorKind GuiFontRegisteredFaceTableEntryValidationErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceTableEntryValidationErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceTableEntryValidationErrorKind GuiFontRegisteredFaceTableEntryValidationErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceTableEntryValidationError: entry owner を消費しない Copy validation evidence
+//:
+//: [目的/もくてき]:
+//: - invalid face projection と保存 record の mismatch を区別し、後続 lookup が同じ table authority を共有できるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceTableEntryValidationError:
+    kind %GuiFontRegisteredFaceTableEntryValidationErrorKind
+    record %GuiFontRegisteredFaceRecord
+    table_error %Option GuiFontRegisteredFaceTableRegisterErrorKind
+
+impl Clone for GuiFontRegisteredFaceTableEntryValidationError:
+    fn clone %fn &GuiFontRegisteredFaceTableEntryValidationError GuiFontRegisteredFaceTableEntryValidationError \error:
+        *error
+
+impl Copy for GuiFontRegisteredFaceTableEntryValidationError:
+    fn copy_mark %fn GuiFontRegisteredFaceTableEntryValidationError GuiFontRegisteredFaceTableEntryValidationError \error:
+        error
+
 //: GuiFontRegisteredFaceTableRegistration: table と entry の同時 owner
 //:
 //: neplg2:test[skip]
@@ -163,6 +197,12 @@ fn gui_font_registered_face_table_register_error_push_failed %fn GuiFontRegister
 fn gui_font_registered_face_table_record %fn GuiFontResourceId fn GuiFontFaceId fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiResourceHash fn GuiFontResourceSource fn GuiFontDecodePolicy GuiFontRegisteredFaceRecord \resource_id\face_id\selected_face_index\face_count\units_per_em\glyph_count\byte_len\actual_hash\source\decode_policy:
     GuiFontRegisteredFaceRecord resource_id face_id selected_face_index face_count units_per_em glyph_count byte_len actual_hash source decode_policy
 
+//: gui_font_registered_face_table_entry_validation_error: Copy validation evidence を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_table_entry_validation_error %fn GuiFontRegisteredFaceTableEntryValidationErrorKind fn GuiFontRegisteredFaceRecord fn Option GuiFontRegisteredFaceTableRegisterErrorKind GuiFontRegisteredFaceTableEntryValidationError \kind\record\table_error:
+    GuiFontRegisteredFaceTableEntryValidationError kind record table_error
+
 //: gui_font_registered_face_table_decode_policy_supported: table 登録済み face として[扱/あつか]える decode policy か[返/かえ]す
 //:
 //: neplg2:test[skip]
@@ -248,6 +288,107 @@ pub fn gui_font_registered_face_record_resource_raw %fn &GuiFontRegisteredFaceRe
 pub fn gui_font_registered_face_record_face_raw %fn &GuiFontRegisteredFaceRecord i32 \record:
     let face_id %GuiFontFaceId gui_font_registered_face_record_face_id record
     gui_font_face_id_raw &face_id
+
+//: gui_font_registered_face_record_source_eq: provider source を[比/くら]べる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_record_source_eq %fn GuiFontResourceSource fn GuiFontResourceSource bool \a\b:
+    match a:
+        GuiFontResourceSource::Vfs:
+            match b:
+                GuiFontResourceSource::Vfs:
+                    true
+                _:
+                    false
+        GuiFontResourceSource::FileSystem:
+            match b:
+                GuiFontResourceSource::FileSystem:
+                    true
+                _:
+                    false
+        GuiFontResourceSource::EmbeddedBlob:
+            match b:
+                GuiFontResourceSource::EmbeddedBlob:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_record_decode_policy_eq: decode policy を[比/くら]べる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_record_decode_policy_eq %fn GuiFontDecodePolicy fn GuiFontDecodePolicy bool \a\b:
+    match a:
+        GuiFontDecodePolicy::SfntOnly:
+            match b:
+                GuiFontDecodePolicy::SfntOnly:
+                    true
+                _:
+                    false
+        GuiFontDecodePolicy::SfntAndWoff:
+            match b:
+                GuiFontDecodePolicy::SfntAndWoff:
+                    true
+                _:
+                    false
+        GuiFontDecodePolicy::AllSupportedContainers:
+            match b:
+                GuiFontDecodePolicy::AllSupportedContainers:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_record_eq: registered face record の全 field を[比/くら]べる
+//:
+//: [目的/もくてき]:
+//: - table membership の equality authority を一か所に置き、glyph / metric / outline lookup ごとの比較漏れを防ぎます。
+//:
+//: [計算量/けいさんりょう]: O(1)
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_record_eq %fn &GuiFontRegisteredFaceRecord fn &GuiFontRegisteredFaceRecord bool \left\right:
+    let left_hash %GuiResourceHash gui_font_registered_face_record_actual_hash left
+    let right_hash %GuiResourceHash gui_font_registered_face_record_actual_hash right
+    let left_source %GuiFontResourceSource gui_font_registered_face_record_source left
+    let right_source %GuiFontResourceSource gui_font_registered_face_record_source right
+    let left_policy %GuiFontDecodePolicy gui_font_registered_face_record_decode_policy left
+    let right_policy %GuiFontDecodePolicy gui_font_registered_face_record_decode_policy right
+    and eq gui_font_registered_face_record_resource_raw left gui_font_registered_face_record_resource_raw right and eq gui_font_registered_face_record_face_raw left gui_font_registered_face_record_face_raw right and eq gui_font_registered_face_record_selected_face_index left gui_font_registered_face_record_selected_face_index right and eq gui_font_registered_face_record_face_count left gui_font_registered_face_record_face_count right and eq gui_font_registered_face_record_units_per_em left gui_font_registered_face_record_units_per_em right and eq gui_font_registered_face_record_glyph_count left gui_font_registered_face_record_glyph_count right and eq gui_font_registered_face_record_byte_len left gui_font_registered_face_record_byte_len right and eq gui_resource_hash_raw &left_hash gui_resource_hash_raw &right_hash and gui_font_registered_face_record_source_eq left_source right_source gui_font_registered_face_record_decode_policy_eq left_policy right_policy
+
+//: gui_font_registered_face_table_entry_validation_error_kind_eq: validation kind を[比/くら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_validation_error_kind_eq %fn GuiFontRegisteredFaceTableEntryValidationErrorKind fn GuiFontRegisteredFaceTableEntryValidationErrorKind bool \a\b:
+    match a:
+        GuiFontRegisteredFaceTableEntryValidationErrorKind::InvalidFaceProjection:
+            match b:
+                GuiFontRegisteredFaceTableEntryValidationErrorKind::InvalidFaceProjection:
+                    true
+                _:
+                    false
+        GuiFontRegisteredFaceTableEntryValidationErrorKind::RecordMismatch:
+            match b:
+                GuiFontRegisteredFaceTableEntryValidationErrorKind::RecordMismatch:
+                    true
+                _:
+                    false
+
+//: gui_font_registered_face_table_entry_validation_error_kind: validation kind を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_validation_error_kind %fn &GuiFontRegisteredFaceTableEntryValidationError GuiFontRegisteredFaceTableEntryValidationErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_table_entry_validation_error_record: validation 対象 record を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_validation_error_record %fn &GuiFontRegisteredFaceTableEntryValidationError GuiFontRegisteredFaceRecord \error:
+    *field::get_ref error "record"
+
+//: gui_font_registered_face_table_entry_validation_error_table_error: face projection error を[返/かえ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_validation_error_table_error %fn &GuiFontRegisteredFaceTableEntryValidationError Option GuiFontRegisteredFaceTableRegisterErrorKind \error:
+    *field::get_ref error "table_error"
 
 //: gui_font_registered_face_table_register_error_kind_eq: register error kind を[比/くら]べる
 //:
@@ -557,6 +698,30 @@ pub fn gui_font_registered_face_table_entry_record %fn &GuiFontRegisteredFaceTab
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_table_entry_face_ref %fn &GuiFontRegisteredFaceTableEntry &GuiFontRegisteredFace \entry:
     field::get_ref entry "face"
+
+//: gui_font_registered_face_table_entry_validate: entry record と face owner 由来 record を再検査する
+//:
+//: [契約/けいやく]:
+//: - entry は借用し、owner を消費しません。
+//: - success は face owner から再導出した canonical record です。
+//: - 比較対象は `GuiFontRegisteredFaceRecord` の全 field です。
+//:
+//: [計算量/けいさんりょう]: O(1)
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_table_entry_validate %fn &GuiFontRegisteredFaceTableEntry Result GuiFontRegisteredFaceRecord GuiFontRegisteredFaceTableEntryValidationError \entry:
+    let record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record entry
+    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+    match gui_font_registered_face_table_record_from_face face_ref:
+        Result::Err table_error:
+            Result::Err gui_font_registered_face_table_entry_validation_error GuiFontRegisteredFaceTableEntryValidationErrorKind::InvalidFaceProjection record some table_error
+        Result::Ok derived_record:
+            if:
+                gui_font_registered_face_record_eq &record &derived_record
+                then:
+                    Result::Ok derived_record
+                else:
+                    Result::Err gui_font_registered_face_table_entry_validation_error GuiFontRegisteredFaceTableEntryValidationErrorKind::RecordMismatch record none
 
 //: gui_font_registered_face_table_entry_finish_face: entry から registered face owner を[取/と]り[出/だ]す
 //:

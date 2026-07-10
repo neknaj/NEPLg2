@@ -1,3 +1,56 @@
+# 2026-07-10 Agent2 GUI font rendering F5nr registered face horizontal metric lookup boundary
+
+## 目的
+
+- F5nq の table-backed glyph mapping と同じ registered face entry から、SFNT `hmtx` の raw font-unit metric を解決する。
+- 後続 lookup ごとに entry validity を重複定義しないよう、record 全 field comparison と borrowed entry validation を table layer の共有 authority にする。
+- entry / mapping owner lifetime、typed lower error、no fallback を保ったまま、font resource から layout 前の metric evidence まで接続する。
+
+## 実装
+
+- `registered_face_table.nepl` に Copy の entry validation kind / error、全 field record equality、borrowed entry validator を追加した。
+- F5nq は private record comparator と旧 register-error payload accessor を削除し、shared validator と `GuiFontRegisteredFaceTableEntryValidationError` payload へ移行した。
+- `registered_face_horizontal_metric_lookup.nepl` を追加した。borrowed entry と borrowed glyph mapping を受け、entry validation、mapping provenance、entry bytes、canonical selected face index、mapping glyph の順に検査して `gui_sfnt_lookup_horizontal_metric` を 1 回だけ呼ぶ。
+- success は mapping と `GuiSfntHorizontalMetric` の Copy evidence、failure は entry record、mapping、optional validation error、optional lower parse error の Copy evidence とした。
+- foreign mapping は hmtx parser 前に拒否し、cmap 再実行、owner split、host measurement、fallback、layout / raster / render2d / platform presentation は追加していない。
+- focused fixture は cmap、36-byte hhea、40 glyph maxp、hmtx を同じ SFNT に持ち、glyph 36 の advance 600 / left side bearing 20 を検査する。declared hmtx length 80 による malformed case、hmtx 欠落、別 entry mapping、全経路の entry 再利用 / single free も検査する。
+- facade、font rendering spec / detailed design / implementation plan、GUI standard library spec、source policy、`todo.md` を同じ境界へ更新した。
+
+## plan.md との差異
+
+- `plan.md` は言語全体の方向性を記すため変更していない。F5nr は GUI font rendering implementation plan の F5nq 後続として追加した。
+- text shaping / layout、glyf lookup、glyph rasterization、render2d drain、Web / native / bare / headless presentation は未完了であり、`todo.md` に残している。
+
+## subagent review
+
+- Goodall plan review 1 は record comparison の table layer 集約、bare glyph id ではなく F5nq mapping の受け渡し、success / missing / malformed / foreign mapping / lifetime test、F5nr docs の追加を `CHANGES_REQUESTED` とした。すべて revised plan に反映した。
+- Dirac revised plan review 1 は F5nq error が旧 register error payload を保持する設計矛盾を指摘した。shared validation payload、constructor、accessor、source policy、behavior test の同時 migration を明記して修正した。
+- Dirac revised plan review 2 は `PLAN_APPROVED`。
+- Dirac implementation review は F5nq shared validation kind の検査不足、`note.n.md` 未更新、到達不能な `MetricGlyphMismatch` public surface を指摘した。source policy で両 validation kind と glyph error mapping を固定し、behavior test で通常 parse error に validation payload がないことを確認し、この note を追加し、不要な public error kind を削除した。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: focused registered face behavior test。1/1、26 assertions。
+- pass: registered face table module doctests。63/63。
+- pass: registered face glyph lookup module doctests。19/19。
+- pass: registered face horizontal metric lookup module doctests。15/15。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存 baseline gap のみ。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass: `git diff --check`。LF / CRLF warning のみ。
+- initial `trunk build` は cargo subprocess が Windows status `0xffffffff` で一度終了した。same cargo command の直接再実行は成功し、その後の `trunk build` も成功したため、NEPL / Rust diagnostic failure ではなく transient process failure と判定した。
+- pass: `trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nr_registered_face_horizontal_metric_lookup.json`。
+- checked JSON: `caseCount: 13`, `passedCount: 13`, `failedCount: 0`。
+- Dirac implementation re-review は前回3指摘の修正後に `REVIEW_APPROVED`。Meitner の並行 review は focused test 実行途中の partial JSON と最終 gate 前の note を読んで未承認としたが、focused test は再実行後 `partial: false`, 1/1 passであり、最終 gateとartifact cleanupを完了した。最新 worktree の再レビューは `REVIEW_APPROVED`。
+
+## 残件
+
+- registered face mapping から glyf outline へ進む owner-safe lookup boundaryを追加する。
+- text shaping / layout、glyph rasterization、render2d drain、Web compositor presentationを接続する。
+- native / bare / headless providerを exact canonical path、hash / decode policy validation、typed error、no suffix / display-name authority の同じ contract で追加する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nq registered face table-backed glyph lookup boundary
 
 ## 目的

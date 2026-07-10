@@ -11,7 +11,7 @@
 - WOFF decode 境界が来るまでは `SfntOnly` 以外の decode policy を parse 前に拒否します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=22 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=26 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -213,6 +213,91 @@ fn sfnt_push_valid_cmap_table %impure fn ByteBuilder Result ByteBuilder str \bui
                         Result::Ok b3:
                             sfnt_push_format4_a_segment b3 4 65507
 
+fn sfnt_push_cmap_hmtx_records %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\hmtx_length:
+    match sfnt_push_record builder sfnt_tag4 'h' 'e' 'a' 'd' 92 20:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_record b1 sfnt_tag4 'h' 'h' 'e' 'a' 112 36:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_record b2 sfnt_tag4 'm' 'a' 'x' 'p' 148 6:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_record b3 sfnt_tag4 'c' 'm' 'a' 'p' 154 44:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_record b4 sfnt_tag4 'h' 'm' 't' 'x' 198 hmtx_length
+
+fn sfnt_push_valid_hmtx_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 600:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 0:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_zero_run b2 70:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 20:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_zero_run b4 6
+
+fn sfnt_push_cmap_hmtx_tables %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_zero_run builder 18:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 2048:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_zero_run b2 4:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 1900:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_u16_be b4 65036:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u16_be b5 200:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_zero_run b6 24:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u16_be b7 1:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    match sfnt_push_u32_be b8 65536:
+                                                                        Result::Err message:
+                                                                            Result::Err message
+                                                                        Result::Ok b9:
+                                                                            match sfnt_push_u16_be b9 40:
+                                                                                Result::Err message:
+                                                                                    Result::Err message
+                                                                                Result::Ok b10:
+                                                                                    match sfnt_push_valid_cmap_table b10:
+                                                                                        Result::Err message:
+                                                                                            Result::Err message
+                                                                                        Result::Ok b11:
+                                                                                            sfnt_push_valid_hmtx_table b11
+
 fn sfnt_push_cmap_sfnt_prefix %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\cmap_length:
     match sfnt_push_header builder 4:
         Result::Err message:
@@ -295,6 +380,22 @@ fn build_valid_cmap_sfnt %impure fn void Result ByteBuf str \void:
                     Result::Ok b1:
                         sfnt_push_valid_cmap_table b1
 
+fn build_cmap_hmtx_sfnt %impure fn i32 Result ByteBuf str \hmtx_length:
+    match byte_builder_with_capacity 280:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_header b0 5:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        match sfnt_push_cmap_hmtx_records b1 hmtx_length:
+                            Result::Err message:
+                                Result::Err message
+                            Result::Ok b2:
+                                sfnt_push_cmap_hmtx_tables b2
+
 fn registered_face_resource_from_bytes %fn ByteBuf fn Option i32 fn GuiFontDecodePolicy GuiFontResourceBytes \bytes\face_index\decode_policy:
     let path %GuiFontResourcePath unwrap_ok gui_font_resource_path_result "fonts/Test-Regular.ttf"
     let request %GuiFontResourceRequest unwrap_ok gui_font_resource_request path face_index none decode_policy
@@ -320,6 +421,18 @@ fn sfnt_parse_error_kind_is %fn GuiSfntParseErrorKind fn GuiSfntParseErrorKind b
         GuiSfntParseErrorKind::MissingGlyphMapping:
             match expected:
                 GuiSfntParseErrorKind::MissingGlyphMapping:
+                    true
+                _:
+                    false
+        GuiSfntParseErrorKind::MissingTable:
+            match expected:
+                GuiSfntParseErrorKind::MissingTable:
+                    true
+                _:
+                    false
+        GuiSfntParseErrorKind::MalformedHmtxRecord:
+            match expected:
+                GuiSfntParseErrorKind::MalformedHmtxRecord:
                     true
                 _:
                     false
@@ -464,6 +577,20 @@ fn build_registered_face_for_table %impure fn i32 impure fn i32 Result GuiFontRe
 
 fn build_registered_face_for_glyph_lookup %impure fn i32 impure fn i32 Result GuiFontRegisteredFace str \resource_raw\face_raw:
     match build_valid_cmap_sfnt:
+        Result::Err message:
+            Result::Err message
+        Result::Ok bytes:
+            let resource %GuiFontResourceBytes registered_face_resource_from_bytes bytes none GuiFontDecodePolicy::SfntOnly
+            let registered_request %GuiFontRegisteredFaceRequest unwrap_ok gui_font_registered_face_request_from_raw resource_raw face_raw
+            match gui_font_registered_face_register_bytes registered_request resource:
+                Result::Ok face:
+                    Result::Ok face
+                Result::Err error:
+                    gui_font_registered_face_error_free error
+                    Result::Err "register"
+
+fn build_registered_face_for_horizontal_metric %impure fn i32 impure fn i32 impure fn i32 Result GuiFontRegisteredFace str \resource_raw\face_raw\hmtx_length:
+    match build_cmap_hmtx_sfnt hmtx_length:
         Result::Err message:
             Result::Err message
         Result::Ok bytes:
@@ -626,10 +753,11 @@ fn registered_face_glyph_lookup_callback %impure fn GuiFontRegisteredFaceTable i
         Result::Err error:
             let kind_ok %bool registered_face_glyph_lookup_error_kind_is &error GuiFontRegisteredFaceGlyphLookupErrorKind::MissingGlyphMapping
             let parse_ok %bool registered_face_glyph_lookup_parse_error_is &error GuiSfntParseErrorKind::MissingGlyphMapping
+            let validation_ok %bool is_none gui_font_registered_face_glyph_lookup_error_validation_error &error
             let code_point_ok %bool eq 'B' gui_font_registered_face_glyph_lookup_error_code_point &error
             let error_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_lookup_error_record &error
             let record_ok %bool and eq 67 gui_font_registered_face_record_resource_raw &error_record eq 71 gui_font_registered_face_record_face_raw &error_record
-            and kind_ok and parse_ok and code_point_ok record_ok
+            and kind_ok and parse_ok and validation_ok and code_point_ok record_ok
     gui_font_registered_face_table_free table
     gui_font_registered_face_table_entry_free entry
     and success_ok missing_ok
@@ -651,6 +779,191 @@ fn registered_face_glyph_lookup_success_ok %impure fn void bool \void:
                         Result::Ok registration:
                             gui_font_registered_face_table_registration_with registration @registered_face_glyph_lookup_callback
 
+fn registered_face_horizontal_metric_error_kind_is %fn &GuiFontRegisteredFaceHorizontalMetricLookupError fn GuiFontRegisteredFaceHorizontalMetricLookupErrorKind bool \error\expected:
+    gui_font_registered_face_horizontal_metric_lookup_error_kind_eq gui_font_registered_face_horizontal_metric_lookup_error_kind error expected
+
+fn registered_face_horizontal_metric_parse_error_is %fn &GuiFontRegisteredFaceHorizontalMetricLookupError fn GuiSfntParseErrorKind bool \error\expected:
+    match gui_font_registered_face_horizontal_metric_lookup_error_parse_error error:
+        Option::None:
+            false
+        Option::Some parse_error:
+            sfnt_parse_error_kind_is gui_sfnt_parse_error_kind &parse_error expected
+
+fn registered_face_horizontal_metric_success_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let metric_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_horizontal_metric_lookup &entry &mapping:
+                Result::Err _error:
+                    false
+                Result::Ok evidence:
+                    let evidence_mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_glyph_horizontal_metric_mapping &evidence
+                    let metric %GuiSfntHorizontalMetric gui_font_registered_face_glyph_horizontal_metric_metric &evidence
+                    let glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph &evidence_mapping
+                    let record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record &evidence_mapping
+                    and eq 'A' gui_font_registered_face_glyph_mapping_code_point &evidence_mapping and eq 36 gui_glyph_id_raw &glyph and eq 600 gui_sfnt_horizontal_metric_advance_width &metric and eq 20 gui_sfnt_horizontal_metric_left_side_bearing &metric and eq 101 gui_font_registered_face_record_resource_raw &record eq 103 gui_font_registered_face_record_face_raw &record
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok record:
+            and eq 101 gui_font_registered_face_record_resource_raw &record eq 103 gui_font_registered_face_record_face_raw &record
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and metric_ok entry_reusable
+
+fn registered_face_horizontal_metric_success_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_horizontal_metric 101 103 82:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_horizontal_metric_success_callback
+
+fn registered_face_horizontal_metric_missing_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let missing_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_horizontal_metric_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_horizontal_metric_error_kind_is &error GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::SfntParseFailed registered_face_horizontal_metric_parse_error_is &error GuiSfntParseErrorKind::MissingTable
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok _record:
+            true
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and missing_ok entry_reusable
+
+fn registered_face_horizontal_metric_missing_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_glyph_lookup 107 109:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_horizontal_metric_missing_callback
+
+fn registered_face_horizontal_metric_malformed_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let malformed_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_horizontal_metric_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_horizontal_metric_error_kind_is &error GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::SfntParseFailed registered_face_horizontal_metric_parse_error_is &error GuiSfntParseErrorKind::MalformedHmtxRecord
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok _record:
+            true
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and malformed_ok entry_reusable
+
+fn registered_face_horizontal_metric_malformed_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_horizontal_metric 113 127 80:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_horizontal_metric_malformed_callback
+
+fn registered_face_foreign_mapping_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry Option GuiFontRegisteredFaceGlyphMapping \table\entry:
+    let mapping %Option GuiFontRegisteredFaceGlyphMapping match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            none
+        Result::Ok value:
+            some value
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    mapping
+
+fn registered_face_foreign_mapping %impure fn void Option GuiFontRegisteredFaceGlyphMapping \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            none
+        Result::Ok table:
+            match build_registered_face_for_glyph_lookup 131 137:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    none
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            none
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_foreign_mapping_callback
+
+fn registered_face_horizontal_metric_mismatch_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let mismatch_ok %bool match registered_face_foreign_mapping:
+        Option::None:
+            false
+        Option::Some mapping:
+            match gui_font_registered_face_horizontal_metric_lookup &entry &mapping:
+                Result::Ok _evidence:
+                    false
+                Result::Err error:
+                    and registered_face_horizontal_metric_error_kind_is &error GuiFontRegisteredFaceHorizontalMetricLookupErrorKind::MappingRecordMismatch is_none gui_font_registered_face_horizontal_metric_lookup_error_parse_error &error
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok record:
+            and eq 139 gui_font_registered_face_record_resource_raw &record eq 149 gui_font_registered_face_record_face_raw &record
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and mismatch_ok entry_reusable
+
+fn registered_face_horizontal_metric_mismatch_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_horizontal_metric 139 149 82:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_horizontal_metric_mismatch_callback
+
 fn main %impure fn void i32 \void:
     let report0 %TestReport parse_valid_registered_face
     let report1 %TestReport append_invalid_face_registered_case report0
@@ -661,6 +974,10 @@ fn main %impure fn void i32 \void:
     let report6 %TestReport test_report_push report5 assert "registered face table duplicate recovery" registered_face_table_duplicate_recovery_ok
     let report7 %TestReport test_report_push report6 assert "registered face table duplicate face recovery" registered_face_table_duplicate_face_recovery_ok
     let report8 %TestReport test_report_push report7 assert "registered face glyph lookup success and missing recovery" registered_face_glyph_lookup_success_ok
-    let shown test_report_print_stdout report8
+    let report9 %TestReport test_report_push report8 assert "registered face horizontal metric success" registered_face_horizontal_metric_success_ok
+    let report10 %TestReport test_report_push report9 assert "registered face horizontal metric missing table" registered_face_horizontal_metric_missing_ok
+    let report11 %TestReport test_report_push report10 assert "registered face horizontal metric malformed table" registered_face_horizontal_metric_malformed_ok
+    let report12 %TestReport test_report_push report11 assert "registered face horizontal metric mapping mismatch" registered_face_horizontal_metric_mismatch_ok
+    let shown test_report_print_stdout report12
     test_report_exit_code shown
 ```

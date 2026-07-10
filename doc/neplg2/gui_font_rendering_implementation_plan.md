@@ -6134,6 +6134,64 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o
 git diff --check
 ```
 
+## Phase F5nr: registered face glyph horizontal metric lookup boundary
+
+目的:
+
+- F5nq の table-backed glyph mapping と同じ registered face entry から raw font-unit horizontal metric を解決する。
+- entry record validation を table layer に集約し、F5nq / F5nr で全 field 比較を重複実装しない。
+- entry と mapping は借用し、success / error は Copy evidence として返す。owner lifetime は caller が保持する。
+- F5nr は scaling、text shaping / layout、glyf lookup、glyph mask、rasterization、render2d、platform API、Web presentation へ進まない。
+
+plan review:
+
+- Goodall plan review 1 は `CHANGES_REQUESTED`。
+- record 全 field comparison を F5nq 内へ残したまま F5nr に複製せず、table-owned borrowed entry validator と dedicated Copy validation error を追加する必要がある。
+- F5nr は bare glyph id ではなく F5nq mapping を受け、canonical entry record と mapping record を hmtx call 前に照合する必要がある。
+- cmap+hhea+hmtx success、missing table、malformed hmtx、別 entry mapping mismatch、owner lifetime を focused behavior test で検査する必要がある。
+- revised plan は shared entry validator、mapping provenance、single hmtx call、typed lower error preservation、integration fixture を追加する。
+- Dirac revised plan review は、F5nq error が shared validation payload を直接保持し、constructor / accessor / test まで migration することを明記した後に `PLAN_APPROVED`。
+
+変更:
+
+- `stdlib/alloc/gui/font/registered_face_table.nepl` に `GuiFontRegisteredFaceTableEntryValidationErrorKind`、`GuiFontRegisteredFaceTableEntryValidationError`、`gui_font_registered_face_record_eq`、`gui_font_registered_face_table_entry_validate` を追加する。
+- validator は `&GuiFontRegisteredFaceTableEntry` を借用し、face owner から record を再導出し、resource id、face id、selected face index、face count、units per em、glyph count、byte length、actual hash、source、decode policy を table layer で照合する。
+- F5nq は private record comparator を削除して shared validator を使う。`GuiFontRegisteredFaceGlyphLookupError` の旧 `table_error Option GuiFontRegisteredFaceTableRegisterErrorKind` field は `validation_error Option GuiFontRegisteredFaceTableEntryValidationError` に置き換え、constructor、error mapping、accessor、source policy、behavior test を同時に移行する。glyph lookup public kind へ写した後も shared validation payload の `InvalidFaceProjection` / `RecordMismatch` を保持する。
+- `stdlib/alloc/gui/font/registered_face_horizontal_metric_lookup.nepl` を追加する。
+- `GuiFontRegisteredFaceGlyphHorizontalMetric` は F5nq mapping と `GuiSfntHorizontalMetric` を持つ Copy evidence とする。
+- `GuiFontRegisteredFaceHorizontalMetricLookupError` は kind、entry record、mapping、optional validation error、optional `GuiSfntParseError` を持つ Copy evidence とする。
+- public lookup は borrowed entry、borrowed mappingを受け、entry validation、mapping record comparison、entry bytes / canonical selected face index / mapping glyph extractionの順に進み、`gui_sfnt_lookup_horizontal_metric` を exactly once 呼ぶ。
+- mapping mismatch は hmtx lookup 前に typed error とし、cmap lookup を再実行しない。
+- `stdlib/alloc/gui/font.nepl` facade から F5nr boundary を再公開する。
+- `tests/stdlib/gui_font_registered_face.n.md` に cmap+hhea+hmtx fixture を追加し、success、missing table、malformed hmtx、mapping mismatch、entry owner再利用 / single freeを検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は record comparison authorityをtable validatorへ移し、F5nq / F5nr のvalidation reuse、mapping provenance、single hmtx call、no cmap recomputation / owner split / layout / raster / render / platform / fallbackを固定する。
+- spec、detailed design、standard library spec、`note.n.md`、`todo.md` を F5nr に合わせて更新する。
+
+完了条件:
+
+- focused behavior test が success metric、missing table、malformed hmtx、mapping mismatch、entry lifetime を確認する。
+- source policy が shared table validator、all-field comparison、F5nq private comparator削除、F5nq validation payload / accessor migration、F5nr validation order、mapping provenance、`gui_sfnt_lookup_horizontal_metric` exactly once、Copy evidence/error、scope exclusionを確認する。
+- implementation reviewで owner lifetime、typed error、no fallback、raw font-unit metric boundaryが仕様と一致することを確認する。
+- focused test、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+
+implementation review:
+
+- Dirac implementation review の shared validation coverage、progress note、不要 public error kind の指摘を修正し、再レビューは `REVIEW_APPROVED`。
+- Meitner final review は focused test の `partial: false` 1/1 pass、trunk build、playground JSON 13/13、generated artifact cleanup を再確認して `REVIEW_APPROVED`。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5nr.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+node nodesrc/issues.js check --dir issues
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nr_registered_face_horizontal_metric_lookup.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:
