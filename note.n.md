@@ -1,3 +1,39 @@
+# 2026-07-11 Agent2 GUI font rendering F5nxc registered indexed outline storage allocation owner
+
+## 方針とphase境界
+
+- 2026-07-11にZennの開発方針、GUI font rendering仕様、詳細設計、実装計画を再確認した。F5nxcはF5nxb completed authorityからempty outline storageを確保する境界であり、endpoint population、point / edge / command drain、stroke、raster、platform presentationへ進めていない。
+- `plan.md`は変更していない。F5nxcの仕様・詳細設計・実装計画は`doc/neplg2/gui_font_rendering_*`へ追加し、F5nxdがouter owner全体を受けるno-split handoffを明記した。
+- `todo.md`から完了したF5nxcを削除し、次の未完了作業をF5nxd endpoint population owner boundaryへ更新した。
+
+## 実装
+
+- `registered_face_simple_glyph_indexed_outline_storage.nepl`を追加した。success ownerはF5nxb completed ownerと`GuiSfntSimpleGlyphOutlineStorage`をnested ownershipで保持し、completed authorityやraw storageを分離するpublic APIを公開しない。
+- public startはcompleted ownerとborrowed limitだけを受け、completed authorityからcanonical capacityを読み、既存lower allocatorを1回だけ呼ぶ。allocation failureはCopy lower metadataとsame completed ownerをmove-only errorに保持し、metadata read後のsingle recoveryまたはfreeを可能にした。
+- invariantはboolではなく`Valid | Invalid kind`で表し、capacity shape、6 field、scalar count、empty len、exact capの11 failure kindを固定順で選ぶ。深い条件分岐ではなくtyped `Option` candidateのprecedence chainとして実装した。
+- deterministic allocation failure helperは`#test` modeだけで存在し、caller limitを受けずcanonical capacityからexact limitを内部生成する。これにより`CapacityRejected`入力を`Some Fits`と表す矛盾状態を構築できない。production startとtest helperは同じprivate finalizerを通る。
+- normal compileでtest helperがpublic surfaceに存在しないことを実コンパイラで検査するregressionを追加し、source-policy runnerへ登録した。
+- registered-face fixtureはcontour / point / edge / commandの各positive-low / zero / negative、合計12ケースを固定順で実行する。source policyは12 variant、全successor、metadata read-before-take、forced failure、recovery、production retry、invariant、freeの実call chainを固定する。
+
+## review
+
+- 初回subagent reviewは、任意limitから矛盾したforced errorを作れること、module-specific normal compile smoke不足、comment-only behavior label、typed invariant文言、typical doctest不足を指摘した。helperのinput削除とexact limit内部生成、永続normal compile regression、実call-chain policy、文書修正、owner/error typical doctestで対応した。
+- 再reviewは12-case matrixのvariantとsuccessorが機械的に固定されていない点を指摘した。12 variantの契約順と11 successor + terminal `None`をsource policyへ追加した。
+- 最終read-only reviewはremaining findingなしで`APPROVED`。nested authority、typed recovery、no fallback、F5nxd no-split boundary、12-case runtime / source coverageを承認した。
+
+## 検証
+
+- pass: new module doctest 34/34。
+- pass: registered-face integrated fixture 1/1。
+- pass: F5nxb action summary module regression 10/10。
+- pass: lower F5b outline storage regression 1/1。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_gui_font_registered_outline_storage_normal_compile.js`。normal compileでtest-only identifierは`resolve.identifier.undefined`。
+- pass: documentation contract、diagnostic code-first contract、editor diagnostic contract、issues check、`git diff --check`。
+- pass: `trunk build`。
+- pass: playground editor 13/13。JSONは`tmp/playground_editor_gui_font_f5nxc.json`。
+- timeout: `node nodesrc/run_source_policy_regressions.js`全体は904秒の外側timeout。今回のfocused GUI font policyと新規normal compile regressionは個別にpassしており、全体runnerは既存の多数のstdlib/selfhost/GUI policyを順次実行中に外側timeoutへ達した。
+
 # 2026-07-11 Agent2 GUI font rendering F5nxb registered indexed action summary owner
 
 ## 目的

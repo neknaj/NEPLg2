@@ -6582,6 +6582,71 @@ owner move / recovery / free:
 
 F5nxbの完了をF5nx全体の完了として扱わない。outline storage allocation以降はF5nxcからF5nxkに残す。
 
+### Phase F5nxc: registered indexed outline storage allocation owner
+
+目的:
+
+- F5nxb checked completed ownerを唯一のcontinuation authorityとして、canonical capacityに対応するempty outline storageを確保する。
+- allocation success / failureの両方でregistered indexed authorityを失わず、old collection-backed summary / storage ownerへ戻らない。
+- このphaseではendpoint cursor、slot population、point / edge / command drain、stroke provenanceへ進まない。
+
+public start / owner契約:
+
+- public startは`GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner`とborrowed `GuiSfntSimpleGlyphOutlineStorageLimit`だけを受ける。caller supplied capacity / apply state / last status / raw collection / old drain outcomeは受けない。
+- startはcompleted ownerからcanonical capacityを先にCopyし、`gui_sfnt_simple_glyph_outline_storage_alloc`をexactly once呼ぶ。shared provenance validation、collection traversal、path/action replayを行わない。
+- success ownerはcompleted ownerと`GuiSfntSimpleGlyphOutlineStorage`をnested ownershipで保持し、Clone / Copyを実装しない。limitはallocation policyでありsuccess owner fieldへ保持しない。
+- owner constructorはprivateとし、completed owner take、storage take / ref、action / path / indexed / collection split、generic callbackを公開しない。
+- public borrowed projectionはcanonical capacity、apply state、concrete last status、storage capacity、scalar slot count / len / cap、typed full invariant check、freeだけとする。
+
+invariant / failure契約:
+
+- invariant checkはCopy enumのValidまたはInvalid typed kindを返す。kindはCanonicalCapacityShapeInvalid、GlyphMismatch、ContourCountMismatch、PointCountMismatch、EdgeCountMismatch、PathCommandPairCountMismatch、PathCommandCountMismatch、ScalarSlotCountOverflow、ScalarSlotCountMismatch、StorageNotEmpty、StorageSlotCapacityMismatchを区別する。
+- checkはcanonical capacity shape、completed/storage capacityの6 fields、`gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check`の`Fits` value、storage scalar slot count、`len == 0`、`cap == scalar slot count`の順に進む。wildcard success、panic、unreachable、silent repairを使わない。
+- allocation errorは元completed ownerとCopy lower `GuiSfntSimpleGlyphOutlineStorageAllocError`を同じmove-only errorに保持する。
+- errorはlower kind / capacity / limit / capacity checkのCopy accessor、single take completed owner、freeを公開する。owner-bearing constructorとraw lower fieldはprivateにする。
+- callerはlower metadataをborrowで読んだ後にcompleted ownerをtakeする。recovered completed ownerは別limitで同じpublic startへ再試行できる。
+- owner freeはstorageを先、completed authorityを後にexactly once閉じる。error freeはcompleted authorityだけを閉じる。
+- deterministic `ScalarSlotStorageAllocFailed` recoveryは`#test`直後のtest-mode public entryで検査する。production startとtest entryはprivate allocation-result finalizerを共有する。test entryはcanonical capacityからexact limitを内部生成してtyped lower errorを作りfinalizerへ渡し、caller supplied limit、allocator callback、production runtime mode、nondeterministic huge allocationを導入しない。
+
+F5nxd handoff:
+
+- F5nxdはF5nxc owner全体をinput authorityとして受け、F5nxc ownerをnested ownershipで保持する。
+- F5nxdはtyped F5nxc invariantを再検査し、failureではsame F5nxc ownerを返す。
+- indexed span / item lookupはF5nxd実装時に各nested ownerのowning moduleへborrowed forwarding operationを追加し、F5nxc owner-bound wrapperからCopy value / typed errorだけを返す。raw indexed owner / collection refは返さない。
+- storage mutationはF5nxc owning moduleへconsuming owner-bound operationを追加し、successではreconstructed/next outer owner、failureではsame outer ownerとlower metadataを返す。completed ownerとstorageのraw pairを返すpublic APIは作らない。
+- F5nxcはF5nxd cursorやendpoint stateを先取りしない。
+
+owner move / recovery / free:
+
+| transition | input resource | success owner / state | failure metadata / recovery | free obligation |
+|---|---|---|---|---|
+| start | completed summary owner、borrowed limit | registered outline storage owner | lower alloc error + same completed owner | success owner freeまたは次phaseへmove |
+| low limit | completed summary owner、borrowed rejected limit | successなし | `CapacityRejected` metadataをread-before-takeしsame completed ownerを回収 | recovered ownerでretryまたはerror free |
+| success observation | borrowed storage owner | Copy metadata / invariant | failureなし | ownerは消費しない |
+| owner free | registered outline storage owner | unit | failureなし | storage、completed authorityの順に各1回free |
+| error free | allocation error | unit | failureなし | completed authorityを1回free |
+
+完了条件:
+
+- controlled registered SFNT fixtureのcompleted close authorityから、contour 2 / point 4 / edge 4 / command 8のvalid limitでallocationを成功させる。
+- success ownerでcapacity 6 fields、apply counts 8 / 0 / 2 / 6、last status ClosedContour、scalar slot count 22、len 0、cap 22、full invariant `Valid`を確認する。
+- contour first-failureではlater limitsをpositive-low / zero / negativeの代表混在値にしてもContourCapacityExceeded、contour exact + point first-failureではlater limitsの混在値に関係なくPointCapacityExceeded、contour / point exact + edge first-failureではcommand値に関係なくEdgeCapacityExceeded、先行3項目exact + command failureではCommandCapacityExceededを確認する。
+- 各first-failing fieldへpositive-low、zero、negativeをそれぞれ与え、0以下がunlimitedでないことを確認する。全項目exact limitはsuccessとする。各failureでlower kind / capacity / supplied limit / capacity checkをowner take前に読み、same completed ownerを回収する。
+- `#test` test-mode entryでdeterministic `ScalarSlotStorageAllocFailed`を作り、same lower metadata / owner recoveryを確認した後、valid exact limitでretry成功する。canonical authorityからinvalid shapeは構築不能なので、shape-before-limitはsource policyと既存F5b invalid-capacity regressionで検査し、F5nxc APIをforge可能にしない。
+- lower allocationはexactly once、capacity readはallocation前、success owner constructionはsuccess branchだけ、failure wrapper constructionはfailure branchだけであることをsource policyで固定する。
+- owner freeがstorage free、completed freeをこの順で各exactly once呼び、error freeがcompleted freeだけをexactly once呼ぶことをsource policyとmove compile-failで固定する。
+- source policyはtyped invariantの11 invalid branchesをCanonicalCapacityShapeInvalid、GlyphMismatch、ContourCountMismatch、PointCountMismatch、EdgeCountMismatch、PathCommandPairCountMismatch、PathCommandCountMismatch、ScalarSlotCountOverflow、ScalarSlotCountMismatch、StorageNotEmpty、StorageSlotCapacityMismatchの順に固定し、最後にValidだけを返すこと、wildcard successが無いことを検査する。
+- production startと直前に`#test`を持つtest-mode entryが同じprivate allocation-result finalizerを各exactly once呼ぶことを固定する。test lower errorはcanonical capacity、そこから内部生成したexact limit、`Some Fits canonical_capacity`を持つ。success / error wrapper constructorはprivate finalizer内だけに各1 call siteを持つ。
+- test-mode entryは`#test`直後の1 statementであり、production start / facadeから参照されない。既存test-mode directive regressionに加え、normal non-test compile smokeでtest entry identifierがpublic surfaceに存在しないことを検査する。
+- module/facade、private constructors、owner/error non-Copy、double take / use-after-move compile-fail、no raw splitを固定する。
+- new moduleからold F5am/F5an collection-backed outcome / summary / storage owner、collection/path/action traversal、byte-backed read、endpoint/push/command/stroke/raster/render/platform、fallback、panic、unreachableを禁止する。
+- focused registered behavior、module doctest、F5nxb/F5b regressions、source policy、diagnostic metadata、documentation contract、issues、git diff --check、trunk build、playground editor JSONが通る。
+- subagent plan / implementation reviewがnested authority、allocation/recovery order、6-field invariant、F5nxd no-split handoff、allocation time/storage complexityを承認する。
+
+complexityはmetadata / invariant validation O(1)、lower allocation call 1回、`s = contour_count + point_count + point_count + edge_count + path_command_count = c + 5p` i32 slots、wrapper additional metadata O(1)とする。allocator wall-clockをO(1)とは仮定しない。
+
+F5nxcの完了をF5nx全体の完了として扱わない。endpoint population以降はF5nxdからF5nxkに残す。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

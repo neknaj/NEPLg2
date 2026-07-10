@@ -175,6 +175,12 @@ summary ownerはF5nxa action owner、canonical capacity、apply state、private 
 
 summary budgetはterminal、remaining stepsが0以下、最大1 actionの順で進む。non-reject actionを適用したcallはApplied statusを返し、final Tail適用後のowner phaseはCompletedになる。次回budget callはbudget値に関係なくCompletedを返す。Reject適用callはRejected reasonを返し、以後のbudget callもlower actionを進めずRejectedを返す。budget resultは常に唯一のsummary ownerとCopy statusを持つ。F5nxcへ渡せるauthorityはCompleted phaseをchecked sealしたcompleted ownerだけであり、Rejected ownerはdiagnostics / free専用とする。completed / rejected terminal ownerはlast apply statusを非optionalで返し、rejected ownerだけがreject reasonを非optionalで返す。
 
+F5nxcのregistered outline storage allocationは、F5nxb completed ownerとborrowed outline storage limitだけをpublic inputとする。completed ownerからcanonical capacityをCopyし、既存のtyped outline storage allocatorをexactly once呼ぶ。success ownerはcompleted ownerとallocated storageを分離不能にnested ownershipで保持し、caller supplied capacity、apply state、old collection-backed drain summary、F5an storage ownerを受けない。allocation failureはlower allocation errorと元completed ownerを同じmove-only errorに保持し、lower kind / capacity / limit / capacity checkをborrowで読んだ後にcompleted ownerをexactly once回収またはfreeできる。
+
+F5nxc limit判定のprecedenceはcontour、point、edge、commandで固定する。contourが失敗した場合はlater limit値に関係なくContourCapacityExceeded、contourが通りpointが失敗した場合はlater値に関係なくPointCapacityExceeded、contour / pointが通りedgeが失敗した場合はcommand値に関係なくEdgeCapacityExceeded、先行3項目が通りcommandが失敗した場合はCommandCapacityExceededを返す。各first-failing fieldのpositive-low、zero、negativeはすべてcapacity exceededであり、0以下をunlimitedとして扱わない。全項目がexact以上の場合だけallocationへ進む。
+
+F5nxc ownerはcanonical capacity、apply state、concrete last status、storage capacity、scalar slot count / len / cap、typed full invariant checkのCopy projectionとfreeだけを公開する。completed ownerやraw storageを単独でtakeするAPIは提供しない。full invariant checkはValidまたはtyped invalid kindであり、canonical capacity shape、completed capacityとstorage capacityのglyph、contour、point、edge、path command pair、path command count、scalar slot count、empty len、exact capのどこが不一致かを区別する。F5nxd以降はF5nxc owner全体をconsuming transitionへ渡し、owner-bound storage operationを通して進める。public raw splitやcallbackによるauthority分離は行わない。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。

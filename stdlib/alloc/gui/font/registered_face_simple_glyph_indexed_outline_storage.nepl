@@ -1,0 +1,431 @@
+//: # alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage
+//: registered indexed completed authority と empty outline storage を分離不能に所有する
+//:
+//: ### [目的/もくてき]
+//: - F5nxb の checked completed owner から canonical capacity を読み、対応する empty outline storage を一度だけ確保します。
+//: - allocation 成功時も失敗時も registered indexed authority を失わず、成功 owner または recoverable error の一方へ移します。
+//: - 後続 phase が信頼する capacity、apply state、terminal status、storage metadata を borrowed Copy projection として公開します。
+//:
+//: ### [契約/けいやく]
+//: - public start の入力は completed owner と borrowed storage limit だけです。caller supplied capacity や raw collection は受けません。
+//: - success owner は completed authority と storage を nested ownership で保持し、どちらか一方を取り出す public API を持ちません。
+//: - allocation error metadata は completed owner を回収する前に読みます。error から completed owner を取り出せるのは一度だけです。
+//: - invariant check は capacity shape、6 field、scalar slot count、empty len、exact cap の順に fail-closed で検査します。
+//: - owner free は storage、completed authority の順にそれぞれ一度だけ解放します。
+//:
+//: ### [現状/げんじょう]
+//: - この F5nxc module は allocation と metadata validation だけを行います。endpoint cursor、slot population、command、stroke、raster、platform presentation は F5nxd 以降です。
+//:
+//: ### [計算量/けいさんりょう]
+//: metadata と invariant の検査は O(1)、lower allocator call は1回です。storage は c + 5p 個の i32 slot capacity を確保し、wrapper 自体の追加領域は O(1) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
+//:| #import "std/test" as *
+//:
+//: fn main %fn void i32 \void:
+//:     let typed %bool match GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::StorageNotEmpty:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Invalid kind:
+//:             match kind:
+//:                 GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::StorageNotEmpty: true
+//:                 _: false
+//:         _: false
+//:     test_assertion_exit_code assert "registered outline storage invariant is typed" typed
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
+//:
+//: fn main %fn void i32 \void:
+//:     gui_font_registered_face_simple_glyph_indexed_outline_storage_owner
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
+//:
+//: fn main %fn void i32 \void:
+//:     gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_take_storage
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resource.cell.moved
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action_summary" as *
+//:
+//: fn take_completed_twice %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError unit \error:
+//:     let first %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error
+//:     let second %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error
+//:     gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free first
+//:     gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free second
+//:
+//: fn main %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError i32 \error:
+//:     take_completed_twice error
+//:     0
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action_summary" as *
+//:
+//: fn observe_and_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner bool \owner:
+//:     let valid %bool match gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check &owner:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Valid: true
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Invalid _kind: false
+//:     gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner
+//:     valid
+//:
+//: fn recover_and_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError unit \error:
+//:     let _kind %GuiSfntSimpleGlyphOutlineStorageAllocErrorKind gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_kind &error
+//:     let completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error
+//:     gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed
+//:
+//: fn main %fn void i32 \void:
+//:     0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face_simple_glyph_indexed_action_summary" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind: full invariant の最初の不一致
+//:
+//: [契約/けいやく]: variant の順序は検査 precedence と同じです。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind:
+    CanonicalCapacityShapeInvalid
+    GlyphMismatch
+    ContourCountMismatch
+    PointCountMismatch
+    EdgeCountMismatch
+    PathCommandPairCountMismatch
+    PathCommandCountMismatch
+    ScalarSlotCountOverflow
+    ScalarSlotCountMismatch
+    StorageNotEmpty
+    StorageSlotCapacityMismatch
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck: owner の typed full invariant 結果
+//:
+//: [戻/もど]り[値/ち]: `Valid` は全検査成功、`Invalid kind` は固定順で最初に見つかった不一致です。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck:
+    Valid
+    Invalid %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck \check:
+        *check
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck \check:
+        check
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner: completed authority と allocated storage の owner
+//:
+//: [注意/ちゅうい]: owning resource を保持するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner:
+    completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner
+    storage %GuiSfntSimpleGlyphOutlineStorage
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError: lower allocation metadata と recoverable completed owner
+//:
+//: [注意/ちゅうい]: completed owner を保持するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError:
+    completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner
+    lower %GuiSfntSimpleGlyphOutlineStorageAllocError
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner: completed authority と storage を success owner に束ねる
+//:
+//: [契約/けいやく]: allocation finalizer だけが呼び、nested resource の分離不能な所有権を作ります。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphOutlineStorage GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner \completed\storage:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner completed storage
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error: completed authority と lower error を recoverable error に束ねる
+//:
+//: [契約/けいやく]: allocation finalizer だけが呼び、失敗後の retry authority を保持します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphOutlineStorageAllocError GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError \completed\lower:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError completed lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result: lower allocation result を唯一の public outcome へ変換する
+//:
+//: [契約/けいやく]: success/error constructor の呼び出しを一元化し、completed authority を必ず一方の outcome へ移します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner impure fn Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageAllocError Result GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError \completed\allocation:
+    match allocation:
+        Result::Ok storage:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_outline_storage_owner completed storage
+        Result::Err lower:
+            Result::Err gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error completed lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_start: completed authority から empty storage allocation を開始する
+//:
+//: [契約/けいやく]: canonical capacity を completed owner から先に Copy し、lower allocator と private finalizer をそれぞれ一度だけ呼びます。
+//:
+//: [戻/もど]り[値/ち]: 成功時は nested owner、失敗時は lower metadata と同じ completed owner を持つ recoverable error です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner impure fn &GuiSfntSimpleGlyphOutlineStorageLimit Result GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError \completed\limit:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_capacity &completed
+    let allocation %Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result completed allocation
+
+#test
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_test_force_scalar_slot_storage_alloc_failed: deterministic な lower allocation failure を作る
+//:
+//: [契約/けいやく]: test mode だけで公開され、canonical capacity から exact limit を作り、production start と同じ finalizer を通して owner recovery を検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_test_force_scalar_slot_storage_alloc_failed %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError \completed:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_capacity &completed
+    let limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_storage_limit gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity gui_sfnt_simple_glyph_outline_storage_capacity_edge_count &capacity gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &capacity
+    let capacity_check %GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity
+    let some_capacity_check %Option GuiSfntSimpleGlyphOutlineCapacityCheck some capacity_check
+    let lower %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotStorageAllocFailed capacity limit some_capacity_check
+    let allocation %Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageAllocError Result::Err lower
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result completed allocation
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity: canonical completed capacity を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_capacity completed
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_apply_state: completed apply state を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_apply_state %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiSfntSimpleGlyphPathSinkActionApplyState \owner:
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_apply_state completed
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_last_status: completed terminal status を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_last_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiSfntSimpleGlyphPathSinkActionApplyStatus \owner:
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_last_status completed
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_storage_capacity: allocated storage capacity を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_storage_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_capacity storage
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slot_count: allocated scalar slot count を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slot_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner i32 \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_scalar_slot_count storage
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_len: scalar slot Vec の len を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner i32 \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_scalar_slots_len storage
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_cap: scalar slot Vec の cap を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner i32 \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap storage
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_glyph_same: canonical と stored capacity の glyph identity を比較する
+//:
+//: [計算量/けいさんりょう]: Copy projection と整数比較だけを行うため O(1) です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_glyph_same %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool \canonical\stored:
+    let canonical_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph canonical
+    let stored_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph stored
+    eq gui_glyph_id_raw &canonical_glyph gui_glyph_id_raw &stored_glyph
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if: bool mismatch を typed invalid candidate へ変換する
+//:
+//: [戻/もど]り[値/ち]: mismatch の場合だけ `Some kind`、それ以外は `None` です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if %fn bool fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind \invalid\kind:
+    if invalid:
+        then some kind
+        else Option::None
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid: precedence 順で先の invalid candidate を保持する
+//:
+//: [契約/けいやく]: earlier が `Some` なら later を採用せず、固定された fail-closed 順序を保存します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid %fn Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind \earlier\later:
+    match earlier:
+        Option::Some kind: some kind
+        Option::None: later
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_scalar_count_invalid: scalar count overflow と stored count mismatch を分離する
+//:
+//: [戻/もど]り[値/ち]: checked count が overflow なら overflow、fits なら実 storage count との不一致だけを返します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_scalar_count_invalid %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn &GuiSfntSimpleGlyphOutlineStorageCapacity Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind \owner\canonical:
+    match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check canonical:
+        GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow _capacity:
+            some GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::ScalarSlotCountOverflow
+        GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits expected_scalar_slot_count:
+            let actual_scalar_slot_count %i32 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slot_count owner
+            let mismatch %bool ne actual_scalar_slot_count expected_scalar_slot_count
+            gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if mismatch GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::ScalarSlotCountMismatch
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check: nested authority と storage の full invariant を検査する
+//:
+//: [契約/けいやく]: 11種類の invalid kind を宣言順に検査し、wildcard success、panic、silent repair を行いません。
+//:
+//: [戻/もど]り[値/ち]: 最初の不一致を `Invalid` で返し、全項目が一致する場合だけ `Valid` を返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck \owner:
+    let canonical %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity owner
+    let stored %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_storage_capacity owner
+    let canonical_shape_valid %bool gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &canonical
+    let glyph_same %bool gui_font_registered_face_simple_glyph_indexed_outline_storage_glyph_same &canonical &stored
+    let contour_mismatch %bool ne gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &canonical gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &stored
+    let point_mismatch %bool ne gui_sfnt_simple_glyph_outline_storage_capacity_point_count &canonical gui_sfnt_simple_glyph_outline_storage_capacity_point_count &stored
+    let edge_mismatch %bool ne gui_sfnt_simple_glyph_outline_storage_capacity_edge_count &canonical gui_sfnt_simple_glyph_outline_storage_capacity_edge_count &stored
+    let command_pair_mismatch %bool ne gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count &canonical gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count &stored
+    let command_mismatch %bool ne gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &canonical gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &stored
+    let scalar_slots_len %i32 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_len owner
+    let scalar_slots_cap %i32 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_cap owner
+    let scalar_slot_count %i32 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slot_count owner
+    let shape_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if not canonical_shape_valid GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::CanonicalCapacityShapeInvalid
+    let glyph_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if not glyph_same GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::GlyphMismatch
+    let contour_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if contour_mismatch GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::ContourCountMismatch
+    let point_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if point_mismatch GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::PointCountMismatch
+    let edge_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if edge_mismatch GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::EdgeCountMismatch
+    let command_pair_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if command_pair_mismatch GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::PathCommandPairCountMismatch
+    let command_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if command_mismatch GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::PathCommandCountMismatch
+    let scalar_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_scalar_count_invalid owner &canonical
+    let empty_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if ne scalar_slots_len 0 GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::StorageNotEmpty
+    let capacity_invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_invalid_if ne scalar_slots_cap scalar_slot_count GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::StorageSlotCapacityMismatch
+    let first %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid shape_invalid glyph_invalid
+    let second %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid first contour_invalid
+    let third %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid second point_invalid
+    let fourth %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid third edge_invalid
+    let fifth %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid fourth command_pair_invalid
+    let sixth %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid fifth command_invalid
+    let seventh %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid sixth scalar_invalid
+    let eighth %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid seventh empty_invalid
+    let invalid %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind gui_font_registered_face_simple_glyph_indexed_outline_storage_first_invalid eighth capacity_invalid
+    match invalid:
+        Option::Some kind: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Invalid kind
+        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Valid
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_kind: lower allocation error kind を owner 回収前に読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageAllocErrorKind \error:
+    let lower %&GuiSfntSimpleGlyphOutlineStorageAllocError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_outline_storage_alloc_error_kind lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity: lower canonical capacity を owner 回収前に読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    let lower %&GuiSfntSimpleGlyphOutlineStorageAllocError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_outline_storage_alloc_error_capacity lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_limit: supplied lower limit を owner 回収前に読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_limit %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageLimit \error:
+    let lower %&GuiSfntSimpleGlyphOutlineStorageAllocError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_outline_storage_alloc_error_limit lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity_check: lower capacity check を owner 回収前に読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError Option GuiSfntSimpleGlyphOutlineCapacityCheck \error:
+    let lower %&GuiSfntSimpleGlyphOutlineStorageAllocError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_outline_storage_alloc_error_capacity_check lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner: recoverable completed authority を一度だけ取り出す
+//:
+//: [注意/ちゅうい]: lower metadata はこの関数を呼ぶ前に読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner \error:
+    field::get error "completed"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_free: storage と completed authority を順に閉じる
+//:
+//: [契約/けいやく]: storage を先に、completed authority を後に、それぞれ一度だけ解放します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner unit \owner:
+    let storage %GuiSfntSimpleGlyphOutlineStorage field::get owner "storage"
+    let completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get owner "completed"
+    gui_sfnt_simple_glyph_outline_storage_free storage
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free: public owner を閉じる
+//:
+//: [契約/けいやく]: private free path へ一度だけ委譲し、nested resource の解放順を一元化します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_free owner
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_free: recoverable completed authority を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError unit \error:
+    let completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get error "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed
