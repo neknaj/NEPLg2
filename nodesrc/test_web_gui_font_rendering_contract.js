@@ -393,6 +393,7 @@ const runTestSource = read("nodesrc/run_test.js");
 const webRuntimeWorkerSource = read("web/src/runtime/worker.ts");
 const webCompositorTilePresentHostSource = read("web/src/gui-preview/compositor-tile-present-host.ts");
 const webCompositorTilePresentHostTestSource = read("nodesrc/test_web_gui_compositor_tile_present_host_import.js");
+const compilerTestModeDirectiveTests = read("tests/compiler/test_mode_directive.n.md");
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -426,6 +427,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedAction = read("stdlib/alloc/gui/f
 const allocFontRegisteredFaceSimpleGlyphIndexedActionImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedAction);
 const allocFontRegisteredFaceSimpleGlyphIndexedActionSummary = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_action_summary.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedActionSummary);
+const allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3252,6 +3255,279 @@ for (const fragment of [
         `F5nxb focused registered behavior matrix must exercise ${fragment}`,
     );
 }
+assertMatch(
+    allocFontFacade,
+    /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_indexed_outline_storage"\s+as\s+\*/,
+    "alloc/gui/font facade must export the F5nxc registered indexed outline storage owner boundary",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner:\s*completed\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner\s*storage\s+%GuiSfntSimpleGlyphOutlineStorage/,
+    "F5nxc owner must bind the completed summary authority and allocated outline storage",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError:\s*completed\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner\s*lower\s+%GuiSfntSimpleGlyphOutlineStorageAllocError/,
+    "F5nxc allocation error must bind the original completed authority and Copy lower error",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must remain move-only because it owns F5nxb continuation authority`,
+    );
+}
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_outline_storage_(?:owner|alloc_error)\b/,
+    "F5nxc owner-bearing constructors must remain private",
+);
+const registeredIndexedOutlineStorageStart = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_start",
+);
+assertMatch(
+    registeredIndexedOutlineStorageStart,
+    /fn\s+gui_font_registered_face_simple_glyph_indexed_outline_storage_start\s+%impure\s+fn\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner\s+impure\s+fn\s+&GuiSfntSimpleGlyphOutlineStorageLimit\s+Result\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError\b/,
+    "F5nxc public start must accept only completed authority and a borrowed outline storage limit",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageStart,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_capacity &completed",
+        "gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result completed allocation",
+    ],
+    "F5nxc start must copy canonical capacity before exactly one lower allocation and finalize that result",
+);
+assert(
+    registeredIndexedOutlineStorageStart.split("gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit").length - 1 === 1,
+    "F5nxc production start must call the lower allocator exactly once",
+);
+assert(
+    registeredIndexedOutlineStorageStart.split("gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result completed allocation").length - 1 === 1,
+    "F5nxc production start must call the shared finalizer exactly once",
+);
+const registeredIndexedOutlineStorageTestEntryName = "gui_font_registered_face_simple_glyph_indexed_outline_storage_test_force_scalar_slot_storage_alloc_failed";
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage,
+    new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+${registeredIndexedOutlineStorageTestEntryName}\\b`),
+    "F5nxc forced allocation failure entry must be the immediate statement after #test",
+);
+assertMatch(
+    compilerTestModeDirectiveTests,
+    /通常 compile では直後の statement を無効化し、test mode compile では有効化します。/,
+    "F5nxc test-only entry relies on the compiler regression that removes the immediate #test statement from normal builds",
+);
+const registeredIndexedOutlineStorageTestEntry = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    registeredIndexedOutlineStorageTestEntryName,
+);
+assertMatch(
+    registeredIndexedOutlineStorageTestEntry,
+    new RegExp(`fn\\s+${registeredIndexedOutlineStorageTestEntryName}\\s+%impure\\s+fn\\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner\\s+Result\\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner\\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError\\b`),
+    "F5nxc forced failure entry must derive its exact limit internally instead of accepting contradictory caller input",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageTestEntry,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_capacity &completed",
+        "gui_sfnt_simple_glyph_outline_storage_limit",
+        "GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity",
+        "some capacity_check",
+        "GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotStorageAllocFailed",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result completed allocation",
+    ],
+    "F5nxc test entry must force canonical capacity, internally derived exact limit, and Some Fits capacity metadata",
+);
+assert(
+    registeredIndexedOutlineStorageTestEntry.split("gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result completed allocation").length - 1 === 1,
+    "F5nxc test entry must call the shared finalizer exactly once",
+);
+const registeredIndexedOutlineStorageFinalizer = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result",
+);
+for (const constructor of [
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner completed storage",
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error completed lower",
+]) {
+    assert(
+        registeredIndexedOutlineStorageFinalizer.split(constructor).length - 1 === 1,
+        `F5nxc private finalizer must contain exactly one constructor call: ${constructor}`,
+    );
+    assert(
+        allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl.split(constructor).length - 1 === 1,
+        `F5nxc constructors must be called only by the private allocation-result finalizer: ${constructor}`,
+    );
+}
+const registeredIndexedOutlineStorageInvariant = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage,
+    /pub\s+enum\s+GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind:\s*CanonicalCapacityShapeInvalid\s*GlyphMismatch\s*ContourCountMismatch\s*PointCountMismatch\s*EdgeCountMismatch\s*PathCommandPairCountMismatch\s*PathCommandCountMismatch\s*ScalarSlotCountOverflow\s*ScalarSlotCountMismatch\s*StorageNotEmpty\s*StorageSlotCapacityMismatch/,
+    "F5nxc invariant invalid kinds must preserve the documented fail-closed precedence",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageInvariant,
+    [
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::CanonicalCapacityShapeInvalid",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::GlyphMismatch",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::ContourCountMismatch",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::PointCountMismatch",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::EdgeCountMismatch",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::PathCommandPairCountMismatch",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::PathCommandCountMismatch",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_scalar_count_invalid owner &canonical",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::StorageNotEmpty",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::StorageSlotCapacityMismatch",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Valid",
+    ],
+    "F5nxc invariant check must fail closed through all 11 typed invalid branches in contract order before Valid",
+);
+assertNoMatch(
+    registeredIndexedOutlineStorageInvariant,
+    /\n\s*_\s*:/m,
+    "F5nxc invariant check must not use a wildcard success branch",
+);
+const registeredIndexedOutlineStorageScalarInvariant = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_scalar_count_invalid",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageScalarInvariant,
+    [
+        "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::ScalarSlotCountOverflow",
+        "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind::ScalarSlotCountMismatch",
+    ],
+    "F5nxc scalar invariant helper must distinguish overflow from a stored-count mismatch",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_outline_storage_(?:owner_(?:take_completed|take_storage|storage_ref|collection_ref|take_action|take_path|take_indexed|take_collection|split|callback)|take_storage|storage_ref|collection_ref|take_action|take_path|take_indexed|take_collection|split|callback)\b|GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal|collection_contour_span|indexed_path_step|read_item|byte_at|endpoint_cursor|push_slot|stroke|raster|render_target|platform|fallback|panic|unreachable|[()]/,
+    "F5nxc must not expose raw authority splits, reuse F5am/F5an or traversal, enter later phases, or contain fallback control paths or parentheses",
+);
+const registeredIndexedOutlineStorageOwnerFree = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_free",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageOwnerFree,
+    [
+        "gui_sfnt_simple_glyph_outline_storage_free storage",
+        "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed",
+    ],
+    "F5nxc owner free must close storage before completed authority",
+);
+for (const freeCall of [
+    "gui_sfnt_simple_glyph_outline_storage_free storage",
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed",
+]) {
+    assert(
+        registeredIndexedOutlineStorageOwnerFree.split(freeCall).length - 1 === 1,
+        `F5nxc owner free must call exactly once: ${freeCall}`,
+    );
+}
+const registeredIndexedOutlineStorageErrorFree = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    "gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_free",
+);
+assert(
+    registeredIndexedOutlineStorageErrorFree.split("gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed").length - 1 === 1,
+    "F5nxc allocation error free must close completed authority exactly once",
+);
+assertNoMatch(
+    registeredIndexedOutlineStorageErrorFree,
+    /gui_sfnt_simple_glyph_outline_storage_free/,
+    "F5nxc allocation error free must not free storage that was never allocated",
+);
+const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
+    guiFontRegisteredFaceTests,
+    "registered_face_simple_glyph_summary_completed_close_ok",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /enum\s+RegisteredFaceSimpleGlyphOutlineLimitFailureCase:\s*ContourPositiveLow\s*ContourZero\s*ContourNegative\s*PointPositiveLow\s*PointZero\s*PointNegative\s*EdgePositiveLow\s*EdgeZero\s*EdgeNegative\s*CommandPositiveLow\s*CommandZero\s*CommandNegative/,
+    "F5nxc behavior matrix must retain all 12 first-failing limit variants in contract order",
+);
+const registeredIndexedOutlineStorageNextCase = functionSlice(
+    guiFontRegisteredFaceTests,
+    "registered_face_simple_glyph_outline_next_failure_case",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageNextCase,
+    [
+        "ContourPositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourZero",
+        "ContourZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourNegative",
+        "ContourNegative: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointPositiveLow",
+        "PointPositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointZero",
+        "PointZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointNegative",
+        "PointNegative: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgePositiveLow",
+        "EdgePositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeZero",
+        "EdgeZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeNegative",
+        "EdgeNegative: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandPositiveLow",
+        "CommandPositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandZero",
+        "CommandZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandNegative",
+        "CommandNegative: none",
+    ],
+    "F5nxc behavior matrix must visit every contour, point, edge, and command case exactly in contract order",
+);
+assertMatch(
+    registeredIndexedOutlineStorageBehaviorStart,
+    /registered_face_simple_glyph_outline_limit_failures_ok\s+completed\s+RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourPositiveLow/,
+    "F5nxc completed close behavior must enter the 12-case limit precedence matrix",
+);
+const registeredIndexedOutlineStorageLimitBehavior = functionSlice(
+    guiFontRegisteredFaceTests,
+    "registered_face_simple_glyph_outline_limit_failures_ok",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageLimitBehavior,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_start completed &limit",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_kind &error",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity_check &error",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error",
+        "registered_face_simple_glyph_outline_next_failure_case case",
+        "registered_face_simple_glyph_outline_limit_failures_ok recovered next_case",
+        "registered_face_simple_glyph_outline_forced_alloc_failure_ok recovered",
+    ],
+    "F5nxc limit behavior must read metadata before recovery, recurse through every case, then enter forced failure",
+);
+const registeredIndexedOutlineStorageForcedBehavior = functionSlice(
+    guiFontRegisteredFaceTests,
+    "registered_face_simple_glyph_outline_forced_alloc_failure_ok",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageForcedBehavior,
+    [
+        `${registeredIndexedOutlineStorageTestEntryName} completed`,
+        "GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotStorageAllocFailed",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error",
+        "registered_face_simple_glyph_outline_success_ok recovered",
+    ],
+    "F5nxc forced failure behavior must validate typed metadata, recover authority, and retry production allocation",
+);
+const registeredIndexedOutlineStorageSuccessBehavior = functionSlice(
+    guiFontRegisteredFaceTests,
+    "registered_face_simple_glyph_outline_success_ok",
+);
+assertOrderedFragments(
+    registeredIndexedOutlineStorageSuccessBehavior,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_start completed &limit",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check &owner",
+        "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner",
+    ],
+    "F5nxc retry success behavior must validate the owner invariant and close the nested owner",
+);
 assertMatch(
     allocFontRegisteredFaceSimpleGlyphIndexedPath,
     /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner:[\s\S]*indexed\s+%GuiFontRegisteredFaceSimpleGlyphIndexedOwner[\s\S]*policy\s+%GuiSfntSimpleGlyphPathSinkPolicy[\s\S]*state\s+%GuiFontRegisteredFaceSimpleGlyphIndexedPathState/,

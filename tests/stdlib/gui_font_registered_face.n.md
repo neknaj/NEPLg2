@@ -1620,6 +1620,199 @@ fn registered_face_simple_glyph_capacity_same %fn &GuiSfntSimpleGlyphOutlineStor
 fn registered_face_simple_glyph_summary_counts_ok %fn &GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn i32 fn i32 fn i32 bool \state\emitted\rejected\closed\no_action:
     and eq emitted gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count state and eq rejected gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count state and eq closed gui_sfnt_simple_glyph_path_sink_action_apply_state_close_contour_count state eq no_action gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count state
 
+enum RegisteredFaceSimpleGlyphOutlineLimitFailureCase:
+    ContourPositiveLow
+    ContourZero
+    ContourNegative
+    PointPositiveLow
+    PointZero
+    PointNegative
+    EdgePositiveLow
+    EdgeZero
+    EdgeNegative
+    CommandPositiveLow
+    CommandZero
+    CommandNegative
+
+impl Clone for RegisteredFaceSimpleGlyphOutlineLimitFailureCase:
+    fn clone %fn &RegisteredFaceSimpleGlyphOutlineLimitFailureCase RegisteredFaceSimpleGlyphOutlineLimitFailureCase \value:
+        *value
+
+impl Copy for RegisteredFaceSimpleGlyphOutlineLimitFailureCase:
+    fn copy_mark %fn RegisteredFaceSimpleGlyphOutlineLimitFailureCase RegisteredFaceSimpleGlyphOutlineLimitFailureCase \value:
+        value
+
+fn registered_face_simple_glyph_outline_limit_for_case %fn RegisteredFaceSimpleGlyphOutlineLimitFailureCase GuiSfntSimpleGlyphOutlineStorageLimit \case:
+    match case:
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourPositiveLow: gui_sfnt_simple_glyph_outline_storage_limit 1 91 0 sub 0 7
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourZero: gui_sfnt_simple_glyph_outline_storage_limit 0 sub 0 11 3 99
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourNegative: gui_sfnt_simple_glyph_outline_storage_limit sub 0 1 0 sub 0 2 1
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointPositiveLow: gui_sfnt_simple_glyph_outline_storage_limit 2 3 71 sub 0 5
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointZero: gui_sfnt_simple_glyph_outline_storage_limit 2 0 sub 0 9 101
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointNegative: gui_sfnt_simple_glyph_outline_storage_limit 2 sub 0 1 0 2
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgePositiveLow: gui_sfnt_simple_glyph_outline_storage_limit 2 4 3 77
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeZero: gui_sfnt_simple_glyph_outline_storage_limit 2 4 0 sub 0 13
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeNegative: gui_sfnt_simple_glyph_outline_storage_limit 2 4 sub 0 1 0
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandPositiveLow: gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 7
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandZero: gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 0
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandNegative: gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 sub 0 1
+
+fn registered_face_simple_glyph_outline_failure_reason_ok %fn RegisteredFaceSimpleGlyphOutlineLimitFailureCase fn GuiSfntSimpleGlyphOutlineCapacityRejectReason bool \case\reason:
+    match case:
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourPositiveLow:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::ContourCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourZero:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::ContourCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourNegative:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::ContourCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointPositiveLow:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::PointCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointZero:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::PointCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointNegative:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::PointCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgePositiveLow:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::EdgeCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeZero:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::EdgeCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeNegative:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::EdgeCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandPositiveLow:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::CommandCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandZero:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::CommandCapacityExceeded: true
+                _: false
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandNegative:
+            match reason:
+                GuiSfntSimpleGlyphOutlineCapacityRejectReason::CommandCapacityExceeded: true
+                _: false
+
+fn registered_face_simple_glyph_outline_next_failure_case %fn RegisteredFaceSimpleGlyphOutlineLimitFailureCase Option RegisteredFaceSimpleGlyphOutlineLimitFailureCase \case:
+    match case:
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourPositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourZero
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourNegative
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourNegative: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointPositiveLow
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointPositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointZero
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointNegative
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::PointNegative: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgePositiveLow
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgePositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeZero
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeNegative
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::EdgeNegative: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandPositiveLow
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandPositiveLow: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandZero
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandZero: some RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandNegative
+        RegisteredFaceSimpleGlyphOutlineLimitFailureCase::CommandNegative: none
+
+fn registered_face_simple_glyph_outline_limit_same %fn &GuiSfntSimpleGlyphOutlineStorageLimit fn &GuiSfntSimpleGlyphOutlineStorageLimit bool \expected\actual:
+    and eq gui_sfnt_simple_glyph_outline_storage_limit_max_contours expected gui_sfnt_simple_glyph_outline_storage_limit_max_contours actual and eq gui_sfnt_simple_glyph_outline_storage_limit_max_points expected gui_sfnt_simple_glyph_outline_storage_limit_max_points actual and eq gui_sfnt_simple_glyph_outline_storage_limit_max_edges expected gui_sfnt_simple_glyph_outline_storage_limit_max_edges actual eq gui_sfnt_simple_glyph_outline_storage_limit_max_path_commands expected gui_sfnt_simple_glyph_outline_storage_limit_max_path_commands actual
+
+fn registered_face_simple_glyph_outline_capacity_fixture_ok %fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool \capacity:
+    let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph capacity
+    and eq 36 gui_glyph_id_raw &glyph and eq 2 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity and eq 4 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity and eq 4 gui_sfnt_simple_glyph_outline_storage_capacity_edge_count capacity and eq 4 gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count capacity eq 8 gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count capacity
+
+fn registered_face_simple_glyph_outline_rejected_check_ok %fn &Option GuiSfntSimpleGlyphOutlineCapacityCheck fn RegisteredFaceSimpleGlyphOutlineLimitFailureCase fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn &GuiSfntSimpleGlyphOutlineStorageLimit bool \check\case\capacity\limit:
+    match *check:
+        Option::None: false
+        Option::Some lower_check:
+            match lower_check:
+                GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected:
+                    let reason %GuiSfntSimpleGlyphOutlineCapacityRejectReason gui_sfnt_simple_glyph_outline_capacity_rejected_reason &rejected
+                    let rejected_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_capacity_rejected_capacity &rejected
+                    let rejected_limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_capacity_rejected_limit &rejected
+                    and registered_face_simple_glyph_outline_failure_reason_ok case reason and registered_face_simple_glyph_capacity_same capacity &rejected_capacity registered_face_simple_glyph_outline_limit_same limit &rejected_limit
+                GuiSfntSimpleGlyphOutlineCapacityCheck::Fits _capacity: false
+                GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology _topology: false
+                GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow _topology: false
+
+fn registered_face_simple_glyph_outline_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner bool \completed:
+    let limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 8
+    match gui_font_registered_face_simple_glyph_indexed_outline_storage_start completed &limit:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_free error
+            false
+        Result::Ok owner:
+            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity &owner
+            let storage_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_storage_capacity &owner
+            let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_apply_state &owner
+            let last_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_last_status &owner
+            let last_ok %bool match last_status:
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close: true
+                _: false
+            let invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check &owner:
+                GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Valid: true
+                GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Invalid _kind: false
+            let capacity_ok %bool and registered_face_simple_glyph_outline_capacity_fixture_ok &capacity registered_face_simple_glyph_capacity_same &capacity &storage_capacity
+            let storage_ok %bool and eq 22 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slot_count &owner and eq 0 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_len &owner eq 22 gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_cap &owner
+            gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner
+            and capacity_ok and registered_face_simple_glyph_summary_counts_ok &state 8 0 2 6 and last_ok and storage_ok invariant_ok
+
+fn registered_face_simple_glyph_outline_forced_alloc_failure_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner bool \completed:
+    let limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 8
+    match gui_font_registered_face_simple_glyph_indexed_outline_storage_test_force_scalar_slot_storage_alloc_failed completed:
+        Result::Ok owner:
+            gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner
+            false
+        Result::Err error:
+            let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_kind &error:
+                GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotStorageAllocFailed: true
+                _: false
+            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity &error
+            let supplied_limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_limit &error
+            let check %Option GuiSfntSimpleGlyphOutlineCapacityCheck gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity_check &error
+            let check_ok %bool match check:
+                Option::Some lower_check:
+                    match lower_check:
+                        GuiSfntSimpleGlyphOutlineCapacityCheck::Fits checked_capacity: registered_face_simple_glyph_capacity_same &capacity &checked_capacity
+                        _: false
+                Option::None: false
+            let metadata_ok %bool and kind_ok and registered_face_simple_glyph_outline_capacity_fixture_ok &capacity and registered_face_simple_glyph_outline_limit_same &limit &supplied_limit check_ok
+            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error
+            and metadata_ok registered_face_simple_glyph_outline_success_ok recovered
+
+fn registered_face_simple_glyph_outline_limit_failures_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner impure fn RegisteredFaceSimpleGlyphOutlineLimitFailureCase bool \completed\case:
+    let limit %GuiSfntSimpleGlyphOutlineStorageLimit registered_face_simple_glyph_outline_limit_for_case case
+    match gui_font_registered_face_simple_glyph_indexed_outline_storage_start completed &limit:
+        Result::Ok owner:
+            gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner
+            false
+        Result::Err error:
+            let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_kind &error:
+                GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::CapacityRejected: true
+                _: false
+            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity &error
+            let supplied_limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_limit &error
+            let check %Option GuiSfntSimpleGlyphOutlineCapacityCheck gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_capacity_check &error
+            let metadata_ok %bool and kind_ok and registered_face_simple_glyph_outline_capacity_fixture_ok &capacity and registered_face_simple_glyph_outline_limit_same &limit &supplied_limit registered_face_simple_glyph_outline_rejected_check_ok &check case &capacity &limit
+            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_take_completed_owner error
+            if not metadata_ok:
+                then:
+                    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free recovered
+                    false
+                else:
+                    match registered_face_simple_glyph_outline_next_failure_case case:
+                        Option::Some next_case: registered_face_simple_glyph_outline_limit_failures_ok recovered next_case
+                        Option::None: registered_face_simple_glyph_outline_forced_alloc_failure_ok recovered
+
 fn registered_face_simple_glyph_summary_running_seals_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner unit \owner:
     match gui_font_registered_face_simple_glyph_indexed_action_summary_seal_completed owner:
         Result::Ok completed:
@@ -1788,8 +1981,12 @@ fn registered_face_simple_glyph_summary_completed_close_ok %impure fn GuiFontReg
             let last_ok %bool match last_status:
                 GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close: true
                 _: false
-            gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed
-            and registered_face_simple_glyph_capacity_same expected_capacity &capacity and registered_face_simple_glyph_summary_counts_ok &state 8 0 2 6 last_ok
+            let summary_ok %bool and registered_face_simple_glyph_capacity_same expected_capacity &capacity and registered_face_simple_glyph_summary_counts_ok &state 8 0 2 6 last_ok
+            if summary_ok:
+                then registered_face_simple_glyph_outline_limit_failures_ok completed RegisteredFaceSimpleGlyphOutlineLimitFailureCase::ContourPositiveLow
+                else:
+                    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed
+                    false
 
 fn registered_face_simple_glyph_summary_rejected_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner impure fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool \owner\expected_capacity:
     match registered_face_simple_glyph_summary_rejected_nonpositive_ok owner:
@@ -2073,6 +2270,21 @@ fn registered_face_simple_glyph_collection_ok %impure fn &GuiFontRegisteredFaceT
         Result::Ok owner:
             registered_face_simple_glyph_collection_drain_ok entry owner 0 RegisteredFaceSimpleGlyphTraversalMode::IndexedAction
     // registered face indexed action summary emit close 8/0/2/6
+    // registered face indexed outline storage contour first failure positive-low zero negative arbitrary later limits
+    // registered face indexed outline storage point first failure positive-low zero negative arbitrary later limits
+    // registered face indexed outline storage edge first failure positive-low zero negative arbitrary later limits
+    // registered face indexed outline storage command first failure positive-low zero negative
+    // registered face indexed outline storage lower kind capacity limit capacity check read before take
+    // registered face indexed outline storage forced ScalarSlotStorageAllocFailed owner recovery
+    // registered face indexed outline storage exact 2/4/4/8 success
+    // registered face indexed outline storage six-field capacity and storage capacity
+    // registered face indexed outline storage apply counts 8/0/2/6 ClosedContour
+    // registered face indexed outline storage scalar count 22 len 0 cap 22 invariant Valid free
+    // registered face indexed outline storage allocation success 2/4/4/8
+    // registered face indexed outline storage limit precedence
+    // registered face indexed outline storage recovery retry
+    // registered face indexed outline storage forced allocation failure
+    // registered face indexed outline storage free order
     let summary_close_ok %bool match gui_font_registered_face_simple_glyph_collection_start entry evidence &limit:
         Result::Err _error:
             false
