@@ -6,7 +6,7 @@
 //: - Web / Native / Bare / Headless の resource provider から得た byte 列を、同じ parser contract へ[渡/わた]せるようにします。
 //:
 //: ### [現状/げんじょう]
-//: - SFNT metadata / name / cmap / hmtx / glyf parser、font resource bytesからregistered face ownerへの境界、registered face table、table-backed glyph / horizontal metric / simple glyph point-stream source / sequential reader、simple glyph outline、fill / stroke / shadow mask owner、render2d software drain / compositor bridgeの境界を公開します。
+//: - SFNT metadata / name / cmap / hmtx / glyf parser、font resource bytesからregistered face ownerへの境界、registered face table、table-backed glyph / horizontal metric / simple glyph point-stream source / sequential reader / linear collection、simple glyph outline、fill / stroke / shadow mask owner、render2d software drain / compositor bridgeの境界を公開します。
 //: - font resource provider の native / bare / headless 実装、text shaping / layout、Web Playground での engine-driven text presentation は後続 phase で接続します。
 //:
 //: ### [注意/ちゅうい]
@@ -27,3 +27,4 @@ pub #import "alloc/gui/font/registered_face_glyph_lookup" as *
 pub #import "alloc/gui/font/registered_face_horizontal_metric_lookup" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_reader" as *
+pub #import "alloc/gui/font/registered_face_simple_glyph_collection" as *

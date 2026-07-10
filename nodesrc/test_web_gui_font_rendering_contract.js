@@ -416,6 +416,8 @@ const allocFontRegisteredFaceSimpleGlyphLookup = read("stdlib/alloc/gui/font/reg
 const allocFontRegisteredFaceSimpleGlyphLookupImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphLookup);
 const allocFontRegisteredFaceSimpleGlyphReader = read("stdlib/alloc/gui/font/registered_face_simple_glyph_reader.nepl");
 const allocFontRegisteredFaceSimpleGlyphReaderImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphReader);
+const allocFontRegisteredFaceSimpleGlyphCollection = read("stdlib/alloc/gui/font/registered_face_simple_glyph_collection.nepl");
+const allocFontRegisteredFaceSimpleGlyphCollectionImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphCollection);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -2164,9 +2166,10 @@ assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_glyph
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_horizontal_metric_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face horizontal metric lookup boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_lookup"\s+as\s+\*/, "alloc/gui/font facade must export registered face simple glyph lookup boundary");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_reader"\s+as\s+\*/, "alloc/gui/font facade must export registered face simple glyph sequential reader boundary");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_collection"\s+as\s+\*/, "alloc/gui/font facade must export registered face simple glyph linear collection boundary");
 assertMatch(
     allocFontFacade,
-        /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph \/ horizontal metric \/ simple glyph point-stream source \/ sequential reader[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
+        /SFNT metadata[\s\S]*name[\s\S]*cmap[\s\S]*hmtx[\s\S]*glyf[\s\S]*registered face owner[\s\S]*registered face table[\s\S]*table-backed glyph \/ horizontal metric \/ simple glyph point-stream source \/ sequential reader \/ linear collection[\s\S]*fill \/ stroke \/ shadow mask owner[\s\S]*native \/ bare \/ headless[\s\S]*text shaping \/ layout[\s\S]*Web Playground/,
     "alloc/gui/font facade docs must distinguish implemented glyph/render2d boundaries from missing Web text presentation",
 );
 assertMatch(
@@ -2685,6 +2688,120 @@ assertNoMatch(
     allocFontRegisteredFaceSimpleGlyphReaderImpl,
     /\b(?:gui_sfnt_lookup_simple_glyph_point|gui_sfnt_glyf_read_push_point_x|gui_sfnt_glyf_read_push_point_y|gui_sfnt_simple_glyph_outline_storage_read_point|gui_sfnt_simple_glyph_outline_point_read_step|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_step|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_path_contour_step)\b/,
     "registered sequential reader must not re-enter O(p squared) random-access or later outline/path drains",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphCollection,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphCollectionOwner:[\s\S]*cursor\s+%GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor[\s\S]*collection\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollection[\s\S]*expected_point_count\s+%i32/,
+    "registered simple glyph collection owner must bind the reader cursor, collection owner, and expected point count",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphCollection,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphCollectedOwner:[\s\S]*evidence\s+%GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*collection\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollection/,
+    "registered simple glyph completed owner must retain source evidence beside the classified collection",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_(?:collection_owner|collected_owner)\b/,
+    "registered simple glyph collection owner constructors must remain private",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphCollectionOwner",
+    "GuiFontRegisteredFaceSimpleGlyphCollectedOwner",
+    "GuiFontRegisteredFaceSimpleGlyphCollectionStepError",
+    "GuiFontRegisteredFaceSimpleGlyphCollectionTerminal",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must not be Clone or Copy because it transports collection ownership`,
+    );
+}
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphCollection,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_collection_step_error_take_owner[\s\S]*pub\s+fn\s+gui_font_registered_face_simple_glyph_collection_step_error_free/,
+    "registered simple glyph collection step errors must support explicit owner recovery and explicit disposal",
+);
+const registeredSimpleGlyphCollectionStart = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    "gui_font_registered_face_simple_glyph_collection_start",
+);
+assertOrderedFragments(
+    registeredSimpleGlyphCollectionStart,
+    [
+        "gui_font_registered_face_simple_glyph_sequential_reader_start",
+        "gui_font_registered_face_simple_glyph_point_stream_stream",
+        "gui_sfnt_simple_glyph_point_stream_topology",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_from_topology",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc",
+    ],
+    "registered simple glyph collection start must validate provenance and derive exact capacity before allocation",
+);
+const collectionAllocIndex = registeredSimpleGlyphCollectionStart.indexOf("gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc");
+const collectionReaderStartIndex = registeredSimpleGlyphCollectionStart.indexOf("gui_font_registered_face_simple_glyph_sequential_reader_start");
+assert(
+    collectionReaderStartIndex >= 0 && collectionAllocIndex > collectionReaderStartIndex,
+    "registered simple glyph collection must not allocate before registered reader validation",
+);
+const registeredSimpleGlyphCollectionStep = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    "gui_font_registered_face_simple_glyph_collection_step",
+);
+for (const [callee, label] of [
+    ["gui_font_registered_face_simple_glyph_sequential_reader_step", "reader step"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item", "point classifier"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_push", "collection push"],
+]) {
+    assert(
+        (registeredSimpleGlyphCollectionStep.match(new RegExp(`\\b${callee}\\b`, "g")) || []).length === 1,
+        `registered simple glyph collection step must call ${label} exactly once`,
+    );
+}
+assertOrderedFragments(
+    registeredSimpleGlyphCollectionStep,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item &push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error &push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error",
+        "gui_font_registered_face_simple_glyph_collection_owner pre_step_cursor recovered_collection",
+    ],
+    "push failure must read metadata, recover the lower collection, and rebind it to the pre-step cursor",
+);
+const registeredSimpleGlyphCollectionCompletion = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    "gui_font_registered_face_simple_glyph_collection_completion_is_valid",
+);
+assertOrderedFragments(
+    registeredSimpleGlyphCollectionCompletion,
+    [
+        "gui_sfnt_simple_glyph_outline_storage_capacity_glyph",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_contour_count",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_point_count",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap",
+        "gui_sfnt_simple_glyph_sequential_point_cursor_logical_index",
+        "gui_sfnt_simple_glyph_sequential_point_cursor_contour_index",
+        "gui_sfnt_simple_glyph_sequential_point_cursor_contour_endpoint",
+    ],
+    "completion must validate collection capacity/storage and the sequential End cursor state",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    /\b(?:gui_sfnt_lookup_simple_glyph_point|gui_sfnt_glyf_read_push_point_x|gui_sfnt_glyf_read_push_point_y|gui_sfnt_simple_glyph_outline_storage_read_point|gui_sfnt_simple_glyph_outline_point_read_step|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_step|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|path_sink|raster|RenderCommand|RenderTarget|DrawTarget|render2d|software_surface|backend|platform|Canvas|DOM|fallback)\b/,
+    "registered simple glyph collection must not use old O(p squared), path, raster, render, platform, or fallback paths",
+);
+for (const [pattern, label] of [
+    [/registered_face_simple_glyph_collection_drain_ok[\s\S]*gui_font_registered_face_simple_glyph_collection_step[\s\S]*GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Collecting[\s\S]*GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Completed/, "four collecting steps followed by completion"],
+    [/registered_face_simple_glyph_collection_spans_ok[\s\S]*gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span/, "existing contour span compatibility"],
+    [/registered_face_simple_glyph_collection_limit_rejected[\s\S]*gui_font_registered_face_simple_glyph_collection_start[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_alloc_error/, "typed item-limit rejection"],
+]) {
+    assertMatch(guiFontRegisteredFaceTests, pattern, `registered face behavior tests must cover ${label}`);
+}
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /registered_face_simple_glyph_foreign_evidence_rejected[\s\S]*GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::ReaderStartFailed[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_capacity_check[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_alloc_error/,
+    "registered face behavior tests must prove foreign evidence is rejected before capacity planning and allocation",
 );
 assertMatch(
     spec,
