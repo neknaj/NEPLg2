@@ -1,3 +1,49 @@
+# 2026-07-10 Agent2 GUI font rendering F5nu registered face simple glyph linear collection owner boundary
+
+## 目的
+
+- F5nt の registered sequential reader を既存 classified point collection へ接続し、allocator-backed outline collection を O(p + c) で構築する。
+- reader cursor と collection を同じ non-Copy owner に束ね、1 call で最大 1 point だけ進める中断・再開可能な境界にする。
+- provenance、capacity、push、completion の各失敗を typed `Result` と owner recovery で表し、point skip、double free、storage leak を静的に防ぐ。
+
+## 実装
+
+- `stdlib/alloc/gui/font/registered_face_simple_glyph_collection.nepl` を追加し、reader cursor、exact-capacity collection、expected point count を所有する collection owner を実装した。
+- start は registered reader validation、topology、capacity planning、caller limit、allocation の順に進み、foreign evidence を allocation 前に拒否する。
+- step は reader を 1 回だけ進め、point を既存 classifier で分類して collection へ 1 回だけ push する。push failure は lower metadata を読んで collection を回収し、pre-step cursor と再結合する。
+- 4 point fixture は 4 回の `Point -> Collecting` と 5 回目の `End -> Completed`、classified item 順、2 contour span、capacity / count / len / cap、entry reuse、limit rejection、foreign evidence を検査する。
+- completed owner は F5ns evidence と collection を所有し、borrowed access、collection transfer、explicit free を提供する。owner-bearing terminal / error は `Clone` / `Copy` を実装しない。
+- facade、font rendering spec、detailed design、implementation plan、GUI standard library spec、source policy を同じ F5nu boundary へ更新した。
+
+## plan.md との差異
+
+- `plan.md` は言語全体の方向性であるため変更していない。F5nu は GUI font rendering implementation plan の F5nt 後続として追加した。
+- path construction、metric join、scale、shaping / layout、raster / render2d、native / bare / headless / Web presentation は未完了であり、`todo.md` に残している。
+
+## subagent review
+
+- Kant plan review は、push failure 後に next cursor を保持すると未commit pointを飛ばすこと、owner-bearing errorの回収API、4 point後の5回目End、completion cursor invariant、既存contour consumer互換test不足を指摘した。pre-step recovery、`take_owner` / `error_free`、terminal invariant、behavior testを文書へ反映し、`PLAN_APPROVED`を得てから実装した。
+- Codex read-only implementation review は ownership、pre-step retry、single-step linear collection、scope exclusion に実装 defect を認めず、`note.n.md` / `todo.md` の進捗不整合と生成 validation JSON の残存を指摘した。
+- 進捗記録を F5nu 完了状態へ更新し、`todo.md`をregistered completed collection後続へ進め、生成 JSONを削除した。
+- final re-review は進捗記録の重複がないこと、未完了表示が残らないこと、生成 artifact がstatusから消えたことを確認し、`IMPLEMENTATION_APPROVED`。
+
+## 検証
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5nu.json -j 1`。1/1、32 assertions。
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。
+- pass: `node nodesrc/issues.js check --dir issues`。
+- pass with LF/CRLF warnings only: `git diff --check`。
+- pass: `trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_f5nu_registered_face_linear_collection.json`。13/13。
+- timeout: `node nodesrc/run_source_policy_regressions.js`は240秒、再実行は600秒の外側timeout。今回追加した専用font source-policy contractは上記のとおりpassしている。
+
+## 残件
+
+- completed classified collection を path owner へ接続し、horizontal metric evidence と outline evidence を join する。
+- scale、shaping / layout、raster / render2d、native / bare / headless provider、Web compositor presentation を no-fallback contract で接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nt registered face simple glyph sequential reader source boundary
 
 ## 目的

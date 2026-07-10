@@ -2020,6 +2020,8 @@ Outline font rendering、font resource loading、ruby / furigana、Japanese vert
 
 `alloc/gui/font/registered_face_simple_glyph_reader`は同じentryとpoint-stream source evidenceを再検証し、source identity、flag repeat run、x / y byte cursor、累積座標、contour endpointを保持するsequential cursorでlogical pointを復元する。registered cursorはevidenceとlower cursorを一体化し、stepは別source/evidenceを受けない。全point / contourはO(p + c)、追加storage O(1)で進む。既存random-access point APIと旧outline drainはpointごとにstream先頭から再走査してO(p^2)となるため、新しいfull outline / contour / path pipelineでは使わない。composite glyph fallback、metric join、layout、rasterization、render2d、presentationはこのreader境界では扱わない。
 
+`alloc/gui/font/registered_face_simple_glyph_collection`はregistered sequential readerと既存classified point collection ownerを束ねる。startはentry/evidenceをallocation前に再検証し、topology由来のexact point capacityとcaller item limitでstorageを確保する。stepはownerを消費して1 pointだけ分類・commitし、継続owner、completed owner、またはowner-bearing typed errorを返す。push失敗時はlower errorのmetadataを読んでcollectionを回収し、pre-step cursorと再結合する。owner-bearing terminal / errorはnon-Copyで、errorはowner recoveryまたはfreeを要求する。completed ownerはF5ns evidenceと`GuiSfntSimpleGlyphOutlinePointStreamItemCollection`を保持し、後続contour/path consumerから借用できる。completionはcapacityとEnd cursorのterminal stateをsource topologyへ照合する。全収集はO(p + c)、storage O(p)であり、旧O(p^2) reader/drain、fallback、path生成、metric join、layout、raster、render、platform APIをこの境界から呼ばない。
+
 ## Mobile Lifecycle Contract
 
 Mobile backend は native desktop の一種として扱わない。少なくとも次の状態遷移を event contract として表す。

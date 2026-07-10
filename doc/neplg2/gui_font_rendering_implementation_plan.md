@@ -6294,6 +6294,49 @@ trunk build
 node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nt_registered_face_simple_glyph_reader.json
 ```
 
+## Phase F5nu: registered face simple glyph linear collection owner boundary
+
+目的:
+
+- F5nt registered sequential readerを既存classified point collection ownerへ接続し、新しいfull outline / path pipelineの最初のallocator-backed boundaryをO(p + c)で作る。
+- entry / evidence validationをallocationより先に行い、foreign evidenceやinvalid ownerでstorageを確保しない。
+- 1 callで1 pointだけ進めるowner-bearing stepにし、runtime scheduler / time sliceから中断・再開できる形を保つ。
+- reader、allocation、collection push、completion invariantの失敗でownerまたはCopy evidenceを回収可能にする。
+- path command、metric join、scale、shaping / layout、raster / render2d、platform presentation、fallbackへは進まない。
+
+変更:
+
+- `alloc/gui/font/registered_face_simple_glyph_collection.nepl`を追加する。
+- `GuiFontRegisteredFaceSimpleGlyphCollectionOwner`はF5nt reader cursor、`GuiSfntSimpleGlyphOutlinePointStreamItemCollection`、expected point countを所有し、constructorをprivate、`Clone` / `Copy`なしとする。public freeとborrowed cursor / collection / count accessorsを持つ。
+- startはentry + F5ns evidence + `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`を受ける。registered reader start、source topology、`gui_sfnt_simple_glyph_outline_storage_capacity_from_topology`、collection allocの順に進み、allocation前にregistered provenanceを確定する。
+- start error kindは`ReaderStartFailed`、`InvalidTopology`、`CommandCountOverflow`、`CapacityRejected`、`CollectionAllocFailed`とし、evidence、limit、optional reader error、optional capacity check、optional alloc errorをCopy payloadに保持する。topology-only plannerが将来`Rejected`を返す場合も別kindへ誤分類しない。
+- stepはborrowed entry + collection ownerだけを受ける。reader `Point`は既存item classifierへ渡してcollection pushを1回だけ呼び、`Collecting next_owner`を返す。push失敗ではlower errorのCopy metadataを先に読み、collectionを消費回収してpre-step cursorと再結合する。retry時は同じpointを再decodeし、next cursorで未commit pointを飛ばさない。reader `End`はcollection capacityのglyph / contour / point count、count / len / cap、End cursorのlogical index / contour index / contour endpointをexpected topologyと照合し、`Completed completed_owner`を返す。
+- completed ownerはF5ns evidenceとcollectionを所有し、borrowed evidence / collection accessor、collection transfer、freeを持つ。constructorはprivate、`Clone` / `Copy`なしとする。
+- step error kindは`ReaderStepFailed`、`CollectionPushFailed`、`PrematureEnd`、`CollectionInvariantInvalid`とする。errorはrecoverable owner、optional reader error、optional push kind、optional rejected item、optional lower storage error、expected / actual countを保持する。step terminal / errorは`Clone` / `Copy`なしとし、error metadataのborrowed accessor、consuming `take_owner`、recoveryしない経路の`error_free`を持つ。
+- public behavior testは既存comprehensive registered face fixtureを使い、4回の`Point -> Collecting`と5回目の`End -> Completed`を確認する。kind sequence、2 contour endpoint、completed capacityのglyph / contour / point count、count / len / cap、End cursor terminal state、entry reuse、single free、limit rejection、foreign evidence allocation-before-validation禁止に加え、completed collectionを借用した既存contour span consumerの成功を確認する。
+- source policyはprivate constructors、owner-bearing terminal / errorを含むnon-Copy owner shape、start validation-before-allocation order、exact capacity、one reader step / classifier / collection push、lower push metadata read -> collection recovery -> pre-step cursor rebindの順序、`take_owner` / `error_free`、completion invariants、旧O(p^2) point / drain family、path / raster / render / platform / fallback禁止を具体名で固定する。
+- spec、detailed design、standard library spec、facade、`note.n.md`、`todo.md`を同じboundaryへ更新する。
+
+完了条件:
+
+- focused behavior testがlinear collection、classified item order、completion invariant、limit rejection、foreign evidence、entry / collection owner lifetimeを確認する。
+- source policyがallocation ordering、private/non-Copy owner shape、single-step calls、owner-bearing errors、旧O(p^2) API非使用、scope exclusionを確認する。
+- subagent plan / implementation reviewがownership、O(p + c)、time-slice step、typed recovery、existing path sink compatibility、no fallbackを承認する。
+- focused test、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_registered_face.n.md --no-tree -o tmp_gui_font_registered_face_f5nu.json -j 1
+node nodesrc/test_stdlib_documentation_contract.js
+node nodesrc/issues.js check --dir issues
+git diff --check
+trunk build
+node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=output/playground_editor_f5nu_registered_face_linear_collection.json
+```
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

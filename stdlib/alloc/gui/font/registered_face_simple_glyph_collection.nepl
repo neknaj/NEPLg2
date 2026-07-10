@@ -1,0 +1,394 @@
+//: # alloc/gui/font/registered_face_simple_glyph_collection
+//: registered face simple glyph reader を classified point collection へ線形に接続する owner 境界
+//:
+//: ### [目的/もくてき]
+//: - F5nt の registered sequential reader を 1 point ずつ進め、既存の classified point collection へ追加します。
+//: - reader cursor と collection を同じ owner に束ね、中断、再開、失敗回収で未確定 point を失わないようにします。
+//:
+//: ### [契約/けいやく]
+//: - start は entry / evidence provenance を検証してから exact point capacity を確保します。
+//: - push 失敗時は pre-step cursor と回収した collection を再結合し、再試行時に同じ point を読み直します。
+//: - owner、completed owner、owner-bearing terminal / error は `Clone` / `Copy` を実装しません。
+//: - 旧 random-access reader、path、raster、render2d、platform API、fallback は使いません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 1 step は償却 O(1)、成功する全 point / contour 収集は O(p + c)、storage は O(p) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/registered_face_simple_glyph_collection" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_simple_glyph_reader" as *
+#import "alloc/gui/font/registered_face_table" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectionOwner: reader cursor と collection の再開可能な owner
+//:
+//: [注意/ちゅうい]: collection storage を所有するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphCollectionOwner:
+    cursor %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    expected_point_count %i32
+
+//: gui_font_registered_face_simple_glyph_collection_owner: 検証済み cursor と collection を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_collection_owner %fn GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 GuiFontRegisteredFaceSimpleGlyphCollectionOwner \cursor\collection\expected_point_count:
+    GuiFontRegisteredFaceSimpleGlyphCollectionOwner cursor collection expected_point_count
+
+//: gui_font_registered_face_simple_glyph_collection_owner_cursor: 現在の reader cursor を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_owner_cursor %fn &GuiFontRegisteredFaceSimpleGlyphCollectionOwner GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor \owner:
+    *field::get_ref owner "cursor"
+
+//: gui_font_registered_face_simple_glyph_collection_owner_collection_ref: 収集中 collection を借用する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_owner_collection_ref %fn &GuiFontRegisteredFaceSimpleGlyphCollectionOwner &GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
+    field::get_ref owner "collection"
+
+//: gui_font_registered_face_simple_glyph_collection_owner_expected_point_count: 完了時の期待 point 数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_owner_expected_point_count %fn &GuiFontRegisteredFaceSimpleGlyphCollectionOwner i32 \owner:
+    *field::get_ref owner "expected_point_count"
+
+//: gui_font_registered_face_simple_glyph_collection_owner_free: 収集中 owner と collection storage を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphCollectionOwner unit \owner:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_free field::get owner "collection"
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind: collection 開始失敗の段階
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind:
+    ReaderStartFailed
+    InvalidTopology
+    CommandCountOverflow
+    CapacityRejected
+    CollectionAllocFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectionStartError: allocation 前後の Copy failure evidence
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphCollectionStartError:
+    kind %GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit
+    reader_error %Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderError
+    capacity_check %Option GuiSfntSimpleGlyphOutlineCapacityCheck
+    alloc_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphCollectionStartError:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError GuiFontRegisteredFaceSimpleGlyphCollectionStartError \error:
+        *error
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphCollectionStartError:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphCollectionStartError GuiFontRegisteredFaceSimpleGlyphCollectionStartError \error:
+        error
+
+//: gui_font_registered_face_simple_glyph_collection_start_error: Copy failure evidence を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_collection_start_error %fn GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit fn Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderError fn Option GuiSfntSimpleGlyphOutlineCapacityCheck fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError GuiFontRegisteredFaceSimpleGlyphCollectionStartError \kind\evidence\limit\reader_error\capacity_check\alloc_error:
+    GuiFontRegisteredFaceSimpleGlyphCollectionStartError kind evidence limit reader_error capacity_check alloc_error
+
+//: gui_font_registered_face_simple_glyph_collection_start_error_kind: 開始失敗の段階を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_collection_start_error_evidence: 失敗した source evidence を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start_error_evidence %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError GuiFontRegisteredFaceSimpleGlyphPointStream \error:
+    *field::get_ref error "evidence"
+
+//: gui_font_registered_face_simple_glyph_collection_start_error_limit: caller limit を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start_error_limit %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit \error:
+    *field::get_ref error "limit"
+
+//: gui_font_registered_face_simple_glyph_collection_start_error_reader_error: reader start failure を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start_error_reader_error %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \error:
+    *field::get_ref error "reader_error"
+
+//: gui_font_registered_face_simple_glyph_collection_start_error_capacity_check: capacity planning result を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start_error_capacity_check %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError Option GuiSfntSimpleGlyphOutlineCapacityCheck \error:
+    *field::get_ref error "capacity_check"
+
+//: gui_font_registered_face_simple_glyph_collection_start_error_alloc_error: collection allocation failure を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start_error_alloc_error %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStartError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError \error:
+    *field::get_ref error "alloc_error"
+
+//: gui_font_registered_face_simple_glyph_collection_start: provenance 検証後に exact capacity collection を確保する
+//:
+//: [契約/けいやく]: reader start を collection allocation より先に行うため、foreign evidence では storage を確保しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_start %impure fn &GuiFontRegisteredFaceTableEntry impure fn &GuiFontRegisteredFaceSimpleGlyphPointStream impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit Result GuiFontRegisteredFaceSimpleGlyphCollectionOwner GuiFontRegisteredFaceSimpleGlyphCollectionStartError \entry\evidence_ref\limit:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream *evidence_ref
+    match gui_font_registered_face_simple_glyph_sequential_reader_start entry evidence_ref:
+        Result::Err reader_error:
+            Result::Err gui_font_registered_face_simple_glyph_collection_start_error GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::ReaderStartFailed evidence *limit some reader_error none none
+        Result::Ok cursor:
+            let stream %GuiSfntSimpleGlyphPointStream gui_font_registered_face_simple_glyph_point_stream_stream evidence_ref
+            let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+            let capacity_check %GuiSfntSimpleGlyphOutlineCapacityCheck gui_sfnt_simple_glyph_outline_storage_capacity_from_topology &topology
+            match capacity_check:
+                GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology _topology:
+                    Result::Err gui_font_registered_face_simple_glyph_collection_start_error GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::InvalidTopology evidence *limit none some capacity_check none
+                GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow _topology:
+                    Result::Err gui_font_registered_face_simple_glyph_collection_start_error GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::CommandCountOverflow evidence *limit none some capacity_check none
+                GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected _rejected:
+                    Result::Err gui_font_registered_face_simple_glyph_collection_start_error GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::CapacityRejected evidence *limit none some capacity_check none
+                GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc &capacity limit:
+                        Result::Err alloc_error:
+                            Result::Err gui_font_registered_face_simple_glyph_collection_start_error GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::CollectionAllocFailed evidence *limit none some capacity_check some alloc_error
+                        Result::Ok collection:
+                            let expected_point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology
+                            Result::Ok gui_font_registered_face_simple_glyph_collection_owner cursor collection expected_point_count
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectedOwner: 完了済み evidence と classified collection の owner
+//:
+//: [注意/ちゅうい]: collection storage を所有するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphCollectedOwner:
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+
+//: gui_font_registered_face_simple_glyph_collected_owner: 完了済み evidence と collection を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_collected_owner %fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection GuiFontRegisteredFaceSimpleGlyphCollectedOwner \evidence\collection:
+    GuiFontRegisteredFaceSimpleGlyphCollectedOwner evidence collection
+
+//: gui_font_registered_face_simple_glyph_collected_owner_evidence: 完了した F5ns evidence を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collected_owner_evidence %fn &GuiFontRegisteredFaceSimpleGlyphCollectedOwner GuiFontRegisteredFaceSimpleGlyphPointStream \owner:
+    *field::get_ref owner "evidence"
+
+//: gui_font_registered_face_simple_glyph_collected_owner_collection_ref: 完了した collection を後続 consumer が借用する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collected_owner_collection_ref %fn &GuiFontRegisteredFaceSimpleGlyphCollectedOwner &GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
+    field::get_ref owner "collection"
+
+//: gui_font_registered_face_simple_glyph_collected_owner_take_collection: completed owner から collection ownership を移す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collected_owner_take_collection %fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
+    field::get owner "collection"
+
+//: gui_font_registered_face_simple_glyph_collected_owner_free: completed owner と collection storage を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collected_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner unit \owner:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_free field::get owner "collection"
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind: collection step 失敗の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind:
+    ReaderStepFailed
+    CollectionPushFailed
+    PrematureEnd
+    CollectionInvariantInvalid
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectionStepError: metadata と回収可能 owner を保持する失敗
+//:
+//: [注意/ちゅうい]: owner を保持するため `Clone` / `Copy` は実装しません。metadata を読んだ後に owner を回収または free します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphCollectionStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphCollectionOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind
+    reader_error %Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderError
+    push_kind %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    storage_error %Option StdErrorKind
+    expected_point_count %i32
+    actual_point_count %i32
+
+//: gui_font_registered_face_simple_glyph_collection_step_error: recoverable owner と typed metadata を束ねる内部 constructor
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_collection_step_error %fn GuiFontRegisteredFaceSimpleGlyphCollectionOwner fn GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind fn Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItem fn Option StdErrorKind fn i32 fn i32 GuiFontRegisteredFaceSimpleGlyphCollectionStepError \owner\kind\reader_error\push_kind\rejected_item\storage_error\expected_point_count\actual_point_count:
+    GuiFontRegisteredFaceSimpleGlyphCollectionStepError owner kind reader_error push_kind rejected_item storage_error expected_point_count actual_point_count
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_kind: step failure kind を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_reader_error: reader failure を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_reader_error %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError Option GuiFontRegisteredFaceSimpleGlyphSequentialReaderError \error:
+    *field::get_ref error "reader_error"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_push_kind: lower push failure kind を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_push_kind %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind \error:
+    *field::get_ref error "push_kind"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_rejected_item: commit されなかった item を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_rejected_item %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError Option GuiSfntSimpleGlyphOutlinePointStreamItem \error:
+    *field::get_ref error "rejected_item"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_storage_error: lower Vec failure kind を借用して読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_storage_error %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_expected_point_count: source topology の期待 point 数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_expected_point_count %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError i32 \error:
+    *field::get_ref error "expected_point_count"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_actual_point_count: failure 時に commit 済みの point 数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_actual_point_count %fn &GuiFontRegisteredFaceSimpleGlyphCollectionStepError i32 \error:
+    *field::get_ref error "actual_point_count"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_take_owner: metadata 確認後に再開可能 owner を回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphCollectionStepError GuiFontRegisteredFaceSimpleGlyphCollectionOwner \error:
+    field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_collection_step_error_free: recovery しない failure owner を閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphCollectionStepError unit \error:
+    gui_font_registered_face_simple_glyph_collection_owner_free field::get error "owner"
+
+//: GuiFontRegisteredFaceSimpleGlyphCollectionTerminal: 1 point commit 後の継続または完了 owner
+//:
+//: [注意/ちゅうい]: owner を保持するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphCollectionTerminal:
+    Collecting %GuiFontRegisteredFaceSimpleGlyphCollectionOwner
+    Completed %GuiFontRegisteredFaceSimpleGlyphCollectedOwner
+
+//: gui_font_registered_face_simple_glyph_collection_terminal_free: terminal が保持する owner を branch ごとに閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_terminal_free %impure fn GuiFontRegisteredFaceSimpleGlyphCollectionTerminal unit \terminal:
+    match terminal:
+        GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Collecting owner:
+            gui_font_registered_face_simple_glyph_collection_owner_free owner
+        GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Completed owner:
+            gui_font_registered_face_simple_glyph_collected_owner_free owner
+
+//: gui_font_registered_face_simple_glyph_collection_completion_is_valid: End cursor と collection を source topologyへ照合する
+//:
+//: [計算量/けいさんりょう]: 固定個数の field だけを比較するため O(1) です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_collection_completion_is_valid %fn &GuiFontRegisteredFaceSimpleGlyphCollectionOwner fn &GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor bool \owner\end_cursor:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_sequential_reader_cursor_evidence end_cursor
+    let stream %GuiSfntSimpleGlyphPointStream gui_font_registered_face_simple_glyph_point_stream_stream &evidence
+    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+    let expected_glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+    let expected_contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count &topology
+    let expected_point_count %i32 gui_font_registered_face_simple_glyph_collection_owner_expected_point_count owner
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_font_registered_face_simple_glyph_collection_owner_collection_ref owner
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+    let lower %GuiSfntSimpleGlyphSequentialPointCursor gui_font_registered_face_simple_glyph_sequential_reader_cursor_lower end_cursor
+    and gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity and eq gui_glyph_id_raw &capacity_glyph gui_glyph_id_raw &expected_glyph and eq gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity expected_contour_count and eq gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity expected_point_count and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection expected_point_count and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection expected_point_count and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection expected_point_count and eq gui_sfnt_simple_glyph_sequential_point_cursor_logical_index &lower expected_point_count and eq gui_sfnt_simple_glyph_sequential_point_cursor_contour_index &lower sub expected_contour_count 1 eq gui_sfnt_simple_glyph_sequential_point_cursor_contour_endpoint &lower sub expected_point_count 1
+
+//: gui_font_registered_face_simple_glyph_collection_step: reader を 1 回だけ進め、最大 1 point を collection へ commit する
+//:
+//: [契約/けいやく]: push failure は pre-step cursor と回収済み collection を返すため、retry で point を飛ばしません。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_collection_step %impure fn &GuiFontRegisteredFaceTableEntry impure fn GuiFontRegisteredFaceSimpleGlyphCollectionOwner Result GuiFontRegisteredFaceSimpleGlyphCollectionTerminal GuiFontRegisteredFaceSimpleGlyphCollectionStepError \entry\owner:
+    let pre_step_cursor %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor gui_font_registered_face_simple_glyph_collection_owner_cursor &owner
+    let expected_point_count %i32 gui_font_registered_face_simple_glyph_collection_owner_expected_point_count &owner
+    let actual_point_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count gui_font_registered_face_simple_glyph_collection_owner_collection_ref &owner
+    match gui_font_registered_face_simple_glyph_sequential_reader_step entry pre_step_cursor:
+        Result::Err reader_error:
+            Result::Err gui_font_registered_face_simple_glyph_collection_step_error owner GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind::ReaderStepFailed some reader_error none none none expected_point_count actual_point_count
+        Result::Ok reader_terminal:
+            match reader_terminal:
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::End end_cursor:
+                    if:
+                        lt actual_point_count expected_point_count
+                        then:
+                            Result::Err gui_font_registered_face_simple_glyph_collection_step_error owner GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind::PrematureEnd none none none none expected_point_count actual_point_count
+                        else:
+                            if:
+                                not gui_font_registered_face_simple_glyph_collection_completion_is_valid &owner &end_cursor
+                                then:
+                                    Result::Err gui_font_registered_face_simple_glyph_collection_step_error owner GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind::CollectionInvariantInvalid none none none none expected_point_count actual_point_count
+                                else:
+                                    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_sequential_reader_cursor_evidence &end_cursor
+                                    let collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection field::get owner "collection"
+                                    Result::Ok GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Completed gui_font_registered_face_simple_glyph_collected_owner evidence collection
+                GuiFontRegisteredFaceSimpleGlyphSequentialReaderTerminal::Point reader_step:
+                    let point %GuiSfntSimpleGlyphPoint gui_font_registered_face_simple_glyph_sequential_reader_step_point &reader_step
+                    let next_cursor %GuiFontRegisteredFaceSimpleGlyphSequentialReaderCursor gui_font_registered_face_simple_glyph_sequential_reader_step_next_cursor &reader_step
+                    let item %GuiSfntSimpleGlyphOutlinePointStreamItem gui_sfnt_simple_glyph_outline_point_stream_item point
+                    let collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection field::get owner "collection"
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_push collection item:
+                        Result::Ok next_collection:
+                            let next_owner %GuiFontRegisteredFaceSimpleGlyphCollectionOwner gui_font_registered_face_simple_glyph_collection_owner next_cursor next_collection expected_point_count
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Collecting next_owner
+                        Result::Err push_error:
+                            let push_kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind &push_error
+                            let rejected_item %GuiSfntSimpleGlyphOutlinePointStreamItem gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item &push_error
+                            let storage_error %Option StdErrorKind gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error &push_error
+                            let recovered_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error
+                            let recovered_owner %GuiFontRegisteredFaceSimpleGlyphCollectionOwner gui_font_registered_face_simple_glyph_collection_owner pre_step_cursor recovered_collection expected_point_count
+                            Result::Err gui_font_registered_face_simple_glyph_collection_step_error recovered_owner GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind::CollectionPushFailed none some push_kind some rejected_item storage_error expected_point_count actual_point_count

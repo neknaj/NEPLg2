@@ -11,7 +11,7 @@
 - WOFF decode 境界が来るまでは `SfntOnly` 以外の decode policy を parse 前に拒否します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=31 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"registered face simple glyph success and composite rejection\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"registered face simple glyph missing loca\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"registered face simple glyph missing glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"registered face simple glyph malformed point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"registered face simple glyph mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=32 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"registered face simple glyph success and composite rejection\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"registered face simple glyph linear collection\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"registered face simple glyph missing loca\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"registered face simple glyph missing glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"registered face simple glyph malformed point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=bool label=\"registered face simple glyph mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -1327,6 +1327,98 @@ fn registered_face_simple_glyph_reader_ok %fn &GuiFontRegisteredFaceTableEntry f
         Result::Ok cursor:
             registered_face_simple_glyph_reader_points_ok entry cursor 0
 
+fn registered_face_simple_glyph_collection_item_ok %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 bool \collection\index:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection index:
+        Result::Err _error:
+            false
+        Result::Ok item:
+            let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_outline_point_stream_item_point &item
+            let kind %GuiSfntSimpleGlyphOutlinePointStreamItemKind gui_sfnt_simple_glyph_outline_point_stream_item_kind &item
+            let kind_ok %bool if:
+                or eq index 1 eq index 3
+                then gui_sfnt_simple_glyph_outline_point_stream_item_kind_is kind GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOffCurve
+                else gui_sfnt_simple_glyph_outline_point_stream_item_kind_is kind GuiSfntSimpleGlyphOutlinePointStreamItemKind::OffCurve
+            and eq gui_sfnt_simple_glyph_point_index &point index kind_ok
+
+fn registered_face_simple_glyph_collection_spans_ok %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection bool \collection:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection 0:
+        Result::Err _error:
+            false
+        Result::Ok first:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection 1:
+                Result::Err _error:
+                    false
+                Result::Ok second:
+                    and eq gui_sfnt_simple_glyph_contour_span_start_point_index &first 0 and eq gui_sfnt_simple_glyph_contour_span_end_point_index &first 1 and eq gui_sfnt_simple_glyph_contour_span_point_count &first 2 and eq gui_sfnt_simple_glyph_contour_span_start_point_index &second 2 and eq gui_sfnt_simple_glyph_contour_span_end_point_index &second 3 eq gui_sfnt_simple_glyph_contour_span_point_count &second 2
+
+fn registered_face_simple_glyph_collection_drain_ok %impure fn &GuiFontRegisteredFaceTableEntry impure fn GuiFontRegisteredFaceSimpleGlyphCollectionOwner impure fn i32 bool \entry\owner\expected_index:
+    match gui_font_registered_face_simple_glyph_collection_step entry owner:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_collection_step_error_free error
+            false
+        Result::Ok terminal:
+            match terminal:
+                GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Collecting next_owner:
+                    if:
+                        ge expected_index 4
+                        then:
+                            gui_font_registered_face_simple_glyph_collection_owner_free next_owner
+                            false
+                        else:
+                            let item_ok %bool registered_face_simple_glyph_collection_item_ok gui_font_registered_face_simple_glyph_collection_owner_collection_ref &next_owner expected_index
+                            if:
+                                item_ok
+                                then registered_face_simple_glyph_collection_drain_ok entry next_owner add expected_index 1
+                                else:
+                                    gui_font_registered_face_simple_glyph_collection_owner_free next_owner
+                                    false
+                GuiFontRegisteredFaceSimpleGlyphCollectionTerminal::Completed completed:
+                    if:
+                        ne expected_index 4
+                        then:
+                            gui_font_registered_face_simple_glyph_collected_owner_free completed
+                            false
+                        else:
+                            let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_font_registered_face_simple_glyph_collected_owner_collection_ref &completed
+                            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+                            let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                            let invariant_ok %bool and eq gui_glyph_id_raw &glyph 36 and eq gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity 2 and eq gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity 4 and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection 4 and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection 4 eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection 4
+                            let spans_ok %bool registered_face_simple_glyph_collection_spans_ok collection
+                            gui_font_registered_face_simple_glyph_collected_owner_free completed
+                            and invariant_ok spans_ok
+
+fn registered_face_simple_glyph_collection_limit_rejected %impure fn &GuiFontRegisteredFaceTableEntry impure fn &GuiFontRegisteredFaceSimpleGlyphPointStream bool \entry\evidence:
+    let limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 3
+    match gui_font_registered_face_simple_glyph_collection_start entry evidence &limit:
+        Result::Ok owner:
+            gui_font_registered_face_simple_glyph_collection_owner_free owner
+            false
+        Result::Err error:
+            let kind_ok %bool match gui_font_registered_face_simple_glyph_collection_start_error_kind &error:
+                GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::CollectionAllocFailed:
+                    true
+                _:
+                    false
+            let alloc_ok %bool match gui_font_registered_face_simple_glyph_collection_start_error_alloc_error &error:
+                Option::None:
+                    false
+                Option::Some alloc_error:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_kind &alloc_error:
+                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::CapacityRejected:
+                            true
+                        _:
+                            false
+            and kind_ok alloc_ok
+
+fn registered_face_simple_glyph_collection_ok %impure fn &GuiFontRegisteredFaceTableEntry impure fn &GuiFontRegisteredFaceSimpleGlyphPointStream bool \entry\evidence:
+    let limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 4
+    let collection_ok %bool match gui_font_registered_face_simple_glyph_collection_start entry evidence &limit:
+        Result::Err _error:
+            false
+        Result::Ok owner:
+            registered_face_simple_glyph_collection_drain_ok entry owner 0
+    and collection_ok registered_face_simple_glyph_collection_limit_rejected entry evidence
+
 fn registered_face_foreign_simple_glyph_evidence_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry Option GuiFontRegisteredFaceSimpleGlyphPointStream \table\entry:
     let evidence %Option GuiFontRegisteredFaceSimpleGlyphPointStream match gui_font_registered_face_glyph_lookup &entry 'A':
         Result::Err _error:
@@ -1363,7 +1455,7 @@ fn registered_face_simple_glyph_foreign_evidence_rejected %impure fn &GuiFontReg
         Option::None:
             false
         Option::Some evidence:
-            match gui_font_registered_face_simple_glyph_sequential_reader_start entry &evidence:
+            let reader_rejected %bool match gui_font_registered_face_simple_glyph_sequential_reader_start entry &evidence:
                 Result::Ok _cursor:
                     false
                 Result::Err error:
@@ -1373,6 +1465,19 @@ fn registered_face_simple_glyph_foreign_evidence_rejected %impure fn &GuiFontReg
                     let error_mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_simple_glyph_point_stream_mapping &error_evidence
                     let foreign_record %GuiFontRegisteredFaceRecord gui_font_registered_face_glyph_mapping_record &error_mapping
                     and gui_font_registered_face_simple_glyph_sequential_reader_error_kind_eq kind GuiFontRegisteredFaceSimpleGlyphSequentialReaderErrorKind::EvidenceRecordMismatch and eq 151 gui_font_registered_face_record_resource_raw &record and eq 157 gui_font_registered_face_record_face_raw &record and eq 181 gui_font_registered_face_record_resource_raw &foreign_record and eq 191 gui_font_registered_face_record_face_raw &foreign_record and is_none gui_font_registered_face_simple_glyph_sequential_reader_error_cursor &error and is_none gui_font_registered_face_simple_glyph_sequential_reader_error_validation_error &error is_none gui_font_registered_face_simple_glyph_sequential_reader_error_parse_error &error
+            let limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 4
+            let collection_rejected %bool match gui_font_registered_face_simple_glyph_collection_start entry &evidence &limit:
+                Result::Ok owner:
+                    gui_font_registered_face_simple_glyph_collection_owner_free owner
+                    false
+                Result::Err error:
+                    let kind_ok %bool match gui_font_registered_face_simple_glyph_collection_start_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::ReaderStartFailed:
+                            true
+                        _:
+                            false
+                    and kind_ok and is_some gui_font_registered_face_simple_glyph_collection_start_error_reader_error &error and is_none gui_font_registered_face_simple_glyph_collection_start_error_capacity_check &error is_none gui_font_registered_face_simple_glyph_collection_start_error_alloc_error &error
+            and reader_rejected collection_rejected
 
 fn registered_face_simple_glyph_success_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
     let success_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
@@ -1407,6 +1512,42 @@ fn registered_face_simple_glyph_success_callback %impure fn GuiFontRegisteredFac
     gui_font_registered_face_table_free table
     gui_font_registered_face_table_entry_free entry
     and success_ok and composite_ok and foreign_evidence_rejected entry_reusable
+
+fn registered_face_simple_glyph_collection_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry bool \table\entry:
+    let collection_ok %bool match gui_font_registered_face_glyph_lookup &entry 'A':
+        Result::Err _error:
+            false
+        Result::Ok mapping:
+            match gui_font_registered_face_simple_glyph_lookup &entry &mapping:
+                Result::Err _error:
+                    false
+                Result::Ok evidence:
+                    registered_face_simple_glyph_collection_ok &entry &evidence
+    let entry_reusable %bool match gui_font_registered_face_table_entry_validate &entry:
+        Result::Err _error:
+            false
+        Result::Ok _record:
+            true
+    gui_font_registered_face_table_free table
+    gui_font_registered_face_table_entry_free entry
+    and collection_ok entry_reusable
+
+fn registered_face_simple_glyph_collection_success_ok %impure fn void bool \void:
+    match gui_font_registered_face_table_new 1:
+        Result::Err _error:
+            false
+        Result::Ok table:
+            match build_registered_face_for_simple_glyph 151 157 sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'g' 'l' 'y' 'f' false:
+                Result::Err _message:
+                    gui_font_registered_face_table_free table
+                    false
+                Result::Ok face:
+                    match gui_font_registered_face_table_register table face:
+                        Result::Err error:
+                            gui_font_registered_face_table_register_error_free error
+                            false
+                        Result::Ok registration:
+                            gui_font_registered_face_table_registration_with registration @registered_face_simple_glyph_collection_callback
 
 fn registered_face_simple_glyph_success_ok %impure fn void bool \void:
     match gui_font_registered_face_table_new 1:
@@ -1584,10 +1725,11 @@ fn main %impure fn void i32 \void:
     let report11 %TestReport test_report_push report10 assert "registered face horizontal metric malformed table" registered_face_horizontal_metric_malformed_ok
     let report12 %TestReport test_report_push report11 assert "registered face horizontal metric mapping mismatch" registered_face_horizontal_metric_mismatch_ok
     let report13 %TestReport test_report_push report12 assert "registered face simple glyph success and composite rejection" registered_face_simple_glyph_success_ok
-    let report14 %TestReport test_report_push report13 assert "registered face simple glyph missing loca" registered_face_simple_glyph_missing_loca_ok
-    let report15 %TestReport test_report_push report14 assert "registered face simple glyph missing glyf" registered_face_simple_glyph_missing_glyf_ok
-    let report16 %TestReport test_report_push report15 assert "registered face simple glyph malformed point data" registered_face_simple_glyph_malformed_ok
-    let report17 %TestReport test_report_push report16 assert "registered face simple glyph mapping mismatch" registered_face_simple_glyph_mismatch_ok
-    let shown test_report_print_stdout report17
+    let report14 %TestReport test_report_push report13 assert "registered face simple glyph linear collection" registered_face_simple_glyph_collection_success_ok
+    let report15 %TestReport test_report_push report14 assert "registered face simple glyph missing loca" registered_face_simple_glyph_missing_loca_ok
+    let report16 %TestReport test_report_push report15 assert "registered face simple glyph missing glyf" registered_face_simple_glyph_missing_glyf_ok
+    let report17 %TestReport test_report_push report16 assert "registered face simple glyph malformed point data" registered_face_simple_glyph_malformed_ok
+    let report18 %TestReport test_report_push report17 assert "registered face simple glyph mapping mismatch" registered_face_simple_glyph_mismatch_ok
+    let shown test_report_print_stdout report18
     test_report_exit_code shown
 ```

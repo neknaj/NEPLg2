@@ -350,6 +350,16 @@ TrueType point flagのbit interpretation、x / y coordinate byte length、short 
 
 現行`GuiSfntSimpleGlyphOutlinePointReadCursor`と既存budgeted drainは各pointのflag lookupおよびx / y readerが先頭から再走査するためO(p^2)である。互換APIとして残すが、新しいfull outline pipelineはF5nt sequential cursorをsource authorityとし、後続phaseでcollection / path sinkへlinearにdrainする。F5ntはfull outline owner、path、metric join、scale、shaping / layout、raster / render2d、platform presentation、fallbackを追加しない。
 
+## Registered face simple glyph linear collection boundary
+
+F5nu はF5nt registered cursorを、既存`GuiSfntSimpleGlyphOutlinePointStreamItemCollection`へlinearに接続する。`GuiFontRegisteredFaceSimpleGlyphCollectionOwner`はregistered reader cursor、allocator-backed collection、expected point countを所有し、`Clone` / `Copy`を実装しない。startはregistered reader start、source topologyからcapacity導出、caller item limit検査、exact point capacityのcollection allocationの順に進む。foreign evidenceやentry mismatchはallocationより前に拒否する。
+
+stepはborrowed entryとcollection ownerを受け、registered readerを1 pointだけ進める。point terminalは既存`gui_sfnt_simple_glyph_outline_point_stream_item`でkindを一度だけ分類し、既存collection pushへownerを渡す。成功時はnext reader cursorとnext collectionを束ねた`Collecting`を返す。push失敗時はlower errorからkind、rejected item、storage errorを借用してからcollectionを消費回収し、next cursorではなくstep前のcursorと再結合する。retryは同じ1 pointを再decodeするため未commit pointを飛ばさず、成功する全収集のO(p + c) contractも変えない。pending itemを隠し持たない。
+
+readerが`End`を返した場合は、collection capacityのglyph / contour count / point countがF5ns topology由来のexpected capacityと一致すること、`item_count == items len == expected point count`、items capacityがexpected point countであること、End cursorのlogical indexがpoint count、contour indexが`contour_count - 1`、contour endpointが`point_count - 1`であることを検証し、F5ns evidenceとcollectionを保持するnon-Copy completed ownerへ移す。p個のpointはp回の`Point -> Collecting`でcommitし、次の1回の`End -> Completed`で完了する。1 stepは償却O(1)、全収集はO(p + c)、storageはO(p)である。
+
+start failureはevidence、limit、optional reader error、optional capacity check、optional allocation errorをCopy payloadとして返す。kindはreader start、invalid topology、command count overflow、capacity rejection、collection allocation failureを分離し、shared capacity enumの`Rejected`を別kindへ誤分類しない。step terminalとstep errorはownerを含むため`Clone` / `Copy`を実装しない。step failureはreader cursorとcollectionを含むownerを必ず回収可能にし、reader error、collection push kind、rejected item、lower storage error、expected / actual countをtyped payloadとして保持する。callerはmetadataを借用して読んだ後、consuming `take_owner`でownerを回収するか、`error_free`で閉じる。push errorのmetadataはlower errorを消費する前に読み、その後collectionを回収してpre-step reader cursorと再結合する。path constructionやrasterizationへ暗黙に進まず、completed collectionは後続phaseが明示的に既存path sinkへ渡す。behavior testはcompleted ownerからcollectionを借用し、既存contour span consumerが全contourを受理することも確認する。
+
 ## SFNT name table
 
 F4b は `alloc/gui/font/sfnt/name.nepl` が所有する。`alloc/gui/font/sfnt.nepl` は facade とし、numeric metadata parser は `alloc/gui/font/sfnt/metadata.nepl` に置く。`gui_sfnt_parse_metadata` は `name` table decode を行わず、`gui_sfnt_parse_names` は別 API として `GuiSfntNames` を返す。
