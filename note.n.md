@@ -1,3 +1,53 @@
+# 2026-07-11 Agent2 GUI font rendering F5nxb registered indexed action summary owner
+
+## 目的
+
+- registered indexed ownerをcanonical rootとして、F5nxa action authority、outline capacity、pure apply state、Running / Rejected / Completed phaseを分離不能に束ねる。
+- arbitrary mid-stream action ownerやcaller supplied stateを受けず、rejectとcompletionをtyped terminalとして静的に区別する。
+- F5nxcへ渡せるcompleted authorityとdiagnostics専用rejected authorityをchecked sealで作る。
+
+## 実装
+
+- registered indexed action moduleへCopy progress kindを追加し、NeedSinkStep / TailPendingをActive、CompletedだけをCompletedへ射影した。final Primary後もTailPendingはActiveのままである。
+- registered indexed action summary moduleを追加した。public startはindexed ownerとborrowed policyだけを受け、capacityをborrowでCopyしてから同じownerをF5nxaへmoveし、zero apply stateとRunning Noneを作る。
+- private phaseはRunning optional last status、Rejected reason、Completed concrete last statusをpayloadとして保持する。terminal phaseとmetadataを別fieldにせず、missing terminal metadataを表現不能にした。
+- Running stepはF5nxa packetをshared pure apply helperへexactly once渡す。apply statusはEmittedEvent / Rejected / ClosedContour / NoActionをwildcardなしで網羅し、RejectはTailと後続actionを進めずdomain terminalへ移る。
+- non-reject completionはF5nxa full-path progressだけから決める。final Tailを適用したcallはAppliedを返し、同じ返却ownerがCompleted phaseになる。
+- budgetはterminal、remaining stepsが0以下、最大1 actionの順に判定する。direct terminal stepはsame ownerを保持するAlreadyRejected / AlreadyCompleted errorを返す。
+- completed / rejected seal mismatchはtarget、actual、元ownerを保持する。completed / rejected ownerはcapacity、apply state、concrete last statusを返し、rejected ownerだけがconcrete reasonを返す。raw action / path / indexed / collectionのsplit APIは公開しない。
+- controlled four-point registered SFNT fixtureをpath、action、summary close、summary open、summary rejectの別owner chainで実行した。summaryは8/0/2/6、8/0/0/8、0/1/0/0を確認し、zero / negative budget、全seal mismatch、terminal misuse、全6 capacity fieldを検査する。
+- facade、仕様書、詳細設計、実装計画、source-policy、private constructor / move-only compile-fail doctestを更新した。
+
+## plan.md との差異
+
+- plan.mdは言語全体の方向性であるため変更していない。F5nxbはGUI font rendering implementation planのF5nxa後続sliceである。
+- 実装計画にあったreal-font fixtureという語は、実体がexact countを制御するbyte-level SFNT fixtureであるため修正した。HackGenなどactual repository font resourceの検査はVFS / provider integration phaseで行う。
+- F5nxbはaction summary authorityまでであり、outline storage allocation以降はF5nxcからF5nxkに残る。F5nx全体の完了とは扱わない。
+
+## subagent review
+
+- 3並列監査はcanonical start、F5nxa progress mapping、phase payload、Reject priority、terminal seal、budget matrix、capacity全field、old consumer禁止を計画へ要求した。2回の計画修正後にPLAN_APPROVEDとなった。
+- 実装レビューはapply status wildcardが将来variantをsilent successにする問題を指摘した。non-reject共通処理をprivate helperへ分け、4 variantを完全列挙して修正した。
+- 実装レビューはRunning / TailPending / Rejected / Completedのzero / negative budget matrix不足を指摘した。各stateで両方を順番に検査し、ownerとcountが変化しないfixtureへ修正した。
+- 別レビューはreal-fontという文書表現とcontrolled synthetic SFNT fixtureの不一致を指摘した。責務をbyte-level exact topology testとactual VFS font integrationへ分離して文書を修正した。
+- 修正後の再レビューは2系統ともrequired findingなしでIMPLEMENTATION_APPROVED / APPROVEDとなった。
+
+## 検証
+
+- pass: registered controlled SFNT behavior 1/1。close 8/0/2/6、open 8/0/0/8、reject 0/1/0/0、final Primary / Tail、zero / negative budget、checked seals、terminal misuse、capacity preservationを確認。
+- pass: F5nxb summary module doctest 64/64、F5nxa action module doctest 44/44。
+- pass: lower indexed path / pure path regressions 11/11。
+- pass: web GUI font source-policy contract、doctest diagnostic code metadata、stdlib documentation contract、issues check、git diff --check。
+- pass: trunk build。
+- pass: playground editor JSON 13/13。output JSONのcaseCount / passedCount / failedCountと各caseのokを確認した。
+- full source-policy aggregateは304秒のcommand timeoutまでに完了しなかった。変更対象のweb GUI font contractは単体でpassしており、aggregate timeoutをfailure成功扱いにはしていない。
+
+## 残件
+
+- F5nxcでcompleted summary authorityをnested ownershipのままoutline storage allocationへ移し、allocation limit / shape failureでもsame authorityを回収する。
+- F5nxd以降でendpoint / point / edge / command / stroke provenanceをphase-specific registered indexed owner chainへ順次移す。
+- actual repository font provider、metric join、scale、shaping / layout、glyph rasterization、render2d、platform presentationをno-fallback contractで接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nxa registered indexed action owner
 
 ## 目的

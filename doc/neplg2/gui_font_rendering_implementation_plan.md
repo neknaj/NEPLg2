@@ -6409,7 +6409,7 @@ node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json
 - `alloc/gui/font/registered_face_simple_glyph_indexed_path.nepl`を追加する。registered indexed owner、sink policy、private typed stateを同じnon-Copy traversal ownerへ束ね、public start / step / drainはこのownerだけを消費して返す。raw cursor、raw collection、lower indexed ownerを別引数で受けない。
 - private state enumは`PendingContour contour_index`、`ActiveContour span cursor`、`Completed`を持つ。startはlookupなしで`PendingContour 0`を作る。stepはpendingでだけindex lookupをexactly once呼び、activeでは保存済みspanを使う。contour stepをexisting `gui_sfnt_simple_glyph_path_sink_step_from_contour_step`へ渡してoff-curve / closure policyを適用し、次stateを確定する。
 - budgeted drainは`Completed`判定、budget 0判定、stepの順で進む。結果は常に1つのpath ownerとCopy status `Emitted sink_step` / `Completed` / `StepBudgetExhausted`を持ち、owner-bearing terminal enumへ分岐しない。terminalはbudget 0でもcompleted ownerを返し、nonterminal budget 0はlookup / readなしで同じownerを返す。1 successful sink stepだけbudgetを1消費する。step errorはpath ownerをsingle recovery / freeできる形にする。
-- lower behavior testはunequal multi-contour、single point、on-curve line、off-curve start、consecutive off-curve quadratic lookahead、`KeepOpen` / `EmitCloseAfterFinalEvent`、lookup failure、cursor/span contour mismatchを確認する。registered real-font fixtureはpartial budget resume、pending / completed terminal with zero budget、low-limit start failure recovery、premature complete failure recovery、completed traversal direct-step failure freeを確認する。foreign cursorはprivate constructor / split API不在と実動`CursorContourMismatch`の両方で検査する。
+- lower behavior testはunequal multi-contour、single point、on-curve line、off-curve start、consecutive off-curve quadratic lookahead、`KeepOpen` / `EmitCloseAfterFinalEvent`、lookup failure、cursor/span contour mismatchを確認する。registered byte-level SFNT fixtureはpartial budget resume、pending / completed terminal with zero budget、low-limit start failure recovery、premature complete failure recovery、completed traversal direct-step failure freeを確認する。actual repository font resourceはVFS / provider integration phaseで検査し、このphaseのcontrolled topology / exact count fixtureと混同しない。foreign cursorはprivate constructor / split API不在と実動`CursorContourMismatch`の両方で検査する。
 - source policyはpublic collection take削除、registered owner constructors private、non-Copy、raw ownership splitなし、shared provenance validation-before-allocationを固定する。checked-span coreでspan lookup zero、indexed path moduleでold full-scan span helperとold collection-backed point / edge / curve / event / action wrapperを0件、registered traversalのpending branchでindex lookupを1箇所、budget 0 branchより前のstep / lookup / readを0件に固定する。registered traversal public signatureがpath ownerだけを受けることも固定する。
 - facade、spec、detailed design、standard library spec、`note.n.md`、`todo.md`を同じF5nw境界へ更新する。
 
@@ -6522,6 +6522,65 @@ owner move / recovery / free:
 - subagent plan / implementation reviewがsealed provenance、Primary / Tail order、budget semantics、owner recovery、F5nxb以降とのscope境界を承認する。
 
 F5nxaの完了をF5nx全体の完了として扱わない。F5nx完了はF5nxbからF5nxkまでのauthority migrationと旧full-scan prohibitionが揃った時点とする。
+
+### Phase F5nxb: registered indexed action apply and summary owner
+
+目的:
+
+- F5nxa action packetへexisting pure apply stateをexactly once適用し、counter、last status、Running / Rejected / Completed typestateをregistered authorityと同じownerへ保持する。
+- old collection-backed Copy summary / advanceをauthorityとして再利用せず、F5nxcへ渡せるcompleted ownerとdiagnostics / free専用rejected ownerをchecked sealで作る。
+- このphaseではoutline storage allocation、endpoint / point / edge / command drain、stroke provenanceへ進まない。
+
+public start / owner契約:
+
+- public startはregistered indexed ownerとborrowed policyだけを受ける。collection refからcanonical capacityをCopyした後、同じcall内でindexed ownerをF5nxa startへmoveし、zero apply state、last status None、Running phaseを作る。
+- arbitrary F5nxa owner、caller supplied apply state / capacity / summary、raw path / cursor / collectionを受けるpublic start / constructorを作らない。
+- summary ownerはF5nxa owner、canonical capacity、apply state、private phaseを一体所有し、Clone / Copyを実装しない。phase payloadはRunning Option last-status / Rejected reason / Completed concrete last-statusとし、terminal phaseとterminal statusを別fieldにしない。
+- F5nxaへCopy progress kind Active / Completed accessorを追加する。mappingはNeedSinkStep / TailPendingがActive、CompletedだけがCompletedである。raw stateを公開せず、final Primary後にlower pathがcompletedでもTailPendingをActiveのまま保つ。F5nxbはpacket / lower path progress / contour-local eventからcompletionを推測しない。
+- summary metadataはCopy projectionとして公開してよいが、continuation authorityではない。old ConsumerConsumeSummary advanceとold F5am outcomeをfieldへ保持せず、F5nxcはmetadata単体を入力にしない。
+
+step / terminal契約:
+
+- Running stepはF5nxa action stepを最大1回呼び、packet actionをgui_sfnt_simple_glyph_path_sink_action_apply_state_apply_actionへexactly once渡す。
+- EmitEvent、CloseContour、NoActionはupdated state / statusをcommitし、lower progress ActiveならRunning、CompletedならCompletedへ移る。final Tail適用callのstep statusはAppliedであり、returned owner phaseだけがCompletedになる。
+- Rejectはupdated state / Rejected statusをcommitし、next / Tailより優先してphase Rejectedへ移る。reject packetを消費したcallはRejected reasonを返し、lower TailPending ownerを封印して二度とlower stepを呼ばない。
+- Completed authorityはF5nxa full-path progressだけで決める。intermediate contourのCloseContour / NoActionをfull-path terminalにしない。
+- summary step error kindはLowerActionFailed / AlreadyRejected / AlreadyCompletedとする。LowerActionFailedはoptional lower action kind、path kind、lookup error、contour-step errorを保持し、全metadataをread-before-takeして変更前summary ownerへ再結合する。terminal direct stepはlower metadata Noneで同じownerを返す。
+
+budget / seal契約:
+
+- budget resultは常に唯一のsummary ownerとCopy status Applied apply-status / Rejected reason / Completed / StepBudgetExhaustedを持つ。
+- 判定順はRejected / Completed terminal、Running remaining steps <= 0、最大1 actionである。terminalは0 / negative budgetより優先し、Running nonpositive budgetはlower call / apply / counter updateを0回にする。
+- final non-reject action適用callはAppliedを返し、次回callがCompletedを返す。Reject適用callは即時Rejectedを返し、repeated rejected queryもlower callを行わない。
+- completed sealはCompleted summary ownerだけをcompleted ownerへmoveし、rejected sealはRejected summary ownerだけをrejected ownerへmoveする。seal target Completed / Rejectedとactual progress Running / Rejected / CompletedをCopy enumで表し、phase mismatch errorはtarget、actual、original summary ownerを回収 / freeできる。
+- completed / rejected ownerはcapacity、apply state、非optionallast apply status accessorとfreeだけを公開する。rejected ownerだけが非optionalreject reasonを公開する。raw action / path / indexed / collection / storage takeを提供しない。F5nxc inputはcompleted owner型だけとし、F5nxc ownerはcompleted ownerを分解せずnested authorityとして保持する。
+
+owner move / recovery / free:
+
+| transition | input resource | success owner / state | failure metadata / recovery | free / budget obligation |
+|---|---|---|---|---|
+| start | registered indexed owner、borrowed policy | summary owner Running None、zero counts、canonical capacity | lower startはinfallible | summary freeがembedded action ownerを1回freeする |
+| Running apply | summary owner | updated summary owner RunningまたはCompleted、Applied status | lower error metadataをread-before-takeし、action ownerを変更前summaryへ再結合 | shared apply helper exactly once |
+| Running reject | summary owner | updated summary owner Rejected、Rejected reason | Result errorではなくdomain terminal | Tail / next actionを消費しない |
+| Running budget 0 | summary owner | unchanged owner、StepBudgetExhausted | metadataなし | lower step / apply / count update 0回 |
+| Rejected / Completed query | terminal summary owner | same owner、typed terminal status | metadataなし | budgetより先に判定しlower call 0回 |
+| terminal direct step | terminal summary owner | successなし | AlreadyRejected / AlreadyCompleted errorがsame ownerを保持 | error freeまたはtake owner |
+| completed / rejected seal | terminal summary owner | matching sealed terminal owner、concrete last status、rejected reason | target / actual phase mismatch errorがoriginal summary ownerを保持 | terminal wrapper freeはsummary freeへ委譲 |
+
+完了条件:
+
+- controlled four-point topologyを持つregistered byte-level SFNT fixtureを別owner chainで3回構築し、EmitClose policyで8 / 0 / 2 / 6、KeepOpenで8 / 0 / 0 / 8、RejectUnsupportedで0 / 1 / 0 / 0を確認する。actual repository font resourceはVFS / provider integration phaseで別途検査する。
+- RejectUnsupportedは最初のPrimaryでUnsupportedOffCurveStartを返し、Tail / next contourを消費せず、completed sealを拒否してrejected sealだけ成功する。
+- RunningのPrimary前 / TailPending、Rejected、Completedでbudget 0とnegative budgetを検査する。最終Primary後もActiveでbudget 0はexhausted、最終TailはApplied、返却ownerはCompleted、次回budgetはCompleted優先になることを確認する。
+- Runningからcompleted / rejected両sealを拒否し、Rejectedからcompleted seal、Completedからrejected sealを拒否する。各mismatchでtarget、actual、元ownerを確認する。最終Tail Applied直後はCompleted queryを挟まずcompleted sealが成功する。
+- start前のindexed collection capacity、Running summary capacity、completed owner capacityをglyph、contour count、point count、edge count、path command pair count、path command countの全fieldで比較する。
+- F5nw lower behavior fixtureでshape / lookup / contour failure、F5nxa source policyでlower wrappingを検査し、F5nxbはread-before-take ordered source policyとterminal misuse runtimeを検査する。
+- summary / phase / metadata / step / error / budget / completed / rejected constructor private、owner non-Copy、caller state注入不可、double take / moved owner再利用compile-failを固定する。
+- new moduleからold collection-backed action consumer / summary / full-scan helper、raw split accessor、fallback、panic、unreachableを禁止する。pure apply helperはsuccessful actionごとにexactly onceだけ呼ぶ。
+- focused behavior、module doctest、F5nxa / F5nw / pure apply regressions、source policy、diagnostic metadata、documentation contract、issues、git diff --check、trunk build、playground editor JSONが通る。
+- subagent plan / implementation reviewがdomain reject priority、full-path completion、sealed terminal owner、F5nxc handoff、O(a) time / O(1) additional storageを承認する。
+
+F5nxbの完了をF5nx全体の完了として扱わない。outline storage allocation以降はF5nxcからF5nxkに残す。
 
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 

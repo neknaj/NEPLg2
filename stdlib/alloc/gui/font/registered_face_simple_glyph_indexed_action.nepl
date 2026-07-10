@@ -9,6 +9,7 @@
 //: ### [契約/けいやく]
 //: - raw collection、cursor、path owner を分離する public API は提供しません。
 //: - `NeedSinkStep` だけが lower path step を一度呼び、`TailPending` は保存済み sink step だけを読みます。
+//: - private state は公開せず、進捗は `NeedSinkStep` / `TailPending` を `Active`、`Completed` を `Completed` とする Copy projection だけで公開します。
 //: - budget は terminal、budget 0、最大一 action の順に判定し、常に owner と Copy status を返します。
 //: - action summary、storage、command、stroke state は所有しません。
 //:
@@ -21,6 +22,7 @@
 //:| #indent 4
 //:| #target std
 //:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
 //:
@@ -31,11 +33,17 @@
 //:         Result::Ok budget_step:
 //:             gui_font_registered_face_simple_glyph_indexed_action_budget_step_free budget_step
 //:
+//: fn read_progress %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind \owner:
+//:     gui_font_registered_face_simple_glyph_indexed_action_progress_kind owner
+//:
 //: fn main %fn void i32 \void:
+//:     let active %bool match GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Active:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Active: true
+//:         _: false
 //:     let completed %bool match GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Completed:
 //:         GuiFontRegisteredFaceSimpleGlyphIndexedActionBudgetStatus::Completed: true
 //:         _: false
-//:     test_assertion_exit_code assert "registered indexed action completion is typed" completed
+//:     test_assertion_exit_code assert "registered indexed action progress is typed" and active completed
 //: ```
 //:
 //: neplg2:test[compile_fail]
@@ -51,6 +59,19 @@
 //:
 //: fn main %fn void i32 \void:
 //:     0
+//: ```
+//:
+//: neplg2:test[compile_fail]
+//: diag_code: resolve.identifier.undefined
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
+//:
+//: fn main %fn void i32 \void:
+//:     match GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed:
+//:         _: 0
 //: ```
 //:
 //: neplg2:test[compile_fail]
@@ -129,6 +150,27 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind: private action state を隠した公開進捗分類
+//:
+//: [目的/もくてき]: 後続の summary owner が raw state や sink step を取り出さず、action stream 全体の完了だけを判定できるようにします。
+//:
+//: [契約/けいやく]: `NeedSinkStep` と `TailPending` は `Active`、`Completed` だけは `Completed` に射影します。final Primary 後の `TailPending` は、final Tail が公開されるまで `Active` のままです。
+//:
+//: [計算量/けいさんりょう]: 判定は O(1) で、allocation、lower step、lookup、collection read を行いません。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind:
+    Active
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind \kind:
+        kind
+
 //: GuiFontRegisteredFaceSimpleGlyphIndexedActionState: lower step 待ち、tail 待ち、完了を分ける内部状態
 //:
 //: neplg2:test[skip]
@@ -159,6 +201,24 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner:
 //: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_action_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedActionState GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner \path\state:
     GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner path state
+
+//: gui_font_registered_face_simple_glyph_indexed_action_progress_kind: action owner の公開進捗を読む
+//:
+//: [目的/もくてき]: owner を消費せず、後続処理が継続中か全 action 完了かを Copy 値として判定できるようにします。
+//:
+//: [契約/けいやく]: raw state と保存済み sink step は公開しません。`NeedSinkStep` / `TailPending` は `Active`、`Completed` は `Completed` を返します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域で、lower path の状態や contour-local event から完了を再導出しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind \owner:
+    match *field::get_ref owner "state":
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep:
+            GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Active
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::TailPending _sink_step:
+            GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Active
+        GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed:
+            GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Completed
 
 //: GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket: 一 action と由来 sink step を運ぶ Copy packet
 //:

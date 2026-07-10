@@ -424,6 +424,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedPath = read("stdlib/alloc/gui/fon
 const allocFontRegisteredFaceSimpleGlyphIndexedPathImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPath);
 const allocFontRegisteredFaceSimpleGlyphIndexedAction = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_action.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedActionImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedAction);
+const allocFontRegisteredFaceSimpleGlyphIndexedActionSummary = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_action_summary.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedActionSummary);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3042,6 +3044,215 @@ assertOrderedFragments(
     "F5nxa budget traversal must check terminal, then zero budget, then at most one action",
 );
 assertMatch(
+    allocFontFacade,
+    /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_indexed_action_summary"\s+as\s+\*/,
+    "alloc/gui/font facade must export the registered indexed action summary owner boundary",
+);
+const registeredIndexedActionProgress = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_progress_kind",
+);
+assertOrderedFragments(
+    registeredIndexedActionProgress,
+    [
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionState::NeedSinkStep:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Active",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionState::TailPending _sink_step:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Active",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Completed",
+    ],
+    "F5nxa progress projection must map NeedSinkStep and TailPending to Active and only Completed to Completed",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionImpl,
+    /pub\s+(?:enum|fn)\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionState\b|pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_action_(?:state|take_state)\b/,
+    "F5nxa progress projection must not expose the private action phase or raw state",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummary,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner:[\s\S]*action\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner[\s\S]*capacity\s+%GuiSfntSimpleGlyphOutlineStorageCapacity[\s\S]*apply_state\s+%GuiSfntSimpleGlyphPathSinkActionApplyState[\s\S]*phase\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase/,
+    "F5nxb summary owner must bind F5nxa authority, canonical capacity, apply state, and private phase",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    /enum\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase:\s*Running\s+%Option\s+GuiSfntSimpleGlyphPathSinkActionApplyStatus\s*Rejected\s+%GuiSfntSimpleGlyphPathSinkRejectReason\s*Completed\s+%GuiSfntSimpleGlyphPathSinkActionApplyStatus/,
+    "F5nxb private phase must carry Running optional status and concrete Rejected or Completed terminal payloads",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    /pub\s+enum\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase\b|pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_action_summary_(?:owner|step_value|error|budget_step|completed_owner|rejected_owner|seal_error)\b/,
+    "F5nxb phase and all owner-bearing constructors must remain private",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryStep",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStep",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryRejectedOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummarySealError",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must remain move-only because it owns or returns the registered summary authority`,
+    );
+}
+const registeredIndexedActionSummaryStart = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_start",
+);
+assertMatch(
+    registeredIndexedActionSummaryStart,
+    /fn\s+gui_font_registered_face_simple_glyph_indexed_action_summary_start\s+%fn\s+GuiFontRegisteredFaceSimpleGlyphIndexedOwner\s+fn\s+&GuiSfntSimpleGlyphPathSinkPolicy\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner\b/,
+    "F5nxb public start must accept only the registered indexed owner and borrowed sink policy",
+);
+assertOrderedFragments(
+    registeredIndexedActionSummaryStart,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_owner_collection_ref &indexed",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+        "gui_font_registered_face_simple_glyph_indexed_action_start indexed policy",
+        "gui_sfnt_simple_glyph_path_sink_action_apply_state_new",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase::Running none",
+    ],
+    "F5nxb canonical start must copy capacity before moving indexed authority and then create zero-state Running None",
+);
+const registeredIndexedActionSummaryRunningStep = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_step_running",
+);
+assertOrderedFragments(
+    registeredIndexedActionSummaryRunningStep,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_action_error_kind &action_error",
+        "gui_font_registered_face_simple_glyph_indexed_action_error_path_error_kind &action_error",
+        "gui_font_registered_face_simple_glyph_indexed_action_error_lookup_error &action_error",
+        "gui_font_registered_face_simple_glyph_indexed_action_error_contour_step_error &action_error",
+        "gui_font_registered_face_simple_glyph_indexed_action_error_take_owner action_error",
+    ],
+    "F5nxb must read every lower error metadata field before taking and rejoining the action owner",
+);
+assert(
+    registeredIndexedActionSummaryRunningStep.split("gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action").length - 1 === 1,
+    "F5nxb Running step must contain exactly one shared apply-helper call site",
+);
+assertOrderedFragments(
+    registeredIndexedActionSummaryRunningStep,
+    [
+        "gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action apply_state packet_action",
+        "gui_sfnt_simple_glyph_path_sink_action_apply_step_state &apply_step",
+        "gui_sfnt_simple_glyph_path_sink_action_apply_step_status &apply_step",
+        "GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent event:",
+        "GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected reason:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase::Rejected reason",
+        "GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour close:",
+        "GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:",
+    ],
+    "F5nxb must commit the exactly-once apply result, exhaustively classify statuses, and give Reject a dedicated terminal branch",
+);
+assertNoMatch(
+    registeredIndexedActionSummaryRunningStep,
+    /\n\s*_:$/m,
+    "F5nxb apply status match must fail closed when a new apply status variant is added",
+);
+assertMatch(
+    functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl, "gui_font_registered_face_simple_glyph_indexed_action_summary_step_applied"),
+    /gui_font_registered_face_simple_glyph_indexed_action_progress_kind\s+&action[\s\S]*ProgressKind::Active[\s\S]*Phase::Running[\s\S]*ProgressKind::Completed[\s\S]*Phase::Completed/,
+    "F5nxb non-reject helper must derive completion only from the full F5nxa progress authority",
+);
+const registeredIndexedActionSummaryBudget = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_drain_budget",
+);
+assertOrderedFragments(
+    registeredIndexedActionSummaryBudget,
+    [
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase::Rejected reason:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::Rejected reason",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase::Completed _last_status:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::Completed",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase::Running _last_status:",
+        "if le remaining_steps 0:",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::StepBudgetExhausted",
+        "gui_font_registered_face_simple_glyph_indexed_action_summary_step owner",
+    ],
+    "F5nxb budget must check terminal phases, then nonpositive budget, then perform at most one action",
+);
+assert(
+    registeredIndexedActionSummaryBudget.split("gui_font_registered_face_simple_glyph_indexed_action_summary_step owner").length - 1 === 1,
+    "F5nxb budget must have exactly one action-step call site",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    /struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedActionSummarySealError:\s*owner\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner\s*target\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionSummarySealTargetKind\s*actual\s+%GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryProgressKind/,
+    "F5nxb checked seal mismatch must retain original owner plus requested target and actual phase",
+);
+for (const [sealName, target, successPhase, mismatchPhases] of [
+    ["seal_completed", "Completed", "Completed", ["Running", "Rejected"]],
+    ["seal_rejected", "Rejected", "Rejected", ["Running", "Completed"]],
+]) {
+    const seal = functionSlice(
+        allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+        `gui_font_registered_face_simple_glyph_indexed_action_summary_${sealName}`,
+    );
+    assertMatch(
+        seal,
+        new RegExp(`GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryPhase::${successPhase}\\b`),
+        `F5nxb ${sealName} must accept only ${successPhase}`,
+    );
+    for (const actual of mismatchPhases) {
+        assertMatch(
+            seal,
+            new RegExp(`gui_font_registered_face_simple_glyph_indexed_action_summary_seal_error owner GuiFontRegisteredFaceSimpleGlyphIndexedActionSummarySealTargetKind::${target} GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryProgressKind::${actual}\\b`),
+            `F5nxb ${sealName} mismatch must preserve target ${target}, actual ${actual}, and original owner`,
+        );
+    }
+}
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    /GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary|gui_sfnt_(?:lookup_)?simple_glyph_(?:outline_point_stream_item_)?collection_path_sink_action|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary|full[_-]?scan/,
+    "F5nxb must not use old collection-backed consumer, summary, outcome, or full-scan traversal APIs",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_action_summary_[^\s]*(?:take_action|take_path|take_indexed|take_collection|take_storage|raw)|\b(?:fallback|panic|unreachable)\b/,
+    "F5nxb must not expose raw authority splits or contain fallback, panic, or unreachable paths",
+);
+for (const label of [
+    "registered face indexed action summary emit close 8/0/2/6",
+    "registered face indexed action summary keep open 8/0/0/8",
+    "registered face indexed action summary reject unsupported 0/1/0/0",
+    "registered face indexed action summary budget boundaries",
+    "registered face indexed action summary checked seals",
+    "registered face indexed action summary capacity preservation",
+    "registered face indexed action summary terminal misuse",
+]) {
+    assert(
+        guiFontRegisteredFaceTests.includes(label),
+        `F5nxb focused registered behavior test must include label: ${label}`,
+    );
+}
+for (const fragment of [
+    "GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent",
+    "GuiSfntSimpleGlyphPathClosurePolicy::KeepOpen",
+    "GuiSfntSimpleGlyphPathOffCurveStartPolicy::RejectUnsupported",
+    "GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::StepBudgetExhausted",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::Completed",
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_seal_completed",
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_seal_rejected",
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_seal_error_target",
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_seal_error_actual",
+    "gui_font_registered_face_simple_glyph_indexed_action_summary_seal_error_take_owner",
+]) {
+    assert(
+        guiFontRegisteredFaceTests.includes(fragment),
+        `F5nxb focused registered behavior matrix must exercise ${fragment}`,
+    );
+}
+assertMatch(
     allocFontRegisteredFaceSimpleGlyphIndexedPath,
     /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner:[\s\S]*indexed\s+%GuiFontRegisteredFaceSimpleGlyphIndexedOwner[\s\S]*policy\s+%GuiSfntSimpleGlyphPathSinkPolicy[\s\S]*state\s+%GuiFontRegisteredFaceSimpleGlyphIndexedPathState/,
     "F5nw registered path owner must bind registered index, policy, and private state",
@@ -3112,8 +3323,8 @@ assertMatch(
 );
 assertMatch(
     guiFontRegisteredFaceTests,
-    /let path_ok[\s\S]*collection_drain_ok entry owner 0 false[\s\S]*let action_ok[\s\S]*collection_drain_ok entry owner 0 true[\s\S]*and path_ok and action_ok/,
-    "registered behavior must execute separate F5nw and F5nxa owner chains from the same evidence",
+    /let path_ok[\s\S]*collection_drain_ok entry owner 0 RegisteredFaceSimpleGlyphTraversalMode::IndexedPath[\s\S]*let action_ok[\s\S]*collection_drain_ok entry owner 0 RegisteredFaceSimpleGlyphTraversalMode::IndexedAction[\s\S]*and path_ok and action_ok/,
+    "registered behavior must execute separate F5nw and F5nxa owner chains from the same evidence through typed traversal modes",
 );
 assertMatch(
     guiFontSfntGlyfIndexedPathTests,
