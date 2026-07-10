@@ -79,7 +79,7 @@ pub struct GuiFontRegisteredFaceGlyphLookupError:
     kind %GuiFontRegisteredFaceGlyphLookupErrorKind
     record %GuiFontRegisteredFaceRecord
     parse_error %Option GuiSfntParseError
-    table_error %Option GuiFontRegisteredFaceTableRegisterErrorKind
+    validation_error %Option GuiFontRegisteredFaceTableEntryValidationError
     code_point %i32
 
 impl Clone for GuiFontRegisteredFaceGlyphLookupError:
@@ -99,8 +99,8 @@ fn gui_font_registered_face_glyph_mapping %fn GuiFontRegisteredFaceRecord fn i32
 //: gui_font_registered_face_glyph_lookup_error: Copy evidence error を[作/つく]る
 //:
 //: neplg2:test[skip]
-fn gui_font_registered_face_glyph_lookup_error %fn GuiFontRegisteredFaceGlyphLookupErrorKind fn GuiFontRegisteredFaceRecord fn Option GuiSfntParseError fn Option GuiFontRegisteredFaceTableRegisterErrorKind fn i32 GuiFontRegisteredFaceGlyphLookupError \kind\record\parse_error\table_error\code_point:
-    GuiFontRegisteredFaceGlyphLookupError kind record parse_error table_error code_point
+fn gui_font_registered_face_glyph_lookup_error %fn GuiFontRegisteredFaceGlyphLookupErrorKind fn GuiFontRegisteredFaceRecord fn Option GuiSfntParseError fn Option GuiFontRegisteredFaceTableEntryValidationError fn i32 GuiFontRegisteredFaceGlyphLookupError \kind\record\parse_error\validation_error\code_point:
+    GuiFontRegisteredFaceGlyphLookupError kind record parse_error validation_error code_point
 
 //: gui_font_registered_face_glyph_lookup_error_from_parse: SFNT parse error を lookup error に[写/うつ]す
 //:
@@ -109,11 +109,17 @@ fn gui_font_registered_face_glyph_lookup_error_from_parse %fn GuiFontRegisteredF
     let kind %GuiFontRegisteredFaceGlyphLookupErrorKind gui_font_registered_face_glyph_lookup_error_kind_from_sfnt_parse &parse_error
     gui_font_registered_face_glyph_lookup_error kind record some parse_error none code_point
 
-//: gui_font_registered_face_glyph_lookup_error_from_table: table record 再検査 error を lookup error に[写/うつ]す
+//: gui_font_registered_face_glyph_lookup_error_from_validation: table entry validation error を lookup error に[写/うつ]す
 //:
 //: neplg2:test[skip]
-fn gui_font_registered_face_glyph_lookup_error_from_table %fn GuiFontRegisteredFaceRecord fn i32 fn GuiFontRegisteredFaceTableRegisterErrorKind GuiFontRegisteredFaceGlyphLookupError \record\code_point\table_error:
-    gui_font_registered_face_glyph_lookup_error GuiFontRegisteredFaceGlyphLookupErrorKind::TableRecordInvalid record none some table_error code_point
+fn gui_font_registered_face_glyph_lookup_error_from_validation %fn i32 fn GuiFontRegisteredFaceTableEntryValidationError GuiFontRegisteredFaceGlyphLookupError \code_point\validation_error:
+    let record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_validation_error_record &validation_error
+    let kind %GuiFontRegisteredFaceGlyphLookupErrorKind match gui_font_registered_face_table_entry_validation_error_kind &validation_error:
+        GuiFontRegisteredFaceTableEntryValidationErrorKind::InvalidFaceProjection:
+            GuiFontRegisteredFaceGlyphLookupErrorKind::TableRecordInvalid
+        GuiFontRegisteredFaceTableEntryValidationErrorKind::RecordMismatch:
+            GuiFontRegisteredFaceGlyphLookupErrorKind::TableRecordMismatch
+    gui_font_registered_face_glyph_lookup_error kind record none some validation_error code_point
 
 //: gui_font_registered_face_glyph_lookup_error_kind_from_sfnt_parse: parser error を public lookup kind へ[分類/ぶんるい]する
 //:
@@ -229,72 +235,6 @@ pub fn gui_font_registered_face_glyph_lookup_error_kind_eq %fn GuiFontRegistered
                 _:
                     false
 
-//: gui_font_registered_face_glyph_lookup_source_eq: provider source を[比/くら]べる
-//:
-//: neplg2:test[skip]
-fn gui_font_registered_face_glyph_lookup_source_eq %fn GuiFontResourceSource fn GuiFontResourceSource bool \a\b:
-    match a:
-        GuiFontResourceSource::Vfs:
-            match b:
-                GuiFontResourceSource::Vfs:
-                    true
-                _:
-                    false
-        GuiFontResourceSource::FileSystem:
-            match b:
-                GuiFontResourceSource::FileSystem:
-                    true
-                _:
-                    false
-        GuiFontResourceSource::EmbeddedBlob:
-            match b:
-                GuiFontResourceSource::EmbeddedBlob:
-                    true
-                _:
-                    false
-
-//: gui_font_registered_face_glyph_lookup_decode_policy_eq: decode policy を[比/くら]べる
-//:
-//: neplg2:test[skip]
-fn gui_font_registered_face_glyph_lookup_decode_policy_eq %fn GuiFontDecodePolicy fn GuiFontDecodePolicy bool \a\b:
-    match a:
-        GuiFontDecodePolicy::SfntOnly:
-            match b:
-                GuiFontDecodePolicy::SfntOnly:
-                    true
-                _:
-                    false
-        GuiFontDecodePolicy::SfntAndWoff:
-            match b:
-                GuiFontDecodePolicy::SfntAndWoff:
-                    true
-                _:
-                    false
-        GuiFontDecodePolicy::AllSupportedContainers:
-            match b:
-                GuiFontDecodePolicy::AllSupportedContainers:
-                    true
-                _:
-                    false
-
-//: gui_font_registered_face_glyph_lookup_hash_eq: resource hash を raw bit pattern で[比/くら]べる
-//:
-//: neplg2:test[skip]
-fn gui_font_registered_face_glyph_lookup_hash_eq %fn GuiResourceHash fn GuiResourceHash bool \a\b:
-    eq gui_resource_hash_raw &a gui_resource_hash_raw &b
-
-//: gui_font_registered_face_glyph_lookup_record_eq: entry record と再導出 record を[照合/しょうごう]する
-//:
-//: neplg2:test[skip]
-fn gui_font_registered_face_glyph_lookup_record_eq %fn &GuiFontRegisteredFaceRecord fn &GuiFontRegisteredFaceRecord bool \left\right:
-    let left_hash %GuiResourceHash gui_font_registered_face_record_actual_hash left
-    let right_hash %GuiResourceHash gui_font_registered_face_record_actual_hash right
-    let left_source %GuiFontResourceSource gui_font_registered_face_record_source left
-    let right_source %GuiFontResourceSource gui_font_registered_face_record_source right
-    let left_policy %GuiFontDecodePolicy gui_font_registered_face_record_decode_policy left
-    let right_policy %GuiFontDecodePolicy gui_font_registered_face_record_decode_policy right
-    and eq gui_font_registered_face_record_resource_raw left gui_font_registered_face_record_resource_raw right and eq gui_font_registered_face_record_face_raw left gui_font_registered_face_record_face_raw right and eq gui_font_registered_face_record_selected_face_index left gui_font_registered_face_record_selected_face_index right and eq gui_font_registered_face_record_face_count left gui_font_registered_face_record_face_count right and eq gui_font_registered_face_record_units_per_em left gui_font_registered_face_record_units_per_em right and eq gui_font_registered_face_record_glyph_count left gui_font_registered_face_record_glyph_count right and eq gui_font_registered_face_record_byte_len left gui_font_registered_face_record_byte_len right and gui_font_registered_face_glyph_lookup_hash_eq left_hash right_hash and gui_font_registered_face_glyph_lookup_source_eq left_source right_source gui_font_registered_face_glyph_lookup_decode_policy_eq left_policy right_policy
-
 //: gui_font_registered_face_glyph_mapping_record: mapping の table record を[返/かえ]す
 //:
 //: neplg2:test[skip]
@@ -331,11 +271,11 @@ pub fn gui_font_registered_face_glyph_lookup_error_record %fn &GuiFontRegistered
 pub fn gui_font_registered_face_glyph_lookup_error_parse_error %fn &GuiFontRegisteredFaceGlyphLookupError Option GuiSfntParseError \error:
     *field::get_ref error "parse_error"
 
-//: gui_font_registered_face_glyph_lookup_error_table_error: optional table validation error を[返/かえ]す
+//: gui_font_registered_face_glyph_lookup_error_validation_error: optional table entry validation error を[返/かえ]す
 //:
 //: neplg2:test[skip]
-pub fn gui_font_registered_face_glyph_lookup_error_table_error %fn &GuiFontRegisteredFaceGlyphLookupError Option GuiFontRegisteredFaceTableRegisterErrorKind \error:
-    *field::get_ref error "table_error"
+pub fn gui_font_registered_face_glyph_lookup_error_validation_error %fn &GuiFontRegisteredFaceGlyphLookupError Option GuiFontRegisteredFaceTableEntryValidationError \error:
+    *field::get_ref error "validation_error"
 
 //: gui_font_registered_face_glyph_lookup_error_code_point: 失敗した code point を[返/かえ]す
 //:
@@ -352,22 +292,16 @@ pub fn gui_font_registered_face_glyph_lookup_error_code_point %fn &GuiFontRegist
 //:
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_glyph_lookup %fn &GuiFontRegisteredFaceTableEntry fn i32 Result GuiFontRegisteredFaceGlyphMapping GuiFontRegisteredFaceGlyphLookupError \entry\code_point:
-    let record %GuiFontRegisteredFaceRecord gui_font_registered_face_table_entry_record entry
-    let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
-    match gui_font_registered_face_table_record_from_face face_ref:
-        Result::Err table_error:
-            Result::Err gui_font_registered_face_glyph_lookup_error_from_table record code_point table_error
-        Result::Ok derived_record:
-            if:
-                not gui_font_registered_face_glyph_lookup_record_eq &record &derived_record
-                then:
-                    Result::Err gui_font_registered_face_glyph_lookup_error GuiFontRegisteredFaceGlyphLookupErrorKind::TableRecordMismatch record none none code_point
-                else:
-                    let selected_face_index %i32 gui_font_registered_face_record_selected_face_index &derived_record
-                    let resource_ref %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
-                    let bytes %&ByteBuf gui_font_resource_bytes_ref resource_ref
-                    match gui_sfnt_lookup_glyph_id bytes some selected_face_index code_point:
-                        Result::Err parse_error:
-                            Result::Err gui_font_registered_face_glyph_lookup_error_from_parse derived_record code_point parse_error
-                        Result::Ok glyph:
-                            Result::Ok gui_font_registered_face_glyph_mapping derived_record code_point glyph
+    match gui_font_registered_face_table_entry_validate entry:
+        Result::Err validation_error:
+            Result::Err gui_font_registered_face_glyph_lookup_error_from_validation code_point validation_error
+        Result::Ok record:
+            let face_ref %&GuiFontRegisteredFace gui_font_registered_face_table_entry_face_ref entry
+            let selected_face_index %i32 gui_font_registered_face_record_selected_face_index &record
+            let resource_ref %&GuiFontResourceBytes gui_font_registered_face_resource_ref face_ref
+            let bytes %&ByteBuf gui_font_resource_bytes_ref resource_ref
+            match gui_sfnt_lookup_glyph_id bytes some selected_face_index code_point:
+                Result::Err parse_error:
+                    Result::Err gui_font_registered_face_glyph_lookup_error_from_parse record code_point parse_error
+                Result::Ok glyph:
+                    Result::Ok gui_font_registered_face_glyph_mapping record code_point glyph

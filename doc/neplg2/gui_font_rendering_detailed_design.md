@@ -258,7 +258,7 @@ F5np は `gui_font_registered_face_finish_resource` や `gui_font_resource_bytes
 
 ## Font registered face glyph lookup boundary
 
-F5nq は `GuiFontRegisteredFaceTableEntry` を借用し、table membership 済み face から 1 code point の glyph id を解決する。entry は `GuiFontRegisteredFace` owner と Copy record を同時に保持するため、F5nq は entry record だけを盲信しない。lookup 前に `gui_font_registered_face_table_record_from_face` で face owner から record を再導出し、entry record と全 field を照合する。
+F5nq は `GuiFontRegisteredFaceTableEntry` を借用し、table membership 済み face から 1 code point の glyph id を解決する。entry は `GuiFontRegisteredFace` owner と Copy record を同時に保持するため、F5nq は entry record だけを盲信しない。F5nr で table layer に追加する `gui_font_registered_face_table_entry_validate` が face owner から record を再導出し、entry record と全 field を一度だけ照合する。F5nq と後続 lookup はこの validator を共有する。
 
 ```text
 GuiFontRegisteredFaceGlyphMapping:
@@ -270,15 +270,41 @@ GuiFontRegisteredFaceGlyphLookupError:
     kind GuiFontRegisteredFaceGlyphLookupErrorKind
     record GuiFontRegisteredFaceRecord
     parse_error Option GuiSfntParseError
-    table_error Option GuiFontRegisteredFaceTableRegisterErrorKind
+    validation_error Option GuiFontRegisteredFaceTableEntryValidationError
     code_point i32
 ```
 
-F5nq の public lookup は `&GuiFontRegisteredFaceTableEntry` を受け取り、entry owner を消費しない。success は `GuiFontRegisteredFaceGlyphMapping` の Copy evidence だけを返す。failure は entry owner recovery ではなく、同じ record / code point / lower `GuiSfntParseError` / table validation error を Copy evidence として返す。caller は entry owner を保持したまま、別 code point lookup、hmtx / glyf lookup、または後続 owner close を選べる。
+F5nq の public lookup は `&GuiFontRegisteredFaceTableEntry` を受け取り、entry owner を消費しない。success は `GuiFontRegisteredFaceGlyphMapping` の Copy evidence だけを返す。failure は entry owner recovery ではなく、同じ record / code point / lower `GuiSfntParseError` / `GuiFontRegisteredFaceTableEntryValidationError` を Copy evidence として返す。旧 `table_error Option GuiFontRegisteredFaceTableRegisterErrorKind` field は F5nr migration で削除し、validation error accessor も新しい shared validation payload を返す。これにより `InvalidFaceProjection` と `RecordMismatch` の分類を glyph lookup error へ写した後も失わない。caller は entry owner を保持したまま、別 code point lookup、hmtx / glyf lookup、または後続 owner close を選べる。
 
 F5nq は record 照合後、再導出 record の `selected_face_index` を `some selected_face_index` として `gui_sfnt_lookup_glyph_id` に渡す。これにより face selection authority は table membership に残り、resource request、path suffix、font family、display name、browser / OS font API に戻らない。`gui_sfnt_lookup_glyph_id` は 1 回だけ呼び、`MissingGlyphMapping`、`UnsupportedCmapEncoding`、`UnsupportedCmapTableFormat`、`MalformedCmapRecord` などは lower `GuiSfntParseError` を保持して typed lookup error へ写す。
 
 F5nq は hmtx / glyf lookup、text shaping、layout、glyph mask、rasterization、render2d、platform presentation、Web compositor presentation へ進まない。`GuiFontRegisteredFaceTable` の Copy record だけ、browser `FontFace`、Canvas `fillText`、host text measurement、fallback font は glyph lookup success evidence ではない。
+
+## Font registered face horizontal metric lookup boundary
+
+F5nr は table entry validation を table layer の共有責務へ移し、registered face owner と F5nq mapping から raw font-unit horizontal metric を解決する。validator は entry を借用し、face owner 由来 record の再導出失敗を `InvalidFaceProjection`、entry record との全 field 不一致を `RecordMismatch` とする Copy error evidence を返す。成功時は canonical derived record を返し、bytes owner は entry に残す。
+
+```text
+GuiFontRegisteredFaceTableEntryValidationError:
+    kind GuiFontRegisteredFaceTableEntryValidationErrorKind
+    record GuiFontRegisteredFaceRecord
+    table_error Option GuiFontRegisteredFaceTableRegisterErrorKind
+
+GuiFontRegisteredFaceGlyphHorizontalMetric:
+    mapping GuiFontRegisteredFaceGlyphMapping
+    metric GuiSfntHorizontalMetric
+
+GuiFontRegisteredFaceHorizontalMetricLookupError:
+    kind GuiFontRegisteredFaceHorizontalMetricLookupErrorKind
+    record GuiFontRegisteredFaceRecord
+    mapping GuiFontRegisteredFaceGlyphMapping
+    validation_error Option GuiFontRegisteredFaceTableEntryValidationError
+    parse_error Option GuiSfntParseError
+```
+
+public lookup は `&GuiFontRegisteredFaceTableEntry` と `&GuiFontRegisteredFaceGlyphMapping` を受ける。処理順序は entry validation、canonical record と mapping record の照合、entry face から bytes 借用、canonical record から selected face index 取得、mapping から glyph 取得、`gui_sfnt_lookup_horizontal_metric` の 1 回呼び出しで固定する。mapping mismatch branch は hmtx parser へ進まない。success evidence と error evidence は Copy であり、entry owner を保持しない。
+
+F5nr は cmap lookup を再実行せず、mapping の code point / glyph provenance を保持する。`MissingTable`、`MalformedHmtxRecord`、`MissingGlyphMetric` は lower `GuiSfntParseError` を保持した typed error とし、host text measurement や fallback font へ切り替えない。metric は font units のまま返し、scale、shaping、layout、glyph outline / raster、render2d、platform / Web presentation は後続境界に残す。
 
 ## SFNT name table
 
