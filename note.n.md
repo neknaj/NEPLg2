@@ -1,3 +1,48 @@
+# 2026-07-10 Agent2 GUI font rendering F5nw registered indexed contour path boundary
+
+## 目的
+
+- registered evidenceとclassified collectionを分離せず、F5nv span indexへ移してsealed registered indexed ownerに束ねる。
+- contourごとにO(1) lookupを1回だけ行い、同じchecked spanをpoint / edge / curve / eventへ伝播して全path traversalをO(p + c + a)にする。
+- path owner、policy、private traversal state、budget status、typed error recoveryを静的に表し、foreign cursor、fallback、silent no-opを作らない。
+
+## 実装
+
+- shared provenance moduleを追加し、entry、mapping record、canonical `glyf` record、source glyphの照合をreaderとindex adapterで共有した。reader固有cursor identityはreader側に残した。
+- public collection-only transferを削除し、registered completed ownerからevidenceとcollectionをprivate transferで同時にspan index builderへ移すようにした。startはprovenanceとcollection shapeをallocation前に検査する。
+- registered builder/indexed ownerを追加し、start / step / complete failureで元completed ownerまたはpartial builder ownerを回収・freeできるようにした。
+- existing point / edge / curve / event / contour-stepをexplicit checked-span coreとlegacy full-scan adapterへ分け、new indexed pathは同じcoreだけを使う。cursor contourとspan contourの不一致はevent lookup前に`CursorContourMismatch`で拒否する。
+- registered path ownerはindexed owner、sink policy、private `PendingContour` / `ActiveContour` / `Completed` stateを所有する。pendingだけがindex lookupを行い、activeは保存済みspanを再利用する。
+- budget結果は常に唯一のpath ownerとCopy status `Emitted` / `Completed` / `StepBudgetExhausted`を持つ。owner-bearing terminal enumを避け、status読取後にownerをexactly once回収する。
+- lower fixtureでunequal contours、line、quadratic、single point、cross-contour mismatch、lookup failure、`KeepOpen` / `EmitCloseAfterFinalEvent`を検査した。registered real-font fixtureでpending/completed budget 0、low-limit start recovery、premature complete recovery、completed direct-step rejection/free、明示closeを検査した。
+- facade、font rendering spec、detailed design、implementation plan、GUI standard library spec、source policy、executable module doctestをF5nw境界へ更新した。
+
+## plan.md との差異
+
+- `plan.md`は言語全体の方向性であるため変更していない。F5nwはGUI font rendering implementation planのF5nv後続である。
+- action summary、endpoint / edge / command tag drain、command value / stream、stroke provenanceのindexed移行はF5nxで行う。metric join、shaping / layout、raster / render2d、native / bare / headless / Web presentationも未完了である。
+
+## subagent review
+
+- plan reviewはpublic collection transfer、checked-span helper配置、budget 0を表せる状態、closure projection責務、shared provenance DAG、実在しないtest pathを指摘した。文書を修正して`PLAN_APPROVED`後に実装した。
+- implementation review 1回目はcursor/span contour mismatch、owner failure coverage、全skip doctestを指摘した。typed mismatch、recovery/free fixture、executable doctestへ修正した。
+- 2回目はlow-limit start、premature complete、completed direct step、両closure policy、典型例不足を指摘した。実動owner chainとpolicy比較、status match例を追加した。
+- 3回目は典型例のpure function内でimpure freeを呼ぶ問題を指摘した。例をexecutable blockへ統合し`%impure fn`へ修正した。最終再レビューは追加findingなしで`IMPLEMENTATION_APPROVED`。
+
+## 検証
+
+- pass: source-policy contract、stdlib documentation contract、issues check、`git diff --check`。
+- pass: registered real-font focused behavior 1/1、lower indexed path focused behavior 1/1。
+- pass: provenance module doctest 15/15、lower indexed path module doctest 25/25、registered indexed path module doctest 33/33。
+- pass: F5nv span index、legacy contour point / edge / curve / contour-step regressionsは各1/1。
+- pass: `trunk build`。
+- pass: playground editor JSON 13/13。
+
+## 残件
+
+- F5nxで既存path action / storage / command stream / stroke provenanceをregistered indexed traversalへ移す。
+- metric join、scale、shaping / layout、glyph rasterization、render2d、platform presentationをno-fallback contractで接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nv simple glyph contour span index owner boundary
 
 ## 目的

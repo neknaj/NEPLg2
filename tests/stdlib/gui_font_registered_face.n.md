@@ -1351,6 +1351,178 @@ fn registered_face_simple_glyph_collection_spans_ok %fn &GuiSfntSimpleGlyphOutli
                 Result::Ok second:
                     and eq gui_sfnt_simple_glyph_contour_span_start_point_index &first 0 and eq gui_sfnt_simple_glyph_contour_span_end_point_index &first 1 and eq gui_sfnt_simple_glyph_contour_span_point_count &first 2 and eq gui_sfnt_simple_glyph_contour_span_start_point_index &second 2 and eq gui_sfnt_simple_glyph_contour_span_end_point_index &second 3 eq gui_sfnt_simple_glyph_contour_span_point_count &second 2
 
+fn registered_face_simple_glyph_indexed_path_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner impure fn i32 impure fn i32 bool \owner\emitted_count\close_count:
+    match gui_font_registered_face_simple_glyph_indexed_path_drain_budget owner 1:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_error_free error
+            false
+        Result::Ok budget_step:
+            let status %GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus gui_font_registered_face_simple_glyph_indexed_path_budget_step_status &budget_step
+            match status:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::StepBudgetExhausted:
+                    gui_font_registered_face_simple_glyph_indexed_path_budget_step_free budget_step
+                    false
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Completed:
+                    let completed %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+                    let progress_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_progress_kind &completed:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed:
+                            true
+                        _:
+                            false
+                    gui_font_registered_face_simple_glyph_indexed_path_owner_free completed
+                    and progress_ok and eq emitted_count 8 eq close_count 2
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Emitted sink_step:
+                    let primary %GuiSfntSimpleGlyphPathSinkPrimaryAction gui_sfnt_simple_glyph_path_sink_step_primary_action &sink_step
+                    let tail %GuiSfntSimpleGlyphPathSinkTailAction gui_sfnt_simple_glyph_path_sink_step_tail_action &sink_step
+                    let primary_ok %bool match primary:
+                        GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent _event:
+                            true
+                        GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject _reason:
+                            false
+                    let next_close_count %i32 match tail:
+                        GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction:
+                            close_count
+                        GuiSfntSimpleGlyphPathSinkTailAction::CloseContour _close:
+                            add close_count 1
+                    let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+                    let next_emitted_count %i32 add emitted_count 1
+                    let completed_now %bool match gui_font_registered_face_simple_glyph_indexed_path_progress_kind &next_owner:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed:
+                            true
+                        _:
+                            false
+                    if completed_now:
+                        then:
+                            match gui_font_registered_face_simple_glyph_indexed_path_drain_budget next_owner 0:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_path_error_free error
+                                    false
+                                Result::Ok completed_step:
+                                    let completed_status %GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus gui_font_registered_face_simple_glyph_indexed_path_budget_step_status &completed_step
+                                    let status_ok %bool match completed_status:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Completed:
+                                            true
+                                        _:
+                                            false
+                                    let completed_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner completed_step
+                                    match gui_font_registered_face_simple_glyph_indexed_path_step completed_owner:
+                                        Result::Ok unexpected_step:
+                                            gui_font_registered_face_simple_glyph_indexed_path_step_free unexpected_step
+                                            false
+                                        Result::Err completed_error:
+                                            let direct_step_rejected %bool match gui_font_registered_face_simple_glyph_indexed_path_error_kind &completed_error:
+                                                GuiFontRegisteredFaceSimpleGlyphIndexedPathErrorKind::AlreadyCompleted:
+                                                    true
+                                                _:
+                                                    false
+                                            gui_font_registered_face_simple_glyph_indexed_path_error_free completed_error
+                                            and primary_ok and status_ok and direct_step_rejected and eq next_emitted_count 8 eq next_close_count 2
+                        else:
+                            and primary_ok registered_face_simple_glyph_indexed_path_drain_ok next_owner next_emitted_count next_close_count
+
+fn registered_face_simple_glyph_indexed_path_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner bool \owner:
+    let policy %GuiSfntSimpleGlyphPathSinkPolicy gui_sfnt_simple_glyph_path_sink_policy GuiSfntSimpleGlyphPathOffCurveStartPolicy::KeepTypedSkip GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent
+    let path %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_start owner &policy
+    match gui_font_registered_face_simple_glyph_indexed_path_drain_budget path 0:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_error_free error
+            false
+        Result::Ok budget_step:
+            let status %GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus gui_font_registered_face_simple_glyph_indexed_path_budget_step_status &budget_step
+            match status:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::StepBudgetExhausted:
+                    let exhausted %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+                    let pending_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_progress_kind &exhausted:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::PendingContour:
+                            true
+                        _:
+                            false
+                    and pending_ok registered_face_simple_glyph_indexed_path_drain_ok exhausted 0 0
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Completed:
+                    let completed %GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner gui_font_registered_face_simple_glyph_indexed_path_budget_step_take_owner budget_step
+                    gui_font_registered_face_simple_glyph_indexed_path_owner_free completed
+                    false
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStatus::Emitted _sink_step:
+                    gui_font_registered_face_simple_glyph_indexed_path_budget_step_free budget_step
+                    false
+
+fn registered_face_simple_glyph_span_index_completed_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner bool \owner:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_indexed_owner_evidence &owner
+    let mapping %GuiFontRegisteredFaceGlyphMapping gui_font_registered_face_simple_glyph_point_stream_mapping &evidence
+    let glyph %GuiGlyphId gui_font_registered_face_glyph_mapping_glyph &mapping
+    let first_ok %bool match gui_font_registered_face_simple_glyph_indexed_owner_span_lookup &owner 0:
+        Result::Err _error:
+            false
+        Result::Ok span:
+            and eq 0 gui_sfnt_simple_glyph_contour_span_start_point_index &span and eq 1 gui_sfnt_simple_glyph_contour_span_end_point_index &span eq 2 gui_sfnt_simple_glyph_contour_span_point_count &span
+    let second_ok %bool match gui_font_registered_face_simple_glyph_indexed_owner_span_lookup &owner 1:
+        Result::Err _error:
+            false
+        Result::Ok span:
+            and eq 2 gui_sfnt_simple_glyph_contour_span_start_point_index &span and eq 3 gui_sfnt_simple_glyph_contour_span_end_point_index &span eq 2 gui_sfnt_simple_glyph_contour_span_point_count &span
+    let shape_ok %bool and eq 36 gui_glyph_id_raw &glyph eq 2 gui_font_registered_face_simple_glyph_indexed_owner_span_count &owner
+    let path_ok %bool registered_face_simple_glyph_indexed_path_ok owner
+    and shape_ok and first_ok and second_ok path_ok
+
+fn registered_face_simple_glyph_span_index_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner impure fn i32 bool \owner\remaining:
+    if le remaining 0:
+        then:
+            match gui_font_registered_face_simple_glyph_span_index_complete owner:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_span_index_step_error_free error
+                    false
+                Result::Ok indexed:
+                    registered_face_simple_glyph_span_index_completed_ok indexed
+        else:
+            match gui_font_registered_face_simple_glyph_span_index_step owner:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_span_index_step_error_free error
+                    false
+                Result::Ok next_owner:
+                    registered_face_simple_glyph_span_index_drain_ok next_owner sub remaining 1
+
+fn registered_face_simple_glyph_span_index_ok %impure fn &GuiFontRegisteredFaceTableEntry impure fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner bool \entry\owner:
+    let rejected_limit %GuiSfntSimpleGlyphContourSpanIndexLimit gui_sfnt_simple_glyph_contour_span_index_limit 1
+    match gui_font_registered_face_simple_glyph_span_index_start entry owner &rejected_limit:
+        Result::Ok unexpected_builder:
+            gui_font_registered_face_simple_glyph_span_index_builder_free unexpected_builder
+            false
+        Result::Err start_error:
+            let start_kind_ok %bool match gui_font_registered_face_simple_glyph_span_index_start_error_kind &start_error:
+                GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind::LowerStartRejected:
+                    true
+                _:
+                    false
+            let lower_kind_ok %bool match gui_font_registered_face_simple_glyph_span_index_start_error_lower_kind &start_error:
+                Option::Some lower_kind:
+                    match lower_kind:
+                        GuiSfntSimpleGlyphContourSpanIndexStartErrorKind::CapacityRejected:
+                            true
+                        _:
+                            false
+                _:
+                    false
+            let recovered %GuiFontRegisteredFaceSimpleGlyphCollectedOwner gui_font_registered_face_simple_glyph_span_index_start_error_take_owner start_error
+            let limit %GuiSfntSimpleGlyphContourSpanIndexLimit gui_sfnt_simple_glyph_contour_span_index_limit 2
+            match gui_font_registered_face_simple_glyph_span_index_start entry recovered &limit:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_span_index_start_error_free error
+                    false
+                Result::Ok builder:
+                    let initial_ok %bool and eq 0 gui_font_registered_face_simple_glyph_span_index_builder_next_point_index &builder eq 0 gui_font_registered_face_simple_glyph_span_index_builder_span_count &builder
+                    match gui_font_registered_face_simple_glyph_span_index_complete builder:
+                        Result::Ok unexpected_indexed:
+                            gui_font_registered_face_simple_glyph_indexed_owner_free unexpected_indexed
+                            false
+                        Result::Err complete_error:
+                            let complete_kind_ok %bool match gui_font_registered_face_simple_glyph_span_index_step_error_kind &complete_error:
+                                GuiSfntSimpleGlyphContourSpanIndexStepErrorKind::CompletionInvariantInvalid:
+                                    true
+                                _:
+                                    false
+                            let recovered_builder %GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner gui_font_registered_face_simple_glyph_span_index_step_error_take_owner complete_error
+                            and start_kind_ok and lower_kind_ok and initial_ok and complete_kind_ok registered_face_simple_glyph_span_index_drain_ok recovered_builder 4
+
 fn registered_face_simple_glyph_collection_drain_ok %impure fn &GuiFontRegisteredFaceTableEntry impure fn GuiFontRegisteredFaceSimpleGlyphCollectionOwner impure fn i32 bool \entry\owner\expected_index:
     match gui_font_registered_face_simple_glyph_collection_step entry owner:
         Result::Err error:
@@ -1384,8 +1556,8 @@ fn registered_face_simple_glyph_collection_drain_ok %impure fn &GuiFontRegistere
                             let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
                             let invariant_ok %bool and eq gui_glyph_id_raw &glyph 36 and eq gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity 2 and eq gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity 4 and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection 4 and eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection 4 eq gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection 4
                             let spans_ok %bool registered_face_simple_glyph_collection_spans_ok collection
-                            gui_font_registered_face_simple_glyph_collected_owner_free completed
-                            and invariant_ok spans_ok
+                            let index_ok %bool registered_face_simple_glyph_span_index_ok entry completed
+                            and invariant_ok and spans_ok index_ok
 
 fn registered_face_simple_glyph_collection_limit_rejected %impure fn &GuiFontRegisteredFaceTableEntry impure fn &GuiFontRegisteredFaceSimpleGlyphPointStream bool \entry\evidence:
     let limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit 3

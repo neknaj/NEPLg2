@@ -22,6 +22,7 @@
 #indent 4
 
 #import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+#import "alloc/gui/font/registered_face_simple_glyph_provenance" as *
 #import "alloc/gui/font/registered_face_simple_glyph_reader" as *
 #import "alloc/gui/font/registered_face_table" as *
 #import "alloc/gui/font/sfnt" as *
@@ -207,12 +208,6 @@ pub fn gui_font_registered_face_simple_glyph_collected_owner_evidence %fn &GuiFo
 pub fn gui_font_registered_face_simple_glyph_collected_owner_collection_ref %fn &GuiFontRegisteredFaceSimpleGlyphCollectedOwner &GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
     field::get_ref owner "collection"
 
-//: gui_font_registered_face_simple_glyph_collected_owner_take_collection: completed owner から collection ownership を移す
-//:
-//: neplg2:test[skip]
-pub fn gui_font_registered_face_simple_glyph_collected_owner_take_collection %fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
-    field::get owner "collection"
-
 //: gui_font_registered_face_simple_glyph_collected_owner_free: completed owner と collection storage を閉じる
 //:
 //: neplg2:test[skip]
@@ -392,3 +387,296 @@ pub fn gui_font_registered_face_simple_glyph_collection_step %impure fn &GuiFont
                             let recovered_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error
                             let recovered_owner %GuiFontRegisteredFaceSimpleGlyphCollectionOwner gui_font_registered_face_simple_glyph_collection_owner pre_step_cursor recovered_collection expected_point_count
                             Result::Err gui_font_registered_face_simple_glyph_collection_step_error recovered_owner GuiFontRegisteredFaceSimpleGlyphCollectionStepErrorKind::CollectionPushFailed none some push_kind some rejected_item storage_error expected_point_count actual_point_count
+
+//: GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner: registered evidence と partial contour index の owner
+//:
+//: [注意/ちゅうい]: lower owner を所有するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner:
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    lower %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner
+
+//: gui_font_registered_face_simple_glyph_span_index_builder_owner: evidenceとpartial lower ownerを再結合する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_span_index_builder_owner %fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphContourSpanIndexBuilderOwner GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner \evidence\lower:
+    GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner evidence lower
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOwner: registered evidence と completed contour index の owner
+//:
+//: [注意/ちゅうい]: lower indexed owner を所有するため `Clone` / `Copy` は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOwner:
+    evidence %GuiFontRegisteredFaceSimpleGlyphPointStream
+    lower %GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner
+
+//: gui_font_registered_face_simple_glyph_indexed_owner: evidenceとcompleted lower indexを封印する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_owner %fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner GuiFontRegisteredFaceSimpleGlyphIndexedOwner \evidence\lower:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOwner evidence lower
+
+//: GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind: registered index start failure の分類
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind:
+    ProvenanceRejected
+    CollectionInvariantInvalid
+    LowerStartRejected
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind \kind:
+        kind
+
+//: GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError: original completed owner を保持するstart failure
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError:
+    owner %GuiFontRegisteredFaceSimpleGlyphCollectedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind
+    limit %GuiSfntSimpleGlyphContourSpanIndexLimit
+    provenance_error %Option GuiFontRegisteredFaceSimpleGlyphProvenanceError
+    lower_kind %Option GuiSfntSimpleGlyphContourSpanIndexStartErrorKind
+    storage_error %Option StdErrorKind
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error: start失敗と元completed ownerを束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_span_index_start_error %fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner fn GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind fn GuiSfntSimpleGlyphContourSpanIndexLimit fn Option GuiFontRegisteredFaceSimpleGlyphProvenanceError fn Option GuiSfntSimpleGlyphContourSpanIndexStartErrorKind fn Option StdErrorKind GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError \owner\kind\limit\provenance_error\lower_kind\storage_error:
+    GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError owner kind limit provenance_error lower_kind storage_error
+
+//: GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError: registered builder owner と lower failure metadata
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner
+    lower_kind %GuiSfntSimpleGlyphContourSpanIndexStepErrorKind
+    read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    rejected_span %Option GuiSfntSimpleGlyphContourSpan
+    storage_error %Option StdErrorKind
+    expected_value %i32
+    actual_value %i32
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error: lower metadataと回収済みregistered builderを束ねる
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_span_index_step_error %fn GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner fn GuiSfntSimpleGlyphContourSpanIndexStepErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError fn Option GuiSfntSimpleGlyphOutlinePointStreamItem fn Option GuiSfntSimpleGlyphContourSpan fn Option StdErrorKind fn i32 fn i32 GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError \owner\lower_kind\read_error\rejected_item\rejected_span\storage_error\expected_value\actual_value:
+    GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError owner lower_kind read_error rejected_item rejected_span storage_error expected_value actual_value
+
+//: gui_font_registered_face_simple_glyph_collected_owner_matches_provenance: collection shapeを検証済みsource topologyへ照合する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_collected_owner_matches_provenance %fn &GuiFontRegisteredFaceSimpleGlyphCollectedOwner fn &GuiFontRegisteredFaceSimpleGlyphProvenance bool \owner\provenance:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_provenance_evidence provenance
+    let stream %GuiSfntSimpleGlyphPointStream gui_font_registered_face_simple_glyph_point_stream_stream &evidence
+    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+    let expected_glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+    let expected_contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count &topology
+    let expected_point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_font_registered_face_simple_glyph_collected_owner_collection_ref owner
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let actual_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+    let glyph_ok %bool eq gui_glyph_id_raw &expected_glyph gui_glyph_id_raw &actual_glyph
+    let contour_ok %bool eq expected_contour_count gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+    let point_ok %bool eq expected_point_count gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+    let item_count_ok %bool eq expected_point_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection
+    let len_ok %bool eq expected_point_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection
+    let cap_ok %bool eq expected_point_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection
+    and glyph_ok and contour_ok and point_ok and item_count_ok and len_ok cap_ok
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error_from_lower: lower errorを読んでからownerをregistered境界へ回収する
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_span_index_step_error_from_lower %fn GuiFontRegisteredFaceSimpleGlyphPointStream fn GuiSfntSimpleGlyphContourSpanIndexStepError GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError \evidence\lower_error:
+    let lower_kind %GuiSfntSimpleGlyphContourSpanIndexStepErrorKind gui_sfnt_simple_glyph_contour_span_index_step_error_kind &lower_error
+    let read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_contour_span_index_step_error_read_error &lower_error
+    let rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem gui_sfnt_simple_glyph_contour_span_index_step_error_rejected_item &lower_error
+    let rejected_span %Option GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_span_index_step_error_rejected_span &lower_error
+    let storage_error %Option StdErrorKind gui_sfnt_simple_glyph_contour_span_index_step_error_storage_error &lower_error
+    let expected_value %i32 gui_sfnt_simple_glyph_contour_span_index_step_error_expected_value &lower_error
+    let actual_value %i32 gui_sfnt_simple_glyph_contour_span_index_step_error_actual_value &lower_error
+    let lower %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner gui_sfnt_simple_glyph_contour_span_index_step_error_take_owner lower_error
+    let owner %GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner gui_font_registered_face_simple_glyph_span_index_builder_owner evidence lower
+    gui_font_registered_face_simple_glyph_span_index_step_error owner lower_kind read_error rejected_item rejected_span storage_error expected_value actual_value
+
+//: gui_font_registered_face_simple_glyph_span_index_builder_evidence: builder のregistered evidenceを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_builder_evidence %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner GuiFontRegisteredFaceSimpleGlyphPointStream \owner:
+    *field::get_ref owner "evidence"
+
+//: gui_font_registered_face_simple_glyph_span_index_builder_next_point_index: lower build progressを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_builder_next_point_index %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner i32 \owner:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexBuilderOwner field::get_ref owner "lower"
+    gui_sfnt_simple_glyph_contour_span_index_builder_next_point_index lower
+
+//: gui_font_registered_face_simple_glyph_span_index_builder_span_count: commit済みspan数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_builder_span_count %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner i32 \owner:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexBuilderOwner field::get_ref owner "lower"
+    gui_sfnt_simple_glyph_contour_span_index_builder_span_count lower
+
+//: gui_font_registered_face_simple_glyph_span_index_builder_free: partial index とcollectionを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_builder_free %impure fn GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner unit \owner:
+    gui_sfnt_simple_glyph_contour_span_index_builder_free field::get owner "lower"
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error_kind: start failure kindを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error_provenance_error: shared provenance failureを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start_error_provenance_error %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError Option GuiFontRegisteredFaceSimpleGlyphProvenanceError \error:
+    *field::get_ref error "provenance_error"
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error_lower_kind: lower start failure kindを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start_error_lower_kind %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError Option GuiSfntSimpleGlyphContourSpanIndexStartErrorKind \error:
+    *field::get_ref error "lower_kind"
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error_storage_error: lower allocation failureを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start_error_storage_error %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error_take_owner: original completed ownerを回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError GuiFontRegisteredFaceSimpleGlyphCollectedOwner \error:
+    field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_span_index_start_error_free: rejected completed ownerを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError unit \error:
+    gui_font_registered_face_simple_glyph_collected_owner_free field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error_kind: lower step/completion failure kindを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError GuiSfntSimpleGlyphContourSpanIndexStepErrorKind \error:
+    *field::get_ref error "lower_kind"
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error_expected_value: expected diagnostic valueを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_step_error_expected_value %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError i32 \error:
+    *field::get_ref error "expected_value"
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error_actual_value: actual diagnostic valueを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_step_error_actual_value %fn &GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError i32 \error:
+    *field::get_ref error "actual_value"
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error_take_owner: registered builder ownerを回収する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_step_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner \error:
+    field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_span_index_step_error_free: partial registered indexを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError unit \error:
+    gui_font_registered_face_simple_glyph_span_index_builder_free field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_span_index_start: completed registered collectionをsingle-pass index builderへ移す
+//:
+//: [契約/けいやく]: shared provenanceとcollection shapeを検証した後だけlower allocationを行います。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_start %impure fn &GuiFontRegisteredFaceTableEntry impure fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner impure fn &GuiSfntSimpleGlyphContourSpanIndexLimit Result GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError \entry\owner\limit:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_collected_owner_evidence &owner
+    match gui_font_registered_face_simple_glyph_provenance_validate entry &evidence:
+        Result::Err provenance_error:
+            Result::Err gui_font_registered_face_simple_glyph_span_index_start_error owner GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind::ProvenanceRejected *limit some provenance_error none none
+        Result::Ok provenance:
+            if not gui_font_registered_face_simple_glyph_collected_owner_matches_provenance &owner &provenance:
+                then:
+                    Result::Err gui_font_registered_face_simple_glyph_span_index_start_error owner GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind::CollectionInvariantInvalid *limit none none none
+                else:
+                    let collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection field::get owner "collection"
+                    match gui_sfnt_simple_glyph_contour_span_index_start collection limit:
+                        Result::Ok lower:
+                            Result::Ok gui_font_registered_face_simple_glyph_span_index_builder_owner evidence lower
+                        Result::Err lower_error:
+                            let lower_kind %GuiSfntSimpleGlyphContourSpanIndexStartErrorKind gui_sfnt_simple_glyph_contour_span_index_start_error_kind &lower_error
+                            let storage_error %Option StdErrorKind gui_sfnt_simple_glyph_contour_span_index_start_error_storage_error &lower_error
+                            let recovered_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection lower_error
+                            let recovered_owner %GuiFontRegisteredFaceSimpleGlyphCollectedOwner gui_font_registered_face_simple_glyph_collected_owner evidence recovered_collection
+                            Result::Err gui_font_registered_face_simple_glyph_span_index_start_error recovered_owner GuiFontRegisteredFaceSimpleGlyphSpanIndexStartErrorKind::LowerStartRejected *limit none some lower_kind storage_error
+
+//: gui_font_registered_face_simple_glyph_span_index_step: index builderを1 point進める
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_step %impure fn GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner Result GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError \owner:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_span_index_builder_evidence &owner
+    let lower %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner field::get owner "lower"
+    match gui_sfnt_simple_glyph_contour_span_index_step lower:
+        Result::Ok next_lower:
+            Result::Ok gui_font_registered_face_simple_glyph_span_index_builder_owner evidence next_lower
+        Result::Err lower_error:
+            Result::Err gui_font_registered_face_simple_glyph_span_index_step_error_from_lower evidence lower_error
+
+//: gui_font_registered_face_simple_glyph_span_index_complete: fully stepped builderをregistered indexed ownerへ封印する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_span_index_complete %impure fn GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedOwner GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError \owner:
+    let evidence %GuiFontRegisteredFaceSimpleGlyphPointStream gui_font_registered_face_simple_glyph_span_index_builder_evidence &owner
+    let lower %GuiSfntSimpleGlyphContourSpanIndexBuilderOwner field::get owner "lower"
+    match gui_sfnt_simple_glyph_contour_span_index_complete lower:
+        Result::Ok indexed:
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_owner evidence indexed
+        Result::Err lower_error:
+            Result::Err gui_font_registered_face_simple_glyph_span_index_step_error_from_lower evidence lower_error
+
+//: gui_font_registered_face_simple_glyph_indexed_owner_evidence: completed indexのregistered evidenceを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_evidence %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner GuiFontRegisteredFaceSimpleGlyphPointStream \owner:
+    *field::get_ref owner "evidence"
+
+//: gui_font_registered_face_simple_glyph_indexed_owner_collection_ref: sealed lower collectionを借用する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_collection_ref %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner &GuiSfntSimpleGlyphOutlinePointStreamItemCollection \owner:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
+    gui_sfnt_simple_glyph_contour_span_indexed_collection_ref lower
+
+//: gui_font_registered_face_simple_glyph_indexed_owner_span_count: indexed contour数を読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner i32 \owner:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
+    gui_sfnt_simple_glyph_contour_span_indexed_collection_span_count lower
+
+//: gui_font_registered_face_simple_glyph_indexed_owner_span_lookup: sealed ownerからO(1)でchecked spanを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
+    gui_sfnt_simple_glyph_contour_span_index_lookup lower contour_index
+
+//: gui_font_registered_face_simple_glyph_indexed_owner_free: registered indexed collectionを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner unit \owner:
+    gui_sfnt_simple_glyph_contour_span_indexed_collection_free field::get owner "lower"

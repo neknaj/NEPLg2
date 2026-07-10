@@ -414,10 +414,14 @@ const allocFontRegisteredFaceHorizontalMetricLookup = read("stdlib/alloc/gui/fon
 const allocFontRegisteredFaceHorizontalMetricLookupImpl = withoutComments(allocFontRegisteredFaceHorizontalMetricLookup);
 const allocFontRegisteredFaceSimpleGlyphLookup = read("stdlib/alloc/gui/font/registered_face_simple_glyph_lookup.nepl");
 const allocFontRegisteredFaceSimpleGlyphLookupImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphLookup);
+const allocFontRegisteredFaceSimpleGlyphProvenance = read("stdlib/alloc/gui/font/registered_face_simple_glyph_provenance.nepl");
+const allocFontRegisteredFaceSimpleGlyphProvenanceImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphProvenance);
 const allocFontRegisteredFaceSimpleGlyphReader = read("stdlib/alloc/gui/font/registered_face_simple_glyph_reader.nepl");
 const allocFontRegisteredFaceSimpleGlyphReaderImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphReader);
 const allocFontRegisteredFaceSimpleGlyphCollection = read("stdlib/alloc/gui/font/registered_face_simple_glyph_collection.nepl");
 const allocFontRegisteredFaceSimpleGlyphCollectionImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphCollection);
+const allocFontRegisteredFaceSimpleGlyphIndexedPath = read("stdlib/alloc/gui/font/registered_face_simple_glyph_indexed_path.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedPathImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPath);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -425,6 +429,7 @@ const allocFontSfntCmap = read("stdlib/alloc/gui/font/sfnt/cmap.nepl");
 const allocFontSfntHmtx = read("stdlib/alloc/gui/font/sfnt/hmtx.nepl");
 const allocFontSfntGlyf = read("stdlib/alloc/gui/font/sfnt/glyf.nepl");
 const allocFontSfntGlyfSpanIndex = read("stdlib/alloc/gui/font/sfnt/glyf_span_index.nepl");
+const allocFontSfntGlyfIndexedPath = read("stdlib/alloc/gui/font/sfnt/glyf_indexed_path.nepl");
 const allocFontSfntGlyfPointCodec = read("stdlib/alloc/gui/font/sfnt/glyf_point_codec.nepl");
 const allocFontSfntGlyfSequential = read("stdlib/alloc/gui/font/sfnt/glyf_sequential.nepl");
 const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx, allocFontSfntGlyf, allocFontSfntGlyfPointCodec, allocFontSfntGlyfSequential].join("\n");
@@ -435,6 +440,7 @@ const allocFontSfntCmapImpl = withoutComments(allocFontSfntCmap);
 const allocFontSfntHmtxImpl = withoutComments(allocFontSfntHmtx);
 const allocFontSfntGlyfImpl = withoutComments(allocFontSfntGlyf);
 const allocFontSfntGlyfSpanIndexImpl = withoutComments(allocFontSfntGlyfSpanIndex);
+const allocFontSfntGlyfIndexedPathImpl = withoutComments(allocFontSfntGlyfIndexedPath);
 const allocFontSfntGlyfPointCodecImpl = withoutComments(allocFontSfntGlyfPointCodec);
 const allocFontSfntGlyfSequentialImpl = withoutComments(allocFontSfntGlyfSequential);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
@@ -446,6 +452,7 @@ const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_comm
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontRegisteredFaceTests = read("tests/stdlib/gui_font_registered_face.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
+const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
@@ -2658,23 +2665,19 @@ assertMatch(
 assertOrderedFragments(
     allocFontRegisteredFaceSimpleGlyphReaderImpl,
     [
-        "gui_font_registered_face_table_entry_validate",
-        "gui_font_registered_face_glyph_mapping_record",
+        "gui_font_registered_face_simple_glyph_provenance_validate",
         "gui_sfnt_simple_glyph_point_stream_source_eq",
-        "gui_font_registered_face_metadata",
-        "gui_sfnt_directory_glyf",
-        "gui_sfnt_simple_glyph_point_stream_source_glyf",
         "gui_sfnt_simple_glyph_sequential_point_start",
         "gui_sfnt_simple_glyph_sequential_point_step",
     ],
-    "registered sequential reader must validate owner and source provenance before lower start and step",
+    "registered sequential reader must use shared provenance and reader-only cursor identity before lower start and step",
 );
 assertMatch(
     allocFontRegisteredFaceSimpleGlyphReaderImpl,
-    /not\s+table_matches[\s\S]*SourceTableMismatch[\s\S]*not\s+cursor_source_matches[\s\S]*SourceIdentityMismatch[\s\S]*SourceGlyphMismatch/,
-    "registered sequential reader must classify table, cursor identity, and glyph provenance failures separately before byte decoding",
+    /gui_font_registered_face_simple_glyph_sequential_reader_error_from_provenance[\s\S]*not\s+cursor_source_matches[\s\S]*SourceIdentityMismatch/,
+    "registered sequential reader must map shared provenance and classify cursor identity separately before byte decoding",
 );
-const registeredSequentialTableRecordEq = functionSlice(allocFontRegisteredFaceSimpleGlyphReaderImpl, "gui_font_registered_face_simple_glyph_table_record_eq");
+const registeredSequentialTableRecordEq = functionSlice(allocFontRegisteredFaceSimpleGlyphProvenanceImpl, "gui_font_registered_face_simple_glyph_provenance_table_record_eq");
 assertOrderedFragments(
     registeredSequentialTableRecordEq,
     [
@@ -2685,7 +2688,7 @@ assertOrderedFragments(
         "gui_sfnt_table_record_length",
         "gui_sfnt_table_record_length",
     ],
-    "registered sequential reader must compare every canonical glyf table record field",
+    "shared registered provenance must compare every canonical glyf table record field",
 );
 assertNoMatch(
     allocFontRegisteredFaceSimpleGlyphReaderImpl,
@@ -2805,6 +2808,252 @@ assertMatch(
     guiFontRegisteredFaceTests,
     /registered_face_simple_glyph_foreign_evidence_rejected[\s\S]*GuiFontRegisteredFaceSimpleGlyphCollectionStartErrorKind::ReaderStartFailed[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_capacity_check[\s\S]*gui_font_registered_face_simple_glyph_collection_start_error_alloc_error/,
     "registered face behavior tests must prove foreign evidence is rejected before capacity planning and allocation",
+);
+assertMatch(
+    allocFontFacade,
+    /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_provenance"\s+as\s+\*/,
+    "alloc/gui/font facade must export shared registered simple glyph provenance",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphProvenance,
+    /enum\s+GuiFontRegisteredFaceSimpleGlyphProvenanceErrorKind:[\s\S]*EntryValidationFailed[\s\S]*EvidenceRecordMismatch[\s\S]*SourceTableMismatch[\s\S]*SourceGlyphMismatch/,
+    "F5nw shared provenance must preserve each canonical validation failure as a typed enum",
+);
+const registeredSimpleGlyphProvenanceValidate = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphProvenanceImpl,
+    "gui_font_registered_face_simple_glyph_provenance_validate",
+);
+assertOrderedFragments(
+    registeredSimpleGlyphProvenanceValidate,
+    [
+        "gui_font_registered_face_table_entry_validate",
+        "gui_font_registered_face_glyph_mapping_record",
+        "gui_sfnt_metadata_directory",
+        "gui_sfnt_directory_glyf",
+        "gui_sfnt_simple_glyph_point_stream_source_glyf",
+        "gui_sfnt_simple_glyph_topology_glyph",
+        "gui_font_registered_face_glyph_mapping_glyph",
+    ],
+    "F5nw shared provenance must validate entry, mapping, canonical glyf, and glyph identity in order",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphProvenanceImpl,
+    /\b(?:vec::|gui_font_resource_bytes_ref|gui_sfnt_simple_glyph_sequential_point_|gui_sfnt_simple_glyph_outline_point_stream_item_collection_|path_sink|raster|RenderCommand|RenderTarget|DrawTarget|platform|Canvas|DOM|fallback)\b/,
+    "F5nw shared provenance must stay Copy-only and independent from bytes read, allocation, path, render, platform, and fallback",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphReader,
+    /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_provenance"\s+as\s+\*/,
+    "registered reader must use the shared provenance authority",
+);
+assertMatch(
+    functionSlice(allocFontRegisteredFaceSimpleGlyphReaderImpl, "gui_font_registered_face_simple_glyph_sequential_validate"),
+    /gui_font_registered_face_simple_glyph_provenance_validate[\s\S]*gui_sfnt_simple_glyph_point_stream_source_eq/,
+    "registered reader must map shared provenance before applying reader-only cursor identity validation",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_collected_owner_take_collection\b/,
+    "F5nw must remove the public collection-only ownership escape",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphCollection,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner:[\s\S]*evidence\s+%GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*lower\s+%GuiSfntSimpleGlyphContourSpanIndexBuilderOwner[\s\S]*pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedOwner:[\s\S]*evidence\s+%GuiFontRegisteredFaceSimpleGlyphPointStream[\s\S]*lower\s+%GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner/,
+    "F5nw registered span index owners must bind evidence to partial and completed lower owners",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphSpanIndexBuilderOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedOwner",
+    "GuiFontRegisteredFaceSimpleGlyphSpanIndexStartError",
+    "GuiFontRegisteredFaceSimpleGlyphSpanIndexStepError",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must not be Clone or Copy because it transports registered index ownership`,
+    );
+}
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_(?:span_index_builder_owner|indexed_owner|span_index_start_error|span_index_step_error)\b/,
+    "F5nw registered owner and owner-bearing error constructors must remain private",
+);
+const registeredSpanIndexStart = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    "gui_font_registered_face_simple_glyph_span_index_start",
+);
+assertOrderedFragments(
+    registeredSpanIndexStart,
+    [
+        "gui_font_registered_face_simple_glyph_provenance_validate",
+        "gui_font_registered_face_simple_glyph_collected_owner_matches_provenance",
+        "field::get owner \"collection\"",
+        "gui_sfnt_simple_glyph_contour_span_index_start",
+    ],
+    "F5nw registered index start must validate shared provenance and collection shape before private transfer and allocation",
+);
+assertOrderedFragments(
+    registeredSpanIndexStart,
+    [
+        "gui_sfnt_simple_glyph_contour_span_index_start_error_kind &lower_error",
+        "gui_sfnt_simple_glyph_contour_span_index_start_error_storage_error &lower_error",
+        "gui_sfnt_simple_glyph_contour_span_index_start_error_take_collection lower_error",
+        "gui_font_registered_face_simple_glyph_collected_owner evidence recovered_collection",
+    ],
+    "F5nw lower start failure must recover collection and reseal it with registered evidence",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphCollection,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_span_index_start_error_take_owner[\s\S]*pub\s+fn\s+gui_font_registered_face_simple_glyph_span_index_start_error_free[\s\S]*pub\s+fn\s+gui_font_registered_face_simple_glyph_span_index_step_error_take_owner[\s\S]*pub\s+fn\s+gui_font_registered_face_simple_glyph_span_index_step_error_free/,
+    "F5nw registered index errors must support explicit owner recovery and disposal",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /registered_face_simple_glyph_span_index_completed_ok[\s\S]*gui_font_registered_face_simple_glyph_indexed_owner_span_lookup[\s\S]*registered_face_simple_glyph_span_index_drain_ok[\s\S]*gui_font_registered_face_simple_glyph_span_index_complete[\s\S]*gui_font_registered_face_simple_glyph_span_index_step/,
+    "registered face behavior tests must cover four point steps, separate completion, and indexed span lookup",
+);
+assertMatch(
+    allocFontSfntFacade,
+    /#import\s+"\.\/sfnt\/glyf_indexed_path"\s+as\s+@merge/,
+    "sfnt facade must export the lower indexed contour path boundary",
+);
+assertMatch(
+    allocFontSfntGlyfIndexedPath,
+    /enum\s+GuiSfntSimpleGlyphIndexedPathContourState:[\s\S]*PendingContour[\s\S]*ActiveContour[\s\S]*Completed/,
+    "F5nw lower indexed path must represent pending, active, and completed contour states explicitly",
+);
+assertNoMatch(
+    allocFontSfntGlyfIndexedPath,
+    /registered_face|registered\/|registered_/,
+    "F5nw lower indexed path must not depend on the registered upper layer",
+);
+const lowerIndexedPathStart = functionSlice(allocFontSfntGlyfIndexedPathImpl, "gui_sfnt_simple_glyph_indexed_path_contour_start");
+assertNoMatch(
+    lowerIndexedPathStart,
+    /gui_sfnt_simple_glyph_contour_span_index_lookup|gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item/,
+    "F5nw lower indexed path start must remain pending without lookup or collection read",
+);
+const lowerIndexedPathStep = functionSlice(allocFontSfntGlyfIndexedPathImpl, "gui_sfnt_simple_glyph_indexed_path_contour_step");
+assert(
+    (lowerIndexedPathStep.match(/\bgui_sfnt_simple_glyph_contour_span_index_lookup\b/g) || []).length === 1,
+    "F5nw lower indexed path pending branch must contain one indexed span lookup location",
+);
+assertNoMatch(
+    allocFontSfntGlyfIndexedPathImpl,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_(?:contour_span|contour_point|contour_edge|curve_segment|path_sink_event_at|path_contour_step)\b/,
+    "F5nw lower indexed path must not call legacy full-scan collection wrappers",
+);
+assertMatch(
+    allocFontSfntGlyfIndexedPathImpl,
+    /gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_checked_span/,
+    "F5nw lower indexed path must delegate to the shared checked-span contour core",
+);
+for (const helper of [
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_checked_span",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_checked_span",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at_checked_span",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_checked_span",
+]) {
+    assertNoMatch(
+        functionSlice(allocFontSfntGlyfImpl, helper),
+        /gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span/,
+        `${helper} must not rediscover a contour span`,
+    );
+}
+assertMatch(
+    guiFontSfntGlyfIndexedPathTests,
+    /first_two_kinds_ok[\s\S]*single_point_ok[\s\S]*checked_span_propagation_ok[\s\S]*lookup_error_ok[\s\S]*contract_ok/,
+    "F5nw lower behavior tests must cover unequal contours, line, quadratic, single point, and typed lookup failure",
+);
+assertMatch(
+    allocFontFacade,
+    /#import\s+"alloc\/gui\/font\/registered_face_simple_glyph_indexed_path"\s+as\s+\*/,
+    "alloc/gui/font facade must export the registered indexed path owner boundary",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPath,
+    /pub\s+struct\s+GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner:[\s\S]*indexed\s+%GuiFontRegisteredFaceSimpleGlyphIndexedOwner[\s\S]*policy\s+%GuiSfntSimpleGlyphPathSinkPolicy[\s\S]*state\s+%GuiFontRegisteredFaceSimpleGlyphIndexedPathState/,
+    "F5nw registered path owner must bind registered index, policy, and private state",
+);
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPathImpl,
+    /pub\s+(?:struct|enum|fn)\s+GuiFontRegisteredFaceSimpleGlyphIndexedPath(?:Active|State)|pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_path_(?:active|owner|step_value|error|budget_step)\b/,
+    "F5nw registered path raw state and owner constructors must remain private",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathStep",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetStep",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphIndexedPathImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `${ownerType} must not be Clone or Copy because it transports the registered indexed owner`,
+    );
+}
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPathImpl,
+    /enum\s+GuiFontRegisteredFaceSimpleGlyphIndexedPathBudgetTerminal/,
+    "F5nw budget result must not split one resource owner across terminal enum variants",
+);
+const registeredIndexedPathStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathImpl, "gui_font_registered_face_simple_glyph_indexed_path_start");
+assertNoMatch(
+    registeredIndexedPathStart,
+    /span_lookup|contour_span_index_lookup|read_item|path_contour_step/,
+    "F5nw registered path start must create pending state without lookup or read",
+);
+const registeredIndexedPathStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathImpl, "gui_font_registered_face_simple_glyph_indexed_path_step");
+assert(
+    (registeredIndexedPathStep.match(/\bgui_font_registered_face_simple_glyph_indexed_owner_span_lookup\b/g) || []).length === 1,
+    "F5nw registered path pending branch must contain exactly one registered indexed lookup location",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPathImpl,
+    /gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_checked_span[\s\S]*gui_sfnt_simple_glyph_path_sink_step_from_contour_step/,
+    "F5nw registered path must use checked-span contour traversal then the existing pure sink policy projection",
+);
+assertMatch(
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_from_span_result"),
+    /let\s+span_contour_index\s+%i32\s+gui_sfnt_simple_glyph_contour_span_index\s+&span[\s\S]*if\s+ne\s+span_contour_index\s+contour_index:[\s\S]*CursorContourMismatch[\s\S]*path_sink_event_at_checked_span/,
+    "F5nw checked-span contour traversal must reject a cursor from another contour before event lookup",
+);
+const registeredIndexedPathBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathImpl, "gui_font_registered_face_simple_glyph_indexed_path_drain_budget");
+assertOrderedFragments(
+    registeredIndexedPathBudget,
+    [
+        "gui_font_registered_face_simple_glyph_indexed_path_progress_kind &owner",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedPathProgressKind::Completed",
+        "if le remaining_steps 0:",
+        "gui_font_registered_face_simple_glyph_indexed_path_step owner",
+    ],
+    "F5nw registered budget traversal must check terminal, then zero budget, then one step",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /registered_face_simple_glyph_indexed_path_drain_ok[\s\S]*indexed_path_drain_budget next_owner 0[\s\S]*Completed[\s\S]*eq next_emitted_count 8[\s\S]*eq next_close_count 2[\s\S]*registered_face_simple_glyph_indexed_path_ok[\s\S]*indexed_path_drain_budget path 0[\s\S]*PendingContour[\s\S]*registered_face_simple_glyph_indexed_path_drain_ok/,
+    "registered behavior test must cover zero-budget pending and completed states, all sink steps, and explicit contour closure",
+);
+assertMatch(
+    guiFontSfntGlyfIndexedPathTests,
+    /cursor_span_mismatch_rejected[\s\S]*path_contour_step_checked_span[\s\S]*CursorContourMismatch/,
+    "lower indexed path behavior test must reject a forged cross-contour cursor and span pairing",
+);
+assertMatch(
+    guiFontSfntGlyfIndexedPathTests,
+    /closure_policies_from_state_ok[\s\S]*KeepOpen[\s\S]*EmitCloseAfterFinalEvent[\s\S]*NoTailAction[\s\S]*CloseContour[\s\S]*closure_policies_ok/,
+    "lower indexed path behavior test must distinguish explicit keep-open and close-after-final-event policies",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /span_index_start entry owner &rejected_limit[\s\S]*LowerStartRejected[\s\S]*CapacityRejected[\s\S]*span_index_start_error_take_owner[\s\S]*span_index_complete builder[\s\S]*CompletionInvariantInvalid[\s\S]*span_index_step_error_take_owner/,
+    "registered behavior test must recover owners from rejected start and premature completion",
+);
+assertMatch(
+    guiFontRegisteredFaceTests,
+    /indexed_path_step completed_owner[\s\S]*AlreadyCompleted[\s\S]*indexed_path_error_free completed_error/,
+    "registered behavior test must explicitly reject and free a direct step on a completed path owner",
 );
 assertMatch(
     allocFontSfntGlyfSpanIndex,
@@ -9203,12 +9452,20 @@ for (const fragment of [
     assert(pointStreamItemCollectionContourPointTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5w contour point API must include ${fragment}`);
 }
 const pointStreamItemCollectionContourPointPublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point");
+const pointStreamItemCollectionContourPointCore = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_from_span_result");
+assertOrderedFragments(
+    pointStreamItemCollectionContourPointPublic,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_from_span_result collection contour_index contour_point_index span_result",
+    ],
+    "legacy F5w contour point adapter must discover span once and delegate to the shared checked-span core",
+);
 for (const fragment of [
     "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
     "let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection",
     "let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection",
     "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind::ContourSpanFailed",
     "let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity",
     "let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span",
@@ -9225,12 +9482,11 @@ for (const fragment of [
     "gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item_value",
     "Result::Ok gui_sfnt_simple_glyph_contour_point span contour_point_index point",
 ]) {
-    assert(pointStreamItemCollectionContourPointPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5w contour point body must include ${fragment}`);
+    assert(pointStreamItemCollectionContourPointCore.includes(fragment), `alloc/gui/font/sfnt/glyf F5w contour point checked-span core must include ${fragment}`);
 }
 assertOrderedFragments(
-    pointStreamItemCollectionContourPointPublic,
+    pointStreamItemCollectionContourPointCore,
     [
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
         "Result::Err span_error_value:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind::ContourSpanFailed",
         "Result::Ok span:",
@@ -9247,23 +9503,23 @@ assertOrderedFragments(
         "if not gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item_value:",
         "Result::Ok gui_sfnt_simple_glyph_contour_point span contour_point_index point",
     ],
-    "alloc/gui/font/sfnt/glyf F5w must call F5v, validate span, validate local range, read item, and revalidate item before returning contour point",
+    "alloc/gui/font/sfnt/glyf F5w shared core must validate span, local range, and item before returning contour point",
 );
 assert(
     (pointStreamItemCollectionContourPointPublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span\b/g) || []).length === 1,
     "alloc/gui/font/sfnt/glyf F5w contour point public body must call F5v contour span exactly once",
 );
 assert(
-    (pointStreamItemCollectionContourPointPublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item\b/g) || []).length === 1,
-    "alloc/gui/font/sfnt/glyf F5w contour point public body must call collection read exactly once",
+    (pointStreamItemCollectionContourPointCore.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5w contour point checked-span core must call collection read exactly once",
 );
 assertNoMatch(
-    pointStreamItemCollectionContourPointPublic,
+    pointStreamItemCollectionContourPointCore,
     /\b(?:vec::|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphContourEdge|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
-    "alloc/gui/font/sfnt/glyf F5w contour point public body must not use direct Vec, byte-backed lookup, drains, edge/path/render/raster/platform/host APIs",
+    "alloc/gui/font/sfnt/glyf F5w contour point core must not use direct Vec, byte-backed lookup, drains, edge/path/render/raster/platform/host APIs",
 );
 assertNoMatch(
-    pointStreamItemCollectionContourPointPublic,
+    pointStreamItemCollectionContourPointCore,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5w contour point public body must preserve NEPL prefix style without parentheses",
 );
@@ -9367,12 +9623,20 @@ for (const fragment of [
     assert(pointStreamItemCollectionContourEdgeTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5x contour edge API must include ${fragment}`);
 }
 const pointStreamItemCollectionContourEdgePublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge");
+const pointStreamItemCollectionContourEdgeCore = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_from_span_result");
+assertOrderedFragments(
+    pointStreamItemCollectionContourEdgePublic,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_from_span_result collection contour_index edge_index span_result",
+    ],
+    "legacy F5x contour edge adapter must discover span once and delegate to the shared checked-span core",
+);
 for (const fragment of [
     "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
     "let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection",
     "let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection",
     "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::ContourSpanFailed",
     "let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity",
     "let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span",
@@ -9383,9 +9647,9 @@ for (const fragment of [
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::EdgeIndexOutOfRange",
     "let next_contour_point_index %i32 if:",
     "eq add edge_index 1 span_point_count",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index edge_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span collection span edge_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::StartPointFailed",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index next_contour_point_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span collection span next_contour_point_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::EndPointFailed",
     "gui_sfnt_simple_glyph_contour_point_matches_span &start &span edge_index",
     "gui_sfnt_simple_glyph_contour_point_matches_span &end &span next_contour_point_index",
@@ -9393,12 +9657,11 @@ for (const fragment of [
     "let expected_end_absolute_point_index %i32 add span_start_point_index next_contour_point_index",
     "Result::Ok gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index",
 ]) {
-    assert(pointStreamItemCollectionContourEdgePublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5x contour edge body must include ${fragment}`);
+    assert(pointStreamItemCollectionContourEdgeCore.includes(fragment), `alloc/gui/font/sfnt/glyf F5x contour edge checked-span core must include ${fragment}`);
 }
 assertOrderedFragments(
-    pointStreamItemCollectionContourEdgePublic,
+    pointStreamItemCollectionContourEdgeCore,
     [
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
         "Result::Err span_error_value:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::ContourSpanFailed",
         "Result::Ok span:",
@@ -9408,9 +9671,9 @@ assertOrderedFragments(
         "if or lt edge_index 0 ge edge_index span_point_count:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::EdgeIndexOutOfRange",
         "let next_contour_point_index %i32 if:",
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index edge_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span collection span edge_index",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::StartPointFailed",
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index next_contour_point_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span collection span next_contour_point_index",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::EndPointFailed",
         "gui_sfnt_simple_glyph_contour_point_matches_span &start &span edge_index",
         "gui_sfnt_simple_glyph_contour_point_matches_span &end &span next_contour_point_index",
@@ -9418,23 +9681,23 @@ assertOrderedFragments(
         "let expected_end_absolute_point_index %i32 add span_start_point_index next_contour_point_index",
         "Result::Ok gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index",
     ],
-    "alloc/gui/font/sfnt/glyf F5x must call F5v, validate span, validate edge range, read start/end points, and revalidate them before returning contour edge",
+    "alloc/gui/font/sfnt/glyf F5x shared core must validate span, edge range, and checked-span start/end points before returning contour edge",
 );
 assert(
     (pointStreamItemCollectionContourEdgePublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span\b/g) || []).length === 1,
     "alloc/gui/font/sfnt/glyf F5x contour edge public body must call F5v contour span exactly once",
 );
 assert(
-    (pointStreamItemCollectionContourEdgePublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point\b/g) || []).length === 2,
-    "alloc/gui/font/sfnt/glyf F5x contour edge public body must call F5w contour point exactly twice",
+    (pointStreamItemCollectionContourEdgeCore.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span\b/g) || []).length === 2,
+    "alloc/gui/font/sfnt/glyf F5x contour edge core must call checked-span contour point exactly twice",
 );
 assertNoMatch(
-    pointStreamItemCollectionContourEdgePublic,
+    pointStreamItemCollectionContourEdgeCore,
     /\b(?:vec::|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
-    "alloc/gui/font/sfnt/glyf F5x contour edge public body must not use direct Vec, byte-backed lookup, drains, path/render/raster/platform/host APIs",
+    "alloc/gui/font/sfnt/glyf F5x contour edge core must not use direct Vec, byte-backed lookup, drains, path/render/raster/platform/host APIs",
 );
 assertNoMatch(
-    pointStreamItemCollectionContourEdgePublic,
+    pointStreamItemCollectionContourEdgeCore,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5x contour edge public body must preserve NEPL prefix style without parentheses",
 );
@@ -9542,7 +9805,7 @@ for (const fragment of [
     "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection",
     "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index edge_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::ContourEdgeFailed",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection contour_index edge_index capacity item_count items_len items_cap edge",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection span contour_index edge_index capacity item_count items_len items_cap edge",
 ]) {
     assert(pointStreamItemCollectionCurveSegmentPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5y curve segment body must include ${fragment}`);
 }
@@ -9553,7 +9816,7 @@ assertOrderedFragments(
         "Result::Err edge_error_value:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::ContourEdgeFailed",
         "Result::Ok edge:",
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection contour_index edge_index capacity item_count items_len items_cap edge",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection span contour_index edge_index capacity item_count items_len items_cap edge",
     ],
     "alloc/gui/font/sfnt/glyf F5y public body must wrap F5x errors and delegate checked edge handling",
 );
@@ -9629,7 +9892,7 @@ for (const fragment of [
     "let end_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &end_point",
     "let needs_lookahead %bool if:",
     "let lookahead_contour_point_index %i32 if:",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index lookahead_contour_point_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span collection span lookahead_contour_point_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::LookaheadPointFailed",
     "let lookahead_valid %bool gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge &lookahead &edge lookahead_contour_point_index",
     "Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead",
@@ -9649,7 +9912,7 @@ assertOrderedFragments(
         "let needs_lookahead %bool if:",
         "if needs_lookahead:",
         "let lookahead_contour_point_index %i32 if:",
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index lookahead_contour_point_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span collection span lookahead_contour_point_index",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::LookaheadPointFailed",
         "let lookahead_valid %bool gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge &lookahead &edge lookahead_contour_point_index",
         "if not lookahead_valid:",
@@ -9661,8 +9924,8 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5y checked-edge helper must validate edge before flags, conditionally read lookahead, validate lookahead, and classify",
 );
 assert(
-    (pointStreamItemCollectionCurveSegmentFromEdge.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point\b/g) || []).length === 1,
-    "alloc/gui/font/sfnt/glyf F5y checked-edge helper must call F5w contour point exactly once",
+    (pointStreamItemCollectionCurveSegmentFromEdge.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point_checked_span\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5y checked-edge helper must call checked-span contour point exactly once",
 );
 assertNoMatch(
     pointStreamItemCollectionCurveSegmentFromEdge,
@@ -10142,38 +10405,36 @@ assert(
 );
 const pointStreamItemCollectionPathSinkEventAt = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at");
 for (const fragment of [
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair collection contour_index edge_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index edge_index",
     "Result::Err error:",
     "Result::Err error",
-    "Result::Ok event_pair:",
-    "let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot",
-    "Result::Ok event",
+    "Result::Ok segment:",
+    "Result::Ok gui_sfnt_simple_glyph_path_sink_event_from_curve_segment &segment slot",
 ]) {
     assert(pointStreamItemCollectionPathSinkEventAt.includes(fragment), `alloc/gui/font/sfnt/glyf F5ad path sink event at body must include ${fragment}`);
 }
 assertOrderedFragments(
     pointStreamItemCollectionPathSinkEventAt,
     [
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair collection contour_index edge_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index edge_index",
         "Result::Err error:",
         "Result::Err error",
-        "Result::Ok event_pair:",
-        "gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot",
-        "Result::Ok event",
+        "Result::Ok segment:",
+        "gui_sfnt_simple_glyph_path_sink_event_from_curve_segment &segment slot",
     ],
-    "alloc/gui/font/sfnt/glyf F5ad must propagate F5aa errors before pure typed-slot event projection",
+    "alloc/gui/font/sfnt/glyf F5ad must propagate curve errors before the shared pure typed-slot event projection",
 );
 assert(
-    (pointStreamItemCollectionPathSinkEventAt.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair\b/g) || []).length === 1,
-    "alloc/gui/font/sfnt/glyf F5ad must call F5aa path sink event pair exactly once",
+    (pointStreamItemCollectionPathSinkEventAt.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ad must call the legacy curve adapter exactly once",
 );
 assert(
-    (pointStreamItemCollectionPathSinkEventAt.match(/\bgui_sfnt_simple_glyph_path_sink_event_pair_event_at\b/g) || []).length === 1,
-    "alloc/gui/font/sfnt/glyf F5ad must call pure typed-slot path sink event projection exactly once",
+    (pointStreamItemCollectionPathSinkEventAt.match(/\bgui_sfnt_simple_glyph_path_sink_event_from_curve_segment\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ad must call the shared pure typed-slot event projection exactly once",
 );
 assertNoMatch(
     pointStreamItemCollectionPathSinkEventAt,
-    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphPathSinkEvent|push|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_path_sink_event_pair_kind_at|gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at|gui_sfnt_simple_glyph_path_sink_event_kind\b|gui_sfnt_lookup_simple_glyph_path_command_pair|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|gui_sfnt_lookup_simple_glyph_path_sink|gui_sfnt_simple_glyph_path_contour_step|gui_sfnt_simple_glyph_path_sink_action|gui_sfnt_simple_glyph_path_sink_step|Consumer|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphPathSinkEvent|push|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_path_sink_event_pair_kind_at|gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at|gui_sfnt_simple_glyph_path_sink_event_kind\b|gui_sfnt_lookup_simple_glyph_path_command_pair|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|gui_sfnt_lookup_simple_glyph_path_sink|gui_sfnt_simple_glyph_path_contour_step|gui_sfnt_simple_glyph_path_sink_action|gui_sfnt_simple_glyph_path_sink_step|Consumer|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
     "alloc/gui/font/sfnt/glyf F5ad must not allocate, call kind helpers, byte-backed/lower collection helpers directly, traverse sinks, render, rasterize, or use host/platform APIs",
 );
 assertNoMatch(
@@ -10256,29 +10517,36 @@ assert(
     "alloc/gui/font/sfnt/glyf F5ae must expose collection-backed path contour step helper",
 );
 const pointStreamItemCollectionPathContourStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step");
+const pointStreamItemCollectionPathContourStepCore = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_from_span_result");
+assertOrderedFragments(
+    pointStreamItemCollectionPathContourStep,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_from_span_result collection cursor span_result",
+    ],
+    "legacy F5ae contour step adapter must discover span once and delegate to the shared checked-span core",
+);
 for (const fragment of [
     "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
     "let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor",
     "let edge_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_edge_index &cursor",
     "let slot %GuiSfntSimpleGlyphPathSinkEventSlot gui_sfnt_simple_glyph_path_contour_cursor_slot &cursor",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::ContourSpanFailed",
     "let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity",
     "let cursor_glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::CursorGlyphMismatch",
-    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at collection contour_index edge_index slot",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at_checked_span collection span edge_index slot",
     "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::PathSinkEventFailed",
     "let kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &event",
     "let next %GuiSfntSimpleGlyphPathContourNext gui_sfnt_simple_glyph_path_contour_next_from_cursor &cursor span_point_count",
     "let step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_contour_step cursor event kind next",
     "Result::Ok step",
 ]) {
-    assert(pointStreamItemCollectionPathContourStep.includes(fragment), `alloc/gui/font/sfnt/glyf F5ae path contour step body must include ${fragment}`);
+    assert(pointStreamItemCollectionPathContourStepCore.includes(fragment), `alloc/gui/font/sfnt/glyf F5ae checked-span contour step core must include ${fragment}`);
 }
 assertOrderedFragments(
-    pointStreamItemCollectionPathContourStep,
+    pointStreamItemCollectionPathContourStepCore,
     [
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
         "Result::Err span_error_value:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::ContourSpanFailed",
         "Result::Ok span:",
@@ -10286,7 +10554,7 @@ assertOrderedFragments(
         "let cursor_glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor",
         "if ne capacity_glyph_raw cursor_glyph_raw:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::CursorGlyphMismatch",
-        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at collection contour_index edge_index slot",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at_checked_span collection span edge_index slot",
         "Result::Err event_error_value:",
         "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::PathSinkEventFailed",
         "Result::Ok event:",
@@ -10294,35 +10562,35 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_path_contour_next_from_cursor &cursor span_point_count",
         "gui_sfnt_simple_glyph_path_contour_step cursor event kind next",
     ],
-    "alloc/gui/font/sfnt/glyf F5ae must validate span and cursor glyph identity before F5ad event lookup and step construction",
+    "alloc/gui/font/sfnt/glyf F5ae shared core must validate span and cursor glyph identity before checked-span event lookup and step construction",
 );
 assert(
     (pointStreamItemCollectionPathContourStep.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span\b/g) || []).length === 1,
     "alloc/gui/font/sfnt/glyf F5ae must call collection contour span exactly once",
 );
 assert(
-    (pointStreamItemCollectionPathContourStep.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at\b/g) || []).length === 1,
-    "alloc/gui/font/sfnt/glyf F5ae must call F5ad path sink event at exactly once",
+    (pointStreamItemCollectionPathContourStepCore.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at_checked_span\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ae core must call checked-span path sink event at exactly once",
 );
 assert(
-    (pointStreamItemCollectionPathContourStep.match(/\bgui_sfnt_simple_glyph_path_sink_event_kind\b/g) || []).length === 1,
+    (pointStreamItemCollectionPathContourStepCore.match(/\bgui_sfnt_simple_glyph_path_sink_event_kind\b/g) || []).length === 1,
     "alloc/gui/font/sfnt/glyf F5ae must derive kind from returned event exactly once",
 );
 assert(
-    (pointStreamItemCollectionPathContourStep.match(/\bgui_sfnt_simple_glyph_path_contour_next_from_cursor\b/g) || []).length === 1,
+    (pointStreamItemCollectionPathContourStepCore.match(/\bgui_sfnt_simple_glyph_path_contour_next_from_cursor\b/g) || []).length === 1,
     "alloc/gui/font/sfnt/glyf F5ae must call private cursor-next helper exactly once",
 );
 assert(
-    (pointStreamItemCollectionPathContourStep.match(/\bgui_sfnt_simple_glyph_path_contour_step\b/g) || []).length === 1,
+    (pointStreamItemCollectionPathContourStepCore.match(/\bgui_sfnt_simple_glyph_path_contour_step\b/g) || []).length === 1,
     "alloc/gui/font/sfnt/glyf F5ae must construct contour step exactly once",
 );
 assertNoMatch(
-    pointStreamItemCollectionPathContourStep,
+    pointStreamItemCollectionPathContourStepCore,
     /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphPathContourStep|push|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|gui_sfnt_lookup_simple_glyph_path_contour_step|gui_sfnt_lookup_simple_glyph_path_command_pair|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_lookup_simple_glyph_path_sink|gui_sfnt_simple_glyph_path_sink_action|gui_sfnt_simple_glyph_path_sink_step|Consumer|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
     "alloc/gui/font/sfnt/glyf F5ae must not allocate, call F5ac/F5aa/lower helpers directly, traverse sinks, render, rasterize, or use host/platform APIs",
 );
 assertNoMatch(
-    pointStreamItemCollectionPathContourStep,
+    pointStreamItemCollectionPathContourStepCore,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5ae body must preserve NEPL prefix style without parentheses",
 );

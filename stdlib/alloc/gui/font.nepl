@@ -26,5 +26,7 @@ pub #import "alloc/gui/font/registered_face_table" as *
 pub #import "alloc/gui/font/registered_face_glyph_lookup" as *
 pub #import "alloc/gui/font/registered_face_horizontal_metric_lookup" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_lookup" as *
+pub #import "alloc/gui/font/registered_face_simple_glyph_provenance" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_reader" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_collection" as *
+pub #import "alloc/gui/font/registered_face_simple_glyph_indexed_path" as *
