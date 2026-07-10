@@ -360,6 +360,20 @@ readerが`End`を返した場合は、collection capacityのglyph / contour coun
 
 start failureはevidence、limit、optional reader error、optional capacity check、optional allocation errorをCopy payloadとして返す。kindはreader start、invalid topology、command count overflow、capacity rejection、collection allocation failureを分離し、shared capacity enumの`Rejected`を別kindへ誤分類しない。step terminalとstep errorはownerを含むため`Clone` / `Copy`を実装しない。step failureはreader cursorとcollectionを含むownerを必ず回収可能にし、reader error、collection push kind、rejected item、lower storage error、expected / actual countをtyped payloadとして保持する。callerはmetadataを借用して読んだ後、consuming `take_owner`でownerを回収するか、`error_free`で閉じる。push errorのmetadataはlower errorを消費する前に読み、その後collectionを回収してpre-step reader cursorと再結合する。path constructionやrasterizationへ暗黙に進まず、completed collectionは後続phaseが明示的に既存path sinkへ渡す。behavior testはcompleted ownerからcollectionを借用し、既存contour span consumerが全contourを受理することも確認する。
 
+## Simple glyph classified collection contour span index boundary
+
+F5nvはexisting collection span lookupの反復全走査をpath pipelineから除く。現行`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span`はrequested contourごとにitem 0からcollection末尾まで走査するため、path actionごとの使用はO(a * p)になる。`alloc/gui/font/sfnt/glyf_span_index`はcomplete collectionを一度だけ消費し、contour spanをexact contour capacityの`Vec`へ順次構築する。
+
+`GuiSfntSimpleGlyphContourSpanIndexBuilderOwner`はcollection owner、span `Vec`、next point index、next contour index、contour start indexを保持する。startはcapacity shape、item count / len / cap、positive contour / point count、caller `GuiSfntSimpleGlyphContourSpanIndexLimit`を検査し、span storageを`contour_count` capacityで確保する。start errorはcollection owner、limit、kind、optional storage errorを保持し、owner recoveryまたはfreeを要求する。
+
+`next_point_index < point_count`のpoint stepだけが`gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`をexactly once呼ぶ。read後はitem point index、capacity glyphとのglyph一致、point payloadから再導出したkindとの一致を検査する。non-endpoint itemではpoint indexだけを1増やす。`EndOnCurve` / `EndOffCurve`ではcurrent contour startからcurrent pointまでの`GuiSfntSimpleGlyphContourSpan`を作り、span `Vec`へexactly once pushし、next contour indexとnext contour startを更新する。push errorではlower `Vec`を回収し、collectionとpre-push progressへ再結合する。point stepはexactly 1 itemを読み、最大1 spanをcommitする。
+
+point stepは`next_point_index < point_count`だけを受理し、successでは同じbuilder owner型を直接返す。`next_point_index >= point_count`はtyped progress errorであり、resourceを二重に持つbuilderをterminal enumへ包まない。p回のpoint step後、別のcompletion APIだけがitem readとspan pushを一度も行わずcompletionを行う。completionへの`next_point_index < point_count`または`next_point_index > point_count`は`CompletionInvariantInvalid`である。completionはnext contour indexがcontour count、contour startがpoint count、span lenがcontour count、span capがcontour countであることを検証する。最終pointがendpointでない場合は`MissingFinalEndpoint`、最終pointはendpointだがendpoint数が不足した場合は`ContourCountMismatch`、期待contour数を超えてendpointを読んだ場合はpoint stepで`ContourCountExceeded`を返す。successはcollectionとspan storageを保持するnon-Copy `GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner`を直接返す。
+
+indexed ownerはcollectionを分離するconsuming accessorを公開せず、borrowed collection accessor、capacity / span count accessor、checked O(1) span lookup、freeを提供する。lookup signatureはindexed owner参照とcontour indexだけを受け、collectionやspan `Vec`を別引数にしない。lookupは`vec::get`をexactly onceだけ呼び、requested index range、span glyph、span contour index、start / end / point countをO(1)で再検証し、collection readとold full-scan helperを呼ばない。全buildはO(p + c)、storage O(c)であり、各collection itemはspan discoveryでexactly onceだけ読む。old full-scan `collection_contour_span`、byte-backed reader、path action / command、outline storage、metric、raster / render、platform、fallbackはF5nvから呼ばない。
+
+F5nwはF5nu completed registered ownerからcollectionを移し、F5nv builder / indexed ownerへregistered evidenceを束ねるadapterを追加する。後続indexed path consumerはindexed ownerのspan lookupを使い、old full-scan span helperをsource policyで禁止する。
+
 ## SFNT name table
 
 F4b は `alloc/gui/font/sfnt/name.nepl` が所有する。`alloc/gui/font/sfnt.nepl` は facade とし、numeric metadata parser は `alloc/gui/font/sfnt/metadata.nepl` に置く。`gui_sfnt_parse_metadata` は `name` table decode を行わず、`gui_sfnt_parse_names` は別 API として `GuiSfntNames` を返す。
