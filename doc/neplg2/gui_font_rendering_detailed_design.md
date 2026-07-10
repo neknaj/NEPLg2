@@ -390,6 +390,22 @@ budgeted traversalはowner stateの`Completed`を先に判定する。completed�
 
 F5nwのcomplexityはindex build O(p + c)、全contour event traversal O(c + a)、合計O(p + c + a)である。source policyはlower indexed path module内のregistered import、旧full-scan helper、旧collection-backed point / edge / curve / event / action wrapperを0件に固定し、explicit-span helper内のspan lookupも0件に固定する。registered path moduleはraw collection / cursor引数を公開せず、owner-consuming transitionだけを公開する。F5nxはこの境界を使ってaction summary、endpoint / edge / command tag drains、command value / stream、stroke provenanceを移行する。F5nwだけでは上位path storage pipelineの移行完了を主張しない。
 
+## Registered indexed action, storage, command, and stroke owner chain
+
+F5nxは1つの巨大なouter owner型ではなく、phase-specific non-Copy ownerを連続的に消費するowner chainである。各ownerはregistered source authorityとそのphaseのmutable resourceを分離不能に保持する。遷移は前phase ownerを消費して次phase ownerを返し、失敗時は入力phase ownerを再構成してerrorへ保持する。
+
+owner DAGはRegisteredIndexedPathOwnerからRegisteredIndexedActionOwner、RegisteredIndexedActionCompletedOwner、RegisteredIndexedOutlineStorageOwner、RegisteredIndexedEndpointOwner、RegisteredIndexedPointXOwner、RegisteredIndexedPointYOwner、RegisteredIndexedEdgeOwner、RegisteredIndexedCommandTagOwner、RegisteredIndexedCommandStreamOwner、RegisteredIndexedCommandWriterOwner、RegisteredIndexedStrokeSourceOwnerの順に進む。
+
+source authorityはF5nw path owner内のregistered indexed ownerから始まり、各phase ownerのprivate field transferで次へmoveする。公開APIはphase owner全体のconsume / recovery / freeだけを提供し、raw collection、span index、lower path owner、outline storage、command storageを単独でtakeできない。read-only処理はphase owner内部のborrowed indexed sourceからcollectionまたはO(1) span lookupを行い、callerから別collectionを受け取らない。
+
+F5nxa action ownerのprivate stateはNeedSinkStep、TailPending sink_step、Completedである。NeedSinkStepはlower F5nw path stepを最大1回呼び、Primary packetを返してsink stepをTailPendingへ保存する。TailPendingはlower処理を呼ばずTail packetを返し、その後lower path progressからNeedSinkStepまたはCompletedを決定する。contour-local endはfull-path completionに使わない。Primary、Tail、Tail NoActionはそれぞれ1 successful action operationである。
+
+F5nxbはaction apply stateを同じowner authorityへ追加し、rejectedまたはcompleted summaryを作る。F5nxcだけがcompleted action ownerのcanonical capacityとcaller limitを検査してoutline storageを確保する。F5nwで完了したregistered provenance validationは再実行せず、F5nxcの検査はallocation shape / limit validationであって新しいsource authorityを作るものではない。
+
+endpoint、edge、command tag、command value、stroke source contourはowner内indexed sourceのO(1) span lookupとexisting checked-span coreを使う。PointX / PointYはowner内collectionをborrowしてO(1) item readを行う。command sink writerと中間stroke metric algorithmはstorage-only algorithmを維持するが、owner型はregistered source authorityを次phaseまで保持する。stroke source contourだけが再びindexed spanとchecked-span curve / event coreを使う。
+
+各fallible transitionはlower errorのkindとoptional metadataをborrowで読み、その後lower ownerをtakeし、registered authorityとphase progressを再結合する。errorはmetadata accessor、single take_owner、single error_freeを持つ。budget resultはowner + Copy statusであり、terminal確認、budget 0、最大1 successful phase-local operationの順を守る。partial drain resumeはcursorとregistered provenanceを同じownerに保持する。
+
 ## SFNT name table
 
 F4b は `alloc/gui/font/sfnt/name.nepl` が所有する。`alloc/gui/font/sfnt.nepl` は facade とし、numeric metadata parser は `alloc/gui/font/sfnt/metadata.nepl` に置く。`gui_sfnt_parse_metadata` は `name` table decode を行わず、`gui_sfnt_parse_names` は別 API として `GuiSfntNames` を返す。

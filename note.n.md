@@ -1,3 +1,48 @@
+# 2026-07-10 Agent2 GUI font rendering F5nxa registered indexed action owner
+
+## 目的
+
+- F5nw registered indexed path ownerを唯一のsource authorityとして、各sink stepをPrimary / Tail actionへ順序付きでexactly once射影する。
+- registered evidenceをraw collectionやpath ownerへ分離せず、F5nxb action apply / summaryが継続できるsealed non-Copy owner boundaryを作る。
+- terminal-before-budget、typed lower error recovery、NoActionを含むexplicit action operationを静的なstateとResultで表す。
+
+## 実装
+
+- F5nxの根本問題を監査し、旧F5am以降がregistered indexed authorityを保持せず、別collection / Copy summaryを再結合できることを仕様書、詳細設計、実装計画へ反映した。
+- F5nxをF5nxaからF5nxkまでのphase-specific owner chainへ分割した。各phaseは前ownerを消費し、registered authorityを保持する次ownerを返す。
+- registered indexed action moduleを追加し、F5nw path ownerとprivate NeedSinkStep / TailPending / Completed stateを一体化した。
+- NeedSinkStepだけがlower path stepを1回呼んでPrimary packetを返す。TailPendingは保存済みsink stepだけからTail packetを返し、NoActionも1 operationとしてcommitする。
+- action step / budget resultは唯一のownerとCopy packet / statusを返す。Completed、budget 0、最大1 actionの順で進み、completed direct stepはowner-bearing AlreadyCompleted errorを返す。
+- lower path errorはkind、lookup error、contour-step errorをborrowで読んだ後にpath ownerを回収し、NeedSinkStep action ownerへ再結合する。
+- facade、real-font registered fixture、source-policy、private constructor / use-after-move compile-fail doctestを追加した。
+
+## plan.md との差異
+
+- plan.mdは言語全体の方向性であるため変更していない。F5nxaはGUI font rendering implementation planのF5nx先頭sliceである。
+- F5nxaはaction packet境界までであり、action apply / summary、outline storage、endpoint / point / edge / command、stroke provenanceは未完了である。F5nxaをF5nx全体の完了として扱わない。
+
+## subagent review
+
+- 3並列監査はregistered authorityのstorage chainでの脱落、旧full-scan依存、public constructorによるforged authority、budget / recovery未定義を指摘した。
+- plan review 1回目は安定契約を仕様書へ、owner DAGを詳細設計へ分離し、F5nxa move / recovery / free表、provenance validation境界、最大1 action budgetを明記するよう要求した。修正後はPLAN_APPROVED。
+- implementation review 1回目はshape / lower failure / completed budget 0 coverageとF5nw regression helperの実行経路を指摘した。同じregistered evidenceからF5nwとF5nxaのowner chainを別々に構築し、completed budget 0を追加した。shape / typed lower failureはF5nw lower fixture、sealed recovery orderはsource-policy / compile-fail、action orderはregistered fixtureで検査する責務分担へ修正した。
+- implementation review 2系統目はdouble-take compile-failの禁止括弧による偽陽性、旧collection action API禁止範囲、private constructor compile-fail、Primary / Tail source identityを指摘した。全compile-failのdiagnostic codeを固定し、旧API prefix全体の禁止、source cursor identity比較を追加した。最終再レビューは2系統ともIMPLEMENTATION_APPROVED。
+
+## 検証
+
+- pass: registered F5nw + F5nxa real-font behavior 1/1。F5nxaは16 actions、2 close、6 NoAction、pending / TailPending / completed budget 0、completed direct-step rejectionを確認。
+- pass: F5nxa module doctest 41/41、F5nw path module doctest 33/33、lower indexed path behavior 1/1。
+- pass: doctest diagnostic code metadata regression。
+- pass: source-policy、stdlib documentation contract、issues check、git diff --check。
+- pass: trunk build。
+- pass: playground editor JSON 13/13。
+
+## 残件
+
+- F5nxbでregistered indexed action ownerへapply stateを統合し、completed / rejected summaryをregistered authorityから分離せず返す。
+- F5nxc以降でoutline storage、endpoint / point / edge / command、stroke provenanceを順次registered indexed owner chainへ移す。
+- metric join、scale、shaping / layout、glyph rasterization、render2d、platform presentationをno-fallback contractで接続する。
+
 # 2026-07-10 Agent2 GUI font rendering F5nw registered indexed contour path boundary
 
 ## 目的

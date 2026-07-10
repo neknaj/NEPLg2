@@ -6447,7 +6447,81 @@ node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json
 - F5nw registered indexed contour traversalを使い、path action summary、endpoint / edge / command tag drain、command value / stream、stroke provenanceを旧collection-backed span discoveryから移行する。
 - full path storage pipeline全体をO(p + c + a)へ接続し、旧full-scan helperをnew registered pipelineから完全に排除する。
 
-F5nxの詳細なowner / storage / recovery契約はF5nw完了後、既存drainごとのresource obligationを監査して追記する。F5nwの完了をF5nxの完了として扱わない。
+監査結果:
+
+- 旧F5am以降はCopy capacity / summaryからstorage ownerを構築し、registered indexed ownerを保持しない。後段が別のcollection、storage、command ownerをpublic引数で再結合できるため、runtime capacity照合だけではregistered face provenanceを保証できない。
+- endpoint、edge、command tag、command value、stroke source contourは旧full-scan contour span discoveryへ戻る。PointX / PointYはitem read自体はO(1)だが、外部collection引数を再注入するためsealed provenanceを維持しない。
+- F5nxはhelperの局所置換ではなく、F5nw path ownerからstroke provenanceまでregistered authorityを単一owner chainで輸送するmigrationとする。旧F5am public constructor群をnew registered pipelineのauthorityにしない。
+
+共通owner契約:
+
+- public rootはregistered indexed ownerを消費し、private stateを持つ最初のphase-specific ownerを返す。各subphaseは前phase ownerを消費して次phase ownerを返す連続owner chainとし、全11段階を1つの巨大なouter enum型へ格納しない。phase owner、phase payload、success / error / budget packetのconstructorはprivateとする。
+- 各phase ownerはF5nw path authority、action state、outline storage、command storage、stroke provenanceのうち必要なresourceとregistered authorityを一体所有する。publicなraw collection take、indexed owner take、path owner take、storage-only take、異なるglyph由来resourceのpairing APIを提供しない。
+- public transitionはouter ownerを消費し、success、failure、budget exhaustionの全経路で常に唯一のouter ownerを返す。owner-bearing terminal enumを作らず、`owner + Copy status`に統一する。
+- lower errorを包むときはkindとoptional metadataをborrowで全て読んだ後にlower ownerを回収し、registered authorityと再結合する。retryしないcaller向けにerror / ownerのsingle freeを提供し、partial allocationは取得順の逆順で解放する。
+- budgetはend-to-endの曖昧な単位に統合せずphase-local operation数とする。各drainは`terminal確認 -> budget 0確認 -> 1 successful operation`の順で進み、terminalとbudget到達が同時ならterminalを優先する。budget 0ではlookup、read、allocation、pushを行わない。
+- shared provenance validationはF5nw indexed path ownerがF5nu / F5nvから継承したevidenceをauthorityとし、F5nxで別authorityとして再実行しない。F5nxcのoutline storage allocation前はcompleted action ownerから導出したcanonical capacityとcaller limitだけを検査する。以後のownerは同じregistered evidenceを保持し、foreign resourceをruntime fallbackで受理しない。
+
+移行段階:
+
+1. F5nxa: F5nw sink stepをPrimary / Tail actionへ順序付きで射影するregistered indexed action owner。
+2. F5nxb: action apply stateとcompleted / rejected summaryをouter ownerへ統合する。storage allocationには進まない。
+3. F5nxc: completed action authorityからoutline storageを確保し、allocation success / failureでもregistered authorityを保持する。
+4. F5nxd: contour endpoint start / push / drainをindexed span lookupへ移す。
+5. F5nxe: PointX drainをsealed collection readへ移し、外部collection引数を廃止する。
+6. F5nxf: PointY drainをsealed collection readへ移し、外部collection引数を廃止する。
+7. F5nxg: edge drainをindexed spanとchecked-span edge coreへ移す。
+8. F5nxh: path command tag drainをindexed spanとchecked-span event coreへ移す。
+9. F5nxi: command value / cursor / stream preparationをindexed sourceへ移し、read-only projectionとowner mutationを分離する。
+10. F5nxj: command sink plan / allocation / writer completionへregistered source authorityを輸送する。F5kqからF5kuのstorage-only algorithmは変更せず、source ownerを脱落させない。
+11. F5nxk: stroke source contourをindexed spanとchecked-span curve / event coreへ移し、new registered action / storage / command / stroke moduleから旧full-scan helperを禁止する。
+
+各subphaseの必須検査:
+
+- owner move表にinput resource、success owner、failure metadata read順、lower owner recovery、outer owner再構築、single free、partial free、budget 0時に未消費のresourceを書く。
+- ordinary application moduleからprivate constructorを呼べないcompile-fail、ownerの二重take / use-after-move compile-fail、foreign glyph resourceをpairingできないcompile-failを追加する。
+- runtime testはlower failure後のmetadata参照とexactly-once recovery / free、partial budget resume、pending / completed budget 0、exact budget completion、各phaseのcursor / provenance維持を検査する。
+- source policyはnew module内の旧full-scan helper、raw collection再注入、public split accessor / constructor、owner-bearing terminalを0件に固定する。
+
+### Phase F5nxa: registered indexed path action owner
+
+目的:
+
+- F5nw path ownerを唯一のsource authorityとして、各sink stepのPrimary actionとTail actionを順序付きで1回ずつ公開する。
+- action projection中にspan lookupやcollection traversalを再実行せず、後続F5nxbがapply stateを統合できるsealed owner boundaryを作る。
+- このphaseではaction summary、storage allocation、endpoint / point / edge / command drain、stroke provenanceへ進まない。
+
+owner / state契約:
+
+- action ownerはF5nw path ownerとprivate state `NeedSinkStep | TailPending sink_step | Completed`を一体所有し、`Clone` / `Copy`を実装しない。
+- startはregistered indexed ownerとpolicyを消費し、F5nw startを同じcall内で1回だけ呼ぶ。任意のmid-path ownerやraw cursorからaction ownerを構築できるpublic APIは提供しない。
+- `NeedSinkStep`だけがF5nw path stepを1回呼ぶ。emitted sink stepのPrimary actionを返し、同じsink stepとcontinuation path ownerを`TailPending`へ保持する。
+- `TailPending`はlower step / lookupを呼ばず、保持済みsink stepのTail actionを返す。Tailが`NoAction`でも1 action operationとして明示的に返し、順序を飛ばさない。
+- Tail後はF5nw path progressがcompletedなら`Completed`、それ以外は`NeedSinkStep`へ移る。既存contour-local `EndContour`をfull-path completion authorityとして使わない。
+- public step / budget resultは常に唯一のaction ownerとCopy status `Emitted action_packet | Completed | StepBudgetExhausted`を持つ。action packetはsink step、`Primary | Tail` slot、actionを持つCopy valueとする。
+- lower F5nw failureはkind、lookup error、contour step errorを回収前に読み、recoverable action ownerを持つtyped errorへ包む。completed ownerへのdirect stepは`AlreadyCompleted` errorとし、ownerを回収またはfreeできる。
+- `drain_budget`は任意budgetを内部loopで使い切らず、F5nwと同様に最大1 action operationだけ進める。`Completed`、budget 0、1 action stepの順に判定し、PrimaryとTailを各1、Tail `NoAction`も1 operationとして数える。
+
+owner move / recovery / free:
+
+| transition | input resource | success owner / state | failure metadata / recovery | free / budget obligation |
+|---|---|---|---|---|
+| start | registered indexed owner、borrowed policy | action owner `NeedSinkStep` | lower startはinfallible。constructorはprivate | action owner freeがembedded path ownerを1回freeする |
+| `NeedSinkStep` Primary | action owner内path owner | emitted Primary packet、continuation path owner、`TailPending sink_step` | lower path errorのkind、lookup error、contour step errorをborrowで読み、path ownerをtakeして`NeedSinkStep` action ownerへ再結合する | error freeまたはtake ownerの一方だけを使う |
+| `TailPending` Tail | continuation path owner、保存済みsink step | emitted Tail packet、path progressに応じ`NeedSinkStep`または`Completed` | lower callを行わないためfallible recoveryなし | 保存sink stepを二重emitせず、Tail `NoAction`もcommitする |
+| completed direct step | action owner `Completed` | successなし | `AlreadyCompleted` errorが同じcompleted ownerを保持する | error freeまたはtake ownerでexactly once閉じる |
+| nonterminal budget 0 | action owner `NeedSinkStep`または`TailPending` | 同じstateのownerと`StepBudgetExhausted` | metadata / recoveryなし | path step、lookup、read、action emitを0回にする |
+| completed budget 0 | action owner `Completed` | 同じownerと`Completed` | metadata / recoveryなし | completed判定をbudget判定より先に行う |
+
+完了条件:
+
+- F5nw lower behavior fixtureでsingle-point、on-curve line、off-curve start、consecutive off-curve、close policy、lookup / contour-step failureを検査する。F5nxa registered integration fixtureは同じregistered evidenceからF5nw regression用とF5nxa用のowner chainを別々に構築し、各sink stepがPrimary / Tailの順にexactly once出力され、Tail NoActionも省略されないことを検査する。
+- partial budget resume、pending / tail-pending / completed budget 0、exact budget completion、completed direct-step failureをregistered behaviorで検査する。sealed registered public APIから不正index / cursorは構築不能なので、lower failure wrappingはmetadata read-before-take source policy、private constructor compile-fail、F5nw lower typed failure testで検査する。
+- source policyはconstructor / state private、owner non-Copy、raw cursor / collection / path owner splitなし、`TailPending`からlower stepなし、旧collection-backed action / full-scan helperなしを固定する。
+- focused behavior test、module doctest、F5nw regression、source policy、documentation contract、issues check、`git diff --check`、`trunk build`、playground editor JSONが通る。
+- subagent plan / implementation reviewがsealed provenance、Primary / Tail order、budget semantics、owner recovery、F5nxb以降とのscope境界を承認する。
+
+F5nxaの完了をF5nx全体の完了として扱わない。F5nx完了はF5nxbからF5nxkまでのauthority migrationと旧full-scan prohibitionが揃った時点とする。
 
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
