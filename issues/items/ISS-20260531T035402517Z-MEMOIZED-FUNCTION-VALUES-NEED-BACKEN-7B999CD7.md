@@ -1062,3 +1062,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: split ownerで検査したexpected/emitted completion markerがcoverage authority生成時に失われていたため、両countをproduction coverage authorityへ運搬し、下流validatorで一致とevent-shape count合計を再検査するようにした。reader representativeはcompletion未発行のままproductionで拒否する。actual Resource IR function/block/operation enumeratorとsealed backendは未完了である。
 
 2026-07-11: context-bound event producerのraw operation table長からのcompletion mintを廃止し、全operation recordのrequest key / graph idとdense ordinal `0..n`をemit前に検査するResource-lowering traversal scope authorityを追加した。event tableは検査済みscopeからだけexpected countを受け取る。scopeは将来RustのResourceFunction/block/op enumeratorへ差し替える境界であり、現入力はまだHIR projection由来である。
+
+2026-07-11: HIR projection由来scopeがsplit後に無条件`ResourceLoweringTraversalProduced`へ再分類されていたため、fixture / HIR projection / actual Resource IRのscope provenanceをevent tableとsplit outputまで運搬する。現HIR pathは`HirProjectionTraversalProduced` coverageにだけ写され、production validatorで拒否する。`ResourceIrEnumerated`の発行境界とactual Resource IR enumeratorは未実装である。

@@ -83445,3 +83445,12 @@ MERGE_APPROVED
 - `plan.md`は変更していない。scope入力はまだHIR reader source projection由来で、RustのResourceFunction/block/op actual enumerator、effect mask、sealed backend、artifact policy hashは未完了である。
 - subagent差分レビューの指摘により、scope recordへdense ordinal検査と専用`ActualWalkerOperationOrdinalMismatch` taxonomyを追加し、実2-record owner tableでvalid/wrong key/wrong graph/duplicate/gap/negativeを検査した。差分・全体整合レビューはいずれも最終APPROVED。
 - pass: target contract、scope runtime 1/1、selfhost doctest 19/19、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost traversal scope provenance
+
+- HIR reader projection由来scopeがcompletionとstructural validation後に無条件`ResourceLoweringTraversalProduced`へ再分類されていたことを根本原因とした。
+- `FixtureUnscoped` / `HirProjectionScoped` / `ResourceIrEnumerated`をscope、event table、split outputへ運搬し、coverage originへ網羅的に写す。現行operation-table scopeは`HirProjectionScoped`だけを発行し、production validatorは`HirProjectionTraversalProduced`を拒否する。
+- generic fixtureとHIR scope producerは`ResourceIrEnumerated`を発行できない。actual Resource IR function/block/nested operation/terminator enumeratorとその専用origin constructorは未実装で、次の具体的sliceとする。
+- source-only output、fresh-witness bundle、authority outputの全production入口でcoverage provenanceを再検査し、HIR由来ownerはcleanup後にtyped rejectionとする。stage0 summaryも旧成功期待を廃止した。
+- `plan.md`は変更していない。subagent差分・全体整合レビューはいずれも指摘修正後APPROVED。
+- pass: target contract、focused runtime 1/1、selfhost doctest 19/19、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。

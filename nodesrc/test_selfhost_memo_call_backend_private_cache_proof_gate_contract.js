@@ -662,10 +662,15 @@ assertOrdered(
     [
         "OutputRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource",
         "summary.hir_body_private_cache_effect_rejected unsupported_expected",
-        "SourceVocabularyRejected SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent",
-        "summary.resource_lowering_private_cache_effect_no_escape_rejected source_vocabulary_unsupported_expected",
+        "OutputRejected selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+        "summary.resource_lowering_source_count hir_projection_rejected_expected",
+        "summary.resource_lowering_fresh_witness_input_source_count hir_projection_rejected_expected",
+        "summary.resource_lowering_authority_bundle_witness_count hir_projection_rejected_expected",
+        "summary.resource_lowering_no_escape_pair_code hir_projection_rejected_expected",
+        "summary.resource_lowering_private_cache_effect_source_count hir_projection_rejected_expected",
+        "summary.resource_lowering_private_cache_effect_no_escape_rejected hir_projection_rejected_expected",
     ],
-    "production stage0 smoke must distinguish source-derived witness rejection from producer vocabulary eligibility rejection",
+    "production stage0 smoke must reject every HIR-projection resource-lowering path before production source or witness authority",
 );
 assert.match(
     code,
@@ -774,12 +779,13 @@ assert.doesNotMatch(
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable"),
-    ["events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload", "expected_event_count %i32", "emitted_event_count %i32"],
-    "unified event owner must carry a pre-emission expected count separately from its emitted count",
+    ["events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload", "scope_origin %SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin", "expected_event_count %i32", "emitted_event_count %i32"],
+    "unified event owner must preserve traversal scope provenance and carry a pre-emission expected count separately from its emitted count",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority"),
     [
+        "origin %SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin",
         "key %SelfhostMemoCallBackendPrivateCacheProofKey",
         "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
         "operation_count %i32",
@@ -831,6 +837,39 @@ assertOrdered(
     ],
     "context-bound producer must validate a traversal scope authority before emitting body and operation events",
 );
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_from_identity_result"),
+    [
+        "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 operation_count",
+        "SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::HirProjectionScoped",
+    ],
+    "operation-table scope producer must identify its HIR projection provenance after full validation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_from_traversal_scope"),
+    [
+        "actual_walker_event_table_new_with_expected_count scope.expected_event_count",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable events scope.origin scope.expected_event_count 0",
+    ],
+    "scope-backed event construction must preserve the validated scope origin",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_table_push"),
+    [
+        'field::get table "scope_origin"',
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable next_events scope_origin expected_event_count add emitted_event_count 1",
+    ],
+    "event push must preserve scope provenance while advancing emitted completion",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_scope_origin events",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_expected_event_count events",
+    ],
+    "event split must transport scope provenance with owner tables and completion counts",
+);
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result")),
     /actual_walker_event_table_new_with_expected_count|add 1 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len/,
@@ -862,12 +901,24 @@ assertOrdered(
     [
         'field::get_ref output_ref "walker_input"',
         "selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result walker_input_ref",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced context.root_expr_id body_root context.body_module_fingerprint context.graph_id v::len bodies v::len places v::len edges v::len unsupported selfhost_memo_call_backend_private_cache_observation_ban_table_len observations_ref output.expected_event_count output.emitted_event_count",
+        "match output.scope_origin",
+        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::FixtureUnscoped",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ReaderContextRepresentative",
+        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::HirProjectionScoped",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::HirProjectionTraversalProduced",
+        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrEnumerated",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new coverage_origin context.root_expr_id body_root context.body_module_fingerprint context.graph_id v::len bodies v::len places v::len edges v::len unsupported selfhost_memo_call_backend_private_cache_observation_ban_table_len observations_ref output.expected_event_count output.emitted_event_count",
         'field::get output "walker_input"',
         'field::get output "observations"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root source_vocabulary walker_input observations",
     ],
     "completion-validated split-output conversion must build same-body coverage authority and move both owners into the producer traversal output",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_from_identity_result")),
+    /ResourceIrEnumerated/,
+    "HIR operation-table scope producer must not mint Resource IR enumerator provenance",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output")),
@@ -1297,11 +1348,16 @@ assertOrdered(
         'field::get output "coverage_authority"',
         'field::get output "body_root"',
         'field::get output "source_vocabulary"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root",
+        "Result::Ok _valid:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result output",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_new context coverage_authority body_root source_vocabulary sources",
         "Result::Err _e:",
         "selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+        "Result::Err e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free output",
+        "Result::Err e",
     ],
     "resource-lowering producer traversal output into-output helper must derive source-only producer output from the traversal output owner and keep coverage authority and source vocabulary on the same owner path",
 );
@@ -1383,11 +1439,17 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result"),
     [
         'field::get output "context"',
+        'field::get output "coverage_authority"',
+        'field::get output "body_root"',
+        "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root",
+        "Result::Ok _valid:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_from_traversal_output_result output",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result context sources",
         "Result::Err e:",
         "Result::Err SelfhostMemoCallBackendPrivateCacheRegionProofProducerErrorKind::Stage0SourceRejected e",
+        "Result::Err _e:",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free output",
     ],
     "resource-lowering producer traversal output fresh-witness helper must consume traversal output, keep source owner internal, and map traversal collection failures to source rejection",
 );
@@ -1973,15 +2035,15 @@ assertOrdered(
         "summary.source_derived_fresh_witness_input_rejected source_rejected_expected",
         "OutputRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource",
         "summary.hir_body_private_cache_effect_rejected unsupported_expected",
-        "summary.resource_lowering_source_count 2",
-        "summary.resource_lowering_fresh_witness_input_source_count 2",
-        "summary.resource_lowering_authority_bundle_witness_count 1",
-        "summary.resource_lowering_no_escape_pair_code 13",
-        "summary.resource_lowering_private_cache_effect_source_count 1",
-        "SourceVocabularyRejected SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent",
-        "summary.resource_lowering_private_cache_effect_no_escape_rejected source_vocabulary_unsupported_expected",
+        "OutputRejected selfhost_memo_call_backend_private_cache_body_reader_no_escape_coverage_source_rejected",
+        "summary.resource_lowering_source_count hir_projection_rejected_expected",
+        "summary.resource_lowering_fresh_witness_input_source_count hir_projection_rejected_expected",
+        "summary.resource_lowering_authority_bundle_witness_count hir_projection_rejected_expected",
+        "summary.resource_lowering_no_escape_pair_code hir_projection_rejected_expected",
+        "summary.resource_lowering_private_cache_effect_source_count hir_projection_rejected_expected",
+        "summary.resource_lowering_private_cache_effect_no_escape_rejected hir_projection_rejected_expected",
     ],
-    "production output stage0 summary eq must prove source-derived rejection, resource-lowering source output production, fresh-witness input owner separation, no-escape pair acceptance, and private-effect no-escape rejection",
+    "production output stage0 summary eq must reject HIR projection before resource-lowering source, witness, or no-escape authority",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_stage0"),
@@ -2010,16 +2072,16 @@ assertOrdered(
         "resource_lowering_private_cache_effect_no_escape_rejected",
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_source_output_stage0_production_gate_with_body_expr_result 77 private_cache_body_expr",
     ],
-    "production output stage0 must expose source-derived rejection plus resource-lowering source output, fresh-witness input separation, no-escape handoff pair acceptance, and private-effect rejection while keeping request-evidence/backend/effect/artifact outputs disconnected",
+    "production output stage0 must expose source-derived behavior and reject every HIR-projection resource-lowering path before source, witness, no-escape, backend, effect, or artifact authority",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0_summary_eq"),
     [
-        "summary.resource_lowering_bundle_witness_count 1",
         "selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key",
-        "summary.resource_lowering_private_cache_effect_bundle_rejected expected_key",
+        "actual_traversal_hir_projection_region_result_rejected summary.resource_lowering_bundle_witness_count expected_key",
+        "actual_traversal_hir_projection_region_result_rejected summary.resource_lowering_private_cache_effect_bundle_rejected expected_key",
     ],
-    "production fresh-witness authority bundle summary eq must prove bundle witness creation and exact private-effect unsupported rejection",
+    "production fresh-witness authority bundle summary must require exact HIR provenance rejection for neutral and private-effect inputs",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_fresh_witness_authority_bundle_stage0"),
@@ -3273,8 +3335,9 @@ assertOrdered(
     [
         "walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput",
         "observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable",
+        "scope_origin %SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin",
     ],
-    "actual walker unified event split output must own both the graph-side walker input and the observation-side table",
+    "actual walker unified event split output must own both tables and preserve traversal scope provenance",
 );
 assertOrdered(
     topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind"),
@@ -5069,7 +5132,7 @@ assertOrdered(
         "Result::Ok input:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_empty_observations_result seed",
         "Result::Ok observations:",
-        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations",
+        "SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::FixtureUnscoped",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
         "ActualTraversalBodySeedMalformed scanner_error",
@@ -6600,7 +6663,7 @@ assertOrdered(
     [
         "Result::Ok input:",
         "Result::Ok observations:",
-        "Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations",
+        "Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::FixtureUnscoped",
         "Result::Err e:",
         "selfhost_memo_call_backend_private_cache_resource_walker_input_free input",
         "Result::Err e",

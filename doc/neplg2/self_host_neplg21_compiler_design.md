@@ -3377,6 +3377,8 @@ GraphInput、Resource proof table push、request-evidence gate、PrivateCache / 
 
 ## 2026-06-23 selfhost resource-lowering source output producer boundary checkpoint
 
+以下の2026-06-23各節は当時のcheckpoint履歴である。当時はHIR reader projectionをoperation/event/collectorへ通した値を暫定的に`ResourceLoweringTraversalProduced`へ進めていたが、2026-07-11 traversal scope provenance checkpointでこの昇格は廃止した。現仕様ではHIR由来coverageはsource output、fresh witness、no-escape authorityのproduction経路へ進まず、将来の`ResourceIrEnumerated`専用producerだけがproduction originを発行できる。
+
 `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` で、`ResourceLoweringTraversalProduced` origin を生成する module-private production helper を追加した。direct HIR reader source output は引き続き `HirReaderSourceDerived` のまま production gate で拒否し、production origin は resolver-bound body root から作った HIR reader source owner を operation projection、context-owned unified event、event split、collector-owned source table の順に通した場合だけ付与する。
 
 新しい helper は resolver lookup を request-context helper で 1 回だけ行い、その body root から coverage authority と reader source owner を作る。reader source owner は `actual_traversal_body_reader_output_from_context_sources_result` が消費し、split output は `actual_traversal_body_adapter_sources_from_request_context_output_result` が collector-owned source table へ変換してから output envelope に入る。これにより、source-derived output helper、request-evidence bundle、`ActualTraversalBundle`、直接 GraphInput / proof table 合成を competing authority として使わない。
@@ -3544,6 +3546,14 @@ completion一致をsplit変換時だけ検査してcoverage authorityから捨�
 context-bound event producerがoperation table長から直接expected countをmintしていた境界を、module-private traversal scope authorityへ置き換える。scope producerはemit前にoperation table全recordのproof key / graph idをrequest contextと照合し、operation ordinalがtable順のdenseな`0..n`であることを要求してから、operation countとbody headerを含むexpected event countを固定する。event table constructorはraw countではなく検査済みscopeだけを受け取る。
 
 このscopeはRust側`ResourceModule.functions → ResourceFunction.blocks → ResourceBlock.ops`列挙を接続する差し替え点である。ただし現段階のscope入力はHIR reader source projection由来operation tableであり、nested block/terminatorを列挙するactual Resource IR enumeratorではない。
+
+### Traversal scope provenance
+
+scopeのidentity/count検査だけでは、そのoperation tableがHIR reader projectionとactual Resource IR enumeratorのどちらから来たかを証明できない。そこで`FixtureUnscoped`、`HirProjectionScoped`、`ResourceIrEnumerated`をscope authority、unified event owner、split outputの全区間で保持し、coverage originへ網羅的に写す。
+
+現行のcontext-bound operation-table producerは`HirProjectionScoped`だけを発行する。このoriginはcompletion一致とwalker structural validationを通っても`HirProjectionTraversalProduced`にしかならず、production coverage validatorで拒否する。`ResourceLoweringTraversalProduced`へ進めるのは将来のactual Resource IR enumeratorが`ResourceIrEnumerated`を発行した場合だけであり、generic fixtureとHIR projectionがproduction authorityへ再分類される経路を閉じる。
+
+このcheckpointはprovenanceの昇格バグを修正するが、`ResourceIrEnumerated`を発行するconstructorやactual function/block/nested operation/terminator enumeratorはまだ実装しない。次はRust実装のResource traversal順序と同じ列挙ownerをNEPL側に作り、その専用境界だけで`ResourceIrEnumerated`を発行する。
 
 ## 既存 issue との対応
 
