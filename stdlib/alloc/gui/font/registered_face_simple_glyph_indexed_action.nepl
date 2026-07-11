@@ -220,6 +220,32 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_progress_kind %fn &G
         GuiFontRegisteredFaceSimpleGlyphIndexedActionState::Completed:
             GuiFontRegisteredFaceSimpleGlyphIndexedActionProgressKind::Completed
 
+//: gui_font_registered_face_simple_glyph_indexed_action_owner_span_count: action authority が保持する indexed contour 数を読む
+//:
+//: [目的/もくてき]: 上位 phase が raw path owner を取り出さず、action owner に束ねた registered authority の contour budget を確認できるようにします。
+//:
+//: [契約/けいやく]: immediate nested path owner を借用し、`gui_font_registered_face_simple_glyph_indexed_path_owner_span_count` を exactly once 呼びます。action state は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner i32 \owner:
+    let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
+    gui_font_registered_face_simple_glyph_indexed_path_owner_span_count path
+
+//: gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup: action authority から checked contour span を O(1) で読む
+//:
+//: [目的/もくてき]: endpoint population が action continuation と registered index を分離せず、typed result のまま contour span を参照できるようにします。
+//:
+//: [契約/けいやく]: immediate nested path owner を借用し、`gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup` を exactly once 呼びます。成功と失敗のどちらでも同じ action owner を caller が保持します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
+    gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup path contour_index
+
 //: GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket: 一 action と由来 sink step を運ぶ Copy packet
 //:
 //: [契約/けいやく]: slot は `Primary` または `Tail` であり、action は同じ sink step の pure projection です。

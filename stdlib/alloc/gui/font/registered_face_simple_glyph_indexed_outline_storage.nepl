@@ -14,7 +14,8 @@
 //: - owner free は storage、completed authority の順にそれぞれ一度だけ解放します。
 //:
 //: ### [現状/げんじょう]
-//: - この F5nxc module は allocation と metadata validation だけを行います。endpoint cursor、slot population、command、stroke、raster、platform presentation は F5nxd 以降です。
+//: - この F5nxc module は allocation と metadata validation に加え、F5nxd が outer authority を分割せず利用する borrowed span forwarding と consuming endpoint push 境界を提供します。
+//: - endpoint cursor と population state は F5nxd が所有します。command、stroke、raster、platform presentation には進みません。
 //:
 //: ### [計算量/けいさんりょう]
 //: metadata と invariant の検査は O(1)、lower allocator call は1回です。storage は c + 5p 個の i32 slot capacity を確保し、wrapper 自体の追加領域は O(1) です。
@@ -177,6 +178,32 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError:
     completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner
     lower %GuiSfntSimpleGlyphOutlineStorageAllocError
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush: contour endpoint commit後のouter ownerと進行metadata
+//:
+//: [契約/けいやく]: completed authorityと更新済みstorageを再結合したownerを唯一のresourceとして保持します。
+//: ownerを保持するため`Clone` / `Copy`は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint %i32
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError: contour endpoint commit失敗時のrecoverable outer error
+//:
+//: [契約/けいやく]: same outer ownerとlower F5e metadataを保持し、raw completed authorityとstorageを公開しません。
+//: ownerを保持するため`Clone` / `Copy`は実装しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    endpoint %GuiSfntSimpleGlyphContourEndpointSlot
+    previous_endpoint %Option i32
+    kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+
 //: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner: completed authority と storage を success owner に束ねる
 //:
 //: [契約/けいやく]: allocation finalizer だけが呼び、nested resource の分離不能な所有権を作ります。
@@ -192,6 +219,22 @@ fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner %fn GuiFo
 //: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphOutlineStorageAllocError GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError \completed\lower:
     GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError completed lower
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push: successful lower pushをouter ownerへ再結合する
+//:
+//: [契約/けいやく]: owner-bearing success payloadを構築できる場所をこのprivate constructorへ限定します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush \owner\cursor\previous_endpoint:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush owner cursor previous_endpoint
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error: failed lower pushをrecoverable outer errorへ再結合する
+//:
+//: [契約/けいやく]: lower metadataをCopyした後にだけ呼び、same authorityを持つownerをerrorへ移します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn GuiSfntSimpleGlyphContourEndpointSlot fn Option i32 fn GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError \owner\cursor\endpoint\previous_endpoint\kind\region_error_kind\storage_push_error_kind:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError owner cursor endpoint previous_endpoint kind region_error_kind storage_push_error_kind
 
 //: gui_font_registered_face_simple_glyph_indexed_outline_storage_finalize_alloc_result: lower allocation result を唯一の public outcome へ変換する
 //:
@@ -280,6 +323,140 @@ pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scala
 pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner i32 \owner:
     let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
     gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap storage
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_count: nested completed authorityのcontour span数を読む
+//:
+//: [契約/けいやく]: ownerを借用したままcompleted summary forwardingへ一度だけ委譲し、raw indexed ownerを公開しません。
+//:
+//: [計算量/けいさんりょう]: nested ownerのborrowed projectionとlower countだけを行うためO(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner i32 \owner:
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_count completed
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_lookup: contour indexに対応するregistered spanを読む
+//:
+//: [契約/けいやく]: completed summary forwardingのtyped lookup resultをそのまま返し、raw collectionや中間ownerを公開しません。
+//:
+//: [戻/もど]り[値/ち]: 成功時はCopy span、失敗時はrequested indexとspan countを持つtyped lookup errorです。
+//:
+//: [計算量/けいさんりょう]: indexed span lookupへ一度だけ委譲するためO(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_lookup completed contour_index
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_contour_endpoint: outer ownerを保ったままendpointをcommitする
+//:
+//: [処理/しょり]:
+//: - completed authorityとstorageをprivateに分け、lower F5e pushを一度だけ呼びます。
+//: - successではnext cursorとprevious endpointを読んでからreturned storageを回収し、outer ownerを再構築します。
+//: - failureでは全lower metadataを読んでからstorageを回収し、same outer authorityをrecoverable errorへ再構築します。
+//:
+//: [注意/ちゅうい]: public raw split、storage ref、generic mutation callbackを提供しません。
+//:
+//: [計算量/けいさんりょう]: lower endpoint validationとscalar pushを一度だけ行うためO(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_contour_endpoint %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphContourEndpointSlot impure fn Option i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError \owner\cursor\endpoint\previous_endpoint:
+    let completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get owner "completed"
+    let storage %GuiSfntSimpleGlyphOutlineStorage field::get owner "storage"
+    match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:
+        Result::Ok lower_push:
+            let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_contour_endpoint_push_cursor &lower_push
+            let next_previous_endpoint %i32 gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &lower_push
+            let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_storage lower_push
+            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_owner completed next_storage
+            let pushed %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push next_owner next_cursor next_previous_endpoint
+            Result::Ok pushed
+        Result::Err lower_error:
+            let kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &lower_error
+            let rejected_endpoint %GuiSfntSimpleGlyphContourEndpointSlot gui_sfnt_simple_glyph_contour_endpoint_push_error_endpoint &lower_error
+            let rejected_previous_endpoint %Option i32 gui_sfnt_simple_glyph_contour_endpoint_push_error_previous_endpoint &lower_error
+            let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &lower_error
+            let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &lower_error
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage lower_error
+            let returned_owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_owner completed returned_storage
+            let error %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error returned_owner cursor rejected_endpoint rejected_previous_endpoint kind region_error_kind storage_push_error_kind
+            Result::Err error
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_cursor: success後のcursorを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_previous_endpoint: success後のprevious endpointを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_previous_endpoint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush i32 \pushed:
+    *field::get_ref pushed "previous_endpoint"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_take_owner: success payloadからouter ownerを一度だけ取り出す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner \pushed:
+    field::get pushed "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_free: success payloadが保持するouter ownerを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPush unit \pushed:
+    let owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get pushed "owner"
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_kind: lower F5e reasonをowner回収前に読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError GuiSfntSimpleGlyphContourEndpointPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_cursor: rejected transitionのcursorを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \error:
+    *field::get_ref error "cursor"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_endpoint: rejected endpointを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_endpoint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError GuiSfntSimpleGlyphContourEndpointSlot \error:
+    *field::get_ref error "endpoint"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_previous_endpoint: rejected transitionのprevious endpointを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_previous_endpoint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError Option i32 \error:
+    *field::get_ref error "previous_endpoint"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_region_error_kind: lower region push reasonを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_storage_push_error_kind: lower scalar storage push reasonを読む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_take_owner: failure payloadからsame outer ownerを一度だけ回収する
+//:
+//: [注意/ちゅうい]: metadata accessorはこの関数より前に呼びます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner \error:
+    field::get error "owner"
+
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_free: failure payloadが保持するsame outer ownerを閉じる
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageContourEndpointPushError unit \error:
+    let owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get error "owner"
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free owner
 
 //: gui_font_registered_face_simple_glyph_indexed_outline_storage_glyph_same: canonical と stored capacity の glyph identity を比較する
 //:

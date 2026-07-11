@@ -1,0 +1,870 @@
+//: # alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint
+//: registered contour span index から outline storage の contour endpoint region を順次構築する
+//:
+//: ### [契約/けいやく]
+//: - start は F5nxc owner の empty invariant を一度だけ検査し、以後はこの phase 固有 invariant を使います。
+//: - step は span lookup と owner-bound endpoint push をそれぞれ一度だけ行います。
+//: - terminal、budget zero、step の順で判定し、失敗を別経路の成功へ置換しません。
+//: - owner を保持する型は `Clone` / `Copy` を実装しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: start、invariant、step は定数時間、全 drain は contour 数に比例し、追加 metadata は定数領域です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint" as *
+//:| #import "std/test" as *
+//:
+//: fn main %fn void i32 \void:
+//:     let status %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus::StepBudgetExhausted
+//:     let typed %bool match status:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus::StepBudgetExhausted: true
+//:         _: false
+//:     test_assertion_exit_code assert "contour endpoint budget status is typed" typed
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind:
+    Active
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind:
+    // progress kind を定数時間で複製し、入力を変更しません。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind:
+    // progress kind を定数時間で転送し、意味を変更しません。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind:
+    CanonicalCapacityShapeInvalid
+    StorageCapacityMismatch
+    StorageShapeMismatch
+    SpanCountMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    StorageLengthMismatch
+    ActiveCursorAtEnd
+    ActivePreviousUnexpected
+    ActivePreviousMissing
+    ActivePreviousOutOfRange
+    ActivePreviousSpanLookupFailed
+    ActivePreviousSpanMismatch
+    CompletedCursorNotAtEnd
+    CompletedLastEndpointOutOfRange
+    CompletedLastEndpointMismatch
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind:
+    // invariant invalid kind を定数時間で複製し、入力を変更しません。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind:
+    // invariant invalid kind を定数時間で転送し、意味を変更しません。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck:
+    Valid
+    Invalid %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck:
+    // invariant check を定数時間で複製し、typed reason を保存します。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck:
+    // invariant check を定数時間で転送し、typed reason を保存します。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive:
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint %Option i32
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive:
+    // active metadata を定数時間で複製し、owner storage を含めません。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive:
+    // active metadata を定数時間で転送し、cursor と endpoint を保存します。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted:
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    last_endpoint %i32
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted:
+    // completed metadata を定数時間で複製し、owner storage を含めません。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted:
+    // completed metadata を定数時間で転送し、cursor と endpoint を保存します。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState:
+    Active %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive
+    Completed %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner:
+    storage %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner:
+    running %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind:
+    InvariantInvalid
+    SpanCountMismatch
+    CursorStartFailed
+    PhaseInvariantInvalid
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind:
+    // start error kind を定数時間で複製し、error reason を保存します。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind:
+    // start error kind を定数時間で転送し、error reason を保存します。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind
+    invariant_kind %Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind
+    expected_span_count %i32
+    actual_span_count %i32
+    cursor_error %Option StdErrorKind
+    phase_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind:
+    SpanLookupFailed
+    EndpointPushFailed
+    AlreadyCompleted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind:
+    // step error kind を定数時間で複製し、error reason を保存します。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind:
+    // step error kind を定数時間で転送し、error reason を保存します。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind
+    contour_index %i32
+    lookup_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError
+    endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus:
+    Pushed %GuiSfntSimpleGlyphContourEndpointSlot
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus:
+    // budget status を定数時間で複製し、pushed slot を保存します。
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus:
+    // budget status を定数時間で転送し、pushed slot を保存します。
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus \value:
+        value
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError: F5nxdのtyped state、metadata、またはowner contractを定義します。
+//:
+//: [契約/けいやく]: owner-bearing型は複製せず、Copy metadata型だけを値として転送します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner
+    actual %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind
+    invariant %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner \storage\state:
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner storage state
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_active %fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option i32 GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive \cursor\previous_endpoint:
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointActive cursor previous_endpoint
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed %fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted \cursor\last_endpoint:
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompleted cursor last_endpoint
+
+//: [目的/もくてき]: condition を typed invalid reason へ[変換/へんかん]します。
+//: [アルゴリズム]: true のとき reason を some で[包/つつ]みます。
+//: [契約/けいやく]: false のとき none を[返/かえ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if %fn bool fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind Option GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind \invalid\kind:
+    if invalid:
+        then some kind
+        else Option::None
+
+//: [目的/もくてき]: [最初/さいしょ]の invalid reason を[選択/せんたく]します。
+//: [アルゴリズム]: earlier が some なら[保持/ほじ]し、none のとき later を[返/かえ]します。
+//: [契約/けいやく]: error priority を[変更/へんこう]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid %fn Option GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind Option GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind \earlier\later:
+    match earlier:
+        Option::Some kind: some kind
+        Option::None: later
+
+//: [目的/もくてき]: canonical capacity と stored capacity の[一致/いっち]を[検査/けんさ]します。
+//: [アルゴリズム]: glyph と[全/すべ]ての count field を[比較/ひかく]します。
+//: [契約/けいやく]: [一項目/いちこうもく]でも[異/こと]なれば false を[返/かえ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_capacity_same %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool \canonical\stored:
+    let canonical_glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph canonical
+    let stored_glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph stored
+    let glyph_same eq gui_glyph_id_raw &canonical_glyph gui_glyph_id_raw &stored_glyph
+    let contour_same eq gui_sfnt_simple_glyph_outline_storage_capacity_contour_count canonical gui_sfnt_simple_glyph_outline_storage_capacity_contour_count stored
+    let point_same eq gui_sfnt_simple_glyph_outline_storage_capacity_point_count canonical gui_sfnt_simple_glyph_outline_storage_capacity_point_count stored
+    let edge_same eq gui_sfnt_simple_glyph_outline_storage_capacity_edge_count canonical gui_sfnt_simple_glyph_outline_storage_capacity_edge_count stored
+    let pair_same eq gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count canonical gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count stored
+    let command_same eq gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count canonical gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count stored
+    let first and glyph_same contour_same
+    let second and first point_same
+    let third and second edge_same
+    let fourth and third pair_same
+    and fourth command_same
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active _active: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Active
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Completed _completed: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Completed
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active: *field::get_ref active "cursor"
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Completed completed: *field::get_ref completed "cursor"
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_previous_endpoint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner Option i32 \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active: *field::get_ref active "previous_endpoint"
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Completed completed: some *field::get_ref completed "last_endpoint"
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_storage_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner i32 \owner:
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref owner "storage"
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_len storage
+
+//: [目的/もくてき]: F5nxd owner invariant を[検査/けんさ]します。
+//: [アルゴリズム]: storage shape、span、cursor、phase state を[契約順/けいやくじゅん]に[照合/しょうごう]します。
+//: [契約/けいやく]: [最初/さいしょ]の typed invalid reason を[返/かえ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck \owner:
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref owner "storage"
+    let canonical gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity storage
+    let stored gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_storage_capacity storage
+    let contour_count gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &canonical
+    let point_count gui_sfnt_simple_glyph_outline_storage_capacity_point_count &canonical
+    let span_count gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_count storage
+    let cursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cursor owner
+    let next gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    let cursor_end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+    let len gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_len storage
+    let shape_invalid gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &canonical GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CanonicalCapacityShapeInvalid
+    let capacity_invalid gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if not gui_font_registered_face_simple_glyph_indexed_contour_endpoint_capacity_same &canonical &stored GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::StorageCapacityMismatch
+    let storage_shape_invalid match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &canonical:
+        GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow _capacity: some GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::StorageShapeMismatch
+        GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits count:
+            let stored_count gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slot_count storage
+            let stored_cap gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_scalar_slots_cap storage
+            gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if or ne count stored_count ne count stored_cap GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::StorageShapeMismatch
+    let span_invalid gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if ne span_count contour_count GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::SpanCountMismatch
+    let cursor_invalid gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CursorInvalid
+    let region_matches match gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor:
+        GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint: true
+        _: false
+    let region_invalid gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if not region_matches GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CursorRegionMismatch
+    let cursor_capacity_invalid match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &canonical GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:
+        Result::Err _error: some GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CursorCapacityMismatch
+        Result::Ok expected: gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if or ne gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &expected ne gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &expected GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CursorCapacityMismatch
+    let len_invalid gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if ne len next GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::StorageLengthMismatch
+    let common1 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid shape_invalid capacity_invalid
+    let common2 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common1 storage_shape_invalid
+    let common3 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common2 span_invalid
+    let common4 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common3 cursor_invalid
+    let common5 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common4 region_invalid
+    let common6 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common5 cursor_capacity_invalid
+    let common gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common6 len_invalid
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState field::get_ref owner "state"
+    let phase match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active:
+            let previous %&Option i32 field::get_ref active "previous_endpoint"
+            let at_end gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if ge next cursor_end GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::ActiveCursorAtEnd
+            let previous_shape match previous:
+                Option::None: gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if ne next 0 GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::ActivePreviousMissing
+                Option::Some value:
+                    let unexpected gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if eq next 0 GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::ActivePreviousUnexpected
+                    let range gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if or lt *value 0 ge *value point_count GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::ActivePreviousOutOfRange
+                    let compared match gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_lookup storage sub next 1:
+                        Result::Err _error: some GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::ActivePreviousSpanLookupFailed
+                        Result::Ok span: gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if ne *value gui_sfnt_simple_glyph_contour_span_end_point_index &span GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::ActivePreviousSpanMismatch
+                    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid unexpected gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid range compared
+            gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid at_end previous_shape
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Completed completed:
+            let last %&i32 field::get_ref completed "last_endpoint"
+            let not_end gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if or ne next cursor_end ne cursor_end contour_count GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CompletedCursorNotAtEnd
+            let range gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if or lt *last 0 ge *last point_count GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CompletedLastEndpointOutOfRange
+            let mismatch gui_font_registered_face_simple_glyph_indexed_contour_endpoint_invalid_if ne *last sub point_count 1 GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantInvalidKind::CompletedLastEndpointMismatch
+            gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid not_end gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid range mismatch
+    match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_first_invalid common phase:
+        Option::Some kind: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Invalid kind
+        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind fn i32 fn i32 fn Option StdErrorKind fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError \owner\kind\invariant_kind\expected\actual\cursor_error\phase:
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError owner kind invariant_kind expected actual cursor_error phase
+
+//: [目的/もくてき]: F5nxc owner から F5nxd phase を[開始/かいし]します。
+//: [アルゴリズム]: F5nxc invariant、count、cursor、F5nxd invariant の[順/じゅん]に[検査/けんさ]します。
+//: [契約/けいやく]: invalid owner では span metadata を[先読/さきよ]みしません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError \storage:
+    match gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_invariant_check &storage:
+        GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Invalid kind:
+            Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error storage GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind::InvariantInvalid some kind 0 0 none GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid
+        GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantCheck::Valid:
+            let actual gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_count &storage
+            let capacity gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity &storage
+            let expected gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+            if ne expected actual:
+                then Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error storage GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind::SpanCountMismatch none expected actual none GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid
+                else match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:
+                    Result::Err cursor_error: Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error storage GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind::CursorStartFailed none expected actual some cursor_error GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid
+                    Result::Ok cursor:
+                        let active gui_font_registered_face_simple_glyph_indexed_contour_endpoint_active cursor none
+                        let owner gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner storage GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active
+                        let phase gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_phase_invariant_check &owner
+                        match phase:
+                            GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid: Result::Ok owner
+                            GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Invalid _kind:
+                                let returned_storage field::get owner "storage"
+                                Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error returned_storage GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind::PhaseInvariantInvalid none expected actual none phase
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind fn i32 fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphContourEndpointSlot fn Option GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError \owner\kind\index\lookup\endpoint\push_kind\region_kind\storage_kind:
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError owner kind index lookup endpoint push_kind region_kind storage_kind
+
+//: [目的/もくてき]: span lookup result を endpoint push へ[接続/せつぞく]します。
+//: [アルゴリズム]: failure を[転送/てんそう]し、success slot を owner bound push へ[渡/わた]します。
+//: [契約/けいやく]: lookup と push をそれぞれ[一度/いちど]だけ[処理/しょり]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_finalize_lookup %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn Option i32 impure fn Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError \owner\cursor\previous\lookup:
+    let index gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    match lookup:
+        Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind::SpanLookupFailed index some error none none none none
+        Result::Ok span:
+            let endpoint gui_sfnt_simple_glyph_contour_endpoint_slot index gui_sfnt_simple_glyph_contour_span_end_point_index &span
+            let storage field::get owner "storage"
+            match gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_contour_endpoint storage cursor endpoint previous:
+                Result::Err push_error:
+                    let kind gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_kind &push_error
+                    let rejected gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_endpoint &push_error
+                    let region gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_region_error_kind &push_error
+                    let storage_kind gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_storage_push_error_kind &push_error
+                    let returned gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_error_take_owner push_error
+                    let active gui_font_registered_face_simple_glyph_indexed_contour_endpoint_active cursor previous
+                    let running gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner returned GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active
+                    Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error running GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind::EndpointPushFailed index none some rejected some kind region storage_kind
+                Result::Ok pushed:
+                    let next_cursor gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_cursor &pushed
+                    let next_previous gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_previous_endpoint &pushed
+                    let returned gui_font_registered_face_simple_glyph_indexed_outline_storage_contour_endpoint_push_take_owner pushed
+                    let next_index gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &next_cursor
+                    let contour_count gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_count &returned
+                    let completed gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed next_cursor next_previous
+                    let active gui_font_registered_face_simple_glyph_indexed_contour_endpoint_active next_cursor some next_previous
+                    let state if eq next_index contour_count then GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Completed completed else GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active
+                    let running gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner returned state
+                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep running GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus::Pushed endpoint
+
+//: [目的/もくてき]: contour endpoint を[一段/いちだん]だけ[構築/こうちく]します。
+//: [アルゴリズム]: state 判定後に span lookup と endpoint push を[行/おこな]います。
+//: [契約/けいやく]: completed owner を success に[置換/ちかん]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cursor &owner
+    let index gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState field::get_ref &owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Completed _completed: Result::Err gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind::AlreadyCompleted index none none none none none
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState::Active active:
+            let previous %Option i32 *field::get_ref active "previous_endpoint"
+            let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref &owner "storage"
+            let lookup gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_lookup storage index
+            gui_font_registered_face_simple_glyph_indexed_contour_endpoint_finalize_lookup owner cursor previous lookup
+
+//: [目的/もくてき]: budget [内/ない]で F5nxd step を[進/すす]めします。
+//: [アルゴリズム]: terminal、budget zero、step の[順/じゅん]に[判定/はんてい]します。
+//: [契約/けいやく]: budget exhaustion と completion を[区別/くべつ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_drain_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError \owner\remaining:
+    match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_progress_kind &owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Completed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus::Completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Active:
+            if le remaining 0:
+                then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus::StepBudgetExhausted
+                else gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step owner
+
+//: [目的/もくてき]: completed owner を sealed owner へ[変換/へんかん]します。
+//: [アルゴリズム]: progress kind と invariant を[順/じゅん]に[検査/けんさ]します。
+//: [契約/けいやく]: active owner と invalid owner を typed error で[返/かえ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_completed %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError \owner:
+    let actual gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_progress_kind &owner
+    match actual:
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Active: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError owner actual GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid
+        GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Completed:
+            let invariant gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_phase_invariant_check &owner
+            match invariant:
+                GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner owner
+                GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Invalid _kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError owner actual invariant
+
+#test
+//: [目的/もくてき]: test [専用/せんよう]の failure path を[起動/きどう]します。
+//: [アルゴリズム]: invalid input を finalize path へ[渡/わた]します。
+//: [契約/けいやく]: production path と[同/おな]じ typed error を[返/かえ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_test_force_lookup_failure %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cursor &owner
+    let previous gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_previous_endpoint &owner
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref &owner "storage"
+    let lookup gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_lookup storage -1
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_finalize_lookup owner cursor previous lookup
+
+#test
+//: [目的/もくてき]: test [専用/せんよう]の failure path を[起動/きどう]します。
+//: [アルゴリズム]: invalid input を finalize path へ[渡/わた]します。
+//: [契約/けいやく]: production path と[同/おな]じ typed error を[返/かえ]します。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_test_force_push_failure %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cursor &owner
+    let previous gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_previous_endpoint &owner
+    let index gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref &owner "storage"
+    let capacity gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_capacity storage
+    let glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+    let invalid_span gui_sfnt_simple_glyph_contour_span glyph index 0 -1 0
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_finalize_lookup owner cursor previous Result::Ok invalid_span
+
+//: [目的/もくてき]: [関数/かんすう]が[担当/たんとう]する typed [操作/そうさ]を[実行/じっこう]します。
+//: [アルゴリズム]: [引数/ひきすう]と state から[必要/ひつよう]な[値/あたい]を[導/みちび]き typed result を[返/かえ]ます。
+//: [契約/けいやく]: [所有権/しょゆうけん]と typed reason の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStatus \step:
+    *field::get_ref step "status"
+
+//: [目的/もくてき]: wrapper から owner を[回収/かいしゅう]します。
+//: [アルゴリズム]: wrapper を[消費/しょうひ]して owner field を[取/と]り[出/だ]します。
+//: [契約/けいやく]: owner を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner \step:
+    field::get step "owner"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_invariant_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError Option GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageInvariantInvalidKind \error:
+    *field::get_ref error "invariant_kind"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_expected_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError i32 \error:
+    *field::get_ref error "expected_span_count"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_actual_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError i32 \error:
+    *field::get_ref error "actual_span_count"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_cursor_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError Option StdErrorKind \error:
+    *field::get_ref error "cursor_error"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_phase_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck \error:
+    *field::get_ref error "phase_invariant"
+
+//: [目的/もくてき]: wrapper から owner を[回収/かいしゅう]します。
+//: [アルゴリズム]: wrapper を[消費/しょうひ]して owner field を[取/と]り[出/だ]します。
+//: [契約/けいやく]: owner を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner \error:
+    field::get error "owner"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_contour_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError i32 \error:
+    *field::get_ref error "contour_index"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_lookup_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+    *field::get_ref error "lookup_error"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_endpoint %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError Option GuiSfntSimpleGlyphContourEndpointSlot \error:
+    *field::get_ref error "endpoint"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_push_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError Option GuiSfntSimpleGlyphContourEndpointPushErrorKind \error:
+    *field::get_ref error "push_kind"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: [目的/もくてき]: wrapper から owner を[回収/かいしゅう]します。
+//: [アルゴリズム]: wrapper を[消費/しょうひ]して owner field を[取/と]り[出/だ]します。
+//: [契約/けいやく]: owner を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner \error:
+    field::get error "owner"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_error_actual %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind \error:
+    *field::get_ref error "actual"
+
+//: [目的/もくてき]: typed error を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: error context field をそのまま[格納/かくのう]または[取得/しゅとく]します。
+//: [契約/けいやく]: observed context の[意味/いみ]を[変/か]えません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_error_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck \error:
+    *field::get_ref error "invariant"
+
+//: [目的/もくてき]: wrapper から owner を[回収/かいしゅう]します。
+//: [アルゴリズム]: wrapper を[消費/しょうひ]して owner field を[取/と]り[出/だ]します。
+//: [契約/けいやく]: owner を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner \error:
+    field::get error "owner"
+
+//: [目的/もくてき]: F5nxd metadata value を[構築/こうちく]または[参照/さんしょう]します。
+//: [アルゴリズム]: typed field access または aggregate construction で[値/あたい]を[導/みちび]きます。
+//: [契約/けいやく]: owner storage を[複製/ふくせい]しません。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_progress_kind running
+
+//: [目的/もくてき]: owner storage を[解放/かいほう]します。
+//: [アルゴリズム]: wrapper から owner を[取/と]り[出/だ]して storage free へ[渡/わた]します。
+//: [契約/けいやく]: owner を[消費/しょうひ]して[二重解放/にじゅうかいほう]を[防/ふせ]ぎます。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free field::get owner "storage"
+
+//: [目的/もくてき]: owner storage を[解放/かいほう]します。
+//: [アルゴリズム]: wrapper から owner を[取/と]り[出/だ]して storage free へ[渡/わた]します。
+//: [契約/けいやく]: owner を[消費/しょうひ]して[二重解放/にじゅうかいほう]を[防/ふせ]ぎます。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_free field::get owner "running"
+
+//: [目的/もくてき]: owner storage を[解放/かいほう]します。
+//: [アルゴリズム]: wrapper から owner を[取/と]り[出/だ]して storage free へ[渡/わた]します。
+//: [契約/けいやく]: owner を[消費/しょうひ]して[二重解放/にじゅうかいほう]を[防/ふせ]ぎます。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointBudgetStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_free field::get step "owner"
+
+//: [目的/もくてき]: owner storage を[解放/かいほう]します。
+//: [アルゴリズム]: wrapper から owner を[取/と]り[出/だ]して storage free へ[渡/わた]します。
+//: [契約/けいやく]: owner を[消費/しょうひ]して[二重解放/にじゅうかいほう]を[防/ふせ]ぎます。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free field::get error "owner"
+
+//: [目的/もくてき]: owner storage を[解放/かいほう]します。
+//: [アルゴリズム]: wrapper から owner を[取/と]り[出/だ]して storage free へ[渡/わた]します。
+//: [契約/けいやく]: owner を[消費/しょうひ]して[二重解放/にじゅうかいほう]を[防/ふせ]ぎます。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_free field::get error "owner"
+
+//: [目的/もくてき]: owner storage を[解放/かいほう]します。
+//: [アルゴリズム]: wrapper から owner を[取/と]り[出/だ]して storage free へ[渡/わた]します。
+//: [契約/けいやく]: owner を[消費/しょうひ]して[二重解放/にじゅうかいほう]を[防/ふせ]ぎます。
+//: [計算量/けいさんりょう]: [時間/じかん]と[追加領域/ついかりょういき]は[定数/ていすう]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointSealError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_free field::get error "owner"

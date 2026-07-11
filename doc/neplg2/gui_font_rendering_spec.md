@@ -181,6 +181,10 @@ F5nxc limit判定のprecedenceはcontour、point、edge、commandで固定する
 
 F5nxc ownerはcanonical capacity、apply state、concrete last status、storage capacity、scalar slot count / len / cap、typed full invariant checkのCopy projectionとfreeだけを公開する。completed ownerやraw storageを単独でtakeするAPIは提供しない。full invariant checkはValidまたはtyped invalid kindであり、canonical capacity shape、completed capacityとstorage capacityのglyph、contour、point、edge、path command pair、path command count、scalar slot count、empty len、exact capのどこが不一致かを区別する。F5nxd以降はF5nxc owner全体をconsuming transitionへ渡し、owner-bound storage operationを通して進める。public raw splitやcallbackによるauthority分離は行わない。
 
+F5nxd contour endpoint populationはF5nxc owner全体を消費し、F5nxcのempty invariantをstart時にexactly once検査した後、endpoint population固有ownerへauthorityを移す。最初のendpoint commit後はstorageがemptyでなくなるため、F5nxc invariantを継続状態の検査に再利用しない。F5nxdはActive cursor/previous endpointまたはCompleted cursor/last endpointをprivate stateとして持ち、capacity identity、ContourEndpoint cursor、storage len/cursor next、previous endpointをphase固有invariantで検査する。
+
+F5nxd stepはregistered contour span indexだけをsourceとし、next contour spanをowner-bound O(1) lookupでexactly once読み、span end point indexからtyped endpoint slotを作り、F5nxc owner-bound pushをexactly once呼ぶ。success/errorの双方がsame registered authorityを保持する。byte-backed endpoint read、raw collection traversal、caller supplied endpoint、raw storage take/refは使わない。checked completed sealだけがF5nxeへ渡せるauthorityであり、F5nxdはPointX cursorを開始しない。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。

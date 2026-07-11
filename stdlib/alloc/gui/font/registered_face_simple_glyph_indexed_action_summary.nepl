@@ -338,6 +338,32 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_start %fn Gu
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
     *field::get_ref owner "capacity"
 
+//: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_count: summary authority が保持する indexed contour 数を読む
+//:
+//: [目的/もくてき]: completed seal 前後で raw action owner を公開せず、同じ registered authority の contour budget を参照できるようにします。
+//:
+//: [契約/けいやく]: immediate nested action owner を借用し、`gui_font_registered_face_simple_glyph_indexed_action_owner_span_count` を exactly once 呼びます。summary phase と apply state は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner i32 \owner:
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_span_count action
+
+//: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_lookup: summary authority から checked contour span を O(1) で読む
+//:
+//: [目的/もくてき]: endpoint population が action summary の適用証拠を保ったまま、registered contour span と exact lookup metadata を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested action owner を借用し、`gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup` を exactly once 呼びます。成功と失敗のどちらでも同じ summary owner を caller が保持します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup action contour_index
+
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_apply_state: committed apply count state を読む
 //:
 //: neplg2:test[skip]
@@ -599,6 +625,32 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_seal_rejecte
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
     let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
     gui_font_registered_face_simple_glyph_indexed_action_summary_owner_capacity summary
+
+//: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_count: completed summary authority の indexed contour 数を読む
+//:
+//: [目的/もくてき]: F5nxd が checked completed seal を保持したまま contour endpoint population の有限 budget を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested summary owner を借用し、`gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_count` を exactly once 呼びます。completed status は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner i32 \owner:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_count summary
+
+//: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_lookup: completed summary authority から checked contour span を O(1) で読む
+//:
+//: [目的/もくてき]: F5nxd が completed evidence と registered index を分離せず、contour endpoint の source span と typed lookup error を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested summary owner を借用し、`gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_lookup` を exactly once 呼びます。成功と失敗のどちらでも同じ completed owner を caller が保持します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_lookup summary contour_index
 
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_apply_state: completed apply counts を読む
 //:

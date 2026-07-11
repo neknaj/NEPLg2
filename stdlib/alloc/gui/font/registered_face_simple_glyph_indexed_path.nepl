@@ -128,6 +128,32 @@ fn gui_font_registered_face_simple_glyph_indexed_path_active %fn GuiSfntSimpleGl
 fn gui_font_registered_face_simple_glyph_indexed_path_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn GuiSfntSimpleGlyphPathSinkPolicy fn GuiFontRegisteredFaceSimpleGlyphIndexedPathState GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner \indexed\policy\state:
     GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner indexed policy state
 
+//: gui_font_registered_face_simple_glyph_indexed_path_owner_span_count: path authority が保持する indexed contour 数を読む
+//:
+//: [目的/もくてき]: F5nxd 以降が raw indexed owner を取り出さず、path owner の authority 境界を保ったまま contour budget を確認できるようにします。
+//:
+//: [契約/けいやく]: immediate nested indexed owner を借用し、`gui_font_registered_face_simple_glyph_indexed_owner_span_count` を exactly once 呼びます。owner と内部 state は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_span_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner i32 \owner:
+    let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
+    gui_font_registered_face_simple_glyph_indexed_owner_span_count indexed
+
+//: gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup: path authority から checked contour span を O(1) で読む
+//:
+//: [目的/もくてき]: endpoint population が traversal state や raw collection を露出せず、registered index の checked span と typed lookup error を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested indexed owner を借用し、`gui_font_registered_face_simple_glyph_indexed_owner_span_lookup` を exactly once 呼びます。成功と失敗のどちらでも同じ path owner を caller が保持します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
+    gui_font_registered_face_simple_glyph_indexed_owner_span_lookup indexed contour_index
+
 //: GuiFontRegisteredFaceSimpleGlyphIndexedPathStep: emitted sink step と継続 owner
 //:
 //: neplg2:test[skip]

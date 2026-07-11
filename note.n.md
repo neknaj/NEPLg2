@@ -1,3 +1,40 @@
+# 2026-07-11 Agent2 GUI font rendering F5nxd registered indexed contour endpoint population owner
+
+## 方針とphase境界
+
+- Zennの開発方針、GUI font rendering仕様、詳細設計、実装計画を再確認し、F5nxc empty storage owner全体を唯一のauthorityとしてendpoint 1、3をindexed spanから順次commitするF5nxdを実装した。
+- F5nxc empty invariantはstart時だけ使用し、最初のcommit後は17種類のtyped phase invariantへauthorityを移した。F5nxdはcompleted endpoint ownerで停止し、PointX cursor開始はF5nxeへ残した。
+- `plan.md`は変更していない。F5nxdの仕様、詳細設計、実装計画は`doc/neplg2/gui_font_rendering_*`へ反映した。
+
+## 実装
+
+- registered indexed ownerからF5nxc ownerまでの5段borrowed span forwardingと、F5nxc outer ownerを分割しないconsuming endpoint push boundaryを追加した。
+- `alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint.nepl`へActive / Completed state、start、single step、one-step budget、checked seal、owner-bearing errorとfreeを追加した。
+- startはF5nxc invariant、span count、checked cursor、F5nxd invariantの順に検査する。stepはstate、span lookup、endpoint derivation、owner-bound pushの順に進み、最終pushはPushedを返しつつownerをCompletedへ遷移させる。
+- deterministic lookup / push failureは`#test` entryに限定し、productionと同じprivate finalizerとowner recovery pathを共有する。通常compileでは両entryを公開しない。
+
+## subagent review
+
+- 計画reviewはpredicate、precedence、owner move、fault injection、free contract、module hierarchyを複数回精査した後に`PLAN_APPROVED`となった。
+- 実装reviewでStorageShapeMismatch、ActiveCursorAtEnd、CompletedCursorNotAtEnd、start観測順、stdlib関数コメント、fixture assertion責務の問題が指摘された。predicateと順序を仕様へ一致させ、全関数へ日本語拡張Markdownを追加した。fixtureは同一aggregate helperの重複実行を除き、labelをlinear collectionとendpoint populationの統合契約へ一致させた。
+- wrapper reviewでF5nxc moduleの現状説明がowner-bound mutation追加前のままだった点を修正した。
+
+## 検証
+
+- pass: forwardingとF5nxc wrapperのfocused doctest。
+- pass: F5nxd module doctestと`alloc/gui/font` facade compile。
+- pass: F5nxd source policyとtest-only entry normal compile isolation。
+- pass: controlled registered-face fixture 32 / 32でstart、budget 0 / negative、endpoint 1 / 3、completed priority、premature seal、lookup failure、push failure、same-owner recoveryを検査。
+- pass: stdlib documentation contractとissues check。
+- pass: `git diff --check`。
+- pass: `trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_gui_font_f5nxd.json`。13 / 13。
+
+## 残件
+
+- F5nxeでsealed completed endpoint ownerをauthorityとしてPointX populationへ進み、外部collection再注入を行わないowner-bound item forwardingとsame-owner recoveryを実装する。
+- F5nxf以降でPointY、edge、command、stroke provenanceをphase-specific registered indexed owner chainへ順次移す。
+
 # 2026-07-11 Agent2 GUI font rendering F5nxc registered indexed outline storage allocation owner
 
 ## 方針とphase境界
