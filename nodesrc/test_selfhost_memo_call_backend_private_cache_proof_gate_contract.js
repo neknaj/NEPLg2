@@ -1016,7 +1016,7 @@ assertOrdered(
         "resource_ir_function_inventory_len inventory",
         "BlockMissing",
         "resource_ir_place_inventory_len places",
-        "resource_ir_place_inventory_validate_loop places key graph_id 0 place_count",
+        "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
         "actual_walker_operation_table_len operations",
         "OperationTableMismatch actual_operation_count",
@@ -1026,16 +1026,41 @@ assertOrdered(
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop"),
+    [
+        "selfhost_type_id_index record.ty 0",
+        "PlaceTypeInvalid selfhost_type_id_index record.ty",
+        "selfhost_type_arena_get_record types record.ty",
+        "Option::Some _type_record",
+        "resource_ir_place_inventory_validate_loop places types key graph_id add idx 1 n",
+        "Option::None",
+        "PlaceTypeMissing selfhost_type_id_index record.ty",
+    ],
+    "Place inventory validation must require every nonnegative local TypeId to exist in the borrowed type arena",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result"),
+    [
+        "selfhost_type_arena_new",
+        "selfhost_type_arena_add_primitive types0 SelfhostPrimitiveTypeKind::Unit",
+        "selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places &types2 operations",
+        "selfhost_type_arena_free types2",
+    ],
+    "runtime fixture must pass a real borrowed type arena into scope validation and close its owner afterwards",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case"),
     [
         "resource_ir_place_inventory_stage0_result second_place_index identity_ok second_root second_type",
-        "resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations",
+        "resource_ir_inventory_scope_with_stage0_types_result key graph_id &inventory &places &operations",
         "resource_ir_function_inventory_free inventory",
         "resource_ir_place_inventory_free places",
         "actual_walker_operation_table_free operations",
         "PlaceIdentityMismatch idx",
         "PlaceOrdinalMismatch place_index",
         "PlaceTypeInvalid type_index",
+        "PlaceTypeMissing type_index",
         "PlaceRootInvalid root_identity",
     ],
     "malformed Place inventory runtime fixture must close every owner before exact identity and dense ordinal errors are matched",

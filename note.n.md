@@ -83519,6 +83519,12 @@ MERGE_APPROVED
 - Place inventory recordへSelfhostTypeIdをrootと一緒に保持し、負local indexをscope発行前にexact errorで拒否する。
 - type arena membership / canonical type keyは未証明で、projection/escapeとactual co-productionも未実装のため非productionを維持する。
 - subagentの差分・全体整合レビューはいずれもAPPROVED。pass: target contract、focused runtime 1/1、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource Place type arena membership
+
+- Place inventory scopeへborrowed SelfhostTypeArenaを追加し、各非負TypeIdのrecord実在を検査する。fixture arenaはscope結果を得た直後に解放する。
+- canonical type key / actual lowering由来arena authorityは未証明で、projection/escapeとactual co-productionも未実装のため非productionを維持する。
+- subagentの差分・全体整合レビューはいずれもAPPROVED。pass: target contract、focused runtime 1/1、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
 # 2026-07-11 GUI font rendering F5nxh registered indexed PathCommandTag population owner
 
 - F5nxg checked completed Edge ownerを唯一のauthorityとし、`PendingContour / ActiveContour / Completed`でcontour span lookupをcontourごとにexactly onceへ制限する契約を追加した。

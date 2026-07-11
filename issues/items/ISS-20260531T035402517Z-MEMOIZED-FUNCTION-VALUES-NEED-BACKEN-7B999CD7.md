@@ -1078,3 +1078,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Place inventory recordへRust PlaceRoot全6 variantの非production構造分類を追加し、Local placeholder 0とTemporary / Storageの負identityを拒否した。Local(String) / stable symbol authorityとの結合、Unknownのproduction前分類、projection/type、escape classification、actual lowering co-productionは未実装である。
 
 2026-07-11: Place inventory recordへ非負SelfhostTypeIdを追加し、負indexをscope前に拒否した。type arena membership / canonical type key、projection、escape classification、actual lowering co-productionは未実装である。
+
+2026-07-11: Place TypeIdをborrowed SelfhostTypeArenaへ照合し、非負でもarena recordが欠落するindexを拒否した。canonical type key、actual lowering由来arena authority、projection、escape classification、actual lowering co-productionは未実装である。

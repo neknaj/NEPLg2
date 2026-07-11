@@ -2609,7 +2609,7 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord:
 //: [契約/けいやく]:
 //: - Return Place membershipをoperation event tableから推測せず、Resource IR inventory固有のownerで検査します。
 //: - Rust ResourceFunctionに同型のPlaceId tableがあることは主張しません。後続materializerがRust Place構造値をcanonicalizeするためのselfhost固有inventoryです。
-//: - typeはselfhost TypeIdの非負local indexだけを保持し、arena membership / canonical type keyとの結合は後続materializerに残します。
+//: - typeはselfhost TypeIdの非負local indexを保持し、scopeがborrowした同じTypeArena内のrecord実在まで検査します。canonical type keyとの結合は後続materializerに残します。
 //: - projectionは後続checkpointでrecordへ追加します。
 struct SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory:
     places %Vec SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord
@@ -2635,6 +2635,8 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     PlaceOrdinalMismatch %i32
     PlaceRootInvalid %i32
     PlaceTypeInvalid %i32
+    PlaceTypeMissing %i32
+    TypeArenaAllocFailed %StdErrorKind
     OperationTableMismatch %i32
     OperationScopeRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
@@ -10773,7 +10775,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_resu
             Result::Ok unit
 
 //: selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop: Place owner全体のidentityとdense ordinalを[検査/けんさ]する
-fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\idx\n:
+fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\types\key\graph_id\idx\n:
     if:
         ge idx n
         Result::Ok unit
@@ -10790,7 +10792,11 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate
                                 if:
                                     lt selfhost_type_id_index record.ty 0
                                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceTypeInvalid selfhost_type_id_index record.ty
-                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop places key graph_id add idx 1 n
+                                    match selfhost_type_arena_get_record types record.ty:
+                                        Option::Some _type_record:
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop places types key graph_id add idx 1 n
+                                        Option::None:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceTypeMissing selfhost_type_id_index record.ty
                             Result::Err e:
                                 Result::Err e
             Option::None:
@@ -10909,14 +10915,14 @@ fn selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_au
 //: - Rust `ResourceFunction.blocks`順でblock、各`ops` range、各blockのterminator 1件を全検査します。
 //: - operation tableも同じkey / graphとdense ordinalを持ち、inventoryのoperation総数と一致する場合だけ`ResourceIrInventoryValidated`を発行します。
 //: - inventoryとoperation ownerはまだactual lowering materializerによるco-production authorityを持たないため、`ResourceIrEnumerated`を発行しません。
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\operations:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\types\operations:
     let block_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len inventory
     if:
         le block_count 0
         Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BlockMissing
         block:
             let place_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places
-            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop places key graph_id 0 place_count:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count:
                 Result::Ok _places_valid:
                     match selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0:
                         Result::Ok operation_count:
@@ -11031,6 +11037,25 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_r
         Result::Err e:
             Result::Err e
 
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\operations:
+    match selfhost_type_arena_new:
+        Result::Ok types0:
+            match selfhost_type_arena_add_primitive types0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok allocated0:
+                    let types1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated0
+                    match selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32:
+                        Result::Ok allocated1:
+                            let types2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated1
+                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places &types2 operations
+                            selfhost_type_arena_free types2
+                            result
+                        Result::Err e:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TypeArenaAllocFailed e
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TypeArenaAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TypeArenaAllocFailed e
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload impure fn bool bool \second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_payload\expect_ok:
     match selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload:
         Result::Ok inventory:
@@ -11040,7 +11065,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_c
                         Result::Ok places:
                             let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
                             let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-                            let scope_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations
+                            let scope_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result key graph_id &inventory &places &operations
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
                             selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
                             selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
@@ -11075,7 +11100,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_re
                         Result::Ok places:
                             let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
                             let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations
+                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result key graph_id &inventory &places &operations
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
                             selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
                             selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
@@ -11107,7 +11132,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_
                         Result::Ok places:
                             let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
                             let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations
+                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result key graph_id &inventory &places &operations
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
                             selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
                             selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
@@ -11161,7 +11186,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_st
                         Result::Ok operations:
                             let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
                             let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations
+                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result key graph_id &inventory &places &operations
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
                             selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
                             selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
@@ -11188,11 +11213,18 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_st
                                                         eq type_index sub 0 1
                                                     _:
                                                         false
-                                                match error:
-                                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceRootInvalid root_identity:
-                                                        if eq expected_error_kind 3 eq root_identity 0 eq root_identity sub 0 1
-                                                    _:
-                                                        false
+                                                if:
+                                                    eq expected_error_kind 5
+                                                    match error:
+                                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceTypeMissing type_index:
+                                                            eq type_index 2
+                                                        _:
+                                                            false
+                                                    match error:
+                                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceRootInvalid root_identity:
+                                                            if eq expected_error_kind 3 eq root_identity 0 eq root_identity sub 0 1
+                                                        _:
+                                                            false
                                 Result::Ok _scope:
                                     false
                         Result::Err _e:
@@ -11245,15 +11277,17 @@ pub fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stag
     let invalid_local_root %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 0
     let valid_type %SelfhostTypeId selfhost_type_id_new 1
     let invalid_type %SelfhostTypeId selfhost_type_id_new sub 0 1
+    let missing_type %SelfhostTypeId selfhost_type_id_new 2
     let place_identity_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case 1 false valid_root valid_type 0
     let place_ordinal_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case 3 true valid_root valid_type 1
     let place_root_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case 1 true invalid_root valid_type 2
     let place_local_root_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case 1 true invalid_local_root valid_type 3
     let place_type_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case 1 true valid_root invalid_type 4
+    let place_type_missing_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case 1 true valid_root missing_type 5
     let raw_body_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody no_payload true
     let raw_body_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody place_payload 0
     let empty_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_rejected_stage0
-    and valid_ok and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and return_place_accepted and return_place_invalid_rejected and return_place_graph_rejected and return_place_missing_rejected and place_identity_rejected and place_ordinal_rejected and place_root_rejected and place_local_root_rejected and place_type_rejected and raw_body_accepted and raw_body_payload_rejected empty_rejected
+    and valid_ok and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and return_place_accepted and return_place_invalid_rejected and return_place_graph_rejected and return_place_missing_rejected and place_identity_rejected and place_ordinal_rejected and place_root_rejected and place_local_root_rejected and place_type_rejected and place_type_missing_rejected and raw_body_accepted and raw_body_payload_rejected empty_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push: operation record を[追加/ついか]する
 //:
