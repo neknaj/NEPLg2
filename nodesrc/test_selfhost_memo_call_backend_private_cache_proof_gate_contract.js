@@ -262,12 +262,18 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority"),
     [
+        "origin %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin",
         "request_root_expr_id %SelfhostHirExprId",
         "body_root_expr_id %SelfhostHirExprId",
         "body_module_fingerprint %i32",
         "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "body_event_count %i32",
+        "place_event_count %i32",
+        "edge_event_count %i32",
+        "unsupported_event_count %i32",
+        "observation_event_count %i32",
     ],
-    "coverage complete authority must bind request root, body root, body fingerprint, and graph id before source table can produce explicit absence",
+    "coverage complete authority must bind body identity and traversal event coverage before source table can produce explicit absence",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary"),
@@ -357,7 +363,7 @@ assertOrdered(
     [
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_resolution_lookup_result module context resolutions",
         "Result::Ok body_root:",
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ReaderContextRepresentative context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
         "Result::Err _e:",
         "SourceRejected",
     ],
@@ -777,7 +783,14 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
+        'field::get_ref output_ref "walker_input"',
+        'field::get_ref walker_input_ref "bodies"',
+        'field::get_ref walker_input_ref "places"',
+        'field::get_ref walker_input_ref "edges"',
+        'field::get_ref walker_input_ref "unsupported"',
+        'field::get_ref output_ref "observations"',
+        "selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result walker_input_ref",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced context.root_expr_id body_root context.body_module_fingerprint context.graph_id v::len bodies v::len places v::len edges v::len unsupported selfhost_memo_call_backend_private_cache_observation_ban_table_len observations_ref",
         'field::get output "walker_input"',
         'field::get output "observations"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root source_vocabulary walker_input observations",
@@ -1115,7 +1128,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_from_body_root_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ReaderContextRepresentative context.root_expr_id body_root context.body_module_fingerprint context.graph_id",
         "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_hir_body_sources_from_root_result module context body_root",
         "Result::Ok sources:",
         "selfhost_memo_call_backend_private_cache_actual_traversal_source_output_new",
@@ -1660,6 +1673,15 @@ assert.doesNotMatch(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result"),
     [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_origin_is_production coverage_authority.origin",
+        "SourceRejected",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_after_origin_result coverage_authority context body_root",
+    ],
+    "production coverage authority validation must reject reader origin before identity and event-shape validation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_after_origin_result"),
+    [
         "coverage_authority.request_root_expr_id",
         "context.root_expr_id",
         "SourceBodyIdentityMismatch",
@@ -1670,9 +1692,50 @@ assertOrdered(
         "SourceBodyIdentityMismatch",
         "selfhost_memo_call_backend_private_cache_resource_graph_id_eq coverage_authority.graph_id context.graph_id",
         "SourceGraphIdentityMismatch",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_validate_result coverage_authority",
+    ],
+    "production coverage authority validation after origin must bind identity and require a structurally valid event shape before no-escape handoff",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_validate_result"),
+    [
+        "coverage_origin_is_production authority.origin",
+        "authority.body_event_count 0",
+        "authority.observation_event_count 0",
+        "authority.body_event_count 1",
+        "authority.unsupported_event_count 0",
+        "authority.observation_event_count 0",
         "Result::Ok unit",
     ],
-    "production coverage authority validation must bind request root, body root, fingerprint, and graph before no-escape handoff",
+    "coverage event-shape validation must reject reader origin, negative counts, non-single body, unsupported events, and observations",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_stage0"),
+    [
+        "ResourceLoweringTraversalProduced request_root body_root 77 graph_id 1 1 1 0 0",
+        "ReaderContextRepresentative request_root body_root 77 graph_id 1 1 1 0 0",
+        "ResourceLoweringTraversalProduced request_root body_root 77 graph_id 0 1 1 0 0",
+        "ResourceLoweringTraversalProduced request_root body_root 77 graph_id 2 1 1 0 0",
+        "ResourceLoweringTraversalProduced request_root body_root 77 graph_id 1 -1 1 0 0",
+        "ResourceLoweringTraversalProduced request_root body_root 77 graph_id 1 1 1 1 0",
+        "ResourceLoweringTraversalProduced request_root body_root 77 graph_id 1 1 1 0 1",
+        "coverage_event_shape_accepts accepted",
+        "not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts reader",
+        "not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts zero_body",
+        "not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts two_bodies",
+        "not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts negative",
+        "not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts unsupported",
+        "not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts observation",
+    ],
+    "coverage event-shape runtime smoke must accept only production origin with one body and reject reader, zero/two body, negative, unsupported, and observation cases",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_stage0",
+        "event_shape_ok",
+    ],
+    "existing coverage doctest must execute the event-shape runtime smoke",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_fresh_witness_authority_bundle_witness_count"),

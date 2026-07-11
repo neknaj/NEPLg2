@@ -138,6 +138,12 @@ memo_call production authority boundaryで、source vocabulary eligibilityとcov
 
 このcheckpointはPrivateCache / PrivateState mask実体、actual traversal由来coverage record、Resource summary hash / capability policy hash / artifact policy hashへの投影を完成させない。これらは引き続き本issueの残件である。
 
+## 2026-07-11 traversal event coverage authority integration
+
+production coverage envelopeへwalker-shaped split output由来のbody / place / edge / unsupported / observation countを追加し、walker structural validation後のproduction origin、1 body、unsupported / observation 0件だけを受け入れるようにした。private effect mask前にmalformed/unsupported/observable event shapeをfail-closedにする。
+
+effect mask実体、Resource summary/capability/artifact policy hashへのevent coverage投影、actual Resource IR walker本体、走査completion markerは未完了である。
+
 ## 2026-06-21 selfhost private effect no-escape gate checkpoint
 
 Selfhost 側に `memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` effect summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。

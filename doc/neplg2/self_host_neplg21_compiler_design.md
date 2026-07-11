@@ -3519,6 +3519,14 @@ producer traversal owner path と source-table owner path はこの authority pr
 
 この authority は vocabulary provenance と same-body identity だけを固定し、full Resource IR graph walker、fresh region の実 traversal 発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact policy hash を完成扱いしない。次は actual Resource traversal output がこの authority の入力 vocabulary と coverage record を resolver-bound HIR reader の代用なしに生成する境界へ進む。
 
+## 2026-07-11 selfhost traversal coverage record authority checkpoint
+
+production resource-lowering pathのcoverage authorityをcontext identityだけから作らず、walker-shaped split outputのbody / place / edge / unsupported / observation event countをborrowed ownerから読み、同じenvelopeへ保持する。producerはcount導出後にwalker input / observation ownerを従来どおりtraversal outputへmoveし、外部tableやcaller supplied countを受け取らない。
+
+production resource-lowering originだけがcomplete authorityへ進める。mint前に既存walker structural validatorを通し、全countが非負、body eventがちょうど1件、unsupported / observation eventが0件であることを要求する。これによりmalformed event shape、複数body、unsupported event、観測eventはfresh witness / no-escape authority発行前にfail-closedとなる。reader-context互換smokeは別originの固定representative countを使い、production validatorで拒否する。
+
+このcheckpointはactual Resource IR walker本体、expected-vs-seen completion markerによる走査完全性証明、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashを完成させない。次はresolver-bound HIR readerの代用をactual lowering traversal outputへ置換し、このevent-shape recordとsource vocabulary/fresh witnessを同じproducer ownerから実発行する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

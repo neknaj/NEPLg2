@@ -83389,3 +83389,31 @@ MERGE_APPROVED
 - pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_gui_font_f5nxf.json`、13 / 13。JSON出力を確認した。
 - F5nxfはchecked completed PointY ownerで停止し、Edge cursorやspan lookupを開始しない。次はF5nxgでこのowner全体をauthorityとしてindexed span / checked-span edge coreへ接続する。
+
+# 2026-07-11 selfhost traversal coverage record authority
+
+## 目的と実装
+
+- production coverage authorityがcontext identityだけからmintされ、実traversal event coverageを保持しないことを根本原因とした。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority`へbody / place / edge / unsupported / observation event countを追加した。
+- resource-lowering split output変換はborrowed walker/observation ownerをstructural validationし、countを導出してからownerをtraversal outputへmoveする。caller supplied countや外部tableは受け取らない。
+- coverage authorityはreader representativeとresource-lowering production originを区別し、production validationはreader originを拒否する。identityに加えてcount非負、body 1件、unsupported / observation 0件を要求する。
+
+## plan.md・issue・残件
+
+- plan.mdは変更していない。ISS-20260531T035402517とISS-20260531T035410851のactual traversal authority境界を進める。
+- actual Resource IR walker本体、走査completion markerによる完全性proof、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未実装である。
+
+## 検証
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=900000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist dist -o tmp/selfhost-traversal-coverage-record-final-doctest.json -j 1 --batch-size 18 --failure-nonfatal`。18 / 18。
+- pass: `PATH="/tmp:$PATH" NO_COLOR=false trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-traversal-coverage-record-cli.json`。13 / 13。
+- pass: stdlib documentation contract、issues check、`git diff --check`。
+
+## subagent review
+
+- 差分レビューはreader representativeがproduction authorityと同型で混入できる点、raw countが走査完全性を証明しない点、異常count runtime不足をblockingとした。origin discriminator、structural validator後mint、event-shape runtime smoke、completion marker未完の明記で対応した。
+- 再レビューはreader origin taxonomyとlegacy型/comment driftを指摘した。production origin wrapperを独立させて`SourceRejected`へ分類し、`CompleteAuthority`単体はcompletion proofでないことを明記した。最終実装・owner cleanupはAPPROVED。
+- 全体整合レビューはwalker structural validation前mintをblockingとした。validation成功後だけproduction envelopeを作り、reader outputをwalker-shaped representativeと記述してAPPROVEDとなった。

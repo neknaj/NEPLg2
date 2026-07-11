@@ -1046,3 +1046,11 @@ producer source vocabulary の count summary を authority output に直接保�
 - selfhost doctest 18 / 18
 - `trunk build`
 - playground editor CLI 13 / 13
+
+## 2026-07-11 selfhost traversal coverage record authority checkpoint
+
+production resource-loweringのwalker-shaped split outputからbody / place / edge / unsupported / observation event countを導出し、walker structural validation後にcoverage envelopeへbody identityと一緒に保持するようにした。production origin、1 body、非負count、unsupported / observation 0件だけをfresh witness/no-escape pathへ進める。reader representative originはproduction validatorで拒否する。
+
+このcheckpointはactual Resource IR walker本体、走査completion marker、sealed backendを完成させない。次はactual lowering traversal outputがsource vocabulary、coverage event-shape record、fresh witnessを同じowner lifecycleから実発行する接続である。
+
+検証はtarget contract、selfhost doctest 18 / 18、trunk build、playground editor CLI 13 / 13で行った。
