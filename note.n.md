@@ -83645,3 +83645,12 @@ MERGE_APPROVED
 - 差分レビューでmutable未観測、projection付きLocal受理、duplicate alias、root kind/name mismatch混同、Rust source sentinel不足をblockerとして検出し、mutable smoke、projection rejection、identity/place duplicate prior scan、taxonomy分離、contractを追加した。全体整合レビューでprovenance誇張を修正した。
 - `plan.md`は変更していない。ResourceLocal nameのactual authority、function name/origin/span、block span、ResourceOp topology、actual lowering co-production、sealed backend、artifact keyは未完了である。
 - `todo.md`には完了項目を追加せず、次のactual HIR-to-Resource co-production / canonical name authorityだけをfuture項目として記録した。active memoized-function backend issueにもcheckpointと残件を記録した。
+
+# 2026-07-12 selfhost Resource function span
+
+- Rust `ResourceFunction.span`のうちselfhost非負i32範囲へ投影済みのfile id / byte start / byte endを保持し、constructor、type parameter push、parameter push、block pushの全経路で保存する。Rust u32上位域はactual adapterのtyped rejectionとして未実装である。
+- scope headerは一度だけentry membershipを計算した後に`source_span_is_valid`を検査する。非空`[2,3)`、empty`[2,2)`、Rust dummy対応`(0,0,0)`を受理し、negative file、negative start、end-before-startを元span payload付き`FunctionSpanInvalid`へexact rejectionする。
+- Rust model/loweringに加え、`span.rs`の`FileId(u32)`、half-open u32 range、dummyと、Resource summary contextのfunction / block / operation / terminator span集約をcontract sentinelで固定した。span妥当性はactual lowering provenanceではなく、成功originは非productionの`ResourceIrInventoryValidated`のままである。
+- preservation smokeはnewからtype parameter、parameter、blockを順にpushした後も`(7,11,19)`とmutable=trueをexact readし、ownerをfreeする。非空type parameter ownerをscope成功へ流してmonomorphic rejectionを迂回しない。
+- `plan.md`は変更していない。actual function inventory co-production、u32上位域、source length / UTF-8 boundary、function name / origin authority、block / terminator / operation span、ResourceOp topology、sealed backend、artifact keyは未完了である。
+- pass: proof gate contract、focused runtime 1 / 1、`git diff --check`。

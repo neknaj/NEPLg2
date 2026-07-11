@@ -12,10 +12,18 @@ const source = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustResourceLower = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/lower.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustSpan = fs.readFileSync(path.join(repoRoot, "nepl-core/src/span.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustResourceContext = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/resource_summary_value_cache/context.rs"), "utf8").replace(/\r\n/g, "\n");
 
 assert.match(rustResourceModel, /pub struct ResourceLocal \{[\s\S]*pub name: String,[\s\S]*pub ty: TypeId,[\s\S]*pub mutable: bool,[\s\S]*pub place: Place,/);
 assert.match(rustResourceModel, /pub enum PlaceRoot \{[\s\S]*Local\(String\)/);
 assert.match(rustResourceLower, /fn lower_param_skeleton[\s\S]*name: param\.name\.clone\(\),[\s\S]*ty: param\.ty,[\s\S]*mutable: param\.mutable,[\s\S]*place: Place::local\(param\.name\.clone\(\), param\.ty\)/);
+assert.match(rustResourceModel, /pub struct ResourceFunction \{[\s\S]*pub span: Span,/);
+assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
+assert.match(rustSpan, /pub struct FileId\(pub u32\)/);
+assert.match(rustSpan, /A half-open byte range `\[start, end\)`[\s\S]*pub start: u32,[\s\S]*pub end: u32,/);
+assert.match(rustSpan, /pub fn dummy\(\) -> Span[\s\S]*file_id: FileId\(0\),[\s\S]*start: 0,[\s\S]*end: 0,/);
+assert.match(rustResourceContext, /push_span_range\(&mut file_ranges, function\.span\);[\s\S]*push_span_range\(&mut file_ranges, block\.span\);[\s\S]*collect_op_span_ranges\(&block\.ops, &mut file_ranges\);[\s\S]*push_span_range\(&mut file_ranges, terminator_span\(&block\.terminator\)\);/);
 
 function stripDocComments(src) {
     return src
@@ -1095,7 +1103,7 @@ assertOrdered(
         "Result Vec SelfhostTypeId StdErrorKind v::new",
         "Result Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord StdErrorKind v::new",
         "Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord StdErrorKind v::new",
-        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params params result_ty effect blocks",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params params result_ty effect span blocks",
         "v::free type_params",
         "v::free params",
         "BlockTableAllocFailed e",
@@ -1120,8 +1128,9 @@ assertOrdered(
     [
         'field::get inventory "type_params"',
         'field::get inventory "params"',
+        'field::get inventory "span"',
         "v::push type_params type_param",
-        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id next_type_params params result_ty effect blocks",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id next_type_params params result_ty effect span blocks",
         "v::free v::vec_push_error_vec e",
         "v::free params",
         "v::free blocks",
@@ -1137,8 +1146,9 @@ assertOrdered(
         'field::get inventory "params"',
         'field::get inventory "result_ty"',
         'field::get inventory "effect"',
+        'field::get inventory "span"',
         'field::get inventory "blocks"',
-        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params params result_ty effect next_blocks",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params params result_ty effect span next_blocks",
         "v::free v::vec_push_error_vec e",
         "v::free type_params",
         "v::free params",
@@ -1173,9 +1183,10 @@ assertOrdered(
     [
         'field::get inventory "type_params"',
         'field::get inventory "params"',
+        'field::get inventory "span"',
         'field::get inventory "blocks"',
         "v::push params parameter",
-        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params next_params result_ty effect blocks",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params next_params result_ty effect span blocks",
         "v::free v::vec_push_error_vec e",
         "v::free type_params",
         "v::free blocks",
@@ -1217,12 +1228,31 @@ assertOrdered(
     "ordered ResourceLocal parameters must bind opaque local identity and type to an existing Local Place",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_parameter_mutable_preserved_stage0"),
+    [
+        "source_span_new_unchecked 7 11 19",
+        "resource_ir_function_inventory_new",
+        "resource_ir_function_inventory_push_type_param",
+        "resource_ir_function_inventory_push_parameter",
+        "resource_ir_function_inventory_push inventory2 block_record",
+        'field::get_ref inventory3 "span"',
+        "stored.mutable",
+        "stored_span.file_id expected_span.file_id",
+        "stored_span.start expected_span.start",
+        "stored_span.end expected_span.end",
+        "resource_ir_function_inventory_free inventory3",
+    ],
+    "function span must survive every owner transition without sending the nonempty type-parameter fixture through scope validation",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"),
     [
         "resource_ir_function_inventory_len inventory",
+        "let entry_exists %bool selfhost_memo_call_backend_private_cache_resource_ir_entry_block_exists_loop inventory entry_block_id 0 block_count",
         "BlockMissing",
-        "resource_ir_entry_block_exists_loop inventory entry_block_id 0 block_count",
+        "source_span_is_valid span",
         "EntryBlockMissing entry_block_id",
+        "FunctionSpanInvalid span",
         "resource_ir_function_inventory_type_param_len inventory",
         "resource_ir_function_inventory_validate_type_params_loop inventory types 0 type_param_count",
         "FunctionTypeParametersUnsupported type_param_count",
@@ -1252,7 +1282,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
     [
-        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect type_param_count first_type_param second_type_param parameter_identity parameter_ty parameter_place second_block_id",
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect span type_param_count first_type_param second_type_param parameter_identity parameter_ty parameter_place second_block_id",
         "resource_walker_stage0_key_with_effect key_effect",
         "EntryBlockMissing missing_entry",
         "BlockIdDuplicate duplicate_id",
@@ -1283,6 +1313,10 @@ assertOrdered(
         "FunctionParameterPlaceProjected ordinal",
         "FunctionParameterIdentityDuplicate ordinal",
         "FunctionParameterPlaceDuplicate ordinal",
+        "FunctionSpanInvalid actual_span",
+        "actual_span.file_id",
+        "actual_span.start",
+        "actual_span.end",
     ],
     "function header runtime fixtures must exact-match block identity, declaration type parameters, result type, and surface effect errors",
 );

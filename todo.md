@@ -85,4 +85,4 @@ full public surface hash は ordered typed input item schema、local MemoKey / M
 - `ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1` に沿って、trait impl materializer が依存 body skip 後も impl resolution を fail-closed に復元できる stable surface を追加する
 2026-07-12 Selfhost Resource function production provenance
 
-- 接続済みのordered parameter structural ownerを前提に、actual HIR-to-Resource producerからResourceLocal name / TypeId / mutable / bare Local Placeをco-produceし、canonical local-name identityとfunction name / origin / span authorityへ接続する
+- 接続済みのordered parameter structural ownerとfunction span fieldを前提に、actual HIR-to-Resource producerからResourceLocal name / TypeId / mutable / bare Local PlaceとResourceFunction spanをco-produceし、canonical local-name identity、function name / origin、Rust u32 span上位域のtyped rejection、block / terminator / operation span authorityへ接続する

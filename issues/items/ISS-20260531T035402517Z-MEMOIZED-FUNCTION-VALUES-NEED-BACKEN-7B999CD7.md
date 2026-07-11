@@ -1101,6 +1101,8 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 
 2026-07-12: 実在するfunction type parameter recordを`Parameter` variantと最小valid bindingに制限し、単一function binderの`depth=0 / parameter_index=ordinal`不一致をtyped rejectionしてからmonomorphic unsupportedへ進める。selfhost ParameterはRust TypeKind::Varのbinder参照shapeだけであり、bound/unbound Option、capability、actual lowering由来unbound evidenceは未実装である。
 
+2026-07-12: Rust `ResourceFunction.span`のselfhost非負i32範囲への構造投影をfunction inventoryへ追加し、entry membership後のheader検査で`source_span_is_valid`を要求する。valid nonempty / empty rangeを受理し、negative file / startとend-before-startを元span payload付き`FunctionSpanInvalid`へ拒否する。actual lowering co-production、Rust u32上位域、source length / UTF-8 boundary、function name / origin authority、block / terminator / operation spanは未実装である。
+
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
-Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin / span、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。
+Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。
