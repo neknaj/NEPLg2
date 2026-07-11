@@ -644,6 +644,58 @@ assert.match(
     /impl\s+Copy\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary\b/,
     "producer source vocabulary summary may be copied because it carries counts but no owner tables",
 );
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind"),
+    ["NegativeSourceCount", "AcceptedSourceMissing", "EscapingSourcePresent", "ObservationSourcePresent", "UnsupportedSourcePresent"],
+    "producer source vocabulary eligibility must distinguish malformed, empty, escaping, observable, and unsupported vocabularies",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_production_output_stage0_summary_eq"),
+    [
+        "OutputRejected SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind::WitnessUnsupportedSource",
+        "summary.hir_body_private_cache_effect_rejected unsupported_expected",
+        "SourceVocabularyRejected SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent",
+        "summary.resource_lowering_private_cache_effect_no_escape_rejected source_vocabulary_unsupported_expected",
+    ],
+    "production stage0 smoke must distinguish source-derived witness rejection from producer vocabulary eligibility rejection",
+);
+assert.match(
+    code,
+    /impl\s+Copy\s+for\s+SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind\b/,
+    "producer source vocabulary eligibility error must remain Copy because production output error copies its payload",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_eligibility_result"),
+    [
+        "NegativeSourceCount",
+        "UnsupportedSourcePresent",
+        "ObservationSourcePresent",
+        "EscapingSourcePresent",
+        "AcceptedSourceMissing",
+        "Result::Ok ()",
+    ],
+    "producer source vocabulary eligibility must fail closed before authority issuance and accept only nonempty accepted-only vocabulary",
+);
+for (const [functionName, cleanup] of [
+    ["selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free output"],
+    ["selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_into_authority_output_result", "selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources"],
+]) {
+    assertOrdered(
+        topLevelBlock(source, "fn", functionName),
+        [
+            'field::get output "source_vocabulary"',
+            "selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_eligibility_result source_vocabulary",
+            "Result::Ok _eligible:",
+            "selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result",
+            "Result::Ok _identity:",
+            "fresh_witness_authority_bundle_result",
+            "resource_lowering_producer_authority_output_new",
+            cleanup,
+            "SourceVocabularyRejected",
+        ],
+        `${functionName} must validate source vocabulary before coverage and fresh-witness authority issuance and close its owner on rejection`,
+    );
+}
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput"),
     [
@@ -754,8 +806,8 @@ assert.doesNotMatch(
 );
 assert.deepEqual(
     enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind"),
-    ["OutputRejected", "SourceDerivedHirBodyReaderRejected"],
-    "production output gate error must separate no-escape output rejection from source-derived origin rejection",
+    ["OutputRejected", "SourceVocabularyRejected", "SourceDerivedHirBodyReaderRejected"],
+    "production output gate error must separate no-escape, source-vocabulary, and source-derived origin rejection",
 );
 assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary"),
@@ -1758,7 +1810,8 @@ assertOrdered(
         "summary.resource_lowering_authority_bundle_witness_count 1",
         "summary.resource_lowering_no_escape_pair_code 13",
         "summary.resource_lowering_private_cache_effect_source_count 1",
-        "summary.resource_lowering_private_cache_effect_no_escape_rejected unsupported_expected",
+        "SourceVocabularyRejected SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent",
+        "summary.resource_lowering_private_cache_effect_no_escape_rejected source_vocabulary_unsupported_expected",
     ],
     "production output stage0 summary eq must prove source-derived rejection, resource-lowering source output production, fresh-witness input owner separation, no-escape pair acceptance, and private-effect no-escape rejection",
 );
