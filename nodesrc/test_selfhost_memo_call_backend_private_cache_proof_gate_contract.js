@@ -1084,13 +1084,51 @@ assertOrdered(
     "Resource IR inventory validation must scan every block in Rust order and require dense operation ranges and terminator coverage",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new"),
+    [
+        "Result Vec SelfhostTypeId StdErrorKind v::new",
+        "Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord StdErrorKind v::new",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params result_ty effect blocks",
+        "v::free type_params",
+        "BlockTableAllocFailed e",
+        "FunctionTypeParameterTableAllocFailed e",
+    ],
+    "function inventory constructor must own the ordered type parameter vector and close it if block allocation fails",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free"),
+    [
+        'field::get inventory "type_params"',
+        'field::get inventory "blocks"',
+        "v::free type_params",
+        "v::free blocks",
+    ],
+    "function inventory free must close both ordered type parameters and block records",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push_type_param"),
+    [
+        'field::get inventory "type_params"',
+        "v::push type_params type_param",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id next_type_params result_ty effect blocks",
+        "v::free v::vec_push_error_vec e",
+        "v::free blocks",
+        "FunctionTypeParameterPushFailed error",
+    ],
+    "type parameter push must preserve header/block ownership and close every consumed owner on failure",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push"),
     [
         'field::get inventory "entry_block_id"',
+        'field::get inventory "type_params"',
         'field::get inventory "result_ty"',
         'field::get inventory "effect"',
         'field::get inventory "blocks"',
-        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id result_ty effect next_blocks",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params result_ty effect next_blocks",
+        "v::free v::vec_push_error_vec e",
+        "v::free type_params",
+        "BlockPushFailed error",
     ],
     "function inventory push must preserve every ResourceFunction header field",
 );
@@ -1099,16 +1137,18 @@ assertOrdered(
     [
         "resource_ir_function_inventory_len inventory",
         "BlockMissing",
-        "resource_ir_entry_block_exists_loop inventory inventory.entry_block_id 0 block_count",
-        "EntryBlockMissing inventory.entry_block_id",
-        "selfhost_type_id_index inventory.result_ty 0",
-        "FunctionResultTypeInvalid selfhost_type_id_index inventory.result_ty",
-        "selfhost_type_arena_get_record types inventory.result_ty",
-        "FunctionResultTypeMissing selfhost_type_id_index inventory.result_ty",
+        "resource_ir_entry_block_exists_loop inventory entry_block_id 0 block_count",
+        "EntryBlockMissing entry_block_id",
+        "resource_ir_function_inventory_type_param_len inventory",
+        "FunctionTypeParametersUnsupported selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_type_param_len inventory",
+        "selfhost_type_id_index result_ty 0",
+        "FunctionResultTypeInvalid selfhost_type_id_index result_ty",
+        "selfhost_type_arena_get_record types result_ty",
+        "FunctionResultTypeMissing selfhost_type_id_index result_ty",
         "selfhost_effect_kind_eq key.source_effect SelfhostEffectKind::Pure",
         "ProofKeyEffectUnsupported key.source_effect",
         "SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Impure",
-        "FunctionEffectMismatch SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffectMismatch inventory.effect SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure",
+        "FunctionEffectMismatch SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffectMismatch effect SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure",
         "resource_ir_place_inventory_len places",
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
@@ -1125,7 +1165,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
     [
-        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect second_block_id",
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect has_type_param second_block_id",
         "resource_walker_stage0_key_with_effect key_effect",
         "EntryBlockMissing missing_entry",
         "BlockIdDuplicate duplicate_id",
@@ -1137,8 +1177,14 @@ assertOrdered(
         "mismatch.expected",
         "ProofKeyEffectUnsupported actual_effect",
         "selfhost_effect_kind_eq actual_effect key_effect",
+        "FunctionTypeParametersUnsupported actual_count",
+        "eq actual_count 1",
     ],
-    "function header runtime fixtures must exact-match block identity, result type, and surface effect errors",
+    "function header runtime fixtures must exact-match block identity, declaration type parameters, result type, and surface effect errors",
+);
+assert.ok(
+    !stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result")).includes("key.type_arg_count"),
+    "ResourceFunction declaration type parameters must not be compared with call-occurrence type_arg_count",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop"),

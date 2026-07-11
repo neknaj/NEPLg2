@@ -83600,6 +83600,16 @@ MERGE_APPROVED
 - subagentの初回監査でRust surface effectと内部effectのdomain混同を発見して専用enumへ修正し、差分レビューで非Pure keyの自己矛盾payloadを別taxonomyへ分離した。非Pure key runtime fixture追加後、差分・全体整合レビューはいずれも最終APPROVED。履歴粒度は内容commit 1個のff-only統合を承認された。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。selfhost全体documentation contractは今回変更外かつ直前main由来の`resource_ir_place_projection.nepl` module doc baseline debt (`moduleNoDoc 60 > 59`)で失敗する。
 
+# 2026-07-12 selfhost Resource function type parameter owner
+
+- Rust loweringが`HirFunction.func_ty`からcopyするordered `ResourceFunction.type_params: Vec<TypeId>`を、selfhost function inventoryの独立ownerとして保持する。
+- declaration type parameterとcall occurrenceのproof key `type_arg_count`は別authorityなので、count比較は禁止する。現行memo backendはmonomorphic限定のため、ownerをcountだけへ縮退させず保存したうえで、非空を`FunctionTypeParametersUnsupported(actual_count)`へtyped rejectionする。
+- empty ownerは従来のscopeを受理し、1件ownerとinvalid result / nonPure key / Impure surfaceを同時に与えたfixtureはtype parameter rejectionを優先する。検査順はBlockMissing、entry membership、type parameters、result、proof-key effect、surface effect、Placeである。
+- constructor / type-parameter push / block push / freeはtype parameter vectorとblock vectorを同じinventory lifecycleで閉じる。actual ResourceFunction producerとのco-production、generic Resource backend、canonical type key、ResourceOp topology ownerは未完了で、originは`ResourceIrInventoryValidated`のままにする。
+- `plan.md`は変更していない。sealed backendとartifact keyも未完了である。
+- subagent差分レビューの指摘により、block push失敗時のtype parameter owner解放とnormal freeの両owner解放をcontractへ追加し、ordered append / failure cleanupの日本語docを補った。差分・全体整合レビューはいずれも最終APPROVEDで、内容commit 1個のff-only統合粒度も承認された。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。
+
 # 2026-07-11 selfhost Resource entry block membership
 
 - Rust `ResourceFunction.entry_block`がselfhost function inventoryから欠落していたため、entry block IDとblock tableを同じownerへ保持し、各recordへdense ordinalとは別のblock IDを追加する。
