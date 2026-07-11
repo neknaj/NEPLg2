@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: bug
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-07-12
 target: nepl-core/src/resource/owner_return_apply_projection.rs
 ---
 
@@ -23,7 +23,9 @@ A caller that consumes a deeply nested move-only registered owner through Result
 
 ## 根拠
 
-- 未記入
+- GUI production chainでは`writer_step_budget(owner, 1)`の`Result<BudgetStep, StepError>`適用時に、同じregistered source authority由来の複数deep owner leafが順番に`ReturnValue` transferされ、2件目以降が`Moved`として拒否される。
+- outer/inner enum pathをpayload bindへ遅延する試作は単純な`Result<Step, E>`では元の誤報を消したが、GUIではstruct fieldと複数の内部owner enumを挟むleaf群が同じsourceへ解決されるため誤報が残った。
+- moved sourceを単にskipする方法は、別variantが選択された場合にownerを返せなくなる。outer variant名だけの平坦化や最初のleaf採用では正当なowner transferを証明できない。
 
 ## 問題
 
@@ -35,7 +37,7 @@ Valid production owner chains cannot be exercised by runtime fixtures; F5nxj int
 
 ## 修正方針
 
-Add a minimized nested Result aggregate reproduction, correct ReturnValue projection summary application so moved input payload leaves do not get reprojected onto returned owner leaves, and preserve genuine use-after-move diagnostics.
+GUIから抽出したstruct fieldと内部owner enumを含む複数leaf最小再現を追加する。summary sourceとreturn targetの対応をleaf単位の排他的variant pathおよびaggregate authority identity付きで保持し、同じaggregate moveをleafごとの独立moveとして再適用しない。genuine use-after-move診断と、異なるowner sourceを持つ複数leaf transferは維持する。
 
 ## 検証
 
