@@ -1,3 +1,37 @@
+# 2026-07-11 Agent2 GUI font rendering F5nxe registered indexed PointX population owner
+
+## 方針とphase境界
+
+- `plan.md`、GUI font rendering仕様・詳細設計・実装計画、`todo.md`、Issue indexを再確認し、F5nxd checked completed endpoint owner全体を唯一のauthorityとするPointX populationを実装した。`plan.md`は変更していない。
+- F5nxeはowner-bound collection item readとowner-bound PointX pushだけを使い、外部collection再注入、byte-backed再読取、旧F5ar drain、PointY以降へ進むAPIを公開しない。checked completed ownerだけをF5nxfへ渡す。
+
+## 実装
+
+- collection ownerからF5nxd completed ownerまでitem count / item readのsealed forwardingを追加し、各層でraw collectionやnested ownerを公開しないようにした。
+- `alloc/gui/font/registered_face/simple_glyph/indexed/point_x.nepl`へActive / Completed state、固定順のtyped phase invariant、start、single step、one-step budget、checked seal、owner-bearing error/freeを追加した。
+- logical item indexは`cursor.next - cursor.start`だけから導出し、item glyph/index/kindを再検証してからPointX slotをexactly once pushする。最終pushは`Pushed`を返しながらownerをCompletedへ遷移させる。
+- lower push failureではmetadataをowner takeより先に読み、同じouter ownerを再構築した直後にphase invariantを再検査する。再検査結果を`recovered_invariant`としてerrorへ保持し、lowerがstorage progress contractを破った場合も見逃さない。
+- deterministic item read / PointX push failure entryは`#test`に限定し、productionと同じprivate finalizer / recovery pathを共有する。normal compileでは両entryを公開しない。
+
+## review
+
+- 差分reviewと全体整合reviewで、failure injection runtime coverage不足、全PointXが0のfixtureではforwarding退行を検出できない点、新規accessorの説明不足、一時生成物の衛生が指摘された。fixtureをPointX `10, 15, -5, -5`へ変更し、item read / PointX push failureでmetadata、cursor / storage len / logical index不変、same-owner retry、recovered invariant `Valid`を実行検査する経路を追加した。
+- 本laneは独立issue itemではなく、`todo.md`のFont resource後続phase列とGUI font rendering実装計画のF5nxeを作業authorityとしている。`issues/index.md`は確認したがF5nxe専用issueは存在しないため、存在しないissue参照は記録していない。
+
+## 検証
+
+- pass: F5nxe module doctest 69 / 69。
+- pass: Web GUI font rendering source contract。
+- pass: F5nxe test-only entry normal compile isolation。
+- pass: stdlib documentation contract。新規declarationはすべて日本語拡張Markdown documentを持つ。
+- pass: issues check、`git diff --check`。
+- pass: `trunk build`。repository内のLinux用`npm.cmd` wrapperをPATHへ追加し、更新済みdistを生成した。
+- pass: integrated registered-face fixture 1 / 1。compile負荷に合わせ`NEPL_TEST_CASE_TIMEOUT_MS=180000`を指定し、runtimeの32 assertionを含むJSON summaryでfailed / errored / timed_outがすべて0であることを確認した。
+
+## 残件
+
+- F5nxfでchecked completed PointX ownerをauthorityとしてPointY populationへ進み、同じowner-bound read / mutation / recovery contractを維持する。
+
 # 2026-07-11 Agent2 GUI font rendering F5nxd registered indexed contour endpoint population owner
 
 ## 方針とphase境界
@@ -83251,3 +83285,40 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_font_registered_face_f5no.json`
 - checked JSON: `tmp/playground_editor_font_registered_face_f5no.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+# 2026-07-11 selfhost resource-lowering source vocabulary eligibility
+
+## 目的
+
+- producer source vocabulary summary を記録するだけでなく、fresh witness authority 発行前の fail-closed eligibility gate に接続する。
+- escaping / observation / unsupported source を含む traversal output が authority owner へ進めないことを owner cleanup と typed error まで含めて固定する。
+
+## 実装内容
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind` を追加し、negative count、accepted source 不在、escaping、observation、unsupported を区別した。
+- eligibility gate は accepted source が 1 件以上で、それ以外の source count がすべて 0 件の場合だけ成功する。
+- traversal-output owner path と source-table owner path の両方で、coverage validation と fresh witness authority 発行より先に eligibility を検査する。
+- rejection 時は walker input / observation owner または source table owner を閉じ、`SourceVocabularyRejected` として返す。
+- contract test に eligibility enum、fail-closed 判定順、production error taxonomy を追加した。
+
+## plan.md との差異
+
+- plan.md の self-host compiler / Resource IR 方針に沿う authority boundary の補強であり、plan.md の変更は不要。
+- full Resource IR graph walker、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionは未実装である。
+
+## 検証
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-source-vocabulary-eligibility-doctest.json -j 1` (18/18)
+- pass: `PATH="/tmp/nepl-trunk-bin:$PATH" NO_COLOR=false trunk build`。WSL では `Trunk.toml` の `npm.cmd` 用に `/tmp` の `npm` symlink を使った。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-source-vocabulary-eligibility-cli.json`。JSON は `caseCount=13`、`passedCount=13`、`failedCount=0`。
+
+## subagent review
+
+- 差分レビューは、eligibility error を payload に加えた production error の Clone / Copy 契約不足を blocking として指摘した。eligibility error enum に Clone / Copy を追加し、contract test で固定した。
+- 差分レビューは、2 つの authority owner path で eligibility、coverage、fresh witness の順序と rejection cleanup を直接検査する必要を指摘した。両経路の `assertOrdered` と cleanup 契約コメントを追加した。
+- 全体整合レビューは、production stage0 smoke が PrivateCache source に旧 `OutputRejected(WitnessUnsupportedSource)` を期待している点を blocking として指摘した。resource-lowering path だけを `SourceVocabularyRejected(UnsupportedSourcePresent)` へ更新し、source-derived HIR reader path の旧分類とは分離した。
+
+## todo.md
+
+- 今回完了した eligibility checkpoint は追加しない。
+- full Resource IR traversal、private-effect mask、artifact policy hash など既存の未完了項目は継続する。

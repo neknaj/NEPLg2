@@ -431,6 +431,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage = read("stdlib/all
 const allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorage);
 const allocFontRegisteredFaceSimpleGlyphIndexedContourEndpoint = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedContourEndpoint);
+const allocFontRegisteredFaceSimpleGlyphIndexedPointX = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/point_x.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPointX);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3481,7 +3483,7 @@ assertMatch(
 );
 const registeredContourEndpointInvariant = functionSlice(
     allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl,
-    "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_phase_invariant_check",
+    "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_phase_invariant_check_with_storage_progress",
 );
 for (const kind of [
     "CanonicalCapacityShapeInvalid", "StorageCapacityMismatch", "StorageShapeMismatch", "SpanCountMismatch",
@@ -3565,6 +3567,130 @@ assertNoMatch(
     allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl,
     /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_(?:contour_endpoint|outline_storage)[^\s]*(?:take_storage|storage_ref|take_completed|take_indexed|take_path|take_action|take_summary|split|callback)|read_item|byte_at|byte_reader|GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action|\b(?:fallback|panic|unreachable|Vec|PointX)\b|[()]/,
     "F5nxd must not expose raw splits/item forwarding/byte readers, reuse F5am-F5aq, fall back, panic, use parentheses or enter PointX and later phases",
+);
+assertMatch(
+    allocFontFacade,
+    /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/point_x"\s+as\s+\*/,
+    "alloc/gui/font facade must export the F5nxe PointX population owner boundary",
+);
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPointX,
+    /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/contour_endpoint"\s+as\s+\*/,
+    "F5nxe module must import only the F5nxd completed endpoint authority",
+);
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPointXStartError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPointXStepError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPointXBudgetStep",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPointXSealError",
+]) {
+    assertNoMatch(
+        allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl,
+        new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`),
+        `F5nxe owner-bearing type must remain move-only: ${ownerType}`,
+    );
+}
+assertMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPointX,
+    /pub\s+enum\s+GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantInvalidKind:\s*CanonicalCapacityShapeInvalid\s*EndpointCompletionInvariantInvalid\s*StorageCapacityMismatch\s*StorageShapeMismatch\s*CollectionItemCountMismatch\s*CursorInvalid\s*CursorRegionMismatch\s*CursorCapacityMismatch\s*StorageLengthMismatch\s*ActiveCursorAtEnd\s*CompletedCursorNotAtEnd/,
+    "F5nxe must retain all 11 invariant kinds in documented precedence order",
+);
+const registeredPointXInvariant = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl,
+    "gui_font_registered_face_simple_glyph_indexed_point_x_owner_phase_invariant_check",
+);
+assertOrderedFragments(
+    registeredPointXInvariant,
+    [
+        "CanonicalCapacityShapeInvalid", "EndpointCompletionInvariantInvalid", "StorageCapacityMismatch",
+        "StorageShapeMismatch", "CollectionItemCountMismatch", "CursorInvalid", "CursorRegionMismatch",
+        "CursorCapacityMismatch", "StorageLengthMismatch", "ActiveCursorAtEnd", "CompletedCursorNotAtEnd",
+        "GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid",
+    ],
+    "F5nxe invariant must evaluate every typed invalid kind in precedence order before Valid",
+);
+assertNoMatch(
+    registeredPointXInvariant,
+    /\n\s*_\s*:\s*GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid/m,
+    "F5nxe invariant must not use a wildcard success branch",
+);
+const itemForwardingChain = [
+    [allocFontRegisteredFaceSimpleGlyphIndexedPathImpl, "gui_font_registered_face_simple_glyph_indexed_path_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_owner_item_read"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedActionImpl, "gui_font_registered_face_simple_glyph_indexed_action_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_path_owner_item_read"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl, "gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_action_owner_item_read"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl, "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl, "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_read"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_item_read"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_item_read", "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_item_read"],
+];
+for (const [source, forwardingName, lowerName] of itemForwardingChain) {
+    const forwarding = functionSlice(source, forwardingName);
+    assert(forwarding.split(lowerName).length - 1 === 1, `F5nxe ${forwardingName} must forward to ${lowerName} exactly once`);
+    assertNoMatch(forwarding, /collection_ref|take_collection|field::get\s/, `F5nxe ${forwardingName} must keep collection ownership sealed`);
+}
+const registeredIndexedItemRead = functionSlice(
+    allocFontRegisteredFaceSimpleGlyphCollectionImpl,
+    "gui_font_registered_face_simple_glyph_indexed_owner_item_read",
+);
+assert(
+    registeredIndexedItemRead.split("gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection item_index").length - 1 === 1,
+    "F5nxe lowest item forwarding boundary must call collection read exactly once",
+);
+const registeredPointXStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_start");
+assertOrderedFragments(
+    registeredPointXStart,
+    ["completed_owner_phase_invariant_check &endpoint", "CollectionItemCountMismatch", "cursor_try_from_capacity", "owner_phase_invariant_check &owner"],
+    "F5nxe start must validate endpoint completion, item count, PointX cursor, then phase invariant",
+);
+const registeredPointXStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_step");
+assertOrderedFragments(
+    registeredPointXStep,
+    ["owner_progress_kind &owner", "Completed", "Active", "completed_owner_item_read endpoint index", "finalize_item_read owner cursor index read"],
+    "F5nxe step must reject terminal, derive the logical index, read once, then use the shared finalizer",
+);
+assert(registeredPointXStep.split("completed_owner_item_read endpoint index").length - 1 === 1, "F5nxe production step must perform one owner-bound item read");
+const registeredPointXReadFinalizer = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_finalize_item_read");
+assertOrderedFragments(
+    registeredPointXReadFinalizer,
+    ["ItemReadFailed", "validate_item owner cursor index item"],
+    "F5nxe item-read finalizer must preserve read failure or continue into identity validation",
+);
+const registeredPointXValidate = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_validate_item");
+assertOrderedFragments(
+    registeredPointXValidate,
+    ["ItemGlyphMismatch", "ItemIndexMismatch", "ItemKindMismatch", "gui_font_registered_face_simple_glyph_indexed_point_x_push_item owner cursor index item"],
+    "F5nxe item validation must check glyph, index, kind, then push",
+);
+const registeredPointXPush = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_push_item_with_lower_cursor");
+assert(registeredPointXPush.split("completed_owner_push_point_x endpoint lower_cursor point").length - 1 === 1, "F5nxe must call the owner-bound PointX push exactly once");
+assertOrderedFragments(
+    registeredPointXPush,
+    [
+        'field::get owner "endpoint"', "completed_owner_push_point_x endpoint lower_cursor point",
+        "point_x_push_error_kind &lower", "point_x_push_error_point &lower",
+        "point_x_push_error_region_error_kind &lower", "point_x_push_error_storage_push_error_kind &lower",
+        "point_x_push_error_take_owner lower", "indexed_point_x_owner returned",
+        "owner_phase_invariant_check &running", "some recovered_invariant",
+        "point_x_push_cursor &pushed", "point_x_push_take_owner pushed", "indexed_point_x_owner returned state",
+    ],
+    "F5nxe push must read lower metadata before take, recheck the recovered owner invariant, and reconstruct the outer owner on failure and success",
+);
+const registeredPointXBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_drain_budget");
+assertOrderedFragments(registeredPointXBudget, ["owner_progress_kind &owner", "Completed", "le remaining 0", "StepBudgetExhausted", "indexed_point_x_step owner"], "F5nxe budget must check completed, zero budget, then perform at most one commit");
+const registeredPointXSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_seal_completed");
+assertOrderedFragments(registeredPointXSeal, ["owner_progress_kind &owner", "Active", "owner_phase_invariant_check &owner", "Valid", "CompletedOwner owner"], "F5nxe seal must reject Active before checking the completed invariant");
+for (const helper of [
+    "gui_font_registered_face_simple_glyph_indexed_point_x_test_force_item_read_failure",
+    "gui_font_registered_face_simple_glyph_indexed_point_x_test_force_point_x_push_failure",
+]) {
+    assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPointX, new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+${helper}\\b`), `F5nxe test-only helper must be the immediate statement after #test: ${helper}`);
+}
+assertNoMatch(
+    allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl,
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_point_x_[^\s]*(?:take_endpoint|take_storage|storage_ref|take_completed|take_indexed|take_path|take_action|take_summary|take_collection|collection_ref|split|callback)|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointX|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x|collection\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollection|\b(?:fallback|panic|unreachable|PointY|Edge|Command|Stroke|Raster|RenderTarget|platform)\b|[()]/,
+    "F5nxe must not expose raw splits, accept an external collection, reuse F5ar, enter PointY or later phases, fall back, panic, use unreachable, or use parentheses",
 );
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,

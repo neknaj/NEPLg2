@@ -246,6 +246,26 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup %f
     let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
     gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup path contour_index
 
+//: gui_font_registered_face_simple_glyph_indexed_action_owner_item_read: action authority から classified point item を借用して読む
+//:
+//: [目的/もくてき]: endpoint population が action continuation と registered collection authority を分離せず、point item と typed read error を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested path owner を借用し、`gui_font_registered_face_simple_glyph_indexed_path_owner_item_read` を exactly once 呼びます。action state は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_item_read %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \owner\item_index:
+    let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
+    gui_font_registered_face_simple_glyph_indexed_path_owner_item_read path item_index
+
+//: action authority が保持する classified item 数を読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner i32 \owner:
+    let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
+    gui_font_registered_face_simple_glyph_indexed_path_owner_item_count path
+
 //: GuiFontRegisteredFaceSimpleGlyphIndexedActionPacket: 一 action と由来 sink step を運ぶ Copy packet
 //:
 //: [契約/けいやく]: slot は `Primary` または `Tail` であり、action は同じ sink step の pure projection です。

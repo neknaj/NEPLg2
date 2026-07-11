@@ -34,3 +34,4 @@ pub #import "alloc/gui/font/registered_face_simple_glyph_indexed_action" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_indexed_action_summary" as *
 pub #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage" as *
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint" as *
+pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/point_x" as *

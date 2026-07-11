@@ -675,6 +675,28 @@ pub fn gui_font_registered_face_simple_glyph_indexed_owner_span_lookup %fn &GuiF
     let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
     gui_sfnt_simple_glyph_contour_span_index_lookup lower contour_index
 
+//: gui_font_registered_face_simple_glyph_indexed_owner_item_read: sealed indexed owner から classified point item を借用して読む
+//:
+//: [目的/もくてき]: 後続 phase が raw collection accessor を追加せず、registered authority を保持したまま point item と typed read error を取得できるようにします。
+//:
+//: [契約/けいやく]: lower indexed owner が保持する collection を借用し、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item` を exactly once 呼びます。成功と失敗のどちらでも owner は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_item_read %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \owner\item_index:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_indexed_collection_ref lower
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection item_index
+
+//: sealed indexed owner が保持する classified item 数を読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner i32 \owner:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_indexed_collection_ref lower
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection
+
 //: gui_font_registered_face_simple_glyph_indexed_owner_free: registered indexed collectionを閉じる
 //:
 //: neplg2:test[skip]

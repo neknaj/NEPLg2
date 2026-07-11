@@ -6483,6 +6483,39 @@ node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json
 - runtime testはlower failure後のmetadata参照とexactly-once recovery / free、partial budget resume、pending / completed budget 0、exact budget completion、各phaseのcursor / provenance維持を検査する。
 - source policyはnew module内の旧full-scan helper、raw collection再注入、public split accessor / constructor、owner-bearing terminalを0件に固定する。
 
+### Phase F5nxe: registered indexed PointX population owner
+
+目的:
+
+- F5nxd checked completed endpoint ownerを唯一のauthorityとしてPointX regionを順次構築する。
+- owner内sealed collectionのitemをO(1)で読み、外部collection、raw storage、caller supplied pointを再注入しない。
+- PointX completionをchecked ownerとして封印し、PointY cursor開始をF5nxfへ分離する。
+
+実装順:
+
+1. registered indexed ownerからF5nxd completed ownerまで、各owning moduleにborrowed item-read forwardingを一段ずつ追加する。
+2. F5nxc owning moduleにconsuming PointX pushを追加し、success/error双方でsame completed authorityとreturned storageからouter ownerを再構築する。
+3. `alloc/gui/font/registered_face/simple_glyph/indexed/point_x.nepl`へActive/Completed state、typed phase invariant、start/step/budget/checked sealを実装する。
+4. facade、controlled registered fixture、source policy、normal compile regression、仕様/進捗文書を更新する。
+
+owner / move契約:
+
+- start inputはF5nxd completed ownerだけである。successはF5nxe running owner、start failureは元F5nxd completed ownerを保持する。
+- item read/identity failureはrunning ownerを分解せずsame ownerをerrorへ移す。PointX push failureはlower metadata read後にF5nxc、F5nxd running、F5nxd completed、F5nxe runningの順で再構築する。
+- owner-bearing型はClone/Copyを実装せず、public constructor、raw collection/storage ref/take、generic mutation callbackを提供しない。
+- budget resultは唯一のrunning ownerとCopy status `Pushed slot | Completed | StepBudgetExhausted`を持つ。terminal、budget 0以下、最大1 point commitの順を固定する。
+- checked completed sealだけをF5nxf inputにし、F5nxeではPointY cursorを開始しない。
+
+検証:
+
+- controlled 4-point fixtureで各PointX値、storage len、cursor progress、最終push後Completed、terminal優先を検査する。
+- Activeでpositive/zero/negative budget、Completedでzero/negative budgetを検査し、0以下でread/pushが起きないことをsource policyでも固定する。
+- deterministic `#test` entryでitem read、glyph/index/kind validation、PointX push failureをproduction private finalizer経由で発生させ、metadata read-before-take、same-owner retry、invariant維持を検査する。
+- startの4 stageを個別に失敗させ、複数条件が壊れたtest ownerではstart fail-fast順とphase invariant内部precedenceがそれぞれ確定した単一kindを返すことを検査する。
+- PointX push failure前後でcursor next、storage len、logical indexが一致し、recovery後のphase invariantがValidで通常stepをretryできることを検査する。
+- premature seal、completed seal、phase invariant invalid、owner二重take/use-after-move、private constructor、test-only entryのnormal compile undefinedを検査する。
+- source policyはforwarding chain、lower item read/PointX push exactly once、validation precedence、outer reconstruction、old F5ar/external collection/raw split/PointY以降/fallback/panic/unreachable/wildcard successの禁止を固定する。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:
