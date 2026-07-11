@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-21
+updated: 2026-07-11
 target: "nepl-core/src/effects.rs; nepl-core/src/resource/effect_check.rs; nepl-core/src/resource/resource_summary_value_cache/body_hash.rs"
 ---
 
@@ -131,6 +131,32 @@ subagent review:
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を含める。
 - memo_call backend request-evidence proof と private effect mask を接続する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache observation ban を接続する。
+
+## 2026-07-11 traversal scope provenance checkpoint
+
+HIR reader source projection由来のoperation scopeとactual Resource IR enumerationを区別するprovenanceを、scope authority、unified event owner、split output、coverage originへ運搬した。HIR completion一致はproduction coverageへ昇格せず、validatorでfail-closedとなる。actual `ResourceIrEnumerated` producer、private-effect eventの実列挙、summary hash、mask、sealed backendは未完了である。
+
+2026-07-11 follow-upで、Rust Resource function-shaped block/op/terminator inventoryを全検査する非production `ResourceIrInventoryValidated` scope境界を追加した。actual materializerとのco-production authorityがないため`ResourceIrEnumerated`は発行せず、PrivateState / PrivateCache operation event、fresh region、non-escape evidence、slot coverageもまだ生成しない。
+
+同日follow-upでReturn terminatorのpayload有無をinventoryへ保持した。PrivateState / PrivateCache semantics、block-aware nested operation、Return Place escape evidenceは合成しない。
+
+## 2026-07-11 source vocabulary eligibility authority integration
+
+memo_call production authority boundaryで、source vocabulary eligibilityとcoverage identityを同じmodule-private authorityに束ね、no-escape bundle変換時に再検査するようにした。これによりescaping / observation / unsupported sourceやbody / graph identity不一致をprivate-effect mask前にfail-closedで止める。
+
+このcheckpointはPrivateCache / PrivateState mask実体、actual traversal由来coverage record、Resource summary hash / capability policy hash / artifact policy hashへの投影を完成させない。これらは引き続き本issueの残件である。
+
+## 2026-07-11 traversal event coverage authority integration
+
+production coverage envelopeへwalker-shaped split output由来のbody / place / edge / unsupported / observation countを追加し、walker structural validation後のproduction origin、1 body、unsupported / observation 0件だけを受け入れるようにした。private effect mask前にmalformed/unsupported/observable event shapeをfail-closedにする。
+
+effect mask実体、Resource summary/capability/artifact policy hashへのevent coverage投影、actual Resource IR walker本体、走査completion markerは未完了である。
+
+2026-07-11: unified event ownerにpre-emission expected countとpush由来emitted countを分離して保持し、split後かつcoverage authority mint前に一致を要求するcompletion marker境界を追加した。generic fixtureはcompletion未発行としてproduction pathで拒否する。expectedは現時点ではHIR reader source projection由来でありactual Resource IR enumerator由来ではないため、full traversal completenessとeffect mask実体は引き続き未完了である。
+
+2026-07-11: completion markerをcoverage authorityにも保持し、private-effect coverageがfresh witness/no-escape handoffへ進むたびにexpected/emitted一致とevent count合計を再検査するようにした。これによりsplit時の一度きりの検査をcomplete traversal authorityと誤認しない。actual Resource IR enumerator、effect mask実体、artifact policy hashは未完了である。
+
+2026-07-11: expected countの発行元をraw operation countからidentity-checked traversal scope authorityへ移した。scopeは全operationが同じrequest graphに属しordinalがdenseな`0..n`であることをemit前に要求するが、actual Resource IR block/op列挙とprivate-effect mask実体は引き続き未完了である。
 
 ## 2026-06-21 selfhost private effect no-escape gate checkpoint
 

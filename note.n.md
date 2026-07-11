@@ -83318,6 +83318,40 @@ MERGE_APPROVED
 - 差分レビューは、2 つの authority owner path で eligibility、coverage、fresh witness の順序と rejection cleanup を直接検査する必要を指摘した。両経路の `assertOrdered` と cleanup 契約コメントを追加した。
 - 全体整合レビューは、production stage0 smoke が PrivateCache source に旧 `OutputRejected(WitnessUnsupportedSource)` を期待している点を blocking として指摘した。resource-lowering path だけを `SourceVocabularyRejected(UnsupportedSourcePresent)` へ更新し、source-derived HIR reader path の旧分類とは分離した。
 
+# 2026-07-11 selfhost resource-lowering source vocabulary eligibility authority
+
+## 目的と実装
+
+- eligibility 判定後も copyable count summary を authority output に直接保持していたため、未検査 summary と検査済み same-body vocabulary を型で区別できないことを根本原因とした。
+- module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityAuthority` を追加し、request root、resolver body root、body module fingerprint、graph id、accepted-only vocabulary を束ねた。
+- authority producer は vocabulary eligibility と coverage identity の両方を検査する。traversal-output owner path と source-table owner path はこの producer を共有し、成功時だけ fresh-witness owner と eligibility authority を authority output に格納する。
+- rejection path は walker input / observation owner または source table owner を閉じ、元の typed production error を保持する。
+- 直前 checkpoint の eligibility predicate が generic success type に `void` を使って parser を止めていたため、正しい `unit` に修正した。これにより後続の潜在型エラーも検出可能になった。
+
+## plan.md・issue・残件
+
+- `plan.md` は変更していない。ISS-20260531T035402517 と ISS-20260531T035410851 の production authority boundary を進める変更である。
+- full Resource IR graph walker、actual traversal 由来 coverage record / fresh region witness、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hash は未実装であり、`todo.md` の未完了項目は削除していない。
+
+## 検証状況
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: parser は eligibility predicate の `Result unit` を受理する。
+- initial fail: `tmp/selfhost-source-vocabulary-eligibility-authority-tests-2.json` は changed scan 1 / 1 が compile failure。`Result unit` により parser 停止を解消した後、同一 module と依存 `memo_call_backend_request_table.nepl` の stage0 fixture / readiness helper / impure owner factory 引数に潜在していた型エラーが可視化された。
+- fixed: `Vec<SelfhostHirExprId>` constructor の Result 型を明示し、impure owner factory の Result を typed localへ分離し、readiness identity helperの値境界と4項predicateの二分木を修正した。
+- pass: 差分レビュー後、producer bridge failure の二重解放を除去した。
+- pass: eligibility authority を no-escape bundle 変換時にも body / graph identity、accepted-only vocabulary、coverage authorityまで再検査し、rejection で witness owner を閉じる contract を追加した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=900000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist dist -o tmp/selfhost-source-vocabulary-eligibility-authority-final-doctest.json -j 1 --batch-size 18 --failure-nonfatal`。18 / 18。
+- pass: `PATH="/tmp:$PATH" NO_COLOR=false trunk build`。WSLの`npm.cmd` hook用に`/tmp/npm.cmd` symlinkを使用した。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-source-vocabulary-eligibility-authority-cli.json`。13 / 13。
+- pass: stdlib documentation contract、issues check、target contract、`git diff --check`。
+- timeout: `node nodesrc/run_source_policy_regressions.js` 全体は既存 `test_resource_checker_responsibility.js` が単独10分を超えたため停止した。今回対象の `test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は個別にpassしている。
+
+## subagent review
+
+- 差分レビューは producer bridge failure path の caller-side free が callee cleanup と二重解放になる点、eligibility authority が downstream で未検査のまま捨てられる点を blocker とした。caller free を削除し、downstream validation helper と contract assertionを追加した。
+- 全体整合レビューは `Result void` 修正後に露出した同一 module の型エラーを無関係扱いせず、focused doctest 18 / 18 を merge gate とするよう指摘した。設計コメントを eligibility authority の運搬へ更新し、未完了範囲を維持した。
+
 ## todo.md
 
 - 今回完了した eligibility checkpoint は追加しない。
@@ -83369,3 +83403,85 @@ MERGE_APPROVED
 - pass: Web GUI font rendering source-policy、PointX/PointY normal compile isolation、`git diff --check`。
 - pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_gui_font_f5nxg.json`、13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。
+
+# 2026-07-11 selfhost traversal coverage record authority
+
+## 目的と実装
+
+- production coverage authorityがcontext identityだけからmintされ、実traversal event coverageを保持しないことを根本原因とした。
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority`へbody / place / edge / unsupported / observation event countを追加した。
+- resource-lowering split output変換はborrowed walker/observation ownerをstructural validationし、countを導出してからownerをtraversal outputへmoveする。caller supplied countや外部tableは受け取らない。
+- coverage authorityはreader representativeとresource-lowering production originを区別し、production validationはreader originを拒否する。identityに加えてcount非負、body 1件、unsupported / observation 0件を要求する。
+
+## plan.md・issue・残件
+
+- plan.mdは変更していない。ISS-20260531T035402517とISS-20260531T035410851のactual traversal authority境界を進める。
+- actual Resource IR walker本体、走査completion markerによる完全性proof、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未実装である。
+
+## 検証
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=900000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist dist -o tmp/selfhost-traversal-coverage-record-final-doctest.json -j 1 --batch-size 18 --failure-nonfatal`。18 / 18。
+- pass: `PATH="/tmp:$PATH" NO_COLOR=false trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-traversal-coverage-record-cli.json`。13 / 13。
+- pass: stdlib documentation contract、issues check、`git diff --check`。
+
+## subagent review
+
+- 差分レビューはreader representativeがproduction authorityと同型で混入できる点、raw countが走査完全性を証明しない点、異常count runtime不足をblockingとした。origin discriminator、structural validator後mint、event-shape runtime smoke、completion marker未完の明記で対応した。
+- 再レビューはreader origin taxonomyとlegacy型/comment driftを指摘した。production origin wrapperを独立させて`SourceRejected`へ分類し、`CompleteAuthority`単体はcompletion proofでないことを明記した。最終実装・owner cleanupはAPPROVED。
+- 全体整合レビューはwalker structural validation前mintをblockingとした。validation成功後だけproduction envelopeを作り、reader outputをwalker-shaped representativeと記述してAPPROVEDとなった。
+
+# 2026-07-11 selfhost traversal completion marker authority
+
+- event-shape countだけではproducerの予定eventが欠落・重複していないことを判定できないため、unified event ownerへpre-emission expected countとpush由来emitted countを分離して追加した。
+- context-bound operation projectionはbody headerとoperation数からexpectedをemit前に固定する。split outputは両countをowner pairと一緒に移し、production resource-lowering pathはmissing / under-emit / over-emitをstructural coverage validation前に拒否してownerを閉じる。
+- generic fixtureはexpected `-1`のcompletion未発行状態を維持し、production coverage authorityへ流用できない。runtime smokeはexact match、missing、under-emit、over-emitを検査する。
+- `plan.md`は変更していない。actual Resource IR enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未完了である。現在のexpected scopeはresolver-bound HIR reader source projection由来なので、full traversal completenessとは扱わない。
+- subagent差分レビューと全体整合レビューで、seed fixtureのindent、completion判定前の不要borrow、任意errorを成功扱いするsmoke、旧18/18と新19/19のissue記録順を修正した。両レビューは最終APPROVED。
+- pass: target contract、selfhost doctest 19 / 19、production completion runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
+# 2026-07-11 selfhost coverage completion authority transport
+
+- split ownerでexpected/emitted一致を検査した後、coverage authorityが両countを保持せずevent-shapeだけを下流へ渡していたauthority lifecycle断絶を根本原因とした。
+- production coverage authorityへexpected/emitted countを追加し、下流validatorがcompletion発行済み、一致、emittedとbody/place/edge/unsupported/observation count合計の一致を再検査する。
+- reader representativeは`-1 / 0`のcompletion未発行状態を保持し、production originでは拒否する。runtime smokeへcompletion mismatchとevent-sum mismatchを追加した。
+- `plan.md`は変更していない。expected scopeはまだresolver-bound HIR source projection由来であり、actual Resource IR enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未完了である。
+- native runtimeでactual splitからcoverage mint、downstream validator、owner cleanupまでを1/1で確認した。owner-free request contextへClone/Copyを明示し、value-only coverage authorityはorigin field read前に明示copyしてresource checker上のmoveを防いだ。
+- pass: target contract、selfhost doctest 19/19、coverage transport runtime 1/1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。subagentの差分・全体整合レビューはいずれも最終APPROVED。
+
+# 2026-07-11 selfhost Resource-lowering traversal scope authority
+
+- context-bound event producerがoperation table長から直接expected countをmintしていたため、identity検査とscope確定が同じraw count式に埋もれていたことを根本原因とした。
+- module-private traversal scope authorityを追加し、operation table全recordのproof key / graph idとdenseな`operation_ordinal == index`を検査してからoperation countとbody header込みexpected event countを固定する。
+- runtimeでvalid、wrong key、wrong graph、gap/out-of-order、negative、duplicate ordinalを検査する。
+- event tableはraw countではなくscope authorityからだけcompletionを受け取る。runtimeはactual split→coverage transport経路を引き続き1/1で通過する。
+- `plan.md`は変更していない。scope入力はまだHIR reader source projection由来で、RustのResourceFunction/block/op actual enumerator、effect mask、sealed backend、artifact policy hashは未完了である。
+- subagent差分レビューの指摘により、scope recordへdense ordinal検査と専用`ActualWalkerOperationOrdinalMismatch` taxonomyを追加し、実2-record owner tableでvalid/wrong key/wrong graph/duplicate/gap/negativeを検査した。差分・全体整合レビューはいずれも最終APPROVED。
+- pass: target contract、scope runtime 1/1、selfhost doctest 19/19、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost traversal scope provenance
+
+- HIR reader projection由来scopeがcompletionとstructural validation後に無条件`ResourceLoweringTraversalProduced`へ再分類されていたことを根本原因とした。
+- `FixtureUnscoped` / `HirProjectionScoped` / `ResourceIrEnumerated`をscope、event table、split outputへ運搬し、coverage originへ網羅的に写す。現行operation-table scopeは`HirProjectionScoped`だけを発行し、production validatorは`HirProjectionTraversalProduced`を拒否する。
+- generic fixtureとHIR scope producerは`ResourceIrEnumerated`を発行できない。actual Resource IR function/block/nested operation/terminator enumeratorとその専用origin constructorは未実装で、次の具体的sliceとする。
+- source-only output、fresh-witness bundle、authority outputの全production入口でcoverage provenanceを再検査し、HIR由来ownerはcleanup後にtyped rejectionとする。stage0 summaryも旧成功期待を廃止した。
+- `plan.md`は変更していない。subagent差分・全体整合レビューはいずれも指摘修正後APPROVED。
+- pass: target contract、focused runtime 1/1、selfhost doctest 19/19、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource IR function inventory scope
+
+- Rust `ResourceFunction.blocks`と各`ResourceBlock.ops + terminator`をselfhost側で表すblock inventory ownerを追加した。
+- same request key / graph、dense block ordinal、隙間のないoperation range、blockごとのdense terminator ordinal、operation table総数とscope identityを全検査して非productionの`ResourceIrInventoryValidated`を発行する。独立owner一致によるprovenance launderingを避けるため`ResourceIrEnumerated`は発行しない。
+- terminatorは未分類operation eventへ偽装せず、inventory coverageとして明示検査する。HIR lowering結果からinventory/operation ownerを同時生成するmaterializer、nested operation、return place escape classificationは未実装である。
+- operation累積とbody header加算はi32 overflow前にtyped rejectionとし、empty inventory、negative count、block/op/terminator gap、operation table count不一致をruntimeで拒否する。
+- subagent差分レビューは独立inventoryとHIR-shaped operation ownerから`ResourceIrEnumerated`を発行できるprovenance launderingをblockingとした。中間originへ縮退してproduction拒否を固定し、差分・全体整合レビューはいずれも最終APPROVED。
+- `plan.md`は変更していない。pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource terminator payload inventory
+
+- block terminator inventoryへReturn payload有無を追加し、Unreachable / RawBodyにreturn payloadが付くmalformed shapeを拒否する。
+- block boundaryを持たないpreorder recursive inventory案は、nested childが別blockへ跨げるレビューblockerのため撤回した。Branch / Loop / Matchはparent shape、block boundary、sibling intervalを同じopaque ownerで表す後続sliceへ戻した。
+- actual Return Place identity / escape classification、operation semantics、HIR-to-Resource co-produced function ownerは未実装である。`ResourceIrEnumerated`は発行しない。`plan.md`は変更していない。
+- runtimeはReturn Some/None、Unreachable payload無し/有り拒否、RawBody payload無し/有り拒否を全実行する。subagent差分・全体整合レビューはいずれもrecursive案撤回後の最終差分をAPPROVED。
+- pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。

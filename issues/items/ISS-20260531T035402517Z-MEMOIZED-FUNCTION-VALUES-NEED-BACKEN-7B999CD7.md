@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-21
+updated: 2026-07-11
 target: "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs"
 ---
 
@@ -1031,3 +1031,40 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、memo_call backend proof chain が将来発行する `PrivateState` / `PrivateCache` no-escape proof を、operation method body fact table へ渡す直前で消費できる checker-layer boundary を固定した。
 
 この checkpoint は memo_call backend request-evidence proof の完了ではない。gate は typed proof table と HIR-root scan record を照合するだけで、`RequestEvidenceProven`、Resource proof production、GraphInput、sealed backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key は作らない。backend 側の残件は、real Resource IR / HIR lowering result から accepted traversal source と fresh witness を生成し、その proof を request-evidence bridge と private effect no-escape gate の両方へ整合した identity で渡す上位 orchestration である。
+
+## 2026-07-11 selfhost source vocabulary eligibility authority checkpoint
+
+producer source vocabulary の count summary を authority output に直接保持せず、accepted-only 判定と request root / resolver body root / body module fingerprint / graph id の coverage identity 照合を通過した module-private eligibility authority に変換する境界を追加した。producer traversal owner path と source-table owner path は同じ authority producerを使い、no-escape bundle 変換時にも vocabulary と identity を再検査する。
+
+`Result void` で generic success type を表していた parser blockerを `Result unit` に修正し、後続に潜在していた typed Vec constructor、impure Result argument、readiness identity、multi-term predicate の型不整合も根本修正した。reader source生成失敗とappend失敗ではowner責務が異なるため、前者だけproducer source ownerを閉じ、後者はcallee cleanup後のerrorをそのまま返す。
+
+このcheckpointはsealed backend representation、cache allocation/hit/miss、identity-observation banの最終接続、backend bytes、artifact keyを完成させない。残件はactual Resource traversal由来source/coverage/fresh witnessをeligibility authorityへ渡し、private-effect maskとsealed backendへ進めることである。
+
+検証:
+
+- `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- selfhost doctest 18 / 18
+- `trunk build`
+- playground editor CLI 13 / 13
+
+## 2026-07-11 selfhost traversal coverage record authority checkpoint
+
+production resource-loweringのwalker-shaped split outputからbody / place / edge / unsupported / observation event countを導出し、walker structural validation後にcoverage envelopeへbody identityと一緒に保持するようにした。production origin、1 body、非負count、unsupported / observation 0件だけをfresh witness/no-escape pathへ進める。reader representative originはproduction validatorで拒否する。
+
+このcheckpointはactual Resource IR walker本体、走査completion marker、sealed backendを完成させない。次はactual lowering traversal outputがsource vocabulary、coverage event-shape record、fresh witnessを同じowner lifecycleから実発行する接続である。
+
+検証はtarget contract、selfhost doctest 18 / 18、trunk build、playground editor CLI 13 / 13で行った。
+
+2026-07-11: operation projection直後・event emit前にexpected event countを固定し、unified event push由来emitted countとsplit後に照合するcompletion markerをproduction resource-lowering adapterへ追加した。missing、under-emit、over-emitはowner cleanup付きtyped errorで拒否する。現expected scopeはresolver-bound HIR reader source projectionでありactual Resource IR enumeratorではないため、full traversal producer、sealed backend、artifact keyは未完了である。
+
+検証はtarget contract、selfhost doctest 19 / 19、production completion rejection smoke、stdlib documentation contract、issues check、trunk build後のplayground CLI JSONをgateとする。
+
+2026-07-11: split ownerで検査したexpected/emitted completion markerがcoverage authority生成時に失われていたため、両countをproduction coverage authorityへ運搬し、下流validatorで一致とevent-shape count合計を再検査するようにした。reader representativeはcompletion未発行のままproductionで拒否する。actual Resource IR function/block/operation enumeratorとsealed backendは未完了である。
+
+2026-07-11: context-bound event producerのraw operation table長からのcompletion mintを廃止し、全operation recordのrequest key / graph idとdense ordinal `0..n`をemit前に検査するResource-lowering traversal scope authorityを追加した。event tableは検査済みscopeからだけexpected countを受け取る。scopeは将来RustのResourceFunction/block/op enumeratorへ差し替える境界であり、現入力はまだHIR projection由来である。
+
+2026-07-11: HIR projection由来scopeがsplit後に無条件`ResourceLoweringTraversalProduced`へ再分類されていたため、fixture / HIR projection / actual Resource IRのscope provenanceをevent tableとsplit outputまで運搬する。現HIR pathは`HirProjectionTraversalProduced` coverageにだけ写され、production validatorで拒否する。`ResourceIrEnumerated`の発行境界とactual Resource IR enumeratorは未実装である。
+
+2026-07-11: Rust `ResourceFunction.blocks[].ops + terminator`に対応するtyped block inventory ownerを追加し、dense block/op range、全blockのterminator coverage、same request/graph、operation ownerとの総数一致を全検査して非productionの`ResourceIrInventoryValidated` scopeを発行する境界を接続した。独立ownerの一致だけではactual provenanceにならないため`ResourceIrEnumerated`は未発行であり、HIR lowering結果からinventory/operation ownerを同時生成するmaterializerとterminator escape classificationが残る。
+
+2026-07-11: block terminator inventoryへReturn payload-presence coverageを追加し、Unreachable / RawBodyにreturn payloadが付く形を拒否した。actual Return Place、Branch / Loop / Matchのblock-aware recursive owner、operation意味分類、HIR-to-Resource co-produced ownerは未実装である。

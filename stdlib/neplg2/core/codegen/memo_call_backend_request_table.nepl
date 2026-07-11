@@ -524,7 +524,8 @@ fn selfhost_memo_call_backend_request_table_stage0_build_accepting_module %impur
                                 Result::Ok plain_alloc:
                                     let plain_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &plain_alloc
                                     let module3 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module plain_alloc
-                                    match v::new:
+                                    let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+                                    match child_ids_result:
                                         Result::Ok child_ids0:
                                             match v::push child_ids0 first_memo_id:
                                                 Result::Ok child_ids1:
