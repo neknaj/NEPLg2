@@ -1092,3 +1092,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Rust ResourceFunction.entry_blockをselfhost function inventory ownerへ追加し、各block recordへdense ordinalとは別のResourceBlockIdを保持する。block IDの非負・一意性とentry ID membershipを検査し、非ordinal IDのentryを受理、missing / duplicate / negative block IDをexact typed rejectionにした。block-aware nested operation ownerとactual lowering co-productionは未実装である。
 
 2026-07-11: Rust ResourceFunction.resultのarena-local TypeIdをfunction inventory ownerへ追加し、Place走査前に同じborrowed TypeArena内のrecord実在を検査する。負indexはFunctionResultTypeInvalid、非負missing indexはFunctionResultTypeMissingへexact typed rejectionにした。canonical type key、actual lowering由来arena authority、ResourceOp topology ownerは未実装である。
+
+2026-07-12: Rust `ResourceFunction.effect`のsurface Pure / Impureを専用domainとしてfunction inventory ownerへ追加した。内部`SelfhostEffectKind`とは同一視せず、memo proof keyの非Pure internal effectは専用taxonomyで先行拒否し、その後memo requestが要求するsurface Pureとのactual / expected mismatchをresult TypeId検査後かつPlace走査前にtyped rejectionする。actual loweringからのco-production、内部effectのno-escape fold、ResourceOp topology ownerは未実装である。

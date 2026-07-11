@@ -1084,6 +1084,17 @@ assertOrdered(
     "Resource IR inventory validation must scan every block in Rust order and require dense operation ranges and terminator coverage",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push"),
+    [
+        'field::get inventory "entry_block_id"',
+        'field::get inventory "result_ty"',
+        'field::get inventory "effect"',
+        'field::get inventory "blocks"',
+        "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id result_ty effect next_blocks",
+    ],
+    "function inventory push must preserve every ResourceFunction header field",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"),
     [
         "resource_ir_function_inventory_len inventory",
@@ -1094,6 +1105,10 @@ assertOrdered(
         "FunctionResultTypeInvalid selfhost_type_id_index inventory.result_ty",
         "selfhost_type_arena_get_record types inventory.result_ty",
         "FunctionResultTypeMissing selfhost_type_id_index inventory.result_ty",
+        "selfhost_effect_kind_eq key.source_effect SelfhostEffectKind::Pure",
+        "ProofKeyEffectUnsupported key.source_effect",
+        "SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Impure",
+        "FunctionEffectMismatch SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffectMismatch inventory.effect SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure",
         "resource_ir_place_inventory_len places",
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
@@ -1110,14 +1125,20 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
     [
-        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty second_block_id",
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect second_block_id",
+        "resource_walker_stage0_key_with_effect key_effect",
         "EntryBlockMissing missing_entry",
         "BlockIdDuplicate duplicate_id",
         "BlockIdInvalid invalid_id",
         "FunctionResultTypeInvalid invalid_type",
         "FunctionResultTypeMissing missing_type",
+        "FunctionEffectMismatch mismatch",
+        "mismatch.actual",
+        "mismatch.expected",
+        "ProofKeyEffectUnsupported actual_effect",
+        "selfhost_effect_kind_eq actual_effect key_effect",
     ],
-    "entry block runtime fixtures must exact-match missing entry, duplicate block ID, and invalid block ID errors",
+    "function header runtime fixtures must exact-match block identity, result type, and surface effect errors",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop"),

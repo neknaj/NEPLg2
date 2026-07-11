@@ -83591,6 +83591,15 @@ MERGE_APPROVED
 - subagent差分・全体整合レビューで、負TypeIdとarena missingのtaxonomy分離、function header検査をPlace loopからscopeへ移すことがblockingとなった。両点を修正し、最終レビューはいずれもAPPROVED。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
 
+# 2026-07-12 selfhost Resource function surface effect
+
+- Rust `ResourceFunction.effect`はsurface Pure / Impureであり、内部`SelfhostEffectKind`とは意味domainが異なるため、専用enumをfunction inventoryへ追加した。
+- memo proof keyの非Pure internal effectは`ProofKeyEffectUnsupported`で先行拒否する。その後memo requestが要求するPureと照合し、Impure inventoryはactual / expectedを保持する`FunctionEffectMismatch`へexact rejectionする。result TypeId不正を同時に与えたfixtureではresult errorを優先し、function header検査順を固定した。
+- constructor / pushはentry block、result TypeId、surface effect、block ownerを一体で保存する。actual lowering co-production、内部effectのno-escape fold、ResourceOp専用topology ownerは未完了で、originは`ResourceIrInventoryValidated`のままにする。
+- `plan.md`は変更していない。EnumPayload stable symbol、usize全域、sealed backend、artifact keyも未完了である。
+- subagentの初回監査でRust surface effectと内部effectのdomain混同を発見して専用enumへ修正し、差分レビューで非Pure keyの自己矛盾payloadを別taxonomyへ分離した。非Pure key runtime fixture追加後、差分・全体整合レビューはいずれも最終APPROVED。履歴粒度は内容commit 1個のff-only統合を承認された。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。selfhost全体documentation contractは今回変更外かつ直前main由来の`resource_ir_place_projection.nepl` module doc baseline debt (`moduleNoDoc 60 > 59`)で失敗する。
+
 # 2026-07-11 selfhost Resource entry block membership
 
 - Rust `ResourceFunction.entry_block`がselfhost function inventoryから欠落していたため、entry block IDとblock tableを同じownerへ保持し、各recordへdense ordinalとは別のblock IDを追加する。
