@@ -364,6 +364,19 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_l
     let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
     gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup action contour_index
 
+//: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read: running summary authority から classified point item を借用して読む
+//:
+//: [目的/もくてき]: 後続 phase が running summary の action continuation と registered collection authority を分離せず、point item と typed read error を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested action owner を借用し、`gui_font_registered_face_simple_glyph_indexed_action_owner_item_read` を exactly once 呼びます。summary phase と apply state は変更せず、raw action owner と raw collection は公開しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \owner\item_index:
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_item_read action item_index
+
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_apply_state: committed apply count state を読む
 //:
 //: neplg2:test[skip]
@@ -651,6 +664,27 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_ow
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
     let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
     gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_lookup summary contour_index
+
+//: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_read: completed summary authority から classified point item を借用して読む
+//:
+//: [目的/もくてき]: F5nxe が checked completed evidence と registered collection authority を分離せず、PointX population に必要な point item と typed read error を取得できるようにします。
+//:
+//: [契約/けいやく]: immediate nested summary owner を借用し、`gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read` を exactly once 呼びます。成功と失敗のどちらでも同じ completed owner を caller が保持し、raw summary owner、raw action owner、raw collection は公開しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_read %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \owner\item_index:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read summary item_index
+
+//: completed summary authority が保持する classified item 数を読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner i32 \owner:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref summary "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_item_count action
 
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_apply_state: completed apply counts を読む
 //:

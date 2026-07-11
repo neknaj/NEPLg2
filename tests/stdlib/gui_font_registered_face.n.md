@@ -389,6 +389,23 @@ fn sfnt_push_glyf_header %impure fn ByteBuilder impure fn i32 impure fn i32 impu
                                 Result::Ok b4:
                                     sfnt_push_u16_be b4 y_max
 
+fn sfnt_push_comprehensive_simple_glyph_coordinates %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u8 builder 0:
+        Result::Err message: Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u8 b1 10:
+                Result::Err message: Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u8 b2 5:
+                        Result::Err message: Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u8 b3 255:
+                                Result::Err message: Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_u8 b4 236:
+                                        Result::Err message: Result::Err message
+                                        Result::Ok b5: sfnt_push_zero_run b5 5
+
 fn sfnt_push_comprehensive_simple_glyph %impure fn ByteBuilder impure fn bool Result ByteBuilder str \builder\malformed:
     match sfnt_push_glyf_header builder 2 65526 65516 100 200:
         Result::Err message:
@@ -431,7 +448,7 @@ fn sfnt_push_comprehensive_simple_glyph %impure fn ByteBuilder impure fn bool Re
                                                                                 then:
                                                                                     sfnt_push_zero_run b9 9
                                                                                 else:
-                                                                                    match sfnt_push_zero_run b9 10:
+                                                                                    match sfnt_push_comprehensive_simple_glyph_coordinates b9:
                                                                                         Result::Err message:
                                                                                             Result::Err message
                                                                                         Result::Ok b10:
@@ -1319,7 +1336,8 @@ fn registered_face_simple_glyph_reader_points_ok %fn &GuiFontRegisteredFaceTable
                             let expected_end %bool or eq expected_index 1 eq expected_index 3
                             let actual_end %bool gui_sfnt_simple_glyph_point_end_of_contour &point
                             let end_ok %bool if expected_end actual_end else not actual_end
-                            and eq gui_sfnt_simple_glyph_point_index &point expected_index and eq gui_sfnt_simple_glyph_point_x &point 0 and eq gui_sfnt_simple_glyph_point_y &point 0 and not gui_sfnt_simple_glyph_point_on_curve &point and end_ok registered_face_simple_glyph_reader_points_ok entry next_cursor add expected_index 1
+                            let expected_x %i32 if eq expected_index 0 then 10 else if eq expected_index 1 then 15 else sub 0 5
+                            and eq gui_sfnt_simple_glyph_point_index &point expected_index and eq gui_sfnt_simple_glyph_point_x &point expected_x and eq gui_sfnt_simple_glyph_point_y &point 0 and not gui_sfnt_simple_glyph_point_on_curve &point and end_ok registered_face_simple_glyph_reader_points_ok entry next_cursor add expected_index 1
 
 fn registered_face_simple_glyph_reader_ok %fn &GuiFontRegisteredFaceTableEntry fn &GuiFontRegisteredFaceSimpleGlyphPointStream bool \entry\evidence:
     match gui_font_registered_face_simple_glyph_sequential_reader_start entry evidence:
@@ -1608,6 +1626,8 @@ enum RegisteredFaceSimpleGlyphTraversalMode:
     IndexedContourEndpointPrematureSeal
     IndexedContourEndpointLookupFailure
     IndexedContourEndpointPushFailure
+    IndexedPointX
+    IndexedPointXReadFailure
 
 impl Clone for RegisteredFaceSimpleGlyphTraversalMode:
     fn clone %fn &RegisteredFaceSimpleGlyphTraversalMode RegisteredFaceSimpleGlyphTraversalMode \mode:
@@ -2125,7 +2145,199 @@ fn registered_face_contour_endpoint_phase_valid %fn &GuiFontRegisteredFaceSimple
         GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPhaseInvariantCheck::Valid: true
         _: false
 
-fn registered_face_contour_endpoint_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner bool \owner:
+fn registered_face_point_x_phase_valid %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner bool \owner:
+    match gui_font_registered_face_simple_glyph_indexed_point_x_owner_phase_invariant_check owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: true
+        _: false
+
+fn registered_face_point_x_push_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXBudgetStep fn i32 fn i32 bool \step\expected_index\expected_x:
+    match gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_status step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXBudgetStatus::Pushed point:
+            and eq expected_index gui_sfnt_simple_glyph_point_x_slot_point_index &point eq expected_x gui_sfnt_simple_glyph_point_x_slot_x &point
+        _: false
+
+fn registered_face_point_x_recovered_start_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner bool \owner:
+    let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_point_x_owner_cursor owner
+    and eq 2 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor and eq 0 gui_font_registered_face_simple_glyph_indexed_point_x_owner_logical_item_index owner and eq 2 gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len owner registered_face_point_x_phase_valid owner
+
+fn registered_face_point_x_read_failure_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner bool \endpoint:
+    match gui_font_registered_face_simple_glyph_indexed_point_x_start endpoint:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_point_x_start_error_free error
+            false
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_point_x_test_force_item_read_failure owner:
+                Result::Ok unexpected:
+                    gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_free unexpected
+                    false
+                Result::Err error:
+                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_step_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXStepErrorKind::ItemReadFailed: true
+                        _: false
+                    let error_index %i32 gui_font_registered_face_simple_glyph_indexed_point_x_step_error_item_index &error
+                    let index_ok %bool eq sub 0 1 error_index
+                    let item_ok %bool is_none gui_font_registered_face_simple_glyph_indexed_point_x_step_error_item &error
+                    let read_error_ok %bool is_some gui_font_registered_face_simple_glyph_indexed_point_x_step_error_read_error &error
+                    let metadata_ok %bool and index_ok and item_ok read_error_ok
+                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_step_error_take_owner error
+                    let recovered_ok %bool registered_face_point_x_recovered_start_ok &recovered
+                    match gui_font_registered_face_simple_glyph_indexed_point_x_test_force_point_x_push_failure recovered:
+                        Result::Ok unexpected:
+                            gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_free unexpected
+                            false
+                        Result::Err push_error:
+                            let push_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_step_error_kind &push_error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPointXStepErrorKind::PointXPushFailed: true
+                                _: false
+                            let invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_step_error_recovered_invariant &push_error:
+                                Option::None: false
+                                Option::Some invariant:
+                                    match invariant:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: true
+                                        _: false
+                            let push_recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_step_error_take_owner push_error
+                            let push_recovered_ok %bool registered_face_point_x_recovered_start_ok &push_recovered
+                            match gui_font_registered_face_simple_glyph_indexed_point_x_step push_recovered:
+                                Result::Err retry_error:
+                                    gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free retry_error
+                                    false
+                                Result::Ok retry:
+                                    let retry_ok %bool registered_face_point_x_push_ok &retry 0 10
+                                    gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_free retry
+                                    and kind_ok and metadata_ok and recovered_ok and push_kind_ok and invariant_ok and push_recovered_ok retry_ok
+
+fn registered_face_point_x_push_failure_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner bool \endpoint:
+    match gui_font_registered_face_simple_glyph_indexed_point_x_start endpoint:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_point_x_start_error_free error
+            false
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_point_x_test_force_point_x_push_failure owner:
+                Result::Ok unexpected:
+                    gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_free unexpected
+                    false
+                Result::Err error:
+                    let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_step_error_kind &error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXStepErrorKind::PointXPushFailed: true
+                        _: false
+                    let point_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_step_error_point &error:
+                        Option::None: false
+                        Option::Some point: and eq 0 gui_sfnt_simple_glyph_point_x_slot_point_index &point eq 10 gui_sfnt_simple_glyph_point_x_slot_x &point
+                    let invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_step_error_recovered_invariant &error:
+                        Option::None: false
+                        Option::Some invariant:
+                            match invariant:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: true
+                                _: false
+                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_step_error_take_owner error
+                    let recovered_ok %bool registered_face_point_x_recovered_start_ok &recovered
+                    match gui_font_registered_face_simple_glyph_indexed_point_x_step recovered:
+                        Result::Err retry_error:
+                            gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free retry_error
+                            false
+                        Result::Ok retry:
+                            let retry_ok %bool registered_face_point_x_push_ok &retry 0 10
+                            gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_free retry
+                            and kind_ok and point_ok and invariant_ok and recovered_ok retry_ok
+
+fn registered_face_point_x_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner bool \endpoint:
+    match gui_font_registered_face_simple_glyph_indexed_point_x_start endpoint:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_point_x_start_error_free error
+            false
+        Result::Ok owner:
+            let start_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_point_x_owner_cursor &owner
+            let start_ok %bool and eq 2 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &start_cursor and eq 6 gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &start_cursor and eq 2 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &start_cursor and eq 0 gui_font_registered_face_simple_glyph_indexed_point_x_owner_logical_item_index &owner and eq 2 gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len &owner registered_face_point_x_phase_valid &owner
+            match gui_font_registered_face_simple_glyph_indexed_point_x_seal_completed owner:
+                Result::Ok unexpected:
+                    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free unexpected
+                    false
+                Result::Err seal_error:
+                    let seal_state_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_seal_error_actual &seal_error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXProgressKind::Active: true
+                        _: false
+                    let seal_invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_seal_error_invariant &seal_error:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: true
+                        _: false
+                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_seal_error_take_owner seal_error
+                    match gui_font_registered_face_simple_glyph_indexed_point_x_drain_budget recovered 0:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                            false
+                        Result::Ok zero_step:
+                            let zero_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_status &zero_step:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPointXBudgetStatus::StepBudgetExhausted: true
+                                _: false
+                            let zero_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner zero_step
+                            match gui_font_registered_face_simple_glyph_indexed_point_x_drain_budget zero_owner sub 0 1:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                                    false
+                                Result::Ok negative_step:
+                                    let negative_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_status &negative_step:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXBudgetStatus::StepBudgetExhausted: true
+                                        _: false
+                                    let negative_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner negative_step
+                                    match gui_font_registered_face_simple_glyph_indexed_point_x_drain_budget negative_owner 99:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                                            false
+                                        Result::Ok first_step:
+                                            let first_status_ok %bool registered_face_point_x_push_ok &first_step 0 10
+                                            let first_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner first_step
+                                            let first_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_point_x_owner_cursor &first_owner
+                                            let first_ok %bool and first_status_ok and eq 3 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &first_cursor and eq 1 gui_font_registered_face_simple_glyph_indexed_point_x_owner_logical_item_index &first_owner and eq 3 gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len &first_owner registered_face_point_x_phase_valid &first_owner
+                                            match gui_font_registered_face_simple_glyph_indexed_point_x_step first_owner:
+                                                Result::Err error:
+                                                    gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                                                    false
+                                                Result::Ok second_step:
+                                                    let second_status_ok %bool registered_face_point_x_push_ok &second_step 1 15
+                                                    let second_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner second_step
+                                                    let second_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_point_x_owner_cursor &second_owner
+                                                    let second_ok %bool and second_status_ok and eq 4 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &second_cursor and eq 2 gui_font_registered_face_simple_glyph_indexed_point_x_owner_logical_item_index &second_owner and eq 4 gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len &second_owner registered_face_point_x_phase_valid &second_owner
+                                                    match gui_font_registered_face_simple_glyph_indexed_point_x_step second_owner:
+                                                        Result::Err error:
+                                                            gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                                                            false
+                                                        Result::Ok third_step:
+                                                            let third_status_ok %bool registered_face_point_x_push_ok &third_step 2 sub 0 5
+                                                            let third_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner third_step
+                                                            let third_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_point_x_owner_cursor &third_owner
+                                                            let third_ok %bool and third_status_ok and eq 5 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &third_cursor and eq 3 gui_font_registered_face_simple_glyph_indexed_point_x_owner_logical_item_index &third_owner and eq 5 gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len &third_owner registered_face_point_x_phase_valid &third_owner
+                                                            match gui_font_registered_face_simple_glyph_indexed_point_x_step third_owner:
+                                                                Result::Err error:
+                                                                    gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                                                                    false
+                                                                Result::Ok fourth_step:
+                                                                    let fourth_status_ok %bool registered_face_point_x_push_ok &fourth_step 3 sub 0 5
+                                                                    let fourth_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner fourth_step
+                                                                    let fourth_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_point_x_owner_cursor &fourth_owner
+                                                                    let completed_state_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_owner_progress_kind &fourth_owner:
+                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXProgressKind::Completed: true
+                                                                        _: false
+                                                                    let fourth_ok %bool and fourth_status_ok and completed_state_ok and eq 6 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &fourth_cursor and eq 4 gui_font_registered_face_simple_glyph_indexed_point_x_owner_logical_item_index &fourth_owner and eq 6 gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len &fourth_owner registered_face_point_x_phase_valid &fourth_owner
+                                                                    match gui_font_registered_face_simple_glyph_indexed_point_x_drain_budget fourth_owner 1:
+                                                                        Result::Err error:
+                                                                            gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free error
+                                                                            false
+                                                                        Result::Ok completed_step:
+                                                                            let terminal_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_status &completed_step:
+                                                                                GuiFontRegisteredFaceSimpleGlyphIndexedPointXBudgetStatus::Completed: true
+                                                                                _: false
+                                                                            let completed_owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner gui_font_registered_face_simple_glyph_indexed_point_x_budget_step_take_owner completed_step
+                                                                            match gui_font_registered_face_simple_glyph_indexed_point_x_seal_completed completed_owner:
+                                                                                Result::Err error:
+                                                                                    gui_font_registered_face_simple_glyph_indexed_point_x_seal_error_free error
+                                                                                    false
+                                                                                Result::Ok completed:
+                                                                                    let checked_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_phase_invariant_check &completed:
+                                                                                        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: true
+                                                                                        _: false
+                                                                                    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free completed
+                                                                                    and start_ok and seal_state_ok and seal_invariant_ok and zero_ok and negative_ok and first_ok and second_ok and third_ok and fourth_ok and terminal_ok checked_ok
+
+fn registered_face_contour_endpoint_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner impure fn RegisteredFaceSimpleGlyphTraversalMode bool \owner\mode:
     let start_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cursor &owner
     let start_ok %bool and eq 0 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &start_cursor and eq 2 gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &start_cursor and eq 0 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &start_cursor and is_none gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_previous_endpoint &owner and eq 0 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_storage_len &owner registered_face_contour_endpoint_phase_valid &owner
     match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_drain_budget owner 0:
@@ -2200,8 +2412,13 @@ fn registered_face_contour_endpoint_success_ok %impure fn GuiFontRegisteredFaceS
                                                             gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_error_free seal_error
                                                             false
                                                         Result::Ok sealed:
-                                                            gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_free sealed
-                                                            and start_ok and zero_ok and negative_ok and first_ok and second_ok and completed_ok direct_ok
+                                                            let continuation_ok %bool match mode:
+                                                                RegisteredFaceSimpleGlyphTraversalMode::IndexedPointX: registered_face_point_x_success_ok sealed
+                                                                RegisteredFaceSimpleGlyphTraversalMode::IndexedPointXReadFailure: registered_face_point_x_read_failure_ok sealed
+                                                                _:
+                                                                    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_free sealed
+                                                                    true
+                                                            and start_ok and zero_ok and negative_ok and first_ok and second_ok and completed_ok and direct_ok continuation_ok
 
 fn registered_face_contour_endpoint_failure_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner impure fn RegisteredFaceSimpleGlyphTraversalMode bool \owner\mode:
     match mode:
@@ -2272,7 +2489,9 @@ fn registered_face_contour_endpoint_from_completed %impure fn GuiFontRegisteredF
                     false
                 Result::Ok owner:
                     match mode:
-                        RegisteredFaceSimpleGlyphTraversalMode::IndexedContourEndpointSuccess: registered_face_contour_endpoint_success_ok owner
+                        RegisteredFaceSimpleGlyphTraversalMode::IndexedContourEndpointSuccess: registered_face_contour_endpoint_success_ok owner mode
+                        RegisteredFaceSimpleGlyphTraversalMode::IndexedPointX: registered_face_contour_endpoint_success_ok owner mode
+                        RegisteredFaceSimpleGlyphTraversalMode::IndexedPointXReadFailure: registered_face_contour_endpoint_success_ok owner mode
                         _: registered_face_contour_endpoint_failure_ok owner mode
 
 fn registered_face_contour_endpoint_summary_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner impure fn i32 impure fn RegisteredFaceSimpleGlyphTraversalMode bool \owner\count\mode:
@@ -2517,7 +2736,15 @@ fn registered_face_simple_glyph_collection_ok %impure fn &GuiFontRegisteredFaceT
             false
         Result::Ok owner:
             registered_face_simple_glyph_collection_drain_ok entry owner 0 RegisteredFaceSimpleGlyphTraversalMode::IndexedContourEndpointPushFailure
-    and path_ok and action_ok and summary_close_ok and summary_open_ok and summary_reject_ok and endpoint_success_ok and endpoint_seal_ok and endpoint_lookup_ok and endpoint_push_ok registered_face_simple_glyph_collection_limit_rejected entry evidence
+    let point_x_ok %bool match gui_font_registered_face_simple_glyph_collection_start entry evidence &limit:
+        Result::Err _error:
+            false
+        Result::Ok owner:
+            registered_face_simple_glyph_collection_drain_ok entry owner 0 RegisteredFaceSimpleGlyphTraversalMode::IndexedPointX
+    let point_x_read_failure_ok %bool match gui_font_registered_face_simple_glyph_collection_start entry evidence &limit:
+        Result::Err _error: false
+        Result::Ok owner: registered_face_simple_glyph_collection_drain_ok entry owner 0 RegisteredFaceSimpleGlyphTraversalMode::IndexedPointXReadFailure
+    and path_ok and action_ok and summary_close_ok and summary_open_ok and summary_reject_ok and endpoint_success_ok and endpoint_seal_ok and endpoint_lookup_ok and endpoint_push_ok and point_x_ok and point_x_read_failure_ok registered_face_simple_glyph_collection_limit_rejected entry evidence
 
 fn registered_face_foreign_simple_glyph_evidence_callback %impure fn GuiFontRegisteredFaceTable impure fn GuiFontRegisteredFaceTableEntry Option GuiFontRegisteredFaceSimpleGlyphPointStream \table\entry:
     let evidence %Option GuiFontRegisteredFaceSimpleGlyphPointStream match gui_font_registered_face_glyph_lookup &entry 'A':

@@ -1,3 +1,37 @@
+# 2026-07-11 Agent2 GUI font rendering F5nxe registered indexed PointX population owner
+
+## 方針とphase境界
+
+- `plan.md`、GUI font rendering仕様・詳細設計・実装計画、`todo.md`、Issue indexを再確認し、F5nxd checked completed endpoint owner全体を唯一のauthorityとするPointX populationを実装した。`plan.md`は変更していない。
+- F5nxeはowner-bound collection item readとowner-bound PointX pushだけを使い、外部collection再注入、byte-backed再読取、旧F5ar drain、PointY以降へ進むAPIを公開しない。checked completed ownerだけをF5nxfへ渡す。
+
+## 実装
+
+- collection ownerからF5nxd completed ownerまでitem count / item readのsealed forwardingを追加し、各層でraw collectionやnested ownerを公開しないようにした。
+- `alloc/gui/font/registered_face/simple_glyph/indexed/point_x.nepl`へActive / Completed state、固定順のtyped phase invariant、start、single step、one-step budget、checked seal、owner-bearing error/freeを追加した。
+- logical item indexは`cursor.next - cursor.start`だけから導出し、item glyph/index/kindを再検証してからPointX slotをexactly once pushする。最終pushは`Pushed`を返しながらownerをCompletedへ遷移させる。
+- lower push failureではmetadataをowner takeより先に読み、同じouter ownerを再構築した直後にphase invariantを再検査する。再検査結果を`recovered_invariant`としてerrorへ保持し、lowerがstorage progress contractを破った場合も見逃さない。
+- deterministic item read / PointX push failure entryは`#test`に限定し、productionと同じprivate finalizer / recovery pathを共有する。normal compileでは両entryを公開しない。
+
+## review
+
+- 差分reviewと全体整合reviewで、failure injection runtime coverage不足、全PointXが0のfixtureではforwarding退行を検出できない点、新規accessorの説明不足、一時生成物の衛生が指摘された。fixtureをPointX `10, 15, -5, -5`へ変更し、item read / PointX push failureでmetadata、cursor / storage len / logical index不変、same-owner retry、recovered invariant `Valid`を実行検査する経路を追加した。
+- 本laneは独立issue itemではなく、`todo.md`のFont resource後続phase列とGUI font rendering実装計画のF5nxeを作業authorityとしている。`issues/index.md`は確認したがF5nxe専用issueは存在しないため、存在しないissue参照は記録していない。
+
+## 検証
+
+- pass: F5nxe module doctest 69 / 69。
+- pass: Web GUI font rendering source contract。
+- pass: F5nxe test-only entry normal compile isolation。
+- pass: stdlib documentation contract。新規declarationはすべて日本語拡張Markdown documentを持つ。
+- pass: issues check、`git diff --check`。
+- pass: `trunk build`。repository内のLinux用`npm.cmd` wrapperをPATHへ追加し、更新済みdistを生成した。
+- pass: integrated registered-face fixture 1 / 1。compile負荷に合わせ`NEPL_TEST_CASE_TIMEOUT_MS=180000`を指定し、runtimeの32 assertionを含むJSON summaryでfailed / errored / timed_outがすべて0であることを確認した。
+
+## 残件
+
+- F5nxfでchecked completed PointX ownerをauthorityとしてPointY populationへ進み、同じowner-bound read / mutation / recovery contractを維持する。
+
 # 2026-07-11 Agent2 GUI font rendering F5nxd registered indexed contour endpoint population owner
 
 ## 方針とphase境界

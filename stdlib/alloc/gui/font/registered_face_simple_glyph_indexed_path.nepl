@@ -154,6 +154,26 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup %fn 
     let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
     gui_font_registered_face_simple_glyph_indexed_owner_span_lookup indexed contour_index
 
+//: gui_font_registered_face_simple_glyph_indexed_path_owner_item_read: path authority から classified point item を借用して読む
+//:
+//: [目的/もくてき]: 後続 phase が traversal state や raw collection を露出せず、path owner に封印された registered point item を typed result のまま参照できるようにします。
+//:
+//: [契約/けいやく]: immediate nested indexed owner を借用し、`gui_font_registered_face_simple_glyph_indexed_owner_item_read` を exactly once 呼びます。owner と内部 state は変更しません。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_item_read %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \owner\item_index:
+    let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
+    gui_font_registered_face_simple_glyph_indexed_owner_item_read indexed item_index
+
+//: path authority が保持する classified item 数を読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner i32 \owner:
+    let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
+    gui_font_registered_face_simple_glyph_indexed_owner_item_count indexed
+
 //: GuiFontRegisteredFaceSimpleGlyphIndexedPathStep: emitted sink step と継続 owner
 //:
 //: neplg2:test[skip]
