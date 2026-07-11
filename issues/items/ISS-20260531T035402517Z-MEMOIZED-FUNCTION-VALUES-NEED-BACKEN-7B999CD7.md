@@ -1064,3 +1064,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: context-bound event producerのraw operation table長からのcompletion mintを廃止し、全operation recordのrequest key / graph idとdense ordinal `0..n`をemit前に検査するResource-lowering traversal scope authorityを追加した。event tableは検査済みscopeからだけexpected countを受け取る。scopeは将来RustのResourceFunction/block/op enumeratorへ差し替える境界であり、現入力はまだHIR projection由来である。
 
 2026-07-11: HIR projection由来scopeがsplit後に無条件`ResourceLoweringTraversalProduced`へ再分類されていたため、fixture / HIR projection / actual Resource IRのscope provenanceをevent tableとsplit outputまで運搬する。現HIR pathは`HirProjectionTraversalProduced` coverageにだけ写され、production validatorで拒否する。`ResourceIrEnumerated`の発行境界とactual Resource IR enumeratorは未実装である。
+
+2026-07-11: Rust `ResourceFunction.blocks[].ops + terminator`に対応するtyped block inventory ownerを追加し、dense block/op range、全blockのterminator coverage、same request/graph、operation ownerとの総数一致を全検査して非productionの`ResourceIrInventoryValidated` scopeを発行する境界を接続した。独立ownerの一致だけではactual provenanceにならないため`ResourceIrEnumerated`は未発行であり、HIR lowering結果からinventory/operation ownerを同時生成するmaterializerとterminator escape classificationが残る。

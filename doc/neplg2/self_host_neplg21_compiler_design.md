@@ -3549,11 +3549,19 @@ context-bound event producerがoperation table長から直接expected countをmi
 
 ### Traversal scope provenance
 
-scopeのidentity/count検査だけでは、そのoperation tableがHIR reader projectionとactual Resource IR enumeratorのどちらから来たかを証明できない。そこで`FixtureUnscoped`、`HirProjectionScoped`、`ResourceIrEnumerated`をscope authority、unified event owner、split outputの全区間で保持し、coverage originへ網羅的に写す。
+scopeのidentity/count検査だけでは、そのoperation tableがHIR reader projectionとactual Resource IR enumeratorのどちらから来たかを証明できない。そこで`FixtureUnscoped`、`HirProjectionScoped`、非productionの`ResourceIrInventoryValidated`、将来の`ResourceIrEnumerated`をscope authority、unified event owner、split outputの全区間で保持し、coverage originへ網羅的に写す。
 
 現行のcontext-bound operation-table producerは`HirProjectionScoped`だけを発行する。このoriginはcompletion一致とwalker structural validationを通っても`HirProjectionTraversalProduced`にしかならず、production coverage validatorで拒否する。`ResourceLoweringTraversalProduced`へ進めるのは将来のactual Resource IR enumeratorが`ResourceIrEnumerated`を発行した場合だけであり、generic fixtureとHIR projectionがproduction authorityへ再分類される経路を閉じる。
 
 このcheckpointはprovenanceの昇格バグを修正するが、`ResourceIrEnumerated`を発行するconstructorやactual function/block/nested operation/terminator enumeratorはまだ実装しない。次はRust実装のResource traversal順序と同じ列挙ownerをNEPL側に作り、その専用境界だけで`ResourceIrEnumerated`を発行する。
+
+### Resource IR function inventory scope
+
+Rustの`ResourceFunction`は`blocks: Vec<ResourceBlock>`を持ち、各blockは`ops: Vec<ResourceOp>`と必須の`ResourceTerminator`を持つ。selfhost側でもblock inventory ownerを追加し、request key / graph id、dense block ordinal、全blockを通じて隙間のないoperation range、blockごとに1件のdense terminator ordinalとterminator kindを保持する。
+
+`resource_ir_inventory_scope_authority_result`は空inventoryを拒否し、全block inventoryを順に走査したoperation総数が別ownerのtyped operation table長と一致し、そのoperation table自身もsame key / graph / dense ordinalを満たす場合だけ`ResourceIrInventoryValidated` scopeを発行する。この中間originはcoverage transport後もproduction validatorで拒否する。expected event countは現行unified streamのbody header 1件とoperation event数であり、terminatorはeventに偽装せずinventory coverageとして検査する。
+
+このcheckpointはactual provenanceの前段構造検査に留まり、`ResourceIrEnumerated`は発行しない。HIR lowering結果から`ResourceFunction` inventoryとoperation tableを同一opaque ownerとしてmaterializeする本体、nested operationの意味分類、terminator return placeのescape event化は未実装である。次はHIR projection fixtureを使わず、selfhost loweringが作るtyped Resource function ownerから両recordを同時生成する。
 
 ## 既存 issue との対応
 

@@ -906,6 +906,8 @@ assertOrdered(
         "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ReaderContextRepresentative",
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::HirProjectionScoped",
         "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::HirProjectionTraversalProduced",
+        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
+        "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceIrInventoryTraversalProduced",
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrEnumerated",
         "SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced",
         "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new coverage_origin context.root_expr_id body_root context.body_module_fingerprint context.graph_id v::len bodies v::len places v::len edges v::len unsupported selfhost_memo_call_backend_private_cache_observation_ban_table_len observations_ref output.expected_event_count output.emitted_event_count",
@@ -919,6 +921,56 @@ assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_from_identity_result")),
     /ResourceIrEnumerated/,
     "HIR operation-table scope producer must not mint Resource IR enumerator provenance",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "block_ordinal %i32",
+        "first_operation_ordinal %i32",
+        "operation_count %i32",
+        "terminator_ordinal %i32",
+        "terminator_kind %SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind",
+    ],
+    "Resource IR block inventory must bind identity, dense block/op ranges, and one explicit terminator record",
+);
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind"),
+    ["Return", "Unreachable", "RawBody"],
+    "Resource IR inventory must enumerate every Rust ResourceTerminator class without a fallback kind",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop"),
+    [
+        "resource_ir_function_inventory_get inventory idx",
+        "proof_key_eq record.key key",
+        "resource_graph_id_eq record.graph_id graph_id",
+        "record.block_ordinal idx",
+        "record.operation_count 0",
+        "record.first_operation_ordinal next_operation_ordinal",
+        "record.terminator_ordinal idx",
+        "resource_ir_inventory_validate_loop inventory key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count",
+    ],
+    "Resource IR inventory validation must scan every block in Rust order and require dense operation ranges and terminator coverage",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"),
+    [
+        "resource_ir_function_inventory_len inventory",
+        "BlockMissing",
+        "resource_ir_inventory_validate_loop inventory key graph_id 0 block_count 0",
+        "actual_walker_operation_table_len operations",
+        "OperationTableMismatch actual_operation_count",
+        "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
+        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
+    ],
+    "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result")),
+    /ResourceIrEnumerated|HirProjectionScoped|actual_walker_event_table|emitted_event_count/,
+    "inventory validation must not mint actual Resource IR provenance or derive scope from emitted events",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output")),

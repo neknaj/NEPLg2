@@ -83454,3 +83454,12 @@ MERGE_APPROVED
 - source-only output、fresh-witness bundle、authority outputの全production入口でcoverage provenanceを再検査し、HIR由来ownerはcleanup後にtyped rejectionとする。stage0 summaryも旧成功期待を廃止した。
 - `plan.md`は変更していない。subagent差分・全体整合レビューはいずれも指摘修正後APPROVED。
 - pass: target contract、focused runtime 1/1、selfhost doctest 19/19、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource IR function inventory scope
+
+- Rust `ResourceFunction.blocks`と各`ResourceBlock.ops + terminator`をselfhost側で表すblock inventory ownerを追加した。
+- same request key / graph、dense block ordinal、隙間のないoperation range、blockごとのdense terminator ordinal、operation table総数とscope identityを全検査して非productionの`ResourceIrInventoryValidated`を発行する。独立owner一致によるprovenance launderingを避けるため`ResourceIrEnumerated`は発行しない。
+- terminatorは未分類operation eventへ偽装せず、inventory coverageとして明示検査する。HIR lowering結果からinventory/operation ownerを同時生成するmaterializer、nested operation、return place escape classificationは未実装である。
+- operation累積とbody header加算はi32 overflow前にtyped rejectionとし、empty inventory、negative count、block/op/terminator gap、operation table count不一致をruntimeで拒否する。
+- subagent差分レビューは独立inventoryとHIR-shaped operation ownerから`ResourceIrEnumerated`を発行できるprovenance launderingをblockingとした。中間originへ縮退してproduction拒否を固定し、差分・全体整合レビューはいずれも最終APPROVED。
+- `plan.md`は変更していない。pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。

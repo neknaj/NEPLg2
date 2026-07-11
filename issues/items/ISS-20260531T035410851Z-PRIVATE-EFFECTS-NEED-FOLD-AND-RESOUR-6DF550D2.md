@@ -136,6 +136,8 @@ subagent review:
 
 HIR reader source projection由来のoperation scopeとactual Resource IR enumerationを区別するprovenanceを、scope authority、unified event owner、split output、coverage originへ運搬した。HIR completion一致はproduction coverageへ昇格せず、validatorでfail-closedとなる。actual `ResourceIrEnumerated` producer、private-effect eventの実列挙、summary hash、mask、sealed backendは未完了である。
 
+2026-07-11 follow-upで、Rust Resource function-shaped block/op/terminator inventoryを全検査する非production `ResourceIrInventoryValidated` scope境界を追加した。actual materializerとのco-production authorityがないため`ResourceIrEnumerated`は発行せず、PrivateState / PrivateCache operation event、fresh region、non-escape evidence、slot coverageもまだ生成しない。
+
 ## 2026-07-11 source vocabulary eligibility authority integration
 
 memo_call production authority boundaryで、source vocabulary eligibilityとcoverage identityを同じmodule-private authorityに束ね、no-escape bundle変換時に再検査するようにした。これによりescaping / observation / unsupported sourceやbody / graph identity不一致をprivate-effect mask前にfail-closedで止める。
