@@ -1058,3 +1058,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: operation projection直後・event emit前にexpected event countを固定し、unified event push由来emitted countとsplit後に照合するcompletion markerをproduction resource-lowering adapterへ追加した。missing、under-emit、over-emitはowner cleanup付きtyped errorで拒否する。現expected scopeはresolver-bound HIR reader source projectionでありactual Resource IR enumeratorではないため、full traversal producer、sealed backend、artifact keyは未完了である。
 
 検証はtarget contract、selfhost doctest 19 / 19、production completion rejection smoke、stdlib documentation contract、issues check、trunk build後のplayground CLI JSONをgateとする。
+
+2026-07-11: split ownerで検査したexpected/emitted completion markerがcoverage authority生成時に失われていたため、両countをproduction coverage authorityへ運搬し、下流validatorで一致とevent-shape count合計を再検査するようにした。reader representativeはcompletion未発行のままproductionで拒否する。actual Resource IR function/block/operation enumeratorとsealed backendは未完了である。

@@ -83426,3 +83426,12 @@ MERGE_APPROVED
 - `plan.md`は変更していない。actual Resource IR enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未完了である。現在のexpected scopeはresolver-bound HIR reader source projection由来なので、full traversal completenessとは扱わない。
 - subagent差分レビューと全体整合レビューで、seed fixtureのindent、completion判定前の不要borrow、任意errorを成功扱いするsmoke、旧18/18と新19/19のissue記録順を修正した。両レビューは最終APPROVED。
 - pass: target contract、selfhost doctest 19 / 19、production completion runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
+# 2026-07-11 selfhost coverage completion authority transport
+
+- split ownerでexpected/emitted一致を検査した後、coverage authorityが両countを保持せずevent-shapeだけを下流へ渡していたauthority lifecycle断絶を根本原因とした。
+- production coverage authorityへexpected/emitted countを追加し、下流validatorがcompletion発行済み、一致、emittedとbody/place/edge/unsupported/observation count合計の一致を再検査する。
+- reader representativeは`-1 / 0`のcompletion未発行状態を保持し、production originでは拒否する。runtime smokeへcompletion mismatchとevent-sum mismatchを追加した。
+- `plan.md`は変更していない。expected scopeはまだresolver-bound HIR source projection由来であり、actual Resource IR enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未完了である。
+- native runtimeでactual splitからcoverage mint、downstream validator、owner cleanupまでを1/1で確認した。owner-free request contextへClone/Copyを明示し、value-only coverage authorityはorigin field read前に明示copyしてresource checker上のmoveを防いだ。
+- pass: target contract、selfhost doctest 19/19、coverage transport runtime 1/1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。subagentの差分・全体整合レビューはいずれも最終APPROVED。

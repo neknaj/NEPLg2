@@ -3533,6 +3533,12 @@ Production resource-lowering adapterは、source vocabularyをoperation tableへ
 
 現在のexpected authorityはresolver-bound HIR reader source projection由来であり、actual Resource IR scope enumeratorではない。このmarkerはprojection途中のevent欠落・重複を検出するが、full Resource IR traversalが全operationを列挙した完全性proofではない。次はactual lowering traversal enumeratorがexpected scope、source vocabulary、fresh witnessを同じowner lifecycleから発行する境界へ置換する。
 
+### Coverage authority completion transport
+
+completion一致をsplit変換時だけ検査してcoverage authorityから捨てると、下流のsource vocabulary eligibility、fresh witness、no-escape handoffはevent-shape countしか再検査できない。そこでproduction coverage authorityへexpected / emitted countを移し、後段のcoverage validatorでexpected発行済み、expected/emitted一致、emittedとbody/place/edge/unsupported/observation count合計の一致を再検査する。reader representativeはcompletion未発行の`-1 / 0`を保持し、production origin validatorで引き続き拒否する。
+
+このtransportはauthority lifecycleの断絶を閉じるが、expected scopeの由来は引き続きresolver-bound HIR source projectionである。actual Resource IR function/block/operation enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは完成していない。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

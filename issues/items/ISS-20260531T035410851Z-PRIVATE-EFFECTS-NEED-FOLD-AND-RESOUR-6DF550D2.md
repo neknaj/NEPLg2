@@ -146,6 +146,8 @@ effect mask実体、Resource summary/capability/artifact policy hashへのevent 
 
 2026-07-11: unified event ownerにpre-emission expected countとpush由来emitted countを分離して保持し、split後かつcoverage authority mint前に一致を要求するcompletion marker境界を追加した。generic fixtureはcompletion未発行としてproduction pathで拒否する。expectedは現時点ではHIR reader source projection由来でありactual Resource IR enumerator由来ではないため、full traversal completenessとeffect mask実体は引き続き未完了である。
 
+2026-07-11: completion markerをcoverage authorityにも保持し、private-effect coverageがfresh witness/no-escape handoffへ進むたびにexpected/emitted一致とevent count合計を再検査するようにした。これによりsplit時の一度きりの検査をcomplete traversal authorityと誤認しない。actual Resource IR enumerator、effect mask実体、artifact policy hashは未完了である。
+
 ## 2026-06-21 selfhost private effect no-escape gate checkpoint
 
 Selfhost 側に `memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` effect summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。
