@@ -435,6 +435,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedPointX = read("stdlib/alloc/gui/f
 const allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPointX);
 const allocFontRegisteredFaceSimpleGlyphIndexedPointY = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/point_y.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPointY);
+const allocFontRegisteredFaceSimpleGlyphIndexedEdge = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/edge.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedEdge);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3286,8 +3288,12 @@ for (const ownerType of [
         `${ownerType} must remain move-only because it owns F5nxb continuation authority`,
     );
 }
+const registeredIndexedOutlineStorageWithoutApprovedForwarding = allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl.slice(
+    0,
+    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl.indexOf("fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_span_count "),
+);
 assertNoMatch(
-    allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
+    registeredIndexedOutlineStorageWithoutApprovedForwarding,
     /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_outline_storage_(?:owner|alloc_error)\b/,
     "F5nxc owner-bearing constructors must remain private",
 );
@@ -3417,8 +3423,8 @@ assertOrderedFragments(
 );
 assertNoMatch(
     allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
-    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_outline_storage_(?:owner_(?:take_completed|take_storage|storage_ref|collection_ref|take_action|take_path|take_indexed|take_collection|split|callback)|take_storage|storage_ref|collection_ref|take_action|take_path|take_indexed|take_collection|split|callback)\b|GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorage|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError|GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal|collection_contour_span|indexed_path_step|read_item|byte_at|endpoint_cursor|push_slot|stroke|raster|render_target|platform|fallback|panic|unreachable|[()]/,
-    "F5nxc must not expose raw authority splits, reuse F5am/F5an or traversal, enter later phases, or contain fallback control paths or parentheses",
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_outline_storage_(?:owner_(?:take_completed|take_storage|storage_ref|collection_ref|take_action|take_path|take_indexed|take_collection|split|callback)|take_storage|storage_ref|collection_ref|take_action|take_path|take_indexed|take_collection|split|callback)\b|\b(?:fallback|panic|unreachable)\b|[()]/,
+    "F5nxc must not expose raw authority splits or contain fallback control paths or parentheses",
 );
 const registeredIndexedOutlineStorageOwnerFree = functionSlice(
     allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl,
@@ -3567,8 +3573,8 @@ for (const helper of ["gui_font_registered_face_simple_glyph_indexed_contour_end
 }
 assertNoMatch(
     allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl,
-    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_(?:contour_endpoint|outline_storage)[^\s]*(?:take_storage|storage_ref|take_completed|take_indexed|take_path|take_action|take_summary|split|callback)|read_item|byte_at|byte_reader|GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action|\b(?:fallback|panic|unreachable|Vec|PointX)\b|[()]/,
-    "F5nxd must not expose raw splits/item forwarding/byte readers, reuse F5am-F5aq, fall back, panic, use parentheses or enter PointX and later phases",
+    /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_(?:contour_endpoint|outline_storage)[^\s]*(?:take_storage|storage_ref|take_completed|take_indexed|take_path|take_action|take_summary|split|callback)|byte_at|byte_reader|\b(?:fallback|panic|unreachable|Vec)\b|[()]/,
+    "F5nxd must not expose raw splits/byte readers, fall back, panic, use parentheses or allocate a separate collection",
 );
 assertMatch(
     allocFontFacade,
@@ -3715,6 +3721,19 @@ for (const helper of ["gui_font_registered_face_simple_glyph_indexed_point_y_tes
     assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPointY, new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+${helper}\\b`), `F5nxf test helper must remain test-only: ${helper}`);
 }
 assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl, /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_point_y_[^\s]*(?:take_point_x|take_storage|storage_ref|take_completed|take_indexed|take_path|take_action|take_summary|take_collection|collection_ref|split|callback)|collection\s+%GuiSfntSimpleGlyphOutlinePointStreamItemCollection|path_sink_action_point_y|\b(?:fallback|panic|unreachable|Edge|Command|Stroke|Raster|RenderTarget|platform)\b|[()]/, "F5nxf must keep sealed authority, forbid raw splits, and stop before Edge");
+
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/edge"\s+as\s+\*/, "facade must export F5nxg Edge owner");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedEdge, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/point_y"\s+as\s+\*/, "F5nxg must import only the sealed PointY authority");
+const registeredEdgeActivate = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_activate");
+assertOrderedFragments(registeredEdgeActivate, ["indexed_edge_owner_pending &owner", "Option::Some pending", "completed_owner_contour_span_lookup point_y_ref contour_index", "SpanInvariantInvalid", "ActiveContour"], "F5nxg must look up one indexed span only while activating PendingContour");
+assert(registeredEdgeActivate.split("completed_owner_contour_span_lookup point_y_ref contour_index").length - 1 === 1, "F5nxg PendingContour activation must perform one O(1) span lookup");
+const registeredEdgeStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_step");
+assertOrderedFragments(registeredEdgeStep, ["indexed_edge_activate input", "indexed_edge_owner_active &owner", "Option::Some active", "completed_owner_contour_edge_checked_span point_y_ref span", "edge_slot local contour contour_local", "completed_owner_push_edge point_y cursor slot"], "F5nxg must reuse the checked span and push one owner-bound Edge scalar");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, /(?:contour_endpoint|endpoint_marker|full_scan|fullscan|collection_ref|take_collection|storage_ref|take_storage|raw_collection|split|callback|_with_tables|\bfallback\b|\bpanic\b|\bunreachable\b|\bCommand\b|\bStroke\b|\bRaster\b|RenderTarget|\bplatform\b)/, "F5nxg must not reintroduce endpoint-marker/full-scan/raw split or later-phase paths");
+const registeredEdgeBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_drain_budget");
+assertOrderedFragments(registeredEdgeBudget, ["owner_progress_kind &owner", "Completed", "le remaining 0", "StepBudgetExhausted", "indexed_edge_step owner"], "F5nxg budget must prefer terminal and avoid work at zero");
+const registeredEdgeSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_seal_completed");
+assertOrderedFragments(registeredEdgeSeal, ["owner_progress_kind &owner", "Completed", "owner_phase_invariant_check &owner", "Valid", "EdgeCompletedOwner owner"], "F5nxg must seal only a checked completed Edge owner for F5nxh");
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,
     "registered_face_simple_glyph_summary_completed_close_ok",

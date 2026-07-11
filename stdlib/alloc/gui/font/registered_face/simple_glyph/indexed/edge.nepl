@@ -1,0 +1,470 @@
+//: # alloc/gui/font/registered_face/simple_glyph/indexed/edge
+//: checked PointY authorityからcontourごとのedge owner scalarを構築する
+//:
+//: PendingContourだけがindexed spanを一度読み、ActiveContourは保存したspanを再利用します。
+//: したがって全drainはO(point + contour)、追加領域はO(1)です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face/simple_glyph/indexed/edge" as *
+//:| #import "std/test" as *
+//: fn main %fn void i32 \void:
+//:|      let kind %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::PendingContour
+//:|      let pending %bool match kind:
+//:|          GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::PendingContour: true
+//:|          _: false
+//:|      test_assertion_exit_code assert "Edge progress kind is typed" pending
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/point_y" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui/font" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind:
+    PendingContour
+    ActiveContour
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \value:
+        value
+
+struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending:
+    contour_index %i32
+    expected_start %i32
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending \value:
+        value
+
+struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive:
+    span %GuiSfntSimpleGlyphContourSpan
+    expected_start %i32
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive \value:
+        value
+
+enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState:
+    PendingContour %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending
+    ActiveContour %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive
+    Completed %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner:
+    point_y %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner:
+    running %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind:
+    PointYCompletionInvariantInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    PendingContourInvalid
+    ActiveContourInvalid
+    CompletedCursorNotAtEnd
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind \value:
+        value
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck:
+    Valid
+    Invalid %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \value:
+        value
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind:
+    PointYCompletionInvariantInvalid
+    CursorStartFailed
+    PhaseInvariantInvalid
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind \value:
+        value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind
+    point_y_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck
+    cursor_error %Option StdErrorKind
+    phase_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind:
+    PointYInvariantInvalid
+    CursorStartFailed
+    SpanLookupFailed
+    SpanInvariantInvalid
+    EdgeReadFailed
+    EdgeInvariantInvalid
+    EdgePushFailed
+    AlreadyCompleted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind \value:
+        value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind
+    span_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError
+    edge_read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    rejected_cursor %Option GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    rejected_edge %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot
+    scalar_value %Option i32
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+    recovered_invariant %Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus:
+    Pushed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus \value:
+        value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
+    actual %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind
+    invariant %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck
+
+fn gui_font_registered_face_simple_glyph_indexed_edge_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \point_y\state:
+    GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner point_y state
+
+fn gui_font_registered_face_simple_glyph_indexed_edge_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError fn Option GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot fn Option i32 fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \owner\kind\span_error\edge_read_error\cursor\edge\scalar\region\storage\recovered:
+    GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError owner kind span_error edge_read_error cursor edge scalar region storage recovered
+
+fn gui_font_registered_face_simple_glyph_indexed_edge_owner_pending %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour pending: some *pending
+        _: none
+
+fn gui_font_registered_face_simple_glyph_indexed_edge_owner_active %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour active: some *active
+        _: none
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \owner:
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref owner "point_y"
+    let lower gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_continuation_authority_check point_y
+    match lower:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Invalid _kind: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::PointYCompletionInvariantInvalid
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid:
+            let capacity gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_capacity point_y
+            let contour_count gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+            let point_count gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+            let storage_len gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_storage_len point_y
+            let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
+            let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor match state:
+                GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour pending: *field::get_ref pending "cursor"
+                GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour active: *field::get_ref active "cursor"
+                GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed completed: *completed
+            let start gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+            let end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+            let next gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+            if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:
+                then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorInvalid
+                else:
+                    let region_matches match gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor:
+                        GuiSfntSimpleGlyphOutlineScalarRegion::Edge: true
+                        _: false
+                    if not region_matches:
+                        then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorRegionMismatch
+                        else:
+                            match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::Edge:
+                                Result::Err _error: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorCapacityMismatch
+                                Result::Ok expected:
+                                    if or ne start gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &expected ne end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &expected:
+                                        then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorCapacityMismatch
+                                        else:
+                                            if ne storage_len next:
+                                                then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorCapacityMismatch
+                                                else:
+                                                    match state:
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour pending:
+                                                            let contour_index %i32 *field::get_ref pending "contour_index"
+                                                            let expected_start %i32 *field::get_ref pending "expected_start"
+                                                            if or lt contour_index 0 or ge contour_index contour_count or lt expected_start 0 gt expected_start point_count:
+                                                                then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::PendingContourInvalid
+                                                                else GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour active:
+                                                            let span %GuiSfntSimpleGlyphContourSpan *field::get_ref active "span"
+                                                            let expected_start %i32 *field::get_ref active "expected_start"
+                                                            let local %i32 sub next start
+                                                            let count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+                                                            if or ne expected_start gui_sfnt_simple_glyph_contour_span_start_point_index &span or le count 0 or lt local expected_start ge local add expected_start count:
+                                                                then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::ActiveContourInvalid
+                                                                else GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
+                                                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed _completed:
+                                                            if ne next end:
+                                                                then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CompletedCursorNotAtEnd
+                                                                else GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError \point_y:
+    let invariant gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_phase_invariant_check &point_y
+    match invariant:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Invalid _kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError point_y GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind::PointYCompletionInvariantInvalid invariant none GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid:
+            let capacity gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_capacity &point_y
+            match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::Edge:
+                Result::Err error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError point_y GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind::CursorStartFailed invariant (some error) GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
+                Result::Ok cursor:
+                    let pending %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending 0 0 cursor
+                    let owner gui_font_registered_face_simple_glyph_indexed_edge_owner point_y GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour pending
+                    let phase gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_check &owner
+                    match phase:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid: Result::Ok owner
+                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid _kind:
+                            let returned %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get owner "point_y"
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError returned GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind::PhaseInvariantInvalid invariant none phase
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour _pending: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::PendingContour
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour _active: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::ActiveContour
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed _cursor: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::Completed
+
+fn gui_font_registered_face_simple_glyph_indexed_edge_activate %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \owner:
+    match gui_font_registered_face_simple_glyph_indexed_edge_owner_pending &owner:
+        Option::Some pending:
+            let contour_index %i32 *field::get_ref &pending "contour_index"
+            let expected_start %i32 *field::get_ref &pending "expected_start"
+            let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor *field::get_ref &pending "cursor"
+            let point_y_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref &owner "point_y"
+            match gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_contour_span_lookup point_y_ref contour_index:
+                Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::SpanLookupFailed (some error) none none none none none none none
+                Result::Ok span:
+                    let valid %bool and eq gui_sfnt_simple_glyph_contour_span_index &span contour_index and eq gui_sfnt_simple_glyph_contour_span_start_point_index &span expected_start gt gui_sfnt_simple_glyph_contour_span_point_count &span 0
+                    if not valid:
+                        then Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::SpanInvariantInvalid none none none none none none none none
+                        else:
+                            let point_y %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get owner "point_y"
+                            let active %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive span expected_start cursor
+                            Result::Ok gui_font_registered_face_simple_glyph_indexed_edge_owner point_y GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour active
+        Option::None: Result::Ok owner
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \input:
+    match gui_font_registered_face_simple_glyph_indexed_edge_activate input:
+        Result::Err error: Result::Err error
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_edge_owner_active &owner:
+                Option::None:
+                    match gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind &owner:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::Completed: Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::AlreadyCompleted none none none none none none none none
+                        _: Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::SpanInvariantInvalid none none none none none none none none
+                Option::Some active:
+                    let span %GuiSfntSimpleGlyphContourSpan *field::get_ref &active "span"
+                    let expected_start %i32 *field::get_ref &active "expected_start"
+                    let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor *field::get_ref &active "cursor"
+                    let original_state %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive span expected_start cursor
+                    let local %i32 sub gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+                    let point_y_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref &owner "point_y"
+                    match gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_contour_edge_checked_span point_y_ref span sub local expected_start:
+                        Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::EdgeReadFailed none (some error) none none none none none none
+                        Result::Ok edge:
+                            let contour %i32 gui_sfnt_simple_glyph_contour_span_index &span
+                            let contour_local %i32 sub local expected_start
+                            let point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+                            let expected_next %i32 if lt add contour_local 1 point_count then add contour_local 1 else 0
+                            let edge_start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start &edge
+                            let edge_end %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_end &edge
+                            let start_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &edge_start
+                            let end_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &edge_end
+                            let start_span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &edge_start
+                            let end_span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &edge_end
+                            let expected_end_absolute %i32 add expected_start expected_next
+                            let glyph gui_sfnt_simple_glyph_contour_span_glyph &span
+                            let glyph_raw gui_glyph_id_raw &glyph
+                            let span_end gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                            let start_span_glyph gui_sfnt_simple_glyph_contour_span_glyph &start_span
+                            let end_span_glyph gui_sfnt_simple_glyph_contour_span_glyph &end_span
+                            let start_point_glyph gui_sfnt_simple_glyph_point_glyph &start_point
+                            let end_point_glyph gui_sfnt_simple_glyph_point_glyph &end_point
+                            let start_span_identity %bool and eq glyph_raw gui_glyph_id_raw &start_span_glyph and eq contour gui_sfnt_simple_glyph_contour_span_index &start_span and eq expected_start gui_sfnt_simple_glyph_contour_span_start_point_index &start_span and eq span_end gui_sfnt_simple_glyph_contour_span_end_point_index &start_span eq point_count gui_sfnt_simple_glyph_contour_span_point_count &start_span
+                            let end_span_identity %bool and eq glyph_raw gui_glyph_id_raw &end_span_glyph and eq contour gui_sfnt_simple_glyph_contour_span_index &end_span and eq expected_start gui_sfnt_simple_glyph_contour_span_start_point_index &end_span and eq span_end gui_sfnt_simple_glyph_contour_span_end_point_index &end_span eq point_count gui_sfnt_simple_glyph_contour_span_point_count &end_span
+                            let point_identity %bool and eq glyph_raw gui_glyph_id_raw &start_point_glyph and eq glyph_raw gui_glyph_id_raw &end_point_glyph and eq local gui_sfnt_simple_glyph_point_index &start_point eq expected_end_absolute gui_sfnt_simple_glyph_point_index &end_point
+                            let edge_valid %bool and start_span_identity and end_span_identity and point_identity and eq contour_local gui_sfnt_simple_glyph_contour_edge_index &edge and eq expected_next gui_sfnt_simple_glyph_contour_edge_next_local_index &edge and eq contour_local gui_sfnt_simple_glyph_contour_point_local_index &edge_start eq expected_next gui_sfnt_simple_glyph_contour_point_local_index &edge_end
+                            if not edge_valid:
+                                then Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::EdgeInvariantInvalid none none none none none none none none
+                                else:
+                                    let slot gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot local contour contour_local expected_next
+                                    let point_y %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get owner "point_y"
+                                    match gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_push_edge point_y cursor slot:
+                                        Result::Err lower:
+                                            let rejected_cursor gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_cursor &lower
+                                            let rejected_edge gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_edge &lower
+                                            let scalar gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_scalar_value &lower
+                                            let region gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_region_error_kind &lower
+                                            let storage gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_storage_push_error_kind &lower
+                                            let recovered gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_take_owner lower
+                                            let recovered_owner gui_font_registered_face_simple_glyph_indexed_edge_owner recovered original_state
+                                            let recovered_invariant gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_check &recovered_owner
+                                            Result::Err gui_font_registered_face_simple_glyph_indexed_edge_error recovered_owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::EdgePushFailed none none (some rejected_cursor) (some rejected_edge) (some scalar) (some region) storage (some recovered_invariant)
+                                        Result::Ok pushed:
+                                            let next_cursor gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_cursor &pushed
+                                            let returned gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_take_owner pushed
+                                            let next_local add contour_local 1
+                                            let capacity gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_capacity &returned
+                                            let contour_count gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+                                            let next_state %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState if lt next_local point_count:
+                                                then GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive span expected_start next_cursor
+                                                else:
+                                                    if lt add contour 1 contour_count:
+                                                        then GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending (add contour 1) (add expected_start point_count) next_cursor
+                                                        else GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed next_cursor
+                                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep (gui_font_registered_face_simple_glyph_indexed_edge_owner returned next_state) (GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::Pushed slot)
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_drain_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \owner\remaining:
+    match gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind &owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::Completed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::Completed
+        _:
+            if le remaining 0 then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::StepBudgetExhausted else gui_font_registered_face_simple_glyph_indexed_edge_step owner
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_completed %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError \owner:
+    let actual gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind &owner
+    match actual:
+        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::Completed:
+            let invariant gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_check &owner
+            match invariant:
+                GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner owner
+                GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid _kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError owner actual invariant
+        _: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError owner actual GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \step:
+    field::get step "owner"
+
+//: bounded drainのCopy statusをowner回収前に読みます。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus \step:
+    *field::get_ref step "status"
+
+//: typed failure reasonをowner回収前に読みます。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_point_y_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \error:
+    *field::get_ref error "point_y_invariant"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_cursor_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError Option StdErrorKind \error:
+    *field::get_ref error "cursor_error"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_phase_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \error:
+    *field::get_ref error "phase_invariant"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner \error:
+    field::get error "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_span_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
+    *field::get_ref error "span_error"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_edge_read_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \error:
+    *field::get_ref error "edge_read_error"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_rejected_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlineScalarRegionCursor \error:
+    *field::get_ref error "rejected_cursor"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_rejected_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot \error:
+    *field::get_ref error "rejected_edge"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_scalar_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option i32 \error:
+    *field::get_ref error "scalar_value"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_recovered_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \error:
+    *field::get_ref error "recovered_invariant"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \error:
+    field::get error "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_actual %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \error:
+    *field::get_ref error "actual"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \error:
+    *field::get_ref error "invariant"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \error:
+    field::get error "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free field::get owner "point_y"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get owner "running"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get step "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free field::get error "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get error "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get error "owner"

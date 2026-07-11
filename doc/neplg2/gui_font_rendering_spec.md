@@ -195,6 +195,8 @@ PointXのlogical item indexは`cursor.next - cursor.start`だけから導出す�
 
 F5nxfはF5nxe completed ownerを分解せず、owner-bound item readで得たlogical pointのyだけをPointY regionへcommitする。PointY cursorのlogical indexは`next - start`、期待storage長は`contour_count + point_count + logical index`であり、PointX region全体の完了を省略できない。item glyph/index/kindはpush前に再検証し、read/push failureはsame registered authorityと失敗前cursorを保持する。最終push後はCompletedとなるがEdge cursorは開始せず、checked completed PointY ownerだけをF5nxgへ渡す。
 
+F5nxgはchecked completed PointY owner全体をauthorityとしてEdge region cursorを開始する。`PendingContour`だけがowner内indexed sourceからcontour spanをO(1) lookupでexactly once取得し、`ActiveContour`は保存済みchecked spanを各edgeで再利用する。edge scalarはlogical point順にcontour owner indexを保持し、2 contours / 4 pointsでは`0, 0, 1, 1`となる。contour終端のwrapはexisting checked-span edge coreだけで解決し、endpoint marker走査、full scan、raw collection/storage splitを行わない。budget 0以下はlookup/pushを行わず、Completedはbudgetより優先する。lookup/read/push failureはsame registered authorityと失敗前stateを保持し、checked sealだけがF5nxhへ渡る。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。

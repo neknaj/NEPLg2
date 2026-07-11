@@ -6532,10 +6532,20 @@ owner / move契約:
 - budgetはCompleted、0以下、最大1 commitの順で、0以下ではitem readもPointY pushも行わない。owner-bearing型はClone/Copyにせずsingle take/freeを提供する。
 - checked completed sealだけをF5nxg inputにし、F5nxfではEdge lookup、cursor start、command、stroke、raster、render、platformへ進まない。
 
+### Phase F5nxg: registered indexed Edge population owner
+
+- F5nxf checked completed PointY owner全体を唯一の入力authorityとし、Edge cursorをchecked capacityから開始する。
+- private stateを`PendingContour | ActiveContour | Completed`とし、indexed span lookupはPendingごとにexactly once、Activeでは保存済みspanとchecked-span edge coreだけを使う。
+- typed Edge slotのscalar ownerはlogical point順にcontour indexを保持し、2 contours / 4 points fixtureで`0, 0, 1, 1`とwrapを検査する。
+- terminal優先、budget 0以下のno-work、same-owner failure recovery、checked completed seal、全free経路をruntime fixtureとsource policyで固定する。
+- endpoint marker/full scan、raw collection/storage split、caller supplied span/edge、command/stroke/raster/render/platformを禁止する。
+- checked completed Edge ownerだけをF5nxh command populationへ渡す。
+
 検証:
 
-- focused doctestでpublic型をcompileし、controlled registered fixtureで4 PointY値、partial resume、exact completion、terminal優先、item read/push failure recoveryを検査する。
-- source policyでowner-bound item read/PointY push exactly once、metadata-before-take、external collection/raw split/old F5as/fallback/panic/unreachable/Edge以降の禁止を固定する。
+- focused doctestでpublic型をcompileし、controlled registered fixtureで4 Edge scalar owner、contour wrap、partial resume、exact completion、terminal優先、span/read/push failure recoveryを検査する。
+- source policyでPendingだけのspan lookup、Activeのchecked-span edge read、Edge push exactly once、metadata-before-take、external collection/raw split/endpoint marker/full scan/fallback/panic/unreachable/Command以降の禁止を固定する。
+- normal compile regressionでtest-only failure injectionがproduction surfaceへ露出しないことを固定する。
 
 ### Phase F5nxa: registered indexed path action owner
 
