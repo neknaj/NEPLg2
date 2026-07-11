@@ -83355,3 +83355,17 @@ MERGE_APPROVED
 - pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_gui_font_f5nxf.json`、13 / 13。JSON出力を確認した。
 - F5nxfはchecked completed PointY ownerで停止し、Edge cursorやspan lookupを開始しない。次はF5nxgでこのowner全体をauthorityとしてindexed span / checked-span edge coreへ接続する。
+# 2026-07-11 GUI font rendering F5nxg registered indexed Edge population owner
+
+- F5nxf checked completed PointY ownerを分解せずF5nxg Edge ownerへ移し、`PendingContour / ActiveContour / Completed` stateでcontour span lookupをcontourごとにexactly onceへ制限した。
+- ActiveContourは保存済みchecked spanとexisting checked-span edge coreを再利用するため、endpoint marker/full scanを使わず全drainをO(point + contour)、追加領域O(1)に保つ。
+- registered face runtime fixtureは2 contours / 4 edgesのcontour owner scalar `0, 0, 1, 1`、各contourのwrap、budget 0 no-work、terminal precedence、AlreadyCompleted same-owner recovery、checked seal/freeを検査する。
+- Web source policyはPending lookup、checked core、owner-bound pushの順序とexact call、endpoint marker/fullscan/raw split/later phase禁止を固定した。
+- F5nxg完了後の次phaseはF5nxh command population ownerであり、フォントレンダリングエンジンとGUI表示の最終目標は未完了である。
+- PointY完了時の旧storage長invariantをEdge追記後に再適用しないようcontinuation authorityへ分離し、Edge phaseは`storage_len == cursor.next`、capacity、region、Pending/Active/Completed進捗を独自に検査する。typed start/seal/errorはlower metadataをowner take前に保持し、push失敗後もsame ownerを復元する。
+- push前にedgeのglyph、contour span index/start/end/count、start/end pointのglyph/global/local index、wrapを再検証する。subagent差分レビューと全体整合レビューを再実施し、最終差分に新規compile/semantic blockerがないことを確認した。
+- pass: F5nxg focused doctest 24 / 24。
+- pass: integrated registered-face fixture 1 / 1、runtime assertion 22 / 22。`NEPL_TEST_CASE_TIMEOUT_MS=300000`を使用し、最終JSONの`partial: false`、timeout/error 0を確認した。
+- pass: Web GUI font rendering source-policy、PointX/PointY normal compile isolation、`git diff --check`。
+- pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_gui_font_f5nxg.json`、13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。

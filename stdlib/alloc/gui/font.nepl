@@ -36,3 +36,4 @@ pub #import "alloc/gui/font/registered_face_simple_glyph_indexed_outline_storage
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint" as *
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/point_x" as *
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/point_y" as *
+pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/edge" as *

@@ -154,6 +154,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup %fn 
     let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
     gui_font_registered_face_simple_glyph_indexed_owner_span_lookup indexed contour_index
 
+//: path authority から取得済みchecked span内のedgeをO(1)で読みます。
+//:
+//: [契約/けいやく]: immediate nested indexed ownerへexactly once委譲し、raw collectionを公開しません。
+//:
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
+    let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
+    gui_font_registered_face_simple_glyph_indexed_owner_contour_edge_checked_span indexed span edge_index
+
 //: gui_font_registered_face_simple_glyph_indexed_path_owner_item_read: path authority から classified point item を借用して読む
 //:
 //: [目的/もくてき]: 後続 phase が traversal state や raw collection を露出せず、path owner に封印された registered point item を typed result のまま参照できるようにします。

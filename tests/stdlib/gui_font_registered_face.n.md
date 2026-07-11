@@ -2252,6 +2252,67 @@ fn registered_face_point_y_phase_valid %fn &GuiFontRegisteredFaceSimpleGlyphInde
         GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid: true
         _: false
 
+fn registered_face_edge_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner impure fn i32 bool \owner\expected_index:
+    if lt expected_index 4:
+        then:
+            match gui_font_registered_face_simple_glyph_indexed_edge_drain_budget owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_edge_owner_free gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner error
+                    false
+                Result::Ok step:
+                    let pushed_ok %bool match gui_font_registered_face_simple_glyph_indexed_edge_budget_step_status &step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::Pushed edge:
+                            let expected_contour %i32 if lt expected_index 2 then 0 else 1
+                            let expected_local %i32 if lt expected_index 2 then expected_index else sub expected_index 2
+                            let expected_next %i32 if eq expected_local 0 then 1 else 0
+                            and eq expected_contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_index &edge and eq expected_local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_edge_index &edge eq expected_next gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_next_contour_point_index &edge
+                        _: false
+                    let next %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner step
+                    and pushed_ok registered_face_edge_drain_ok next add expected_index 1
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_edge_drain_budget owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_edge_owner_free gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner error
+                    false
+                Result::Ok terminal:
+                    let terminal_ok %bool match gui_font_registered_face_simple_glyph_indexed_edge_budget_step_status &terminal:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::Completed: true
+                        _: false
+                    let completed_running %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner terminal
+                    match gui_font_registered_face_simple_glyph_indexed_edge_step completed_running:
+                        Result::Ok unexpected:
+                            gui_font_registered_face_simple_glyph_indexed_edge_owner_free gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner unexpected
+                            false
+                        Result::Err completed_error:
+                            let recovery_ok %bool match gui_font_registered_face_simple_glyph_indexed_edge_error_kind &completed_error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind::AlreadyCompleted: true
+                                _: false
+                            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner completed_error
+                            match gui_font_registered_face_simple_glyph_indexed_edge_seal_completed recovered:
+                                Result::Err unsealed:
+                                    gui_font_registered_face_simple_glyph_indexed_edge_owner_free gui_font_registered_face_simple_glyph_indexed_edge_seal_error_take_owner unsealed
+                                    false
+                                Result::Ok completed:
+                                    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_free completed
+                                    and terminal_ok recovery_ok
+
+fn registered_face_edge_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner bool \point_y:
+    match gui_font_registered_face_simple_glyph_indexed_edge_start point_y:
+        Result::Err start_error:
+            gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free gui_font_registered_face_simple_glyph_indexed_edge_start_error_take_owner start_error
+            false
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_edge_drain_budget owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_edge_owner_free gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner error
+                    false
+                Result::Ok exhausted:
+                    let exhausted_ok %bool match gui_font_registered_face_simple_glyph_indexed_edge_budget_step_status &exhausted:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::StepBudgetExhausted: true
+                        _: false
+                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner exhausted
+                    and exhausted_ok registered_face_edge_drain_ok recovered 0
+
 fn registered_face_point_y_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner impure fn i32 bool \owner\expected_index:
     if lt expected_index 4:
         then:
@@ -2287,8 +2348,7 @@ fn registered_face_point_y_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphI
                             let invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_phase_invariant_check &completed:
                                 GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid: true
                                 _: false
-                            gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free completed
-                            and terminal_ok invariant_ok
+                            and terminal_ok and invariant_ok registered_face_edge_success_ok completed
 
 fn registered_face_point_y_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner bool \point_x:
     match gui_font_registered_face_simple_glyph_indexed_point_y_start point_x:

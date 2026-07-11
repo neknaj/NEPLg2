@@ -246,6 +246,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup %f
     let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
     gui_font_registered_face_simple_glyph_indexed_path_owner_span_lookup path contour_index
 
+//: action authority から取得済みchecked span内のedgeを読みます。
+//:
+//: [契約/けいやく]: immediate nested path ownerへexactly once委譲し、raw collectionを公開しません。
+//:
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
+    let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
+    gui_font_registered_face_simple_glyph_indexed_path_owner_contour_edge_checked_span path span edge_index
+
 //: gui_font_registered_face_simple_glyph_indexed_action_owner_item_read: action authority から classified point item を借用して読む
 //:
 //: [目的/もくてき]: endpoint population が action continuation と registered collection authority を分離せず、point item と typed read error を取得できるようにします。

@@ -364,6 +364,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_l
     let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
     gui_font_registered_face_simple_glyph_indexed_action_owner_span_lookup action contour_index
 
+//: summary authority から取得済みchecked span内のedgeを読みます。
+//:
+//: [契約/けいやく]: immediate nested action ownerへexactly once委譲し、raw collectionを公開しません。
+//:
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_contour_edge_checked_span action span edge_index
+
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read: running summary authority から classified point item を借用して読む
 //:
 //: [目的/もくてき]: 後続 phase が running summary の action continuation と registered collection authority を分離せず、point item と typed read error を取得できるようにします。
@@ -664,6 +675,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_ow
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
     let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
     gui_font_registered_face_simple_glyph_indexed_action_summary_owner_span_lookup summary contour_index
+
+//: completed summary authority から取得済みchecked span内のedgeを読みます。
+//:
+//: [契約/けいやく]: immediate nested summary ownerへexactly once委譲し、raw collectionを公開しません。
+//:
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_owner_contour_edge_checked_span summary span edge_index
 
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_read: completed summary authority から classified point item を借用して読む
 //:

@@ -675,6 +675,18 @@ pub fn gui_font_registered_face_simple_glyph_indexed_owner_span_lookup %fn &GuiF
     let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
     gui_sfnt_simple_glyph_contour_span_index_lookup lower contour_index
 
+//: sealed indexed owner が保持する collection から checked span 内の edge を読みます。
+//:
+//: [契約/けいやく]: collection を外へ公開せず、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_checked_span` を exactly once 呼びます。span lookup は行わず、caller が取得済みの checked span を使います。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
+    let lower %&GuiSfntSimpleGlyphContourSpanIndexedCollectionOwner field::get_ref owner "lower"
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_indexed_collection_ref lower
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_checked_span collection span edge_index
+
 //: gui_font_registered_face_simple_glyph_indexed_owner_item_read: sealed indexed owner から classified point item を借用して読む
 //:
 //: [目的/もくてき]: 後続 phase が raw collection accessor を追加せず、registered authority を保持したまま point item と typed read error を取得できるようにします。
