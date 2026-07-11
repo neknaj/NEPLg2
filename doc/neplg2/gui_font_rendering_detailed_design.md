@@ -470,6 +470,10 @@ F5nxiのstart inputはchecked completed PathCommandTag ownerだけである。pr
 
 budget 0以下ではlookupもsummary mutationも行わず、Completedをbudgetより優先する。checked sealはcursor end、totalとkind count合計、last index、phase invariantを検査し、completed prepare ownerをF5nxjへ渡す。owner-bearing start/error/budget/seal/completed型はmove-onlyで、borrowed accessor、single take、single freeを対称に持つ。raw split、caller supplied value、sink allocation/writer、stroke/raster/render/platform APIは禁止する。
 
+F5nxj outer ownerはF5nxi completed ownerを全phaseで保持する。PlanReadyはsummary由来plan、Allocatedはplan検査済みlegacy sink storage、Writingはlegacy writerと`next/end` cursor、Completedは全command commit済みwriterを保持する。public transitionはouter ownerを消費し、plan/storage/writerだけのtake、raw collection再注入、異なるglyph由来resourceとのpairingを提供しない。
+
+plan derivationは`total=emitted`、`draw=line+quadratic`、`path_segment=move+line+quadratic`、`raster_edge=draw`をchecked算術で固定し、既存F5ay algorithmを変更しない。allocation failureではF5nxi ownerを回収可能に保ち、2本目Vec失敗時は1本目を逆順freeする。Writingはsuccess push後だけcursorを進め、budget 0以下ではread/pushしない。途中scalar push failureはlegacy owner-bearing errorから分類を保存してpartial writerを直ちにsingle freeし、registered authority、分類、failure cursorだけをcleanup-only errorへ移す。sealはcursor、summary、writer counts、last index、plan/capacity、Vec len/capを照合する。
+
 Pending activationでspan lookupが成功した後のtag/edge/event failureはActive cached-span ownerをerrorから回収する。このtransitionではcursor nextとsummary total/各kind/lastを変更しない。same-owner retryは保存済みspanを使うため、failure recoveryのためにcontour lookupを再実行しない。
 
 valid authorityからproduction lookup/push failureを自然発生させられないため、deterministic failure testは`#test` entryを使う。lookup test entryはrequested index -1でlower lookup errorを実生成し、production stepと共有するprivate lookup-result finalizerへ渡す。push test entryはproductionと共有するprivate endpoint-push pathへtyped invalid endpointを渡す。test entryはnormal compileで存在せず、production APIへfault flag/callbackを追加しない。lower lookup errorにはrequested index/span countのCopy accessorを追加し、kind/index/countをexactに検査する。

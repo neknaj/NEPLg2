@@ -83548,3 +83548,10 @@ MERGE_APPROVED
 - pass: focused runtime 1 / 1、Web GUI font source-policy、normal compile isolation、stdlib documentation contract、issues check、`git diff --check`、`NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
 - pass: playground editor CLI 13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。
 - 次はF5nxjでcommand sink plan / allocation / writerへ進む。フォント解析からnative / GUI表示までの最終目標は未完了であり、このcheckpointを全体完成とは扱わない。
+
+# 2026-07-11 GUI font rendering F5nxj registered command sink owner（進行中）
+
+- F5nxi checked completed prepare ownerを唯一のauthorityとして、sink plan、2本のscalar storage allocation、legacy writer completionへ輸送するouter ownerを実装している。
+- `PlanReady -> Allocated -> Writing -> Completed`の各phaseでregistered sourceを保持し、plan/storage/writerのsplit takeやforeign pairingを公開しない。F5ay/F5az/F5baのstorage-only algorithmは変更せず再利用する。
+- completed authority借用read-at、terminal優先budget、push成功後だけのcursor commit、partial push failure metadata保存後の即時single freeとcleanup-only source保持、checked sealをruntime/source-policy/normal compileで固定する。
+- 次はF5nxk stroke source contour migrationである。フォント解析からnative / GUI表示までの最終目標は未完了であり、このcheckpointを全体完成とは扱わない。
