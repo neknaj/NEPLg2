@@ -1,0 +1,633 @@
+//: # alloc/gui/font/registered_face/simple_glyph/indexed/point_y
+//: F5nxe completed authority から PointY region を順次構築する
+//:
+//: ### [契約/けいやく]
+//: - start は F5nxe checked completed owner だけを受け取ります。
+//: - logical item index は cursor の next と start の差だけから導出します。
+//: - item read、identity validation、PointY push を順番に行い、失敗を成功へ置換しません。
+//: - terminal、budget zero、step の順で判定し、Edge cursor は開始しません。
+//: - owner を保持する型は `Clone` / `Copy` を実装しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: start、invariant、step は定数時間、全 drain は point 数に比例し、追加 metadata は定数領域です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face/simple_glyph/indexed/point_y" as *
+//:| #import "std/test" as *
+//:
+//: fn main %fn void i32 \void:
+//:     let status %GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus::StepBudgetExhausted
+//:     let typed %bool match status:
+//:         GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus::StepBudgetExhausted: true
+//:         _: false
+//:     test_assertion_exit_code assert "PointY budget status is typed" typed
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/point_x" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: PointY population の実行中または完了を表す Copy 状態です。
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind:
+    Active
+    Completed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind \value:
+        value
+
+//: PointY owner invariant の固定優先順位を持つ invalid reason です。
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind:
+    CanonicalCapacityShapeInvalid
+    PointXCompletionInvariantInvalid
+    StorageCapacityMismatch
+    StorageShapeMismatch
+    CollectionItemCountMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    StorageLengthMismatch
+    ActiveCursorAtEnd
+    CompletedCursorNotAtEnd
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind \value:
+        value
+
+//: PointY owner invariant の成功または最初の invalid reason を保持します。
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck:
+    Valid
+    Invalid %GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \value:
+        value
+
+//: 未処理の PointY slot を指す checked cursor metadata です。
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive:
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive \value:
+        value
+
+//: 全 PointY slot の commit を終えた cursor metadata です。
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted:
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted \value:
+        value
+
+//: PointY cursor を active と completed の排他的な状態として保持します。
+//: neplg2:test[skip]
+enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYState:
+    Active %GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive
+    Completed %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted
+
+//: F5nxe completed authority と F5nxf PointY phase state を分離せず保持する owner です。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner:
+    point_x %GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedPointYState
+
+//: checked completion 後の running owner 全体を保持する F5nxf authority です。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner:
+    running %GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner
+
+//: start の検査段階を固定優先順位で識別する reason です。
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind:
+    PointXCompletionInvariantInvalid
+    CollectionItemCountMismatch
+    CursorStartFailed
+    PhaseInvariantInvalid
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind \value:
+        value
+
+//: start failure metadata と同じ F5nxe owner を保持する回収可能な error です。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind
+    point_x_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck
+    expected_item_count %i32
+    actual_item_count %i32
+    cursor_error %Option StdErrorKind
+    phase_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck
+
+//: 一つの PointY commit が失敗した段階を識別する reason です。
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind:
+    AlreadyCompleted
+    ItemReadFailed
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    PointYPushFailed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind \value:
+        value
+
+//: step failure metadata と進捗未変更の同じ PointY owner を保持する error です。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind
+    item_index %i32
+    item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    point %Option GuiSfntSimpleGlyphPointYSlot
+    push_kind %Option GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+    recovered_invariant %Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck
+
+//: 一回の bounded drain が commit、完了、budget枯渇のどれかを表します。
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus:
+    Pushed %GuiSfntSimpleGlyphPointYSlot
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus \value:
+        *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus \value:
+        value
+
+//: bounded drain の status と継続可能な同じ owner を束ねます。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus
+
+//: premature または invariant-invalid seal から owner を回収できる error です。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner
+    actual %GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind
+    invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck
+
+//: checked cursor を active metadata に包み、cursorを複製しません。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_active %fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive \cursor:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYActive cursor
+
+//: checked cursor を completed metadata に包み、cursorを複製しません。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_completed %fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted \cursor:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompleted cursor
+
+//: F5nxe completed owner と F5nxf phase state を一つの move-only owner に束ねます。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYState GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner \point_x\state:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner point_x state
+
+//: predicate が成立した場合だけ typed invalid reason を候補にします。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if %fn bool fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind \condition\kind:
+    if condition then some kind else none
+
+//: earlierを優先し、固定されたerror precedenceを保って候補を合成します。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid %fn Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind \earlier\later:
+    match earlier:
+        Option::Some kind: some kind
+        Option::None: later
+
+//: owner の phase と cursor を Copy metadata として読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Active _active: GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Active
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Completed _completed: GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Completed
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYState field::get_ref owner "state"
+    match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Active active: *field::get_ref active "cursor"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Completed completed: *field::get_ref completed "cursor"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_logical_item_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner i32 \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor owner
+    sub gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_storage_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner i32 \owner:
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref owner "point_x"
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_storage_len point_x
+
+//: F5nxf 固有 invariant を契約上の優先順位で検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \owner:
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref owner "point_x"
+    let capacity gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_capacity point_x
+    let contour_count gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+    let point_count gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+    let cursor gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor owner
+    let start gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+    let end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+    let next gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    let logical sub next start
+    let len gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_storage_len point_x
+    let shape_invalid gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CanonicalCapacityShapeInvalid
+    let endpoint_check gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_continuation_authority_check point_x
+    let endpoint_invalid match endpoint_check:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: none
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Invalid kind:
+            match kind:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantInvalidKind::StorageCapacityMismatch: none
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantInvalidKind::StorageShapeMismatch: none
+                _: some GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::PointXCompletionInvariantInvalid
+    let storage_capacity_invalid match endpoint_check:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: none
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Invalid kind:
+            match kind:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantInvalidKind::StorageCapacityMismatch: some GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::StorageCapacityMismatch
+                _: none
+    let storage_shape_invalid match endpoint_check:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: none
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Invalid kind:
+            match kind:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantInvalidKind::StorageShapeMismatch: some GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::StorageShapeMismatch
+                _: none
+    let actual_item_count gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_count point_x
+    let item_count_invalid gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if ne actual_item_count point_count GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CollectionItemCountMismatch
+    let cursor_invalid gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CursorInvalid
+    let region_matches match gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor:
+        GuiSfntSimpleGlyphOutlineScalarRegion::PointY: true
+        _: false
+    let region_invalid gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if not region_matches GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CursorRegionMismatch
+    let capacity_invalid match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PointY:
+        Result::Err _error: some GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CursorCapacityMismatch
+        Result::Ok expected: gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if or ne start gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &expected ne end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &expected GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CursorCapacityMismatch
+    let len_invalid gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if ne len add add contour_count point_count logical GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::StorageLengthMismatch
+    let common1 gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid shape_invalid endpoint_invalid
+    let common2 gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common1 storage_capacity_invalid
+    let common3 gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common2 storage_shape_invalid
+    let common4 gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common3 item_count_invalid
+    let common5 gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common4 cursor_invalid
+    let common6 gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common5 region_invalid
+    let common gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common6 capacity_invalid
+    let common gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common len_invalid
+    let state %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYState field::get_ref owner "state"
+    let phase match state:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Active _active: gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if ge next end GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::ActiveCursorAtEnd
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Completed _completed: gui_font_registered_face_simple_glyph_indexed_point_y_invalid_if or ne next end ne sub end start point_count GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantInvalidKind::CompletedCursorNotAtEnd
+    match gui_font_registered_face_simple_glyph_indexed_point_y_first_invalid common phase:
+        Option::Some kind: GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Invalid kind
+        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid
+
+//: start metadata と未分解の入力ownerを一つのtyped errorに束ねます。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck fn i32 fn i32 fn Option StdErrorKind fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError \owner\kind\point_x_invariant\expected\actual\cursor_error\phase:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError owner kind point_x_invariant expected actual cursor_error phase
+
+//: F5nxe completion、item count、PointY cursor、F5nxf invariant の順で開始を検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError \point_x:
+    let point_x_invariant gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_phase_invariant_check &point_x
+    match point_x_invariant:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Invalid _kind: Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_start_error point_x GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind::PointXCompletionInvariantInvalid point_x_invariant 0 0 none GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid:
+            let capacity gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_capacity &point_x
+            let expected gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+            let actual gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_count &point_x
+            if ne expected actual:
+                then Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_start_error point_x GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind::CollectionItemCountMismatch point_x_invariant expected actual none GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid
+                else match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PointY:
+                    Result::Err cursor_error: Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_start_error point_x GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind::CursorStartFailed point_x_invariant expected actual some cursor_error GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid
+                    Result::Ok cursor:
+                        let next gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+                        let end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+                        let active gui_font_registered_face_simple_glyph_indexed_point_y_active cursor
+                        let completed gui_font_registered_face_simple_glyph_indexed_point_y_completed cursor
+                        let state if eq next end then GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Completed completed else GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Active active
+                        let owner gui_font_registered_face_simple_glyph_indexed_point_y_owner point_x state
+                        let phase gui_font_registered_face_simple_glyph_indexed_point_y_owner_phase_invariant_check &owner
+                        match phase:
+                            GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid: Result::Ok owner
+                            GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Invalid _kind:
+                                let returned field::get owner "point_x"
+                                Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_start_error returned GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind::PhaseInvariantInvalid point_x_invariant expected actual none phase
+
+//: step metadata と進捗未変更のownerを一つのtyped errorに束ねます。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind fn i32 fn Option GuiSfntSimpleGlyphOutlinePointStreamItem fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError fn Option GuiSfntSimpleGlyphPointYSlot fn Option GuiSfntSimpleGlyphPointYPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner\kind\index\item\read_error\point\push_kind\region_kind\storage_kind\recovered_invariant:
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError owner kind index item read_error point push_kind region_kind storage_kind recovered_invariant
+
+//: validated item を owner-bound PointY push へ一度だけ渡します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_push_item_with_lower_cursor %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn GuiSfntSimpleGlyphOutlinePointStreamItem Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner\cursor\lower_cursor\index\item:
+    let full gui_sfnt_simple_glyph_outline_point_stream_item_point &item
+    let y gui_sfnt_simple_glyph_point_y &full
+    let point gui_sfnt_simple_glyph_point_y_slot index y
+    let point_x field::get owner "point_x"
+    match gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_push_point_y point_x lower_cursor point:
+        Result::Err lower:
+            let kind gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_kind &lower
+            let rejected gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_point &lower
+            let region gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_region_error_kind &lower
+            let storage_kind gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_storage_push_error_kind &lower
+            let _rejected_cursor gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_cursor &lower
+            let returned gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_take_owner lower
+            let active gui_font_registered_face_simple_glyph_indexed_point_y_active cursor
+            let running gui_font_registered_face_simple_glyph_indexed_point_y_owner returned GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Active active
+            let recovered_invariant gui_font_registered_face_simple_glyph_indexed_point_y_owner_phase_invariant_check &running
+            Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error running GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::PointYPushFailed index some item none some rejected some kind region storage_kind some recovered_invariant
+        Result::Ok pushed:
+            let next_cursor gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_cursor &pushed
+            let returned gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_take_owner pushed
+            let next gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &next_cursor
+            let end gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &next_cursor
+            let active gui_font_registered_face_simple_glyph_indexed_point_y_active next_cursor
+            let completed gui_font_registered_face_simple_glyph_indexed_point_y_completed next_cursor
+            let state if eq next end then GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Completed completed else GuiFontRegisteredFaceSimpleGlyphIndexedPointYState::Active active
+            let running gui_font_registered_face_simple_glyph_indexed_point_y_owner returned state
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep running GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus::Pushed point
+
+//: production stepでは検査済みcursorをlower mutationとsame-owner recoveryの両方に使います。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_push_item %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn GuiSfntSimpleGlyphOutlinePointStreamItem Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner\cursor\index\item:
+    gui_font_registered_face_simple_glyph_indexed_point_y_push_item_with_lower_cursor owner cursor cursor index item
+
+//: item identity を glyph、index、kind の順で検査します。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_validate_item %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn GuiSfntSimpleGlyphOutlinePointStreamItem Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner\cursor\index\item:
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref &owner "point_x"
+    let capacity gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_capacity point_x
+    let expected_glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+    let full gui_sfnt_simple_glyph_outline_point_stream_item_point &item
+    let actual_glyph gui_sfnt_simple_glyph_point_glyph &full
+    if ne gui_glyph_id_raw &expected_glyph gui_glyph_id_raw &actual_glyph:
+        then Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::ItemGlyphMismatch index some item none none none none none none
+        else if ne index gui_sfnt_simple_glyph_point_index &full:
+            then Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::ItemIndexMismatch index some item none none none none none none
+            else if not gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item:
+                then Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::ItemKindMismatch index some item none none none none none none
+                else gui_font_registered_face_simple_glyph_indexed_point_y_push_item owner cursor index item
+
+//: owner-bound read結果を失敗回収またはidentity検証へ一度だけ分岐します。
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_point_y_finalize_item_read %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner\cursor\index\read:
+    match read:
+        Result::Err read_error: Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::ItemReadFailed index none some read_error none none none none none
+        Result::Ok item: gui_font_registered_face_simple_glyph_indexed_point_y_validate_item owner cursor index item
+
+//: PointY point を一つだけ commit します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor &owner
+    let index sub gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+    match gui_font_registered_face_simple_glyph_indexed_point_y_owner_progress_kind &owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Completed: Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::AlreadyCompleted index none none none none none none none
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Active:
+            let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref &owner "point_x"
+            let read gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_read point_x index
+            gui_font_registered_face_simple_glyph_indexed_point_y_finalize_item_read owner cursor index read
+
+#test
+//: item read failure が production と同じ finalizer で owner を回収できることを検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_test_force_item_read_failure %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor &owner
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref &owner "point_x"
+    let read gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_read point_x -1
+    gui_font_registered_face_simple_glyph_indexed_point_y_finalize_item_read owner cursor -1 read
+
+#test
+//: PointY push failure が production と同じ push path で owner を回収できることを検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_test_force_point_y_push_failure %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner:
+    let cursor gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor &owner
+    let index sub gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref &owner "point_x"
+    match gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_read point_x index:
+        Result::Err read_error: Result::Err gui_font_registered_face_simple_glyph_indexed_point_y_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind::ItemReadFailed index none some read_error none none none none none
+        Result::Ok item:
+            let full gui_sfnt_simple_glyph_outline_point_stream_item_point &item
+            let invalid_cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor GuiSfntSimpleGlyphOutlineScalarRegion::PointY 0 0 0
+            gui_font_registered_face_simple_glyph_indexed_point_y_push_item_with_lower_cursor owner cursor invalid_cursor index item
+
+//: terminal、budget zero、最大一回の point commit の順で処理します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_drain_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError \owner\remaining:
+    match gui_font_registered_face_simple_glyph_indexed_point_y_owner_progress_kind &owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Completed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus::Completed
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Active:
+            if le remaining 0:
+                then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus::StepBudgetExhausted
+                else gui_font_registered_face_simple_glyph_indexed_point_y_step owner
+
+//: Completed state と Valid invariant の owner だけを封印します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_seal_completed %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError \owner:
+    let actual gui_font_registered_face_simple_glyph_indexed_point_y_owner_progress_kind &owner
+    match actual:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Active: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError owner actual GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind::Completed:
+            let invariant gui_font_registered_face_simple_glyph_indexed_point_y_owner_phase_invariant_check &owner
+            match invariant:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner owner
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Invalid _kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError owner actual invariant
+
+//: 以下の accessor は owner を借用し、Copy metadata だけを返します。
+//: status / kind / count / cursor / invariant accessorは、対応するwrapperのfieldを再計算せず読みます。
+//: `take_owner`はwrapperを消費して唯一の継続ownerを返し、free関数は同じowner chainを一度だけ解放します。
+//: Option metadataは該当lower stageへ到達した場合だけsomeであり、callerはerror kindを先に確認します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStatus \step:
+    *field::get_ref step "status"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner \step:
+    field::get step "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_point_x_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck \error:
+    *field::get_ref error "point_x_invariant"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_expected_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError i32 \error:
+    *field::get_ref error "expected_item_count"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_actual_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError i32 \error:
+    *field::get_ref error "actual_item_count"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_cursor_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError Option StdErrorKind \error:
+    *field::get_ref error "cursor_error"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_phase_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \error:
+    *field::get_ref error "phase_invariant"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner \error:
+    field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_item_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError i32 \error:
+    *field::get_ref error "item_index"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_item %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option GuiSfntSimpleGlyphOutlinePointStreamItem \error:
+    *field::get_ref error "item"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_read_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \error:
+    *field::get_ref error "read_error"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_point %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option GuiSfntSimpleGlyphPointYSlot \error:
+    *field::get_ref error "point"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_push_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option GuiSfntSimpleGlyphPointYPushErrorKind \error:
+    *field::get_ref error "push_kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: lower push failure 後に回収した owner の phase invariant 再検査結果を返します。
+//: read/identity/completed error では none、push error では some です。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_recovered_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError Option GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \error:
+    *field::get_ref error "recovered_invariant"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner \error:
+    field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_seal_error_actual %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind \error:
+    *field::get_ref error "actual"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_seal_error_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \error:
+    *field::get_ref error "invariant"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner \error:
+    field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYProgressKind \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_progress_kind running
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_cursor running
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_phase_invariant_check running
+
+//: owner を消費して nested F5nxe authority を解放します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free field::get owner "point_x"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_free field::get owner "running"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYBudgetStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_free field::get step "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_free field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYSealError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_free field::get error "owner"

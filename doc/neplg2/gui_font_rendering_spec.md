@@ -193,6 +193,8 @@ PointXのlogical item indexは`cursor.next - cursor.start`だけから導出す�
 
 最終PointX push callは`Pushed slot`を返しつつ返却ownerをCompletedへ遷移させ、次のbudget callは値に関係なくCompletedを返す。checked completed sealはCompleted stateかつphase invariant Validの場合だけrunning owner全体をnested ownershipで保持するF5nxe completed ownerを返す。F5nxeはPointY cursorを開始せず、F5nxfだけがF5nxe completed ownerを入力authorityとしてPointY phaseを開始する。byte-backed coordinate再読取、旧F5ar外部collection drain、path traversalによる座標再導出、fallback、silent repair、panic、unreachable、PointY/edge/command/stroke/raster/render/platform APIをF5nxeから呼ばない。
 
+F5nxfはF5nxe completed ownerを分解せず、owner-bound item readで得たlogical pointのyだけをPointY regionへcommitする。PointY cursorのlogical indexは`next - start`、期待storage長は`contour_count + point_count + logical index`であり、PointX region全体の完了を省略できない。item glyph/index/kindはpush前に再検証し、read/push failureはsame registered authorityと失敗前cursorを保持する。最終push後はCompletedとなるがEdge cursorは開始せず、checked completed PointY ownerだけをF5nxgへ渡す。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。
