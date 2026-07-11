@@ -3557,7 +3557,7 @@ scopeのidentity/count検査だけでは、そのoperation tableがHIR reader pr
 
 ### Resource IR function inventory scope
 
-Rustの`ResourceFunction`は`entry_block: ResourceBlockId`と`blocks: Vec<ResourceBlock>`を持ち、各blockは独立した`id: ResourceBlockId`、`ops: Vec<ResourceOp>`、必須の`ResourceTerminator`を持つ。selfhost側でもentry block IDとblock tableを同じfunction inventory ownerへ保持する。block recordはtable走査用dense ordinalとは別にblock IDを保持し、全IDが非負かつ一意で、entry IDに一致するrecordが実在する場合だけscope検査を続ける。さらにrequest key / graph id、全blockを通じて隙間のないoperation range、blockごとに1件のdense terminator ordinalとterminator kindを保持する。RawBody terminatorはpayloadなしの単一tagへ縮退させず、Rust `RawBodyKind::Wasm / LlvmIr`を排他的payloadとして保持する。
+Rustの`ResourceFunction`は`result: TypeId`、`entry_block: ResourceBlockId`、`blocks: Vec<ResourceBlock>`を持ち、各blockは独立した`id: ResourceBlockId`、`ops: Vec<ResourceOp>`、必須の`ResourceTerminator`を持つ。selfhost側でもresult TypeId、entry block ID、block tableを同じfunction inventory ownerへ保持する。resultはscopeがborrowした同じTypeArena内のrecord実在までを検査するが、canonical type keyとactual lowering由来arena authorityは後続に残す。block recordはtable走査用dense ordinalとは別にblock IDを保持し、全IDが非負かつ一意で、entry IDに一致するrecordが実在する場合だけscope検査を続ける。さらにrequest key / graph id、全blockを通じて隙間のないoperation range、blockごとに1件のdense terminator ordinalとterminator kindを保持する。RawBody terminatorはpayloadなしの単一tagへ縮退させず、Rust `RawBodyKind::Wasm / LlvmIr`を排他的payloadとして保持する。
 
 `resource_ir_inventory_scope_authority_result`は空inventoryを拒否し、全block inventoryを順に走査したoperation総数が別ownerのtyped operation table長と一致し、そのoperation table自身もsame key / graph / dense ordinalを満たす場合だけ`ResourceIrInventoryValidated` scopeを発行する。この中間originはcoverage transport後もproduction validatorで拒否する。expected event countは現行unified streamのbody header 1件とoperation event数であり、terminatorはeventに偽装せずinventory coverageとして検査する。
 

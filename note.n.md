@@ -83581,6 +83581,16 @@ MERGE_APPROVED
 - subagent差分レビューの指摘により、RawBodyのexact enum / constructorだけをsource-policy検査対象から除外し従来のbackend禁止を維持した。全体整合レビューの指摘により`return_payload=None`と明記した。両レビューは最終APPROVED。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
 
+# 2026-07-11 selfhost Resource function result type
+
+- Rust `ResourceFunction.result: TypeId`がselfhost function inventoryから欠落していたため、result TypeIdをentry block ID / block ownerと一体で保持する。
+- scopeがborrowした同じTypeArena内のrecord実在をfunction header invariantとしてPlace走査前に検査し、負index `-1`は`FunctionResultTypeInvalid(-1)`、非負missing index `2`は`FunctionResultTypeMissing(2)`でexact rejectionする。
+- arena-local TypeIdは永続identityではない。canonical type key、actual lowering由来arena authority、ResourceOp専用topology ownerとwalker operation tableのco-productionは未完了で、originは`ResourceIrInventoryValidated`のままにする。
+- recursive countをwalker分類table長へ結合する試行は意味が一致しないため撤回した。Rust ResourceOp preorderは専用ownerへ接続する必要がある。
+- `plan.md`は変更していない。EnumPayload stable symbol、usize全域、sealed backend、artifact keyも未完了である。
+- subagent差分・全体整合レビューで、負TypeIdとarena missingのtaxonomy分離、function header検査をPlace loopからscopeへ移すことがblockingとなった。両点を修正し、最終レビューはいずれもAPPROVED。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
 # 2026-07-11 selfhost Resource entry block membership
 
 - Rust `ResourceFunction.entry_block`がselfhost function inventoryから欠落していたため、entry block IDとblock tableを同じownerへ保持し、各recordへdense ordinalとは別のblock IDを追加する。

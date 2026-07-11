@@ -927,6 +927,7 @@ assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory"),
     [
         "entry_block_id %i32",
+        "result_ty %SelfhostTypeId",
         "blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord",
     ],
     "Resource IR function inventory must keep the Rust entry block identity with its block owner",
@@ -1089,6 +1090,10 @@ assertOrdered(
         "BlockMissing",
         "resource_ir_entry_block_exists_loop inventory inventory.entry_block_id 0 block_count",
         "EntryBlockMissing inventory.entry_block_id",
+        "selfhost_type_id_index inventory.result_ty 0",
+        "FunctionResultTypeInvalid selfhost_type_id_index inventory.result_ty",
+        "selfhost_type_arena_get_record types inventory.result_ty",
+        "FunctionResultTypeMissing selfhost_type_id_index inventory.result_ty",
         "resource_ir_place_inventory_len places",
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
@@ -1105,10 +1110,12 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
     [
-        "resource_ir_inventory_with_entry_stage0_result entry_block_id second_block_id",
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty second_block_id",
         "EntryBlockMissing missing_entry",
         "BlockIdDuplicate duplicate_id",
         "BlockIdInvalid invalid_id",
+        "FunctionResultTypeInvalid invalid_type",
+        "FunctionResultTypeMissing missing_type",
     ],
     "entry block runtime fixtures must exact-match missing entry, duplicate block ID, and invalid block ID errors",
 );
