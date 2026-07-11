@@ -83555,3 +83555,9 @@ MERGE_APPROVED
 - `PlanReady -> Allocated -> Writing -> Completed`の各phaseでregistered sourceを保持し、plan/storage/writerのsplit takeやforeign pairingを公開しない。F5ay/F5az/F5baのstorage-only algorithmは変更せず再利用する。
 - completed authority借用read-at、terminal優先budget、push成功後だけのcursor commit、partial push failure metadata保存後の即時single freeとcleanup-only source保持、checked sealをruntime/source-policy/normal compileで固定する。
 - 次はF5nxk stroke source contour migrationである。フォント解析からnative / GUI表示までの最終目標は未完了であり、このcheckpointを全体完成とは扱わない。
+
+## 2026-07-12 runtime gate blocker再確認
+
+- registered face production chainへread retry、budget 0/negative、partial seal、8 writes、terminal優先、checked seal、cleanup-only push failureを直結したfixtureを実測した。各分岐はownerを1回だけ消費または解放しているが、最初の`writer_step_budget(recovered_writer, 0)`の戻り値でResource checkerがdeep `Result` payloadの既にmove済み入力leafをReturnValueへ再投影し、`resource.owner.use_after_move`を誤報した。
+- 差分レビューと全体整合レビューはF5nxj API、partial writer cleanup、source-read retry、legacy adapter互換、phase境界を妥当と判定した。一方、仕様が要求するregistered wrapper runtime証拠が未達のため統合不可と判定した。失敗するfixture差分は残していない。
+- compiler correctness blockerを`ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D`へ分離した。最小再現でReturnValue projection summaryを修正し、同じproduction chain fixtureが通過することがF5nxj再開条件である。F5nxkへは進まず、フォント解析からnative / GUI表示までの最終目標も未完了である。
