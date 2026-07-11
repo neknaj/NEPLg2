@@ -6570,6 +6570,27 @@ owner / state契約:
 - source policyでPendingだけのspan lookup、Activeのchecked-span event read、tag push exactly once、external collection/raw split/full scan/fallback/panic/unreachable/F5nxi以降の禁止を固定する。
 - normal compile regressionでtest-only failure injectionとprivate constructorがproduction surfaceへ露出しないことを固定する。
 
+### Phase F5nxi: registered indexed path command stream preparation owner
+
+目的:
+
+- F5nxh checked completed PathCommandTag owner全体を唯一の入力authorityとしてregistered command value lookup、bounded cursor、prepare summaryを統合する。
+- summaryにtotal、各command kind count、last path command indexを保持し、O(command + contour)、追加領域O(1)でdrainする。
+- checked completed prepare ownerだけをF5nxj command sink plan / allocation / writerへ渡す。
+
+owner / state契約:
+
+- startはPathCommandTag completion invariant、cursor、zero summary、phase invariantの順にfail-fastする。
+- stepはCompleted、budget 0以下、owner-bound command value lookup、index/tag identity、kind count commitの順である。
+- failureはsame completed PathCommandTag authorityと失敗前cursor/summaryを保持し、metadata-before-take、single recovery/freeを守る。
+- checked sealはcursor end、total、kind count合計、last index、phase invariantを検査する。sink allocation/mutationとstroke以降へ進まない。
+
+検証:
+
+- controlled 8-command fixtureで8 SkipNoSegment values、total 8、Skip count 8、他kind 0、last 7、partial resume、budget 0、terminal、seal/freeを検査する。
+- lookup failureでtyped metadata、same-owner retry、cursor/summary不変を検査する。
+- source policyでcompleted PathCommandTag唯一input、owner-bound lookup、summary更新、budget precedence、F5nxj-only handoff、raw split/sink/stroke/raster/render/platform禁止を固定する。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

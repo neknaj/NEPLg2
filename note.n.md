@@ -83537,3 +83537,14 @@ MERGE_APPROVED
 - pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
 - pass: playground editor CLI 13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。
 - 次はF5nxiでchecked completed PathCommandTag ownerをauthorityとしてcommand value / stream preparationへ進む。個別checkpointを最終完成とは扱わない。
+
+# 2026-07-11 GUI font rendering F5nxi registered command stream preparation owner
+
+- checked completed PathCommandTag ownerだけを入力authorityとし、registered command value lookup、bounded `next / end` cursor、total / kind counts / last index summaryを一体所有するprepare ownerを追加した。raw collection / storage、tag owner、edge ownerを分離して公開しない。
+- startはlower completion、cursor構築、zero summary、phase invariantの順にfail closedする。Pendingだけがcontour spanをlookupし、Activeは保存spanを再利用する。value projectionはglyph / contour / local / edge / event ordinal / stored tag / source tag / eventを再検証してからtyped valueを作る。
+- controlled all-off-curve fixtureで8件の`SkipNoSegment` value、logical index 0..7、edge index `index / 2`、event ordinal `index % 2`、total 8、Skip count 8、他kind 0、last index 7を確認した。budget 0 / negative、premature seal、terminal / direct completed、span / tag / event failureのtyped metadata、recovered invariant、same-owner retryも検査した。
+- facade、source-policy、normal compile isolation、runtime fixture、仕様、詳細設計、実装計画、todoをF5nxi契約へ更新した。checked completed prepare ownerだけを次のF5nxj command sink plan / allocation / writerへ渡す。
+- subagent差分レビューと全体整合レビューの指摘に従い、cursor実体、zero-command Completed、start precedence、summary / state invariant、全identity再検証、event failure kind / optional lower error、same-owner recoveryを補完した。最終差分と全体整合レビューはいずれもAPPROVED。
+- pass: focused runtime 1 / 1、Web GUI font source-policy、normal compile isolation、stdlib documentation contract、issues check、`git diff --check`、`NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
+- pass: playground editor CLI 13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。
+- 次はF5nxjでcommand sink plan / allocation / writerへ進む。フォント解析からnative / GUI表示までの最終目標は未完了であり、このcheckpointを全体完成とは扱わない。

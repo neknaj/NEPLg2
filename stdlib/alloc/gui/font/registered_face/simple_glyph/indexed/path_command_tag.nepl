@@ -467,6 +467,56 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error
 //:
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagSealError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner \error: field::get error "owner"
+
+//: completed PathCommandTag authorityが後続read phaseに利用できるかを検査します。
+//:
+//: [契約/けいやく]: completed ownerを借用し、同じphase invariantを一度だけ検査します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_continuation_authority_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_path_command_tag_owner_phase_invariant_check running
+
+//: completed PathCommandTag authorityのcanonical capacityを読みます。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_capacity edge
+
+//: completed PathCommandTag authorityのstorage lenを読みます。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_storage_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner i32 \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_storage_len edge
+
+//: completed PathCommandTag authorityからindexed checked spanをO(1)で読みます。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_span_lookup edge contour_index
+
+//: completed PathCommandTag authorityからchecked sink eventをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_event_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_event_checked_span edge span edge_index slot
+
+//: completed PathCommandTag authorityからPathCommandTagをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_path_command_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner fn i32 Result GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphOutlinePathCommandTagReadError \owner\path_command_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_read_path_command_tag edge path_command_index
+
+//: completed PathCommandTag authorityからEdge owner markerをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_edge_owner %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlineEdgeOwnerMarker GuiSfntSimpleGlyphOutlineEdgeOwnerReadError \owner\edge_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_read_edge_owner edge edge_index
 //: gui_font_registered_face_simple_glyph_indexed_path_command_tag_owner_free: 処理の契約を一つの入口に固定します
 //:
 //: neplg2:test[skip]

@@ -401,6 +401,26 @@ pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_path_
     let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
     gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_path_sink_event_at_checked_span completed span edge_index slot
 
+//: storage authorityからPathCommandTagを読みます。
+//:
+//: [契約/けいやく]: raw storageを公開せず、lower typed readをexactly once呼びます。
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_read_path_command_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn i32 Result GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphOutlinePathCommandTagReadError \owner\path_command_index:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_read_path_command_tag storage path_command_index
+
+//: storage authorityからEdge owner markerを読みます。
+//:
+//: [契約/けいやく]: raw storageを公開せず、lower typed readをexactly once呼びます。
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_read_edge_owner %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn i32 Result GuiSfntSimpleGlyphOutlineEdgeOwnerMarker GuiSfntSimpleGlyphOutlineEdgeOwnerReadError \owner\edge_index:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index
+
 //: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_item_read: sealed collectionからpoint itemを読む
 //:
 //: [契約/けいやく]: nested completed authorityへexactly once委譲し、collection refを公開しません。

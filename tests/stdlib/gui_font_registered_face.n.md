@@ -2262,6 +2262,102 @@ fn registered_face_path_command_tag_slot_ok %fn &GuiSfntSimpleGlyphOutlinePointS
         GuiSfntSimpleGlyphPathSinkEventSlot::Second: eq rem_s expected_index 2 1
     and eq expected_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_path_command_index slot and eq expected_edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_edge_index slot and eq expected_contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_index slot and eq expected_local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_edge_index slot and eq expected_scalar gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_scalar_value slot event_ok
 
+fn registered_face_path_command_stream_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner impure fn i32 bool \owner\expected_index:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_step_budget owner 1:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_free error
+            false
+        Result::Ok step:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_status &step:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::Prepared value:
+                    let expected_edge %i32 div_s expected_index 2
+                    let expected_contour %i32 if lt expected_edge 2 then 0 else 1
+                    let expected_local %i32 if lt expected_edge 2 then expected_edge else sub expected_edge 2
+                    let slot_ok %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_event_slot &value:
+                        GuiSfntSimpleGlyphPathSinkEventSlot::First: eq rem_s expected_index 2 0
+                        GuiSfntSimpleGlyphPathSinkEventSlot::Second: eq rem_s expected_index 2 1
+                    let stored gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value
+                    let source gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag &value
+                    let tag_ok %bool and eq 4 gui_sfnt_simple_glyph_path_command_tag_scalar_value &stored eq 4 gui_sfnt_simple_glyph_path_command_tag_scalar_value &source
+                    let command_ok %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value:
+                        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+                            match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                                GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                                _: false
+                        _: false
+                    let prepared_ok %bool and eq expected_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value and eq expected_edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value and eq expected_contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value and eq expected_local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value and slot_ok and tag_ok command_ok
+                    let next gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner step
+                    and prepared_ok registered_face_path_command_stream_drain_ok next add expected_index 1
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::Completed:
+                    let completed_running gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner step
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_step completed_running:
+                        Result::Ok unexpected:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_free unexpected
+                            false
+                        Result::Err completed_error:
+                            let completed_error_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_kind &completed_error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::AlreadyCompleted: true
+                                _: false
+                            let recovered gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_take_owner completed_error
+                            match gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal recovered:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal_error_free error
+                                    false
+                                Result::Ok completed:
+                                    let summary gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary &completed
+                                    let summary_ok %bool and eq expected_index 8 and eq 8 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary and eq 8 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary eq 7 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+                                    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free completed
+                                    and completed_error_ok summary_ok
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::StepBudgetExhausted:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_free step
+                    false
+
+fn registered_face_path_command_stream_preflight_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner bool \input:
+    let span_error gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_span_lookup_failure input
+    let span_ok %bool and eq 0 gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_path_command_index &span_error is_some gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_span_error &span_error
+    let after_span gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_take_owner span_error
+    let tag_error gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_tag_read_failure after_span
+    let tag_ok %bool and eq -1 gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_path_command_index &tag_error is_some gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_tag_read_error &tag_error
+    let after_tag gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_take_owner tag_error
+    let event_error gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_event_read_failure after_tag
+    let event_ok %bool and:
+        match gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_kind &event_error:
+            GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::EventReadFailed: true
+            _: false
+        is_some gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_event_error &event_error
+    let event_invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_recovered_invariant &event_error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Valid: true
+        _: false
+    let after_event gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_take_owner event_error
+    let after_event_progress_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_progress_kind &after_event:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::ActiveContour: true
+        _: false
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_step_budget after_event 0:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_free error
+            false
+        Result::Ok zero:
+            let zero_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_status &zero:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::StepBudgetExhausted: true
+                _: false
+            let after_zero gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner zero
+            match gui_font_registered_face_simple_glyph_indexed_path_command_stream_step_budget after_zero sub 0 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_free error
+                    false
+                Result::Ok negative:
+                    let negative_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_status &negative:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::StepBudgetExhausted: true
+                        _: false
+                    let after_negative gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner negative
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal after_negative:
+                        Result::Ok unexpected:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free unexpected
+                            false
+                        Result::Err premature:
+                            let recovered gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal_error_take_owner premature
+                            and span_ok and tag_ok and event_ok and event_invariant_ok and after_event_progress_ok and zero_ok and negative_ok registered_face_path_command_stream_drain_ok recovered 0
+
 fn registered_face_path_command_tag_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner impure fn i32 bool \owner\expected_index:
     if lt expected_index 8:
         then:
@@ -2303,8 +2399,12 @@ fn registered_face_path_command_tag_drain_ok %impure fn GuiFontRegisteredFaceSim
                                     gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error_free seal_error
                                     false
                                 Result::Ok completed:
-                                    gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_free completed
-                                    and terminal_ok recovery_ok
+                                    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_start completed:
+                                        Result::Err start_error:
+                                            gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_free start_error
+                                            false
+                                        Result::Ok stream:
+                                            and terminal_ok and recovery_ok registered_face_path_command_stream_preflight_ok stream
 
 fn registered_face_path_command_tag_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner bool \edge:
     match gui_font_registered_face_simple_glyph_indexed_path_command_tag_start edge:

@@ -439,6 +439,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedEdge = read("stdlib/alloc/gui/fon
 const allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedEdge);
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_tag.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag);
+const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3829,6 +3831,32 @@ for (const [source, freeName] of [
 ]) {
     assert(functionSlice(source, freeName).length > 0, `F5nxh forwarding owner-bearing surface must provide ${freeName}`);
 }
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/path_command_stream"\s+as\s+\*/, "facade must export F5nxi path command stream preparation owner");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/path_command_tag"\s+as\s+\*/, "F5nxi must import the sealed PathCommandTag authority");
+const registeredPathCommandStreamStart = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_stream_start");
+assertOrderedFragments(registeredPathCommandStreamStart, ["completed_owner_capacity &tag", "path_command_count", "path_command_stream_cursor 0 command_count", "PendingContour", "path_command_stream_prepare_summary 0 0 0 0 0 -1", "owner_phase_invariant_check &owner"], "F5nxi start must construct a checked 0..command-count cursor and validate its initial owner");
+const registeredPathCommandStreamInvariant = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_phase_invariant_check");
+assertOrderedFragments(registeredPathCommandStreamInvariant, ["cursor_next", "cursor_end", "ne cursor_end command_count", "lt move_count 0", "lt line_count 0", "lt quadratic_count 0", "lt skip_count 0", "SummaryCountInvalid", "eq cursor_next total"], "F5nxi invariant must own cursor end, reject negative per-kind counts, and bind cursor progress to summary total");
+const registeredPathCommandStreamStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_stream_step");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, /path_command_stream_activate input[\s\S]*path_command_value[\s\S]*path_command_stream_summary_increment/, "F5nxi step must activate owner-bound lookup and commit one command summary value");
+const registeredPathCommandStreamBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_stream_step_budget");
+assertOrderedFragments(registeredPathCommandStreamBudget, ["owner_progress_kind &owner", "Completed", "le remaining 0", "StepBudgetExhausted", "path_command_stream_step owner"], "F5nxi budget must prefer terminal, avoid zero-budget lookup, and commit at most one command");
+const registeredPathCommandStreamSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal");
+assertOrderedFragments(registeredPathCommandStreamSeal, ["owner_progress_kind &owner", "owner_phase_invariant_check &owner", "Completed", "Valid", "PathCommandStreamCompletedOwner"], "F5nxi seal must require terminal state and a valid cursor/summary invariant before F5nxj");
+const registeredPathCommandStreamSummaryIncrement = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_stream_summary_increment");
+assertOrderedFragments(registeredPathCommandStreamSummaryIncrement, ["prepare_summary_total_count", "prepare_summary_move_to_count", "prepare_summary_line_to_count", "prepare_summary_quadratic_to_count", "prepare_summary_skip_no_segment_count", "index"], "F5nxi summary must preserve total, per-kind counts, and last command index");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl, /(?:collection_ref|take_collection|storage_ref|take_storage|raw_collection|split|callback|_with_tables|\bfallback\b|\bpanic\b|\bunreachable\b|sink_(?:plan|owner|writer)|\bStroke\b|\bRaster\b|RenderTarget|\bplatform\b)/, "F5nxi must keep sealed authority and stop before F5nxj sink/stroke/raster/render/platform phases");
+for (const helper of [
+    "gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_span_lookup_failure",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_tag_read_failure",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_event_read_failure",
+]) {
+    assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream, new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+${helper}\\b`), `F5nxi test helper must remain test-only: ${helper}`);
+}
+for (const accessor of ["error_path_command_index", "error_edge_index", "error_stored_tag", "error_source_tag", "error_span_error", "error_tag_read_error", "error_edge_read_error", "error_event_error", "error_marker", "error_span", "error_recovered_invariant", "start_error_invariant", "seal_error_invariant"]) {
+    assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream, new RegExp(`gui_font_registered_face_simple_glyph_indexed_path_command_stream_${accessor}\\b`), `F5nxi must expose borrowed typed metadata accessor ${accessor}`);
+}
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream, /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_path_command_stream_(?:completed_owner_take_tag|owner_take_tag|take_storage|storage_ref|take_collection|collection_ref)/, "F5nxi must not expose lower authority or raw storage splits");
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,
     "registered_face_simple_glyph_summary_completed_close_ok",

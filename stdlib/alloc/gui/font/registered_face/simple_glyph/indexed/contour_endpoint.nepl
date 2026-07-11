@@ -958,6 +958,20 @@ pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get_ref owner "running"
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_path_sink_event_at_checked_span running span edge_index slot
 
+//: completed endpoint authorityからPathCommandTagをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_read_path_command_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner fn i32 Result GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphOutlinePathCommandTagReadError \owner\path_command_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get_ref owner "running"
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref running "storage"
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_read_path_command_tag storage path_command_index
+
+//: completed endpoint authorityからEdge owner markerをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_read_edge_owner %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlineEdgeOwnerMarker GuiSfntSimpleGlyphOutlineEdgeOwnerReadError \owner\edge_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get_ref owner "running"
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref running "storage"
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_read_edge_owner storage edge_index
+
 //: gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_point_x: completed endpoint authorityを保ってPointXをcommitする
 //:
 //: [契約/けいやく]: F5nxc mutationへexactly once委譲し、success/error双方で同じF5nxd completed authorityを再構築します。

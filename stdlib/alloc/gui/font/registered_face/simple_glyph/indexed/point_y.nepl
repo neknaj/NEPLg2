@@ -684,6 +684,20 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_pat
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
     gui_font_registered_face_simple_glyph_indexed_point_y_owner_path_sink_event_at_checked_span running span edge_index slot
 
+//: completed PointY authorityからPathCommandTagをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_read_path_command_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner fn i32 Result GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphOutlinePathCommandTagReadError \owner\path_command_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref running "point_x"
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_read_path_command_tag point_x path_command_index
+
+//: completed PointY authorityからEdge owner markerをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_read_edge_owner %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlineEdgeOwnerMarker GuiSfntSimpleGlyphOutlineEdgeOwnerReadError \owner\edge_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref running "point_x"
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_read_edge_owner point_x edge_index
+
 //: owner を消費して nested F5nxe authority を解放します。
 //:
 //: neplg2:test[skip]

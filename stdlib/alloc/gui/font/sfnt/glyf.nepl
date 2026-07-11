@@ -12459,6 +12459,30 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue i32 \value:
     *field::get_ref value "path_command_index"
 
+//: path_command_value_edge_index: command valueに対応するglobal edge indexを読みます
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue i32 \value:
+    *field::get_ref value "edge_index"
+
+//: path_command_value_contour_index: command valueのcontour indexを読みます
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue i32 \value:
+    *field::get_ref value "contour_index"
+
+//: path_command_value_contour_edge_index: contour内のlocal edge indexを読みます
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue i32 \value:
+    *field::get_ref value "contour_edge_index"
+
+//: path_command_value_event_slot: edge内のfirstまたはsecond event slotを読みます
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_event_slot %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiSfntSimpleGlyphPathSinkEventSlot \value:
+    *field::get_ref value "event_slot"
+
 //: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag: storage から[読/よ]んだ tag を[読/よ]む
 //:
 //: neplg2:test[skip]

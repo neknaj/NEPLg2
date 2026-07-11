@@ -1,0 +1,597 @@
+//: # registered-face simple glyph indexed path command stream preparation
+//: completed PathCommandTag authorityからcommand valueを1件ずつ再構築し、prepare summaryを更新します。
+//:
+//: PendingContourだけがspan lookupを行い、ActiveContourは保存済みspanを再利用します。
+//: Pendingからspan取得後の失敗はActiveContourとして返し、retry時にも同じchecked spanを再利用します。
+//: 各stepは高々1 commandを処理し、全体の計算量はO(command + contour)、追加領域はO(1)です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
+//: fn main %fn void i32 \void:
+//:|      let value %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::PendingContour
+//:|      match value:
+//:|          GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::PendingContour: 0
+//:|          _: 1
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_tag" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/gui/font" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: PathCommandStreamProgressKind: command stream準備の現在phaseを表します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind:
+    PendingContour
+    ActiveContour
+    Completed
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind \value: value
+
+//: PathCommandStreamPending: 未展開contourのindexと期待開始位置を保持します
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPending:
+    contour_index %i32
+    expected_start %i32
+    cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+//: PathCommandStreamActive: 一度検査したspanを同一contour内で再利用します
+//:
+//: neplg2:test[skip]
+struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamActive:
+    span %GuiSfntSimpleGlyphContourSpan
+    expected_start %i32
+    cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+//: PathCommandStreamState: pending、active、completedの排他的な進行状態を所有します
+//:
+//: neplg2:test[skip]
+enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState:
+    PendingContour %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPending
+    ActiveContour %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamActive
+    Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+
+//: PathCommandStreamOwner: completed tag authorityと準備summaryを同一ownerに束ねます
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner:
+    tag %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary
+//: PathCommandStreamCompletedOwner: 全command value準備済みの線形authorityです
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner:
+    running %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner
+
+//: PathCommandStreamPhaseInvariantInvalidKind: phase invariant違反の分類を保持します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind:
+    LowerAuthorityInvalid
+    CursorInvalid
+    SummaryCountInvalid
+    SummaryLastIndexInvalid
+    StateProgressInvalid
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind \value: value
+//: PathCommandStreamPhaseInvariantCheck: ownerの継続可否をtyped resultで表します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck:
+    Valid
+    Invalid %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck \value: value
+
+//: PathCommandStreamStartError: 開始失敗時にlower ownerを回収可能なまま返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind
+    lower_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck
+    cursor %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor
+    invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck
+
+//: PathCommandStreamStartErrorKind: start前提条件のどこで失敗したかを分類します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind:
+    CompletionInvariantInvalid
+    CursorConstructionFailed
+    ZeroSummaryInvalid
+    PhaseInvariantInvalid
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind \value: value
+
+//: PathCommandStreamErrorKind: command再構築中の失敗境界を分類します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind:
+    AlreadyCompleted
+    SpanLookupFailed
+    SpanInvariantInvalid
+    StoredTagReadFailed
+    EdgeOwnerReadFailed
+    EdgeOwnerIdentityMismatch
+    EventReadFailed
+    SourceTagMismatch
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind \value: value
+
+//: PathCommandStreamError: same-owner retryに必要なownerと診断証拠を保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind
+    path_command_index %i32
+    edge_index %i32
+    stored_tag %Option GuiSfntSimpleGlyphPathCommandTag
+    source_tag %Option GuiSfntSimpleGlyphPathCommandTag
+    span_error %Option GuiSfntSimpleGlyphContourSpanIndexLookupError
+    tag_read_error %Option GuiSfntSimpleGlyphOutlinePathCommandTagReadError
+    edge_read_error %Option GuiSfntSimpleGlyphOutlineEdgeOwnerReadError
+    event_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+    marker %Option GuiSfntSimpleGlyphOutlineEdgeOwnerMarker
+    span %Option GuiSfntSimpleGlyphContourSpan
+    recovered_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck
+
+//: PathCommandStreamBudgetStatus: 1件準備、完了、budget枯渇を区別します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus:
+    Prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue
+    Completed
+    StepBudgetExhausted
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus \value: value
+//: PathCommandStreamBudgetStep: step後ownerとstatusを一緒に返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus
+//: PathCommandStreamSealError: 未完了またはinvalidなownerを消費せず返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner
+    actual %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind
+    invariant %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck
+
+//: owner_cursor: 進行stateから共通のtyped command cursorを返します
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \owner:
+    match field::get_ref owner "state":
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::PendingContour pending: *field::get_ref pending "cursor"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour active: *field::get_ref active "cursor"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::Completed cursor: *cursor
+
+//: owner_phase_invariant_check: lower authority、summary、進行cursorの整合を検査します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck \owner:
+    let tag_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref owner "tag"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_continuation_authority_check tag_ref:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Invalid _kind: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::LowerAuthorityInvalid
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid:
+            let summary %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary field::get_ref owner "summary"
+            let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity tag_ref
+            let command_count gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &capacity
+            let cursor gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_cursor owner
+            let cursor_next gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_next_index &cursor
+            let cursor_end gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_end_index &cursor
+            if or or lt cursor_next 0 gt cursor_next cursor_end ne cursor_end command_count:
+                then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::CursorInvalid
+                else:
+                    let total gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count summary
+                    let move_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count summary
+                    let line_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count summary
+                    let quadratic_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count summary
+                    let skip_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count summary
+                    let kind_total add add move_count line_count add quadratic_count skip_count
+                    if or or or or lt total 0 lt move_count 0 lt line_count 0 lt quadratic_count 0 or lt skip_count 0 ne total kind_total:
+                        then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::SummaryCountInvalid
+                        else:
+                            let last gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index summary
+                            if ne last sub total 1:
+                                then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::SummaryLastIndexInvalid
+                                else:
+                                    let state_ok %bool match field::get_ref owner "state":
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::PendingContour pending:
+                                            let contour *field::get_ref pending "contour_index"
+                                            let expected_start *field::get_ref pending "expected_start"
+                                            and eq cursor_next total and eq cursor_next mul expected_start 2 and ge contour 0 lt cursor_next command_count
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour active:
+                                            let span *field::get_ref active "span"
+                                            let expected_start *field::get_ref active "expected_start"
+                                            let edge_index div_s cursor_next 2
+                                            let progress_ok and eq cursor_next total eq expected_start gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                                            let edge_ok and ge edge_index expected_start le edge_index gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                                            and progress_ok and edge_ok lt cursor_next command_count
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::Completed _cursor: and eq cursor_next total eq cursor_next command_count
+                                    if state_ok:
+                                        then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Valid
+                                        else GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::StateProgressInvalid
+
+//: path_command_stream_start: completed tag authorityから初期stream ownerを構築します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError \tag:
+    let lower_invariant gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_continuation_authority_check &tag
+    match lower_invariant:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Invalid _kind:
+            let invariant GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::LowerAuthorityInvalid
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError tag GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind::CompletionInvariantInvalid lower_invariant none invariant
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid:
+            let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity &tag
+            let command_count gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &capacity
+            if lt command_count 0:
+                then:
+                    let invariant GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::CursorInvalid
+                    let lower_invariant GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError tag GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind::CursorConstructionFailed lower_invariant none invariant
+                else:
+                    let cursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor 0 command_count
+                    let pending GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPending 0 0 cursor
+                    let state %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState if eq command_count 0 then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::Completed cursor else GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::PendingContour pending
+                    let summary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary 0 0 0 0 0 -1
+                    let zero_summary_ok and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary eq -1 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+                    if not zero_summary_ok:
+                        then:
+                            let invariant GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantInvalidKind::SummaryCountInvalid
+                            let lower_invariant GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError tag GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind::ZeroSummaryInvalid lower_invariant (some cursor) invariant
+                        else:
+                            let owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner tag state summary
+                            let invariant gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_phase_invariant_check &owner
+                            match invariant:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Valid: Result::Ok owner
+                                _:
+                                    let lower_invariant GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid
+                                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError (field::get owner "tag") GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind::PhaseInvariantInvalid lower_invariant (some cursor) invariant
+
+//: owner_progress_kind: 内部stateを公開progress kindへ射影します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind \owner:
+    match field::get_ref owner "state":
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::PendingContour _value: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::PendingContour
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour _value: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::ActiveContour
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::Completed _value: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::Completed
+
+//: owner_summary: 現在までのcommand種別集計をcopyで返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_summary %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \owner: *field::get_ref owner "summary"
+
+//: path_command_stream_error: 証拠なしのtyped failureを同一ownerから構築します
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind fn i32 fn i32 fn Option GuiSfntSimpleGlyphPathCommandTag fn Option GuiSfntSimpleGlyphPathCommandTag GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \owner\kind\path_command_index\edge_index\stored_tag\source_tag:
+    let invariant gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_phase_invariant_check &owner
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError owner kind path_command_index edge_index stored_tag source_tag none none none none none none invariant
+
+//: path_command_stream_error_evidence: lower failure証拠と回収ownerをtyped errorへ束ねます
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind fn i32 fn i32 fn Option GuiSfntSimpleGlyphPathCommandTag fn Option GuiSfntSimpleGlyphPathCommandTag fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphOutlinePathCommandTagReadError fn Option GuiSfntSimpleGlyphOutlineEdgeOwnerReadError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError fn Option GuiSfntSimpleGlyphOutlineEdgeOwnerMarker fn Option GuiSfntSimpleGlyphContourSpan GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \owner\kind\path_command_index\edge_index\stored_tag\source_tag\span_error\tag_read_error\edge_read_error\event_error\marker\span:
+    let invariant gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_phase_invariant_check &owner
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError owner kind path_command_index edge_index stored_tag source_tag span_error tag_read_error edge_read_error event_error marker span invariant
+
+//: summary_increment: command種別に対応するcounterとlast indexを1件進めます
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_summary_increment %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary fn i32 fn GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \summary\index\command:
+    let total add gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count summary 1
+    let move gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count summary
+    let line gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count summary
+    let quadratic gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count summary
+    let skip gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count summary
+    match command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo _value: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary total (add move 1) line quadratic skip index
+        GuiSfntSimpleGlyphPathCommand::LineTo _value: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary total move (add line 1) quadratic skip index
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo _value: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary total move line (add quadratic 1) skip index
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment _value: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary total move line quadratic (add skip 1) index
+
+//: path_command_stream_activate: pending contourを1回のspan lookupでactiveへ遷移します
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_activate %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \owner:
+    match field::get_ref &owner "state":
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::PendingContour pending:
+            let contour *field::get_ref pending "contour_index"
+            let expected_start *field::get_ref pending "expected_start"
+            let cursor *field::get_ref pending "cursor"
+            let index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_next_index &cursor
+            let tag_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref &owner "tag"
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_span_lookup tag_ref contour:
+                Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SpanLookupFailed index -1 none none (some error) none none none none none
+                Result::Ok span:
+                    let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity tag_ref
+                    let capacity_glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                    let span_glyph gui_sfnt_simple_glyph_contour_span_glyph &span
+                    let start gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                    let end gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                    let count gui_sfnt_simple_glyph_contour_span_point_count &span
+                    let point_count gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                    let identity_ok and eq gui_glyph_id_raw &capacity_glyph gui_glyph_id_raw &span_glyph eq gui_sfnt_simple_glyph_contour_span_index &span contour
+                    let start_ok and eq start expected_start ge start 0
+                    let end_ok and ge end start lt end point_count
+                    let count_ok eq count add sub end start 1
+                    let span_ok and identity_ok and start_ok and end_ok count_ok
+                    if not span_ok:
+                        then Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SpanInvariantInvalid index -1 none none none none none none none (some span)
+                        else:
+                            let active GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamActive span expected_start cursor
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner (field::get owner "tag") (GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour active) (field::get owner "summary")
+        _: Result::Ok owner
+
+//: path_command_stream_step: tag、edge owner、eventを照合してcommand valueを高々1件準備します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \input:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_activate input:
+        Result::Err error: Result::Err error
+        Result::Ok owner:
+            match field::get_ref &owner "state":
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::Completed _index:
+                    Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::AlreadyCompleted -1 -1 none none
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour active:
+                    let span *field::get_ref active "span"
+                    let expected_start *field::get_ref active "expected_start"
+                    let cursor *field::get_ref active "cursor"
+                    let index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_next_index &cursor
+                    let ordinal rem_s index 2
+                    let edge_index div_s index 2
+                    let contour gui_sfnt_simple_glyph_contour_span_index &span
+                    let local sub edge_index expected_start
+                    let slot %GuiSfntSimpleGlyphPathSinkEventSlot if eq ordinal 0 then GuiSfntSimpleGlyphPathSinkEventSlot::First else GuiSfntSimpleGlyphPathSinkEventSlot::Second
+                    let tag_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref &owner "tag"
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_path_command_tag tag_ref index:
+                        Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::StoredTagReadFailed index edge_index none none none (some error) none none none (some span)
+                        Result::Ok stored_tag:
+                            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_edge_owner tag_ref edge_index:
+                                Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::EdgeOwnerReadFailed index edge_index (some stored_tag) none none none (some error) none none (some span)
+                                Result::Ok marker:
+                                    let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity tag_ref
+                                    let capacity_glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                                    let marker_glyph gui_sfnt_simple_glyph_outline_edge_owner_marker_glyph &marker
+                                    let marker_ok and eq gui_glyph_id_raw &capacity_glyph gui_glyph_id_raw &marker_glyph and eq gui_sfnt_simple_glyph_outline_edge_owner_marker_edge_index &marker edge_index eq gui_sfnt_simple_glyph_outline_edge_owner_marker_contour_index &marker contour
+                                    if not marker_ok:
+                                        then Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::EdgeOwnerIdentityMismatch index edge_index (some stored_tag) none none none none none (some marker) (some span)
+                                        else:
+                                            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_event_checked_span tag_ref span local slot:
+                                                Result::Err error: Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::EventReadFailed index edge_index (some stored_tag) none none none none (some error) (some marker) (some span)
+                                                Result::Ok event:
+                                                    let source_kind gui_sfnt_simple_glyph_path_sink_event_kind &event
+                                                    let source_tag gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind &source_kind
+                                                    if not gui_sfnt_simple_glyph_path_command_tag_eq &stored_tag &source_tag:
+                                                        then Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SourceTagMismatch index edge_index (some stored_tag) (some source_tag) none none none none (some marker) (some span)
+                                                        else:
+                                                            let command gui_sfnt_simple_glyph_path_sink_event_command &event
+                                                            let value gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value index edge_index contour local slot stored_tag source_tag command
+                                                            let summary gui_font_registered_face_simple_glyph_indexed_path_command_stream_summary_increment field::get_ref &owner "summary" index command
+                                                            let next_index add index 1
+                                                            let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity tag_ref
+                                                            let command_count gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &capacity
+                                                            let next_cursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor next_index command_count
+                                                            let next_state %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState if eq next_index command_count:
+                                                                then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::Completed next_cursor
+                                                                else:
+                                                                    let count gui_sfnt_simple_glyph_contour_span_point_count &span
+                                                                    let finished_contour and eq ordinal 1 eq add local 1 count
+                                                                    if finished_contour:
+                                                                        then GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::PendingContour GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPending (add contour 1) (add expected_start count) next_cursor
+                                                                        else GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamActive span expected_start next_cursor
+                                                            let next_owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner (field::get owner "tag") next_state summary
+                                                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep next_owner (GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::Prepared value)
+                _: Result::Err gui_font_registered_face_simple_glyph_indexed_path_command_stream_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::AlreadyCompleted -1 -1 none none
+
+//: path_command_stream_step_budget: terminalを優先し、正のbudgetでだけ1 step進めます
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_step_budget %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \owner\remaining:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_progress_kind &owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::Completed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::Completed
+        _:
+            if le remaining 0:
+                then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::StepBudgetExhausted
+                else gui_font_registered_face_simple_glyph_indexed_path_command_stream_step owner
+
+//: path_command_stream_seal: completedかつvalidなownerだけをcompleted authorityへ封印します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError \owner:
+    let actual gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_progress_kind &owner
+    let invariant gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_phase_invariant_check &owner
+    match actual:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamProgressKind::Completed:
+            match invariant:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck::Valid: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner owner
+                _: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError owner actual invariant
+        _: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError owner actual invariant
+
+//: budget_step_owner: budget stepから継続ownerを取り出します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner \step: field::get step "owner"
+//: budget_step_status: budget stepの結果分類をcopyで返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus \step: *field::get_ref step "status"
+//: error_kind: path command stream errorの分類を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind \error: *field::get_ref error "kind"
+//: error_path_command_index: 失敗したcommandのglobal indexを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_path_command_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError i32 \error: *field::get_ref error "path_command_index"
+//: error_edge_index: 失敗に対応するedge indexを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_edge_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError i32 \error: *field::get_ref error "edge_index"
+//: error_stored_tag: storageから読めたtag証拠を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_stored_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphPathCommandTag \error: *field::get_ref error "stored_tag"
+//: error_source_tag: source eventから導出したtag証拠を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_source_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphPathCommandTag \error: *field::get_ref error "source_tag"
+//: error_span_error: contour span lookupのlower errorを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_span_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error: *field::get_ref error "span_error"
+//: error_tag_read_error: stored tag readのlower errorを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_tag_read_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphOutlinePathCommandTagReadError \error: *field::get_ref error "tag_read_error"
+//: error_edge_read_error: edge owner marker readのlower errorを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_edge_read_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphOutlineEdgeOwnerReadError \error: *field::get_ref error "edge_read_error"
+//: error_event_error: checked-span event再構築のlower errorを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_event_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \error: *field::get_ref error "event_error"
+//: error_marker: identity検査に使ったedge owner markerを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_marker %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphOutlineEdgeOwnerMarker \error: *field::get_ref error "marker"
+//: error_span: 失敗時に検査済みまたは不正だったspan証拠を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError Option GuiSfntSimpleGlyphContourSpan \error: *field::get_ref error "span"
+//: error_recovered_invariant: 回収ownerに対して記録したphase invariant結果を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_recovered_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck \error: *field::get_ref error "recovered_invariant"
+//: error_take_owner: failureからsame-owner retry用ownerを移動して取り出します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner \error: field::get error "owner"
+//: seal_error_take_owner: seal failureから継続ownerを回収します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner \error: field::get error "owner"
+//: seal_error_invariant: seal拒否時のphase invariant結果を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal_error_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck \error: *field::get_ref error "invariant"
+//: start_error_take_owner: start failureからlower completed authorityを回収します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner \error: field::get error "owner"
+//: start_error_kind: start failureの前提条件分類を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartErrorKind \error: *field::get_ref error "kind"
+//: start失敗時に確認したlower completed authority invariantを返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_lower_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck \error: *field::get_ref error "lower_invariant"
+//: cursor構築後に失敗した場合のchecked cursorを返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor \error: *field::get_ref error "cursor"
+//: start_error_invariant: start拒否時のphase invariant結果を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamPhaseInvariantCheck \error: *field::get_ref error "invariant"
+//: completed_owner_summary: 完了authorityの最終prepare summaryをcopyで返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner field::get_ref owner "running"
+    *field::get_ref running "summary"
+//: owner_free: stream owner以下の線形資源を解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner unit \owner: gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_free field::get owner "tag"
+//: budget_step_free: budget stepが所有する継続ownerを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStep unit \step: gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_free field::get step "owner"
+//: completed_owner_free: completed authority以下の線形資源を解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner unit \owner: gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_free field::get owner "running"
+//: error_free: retryしないfailure owner以下の資源を解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError unit \error: gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_free field::get error "owner"
+//: seal_error_free: 回収しないseal failure owner以下の資源を解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamSealError unit \error: gui_font_registered_face_simple_glyph_indexed_path_command_stream_owner_free field::get error "owner"
+//: start_error_free: 回収しないstart failureのlower authorityを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamStartError unit \error: gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_free field::get error "owner"
+
+#test
+//: gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_span_lookup_failure: span lookup failure recoveryを検査します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_span_lookup_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \owner:
+    let tag_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref &owner "tag"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_span_lookup tag_ref sub 0 1:
+        Result::Err error: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SpanLookupFailed 0 -1 none none (some error) none none none none none
+        Result::Ok span: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SpanInvariantInvalid 0 -1 none none none none none none none (some span)
+
+#test
+//: gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_tag_read_failure: stored tag read failure recoveryを検査します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_tag_read_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \owner:
+    let tag_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref &owner "tag"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_path_command_tag tag_ref sub 0 1:
+        Result::Err error: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::StoredTagReadFailed -1 -1 none none none (some error) none none none none
+        Result::Ok tag: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SourceTagMismatch -1 -1 (some tag) none none none none none none none
+
+#test
+//: gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_event_read_failure: checked-span event failure recoveryを検査します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_test_force_event_read_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamError \input:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_activate input:
+        Result::Err error: error
+        Result::Ok owner:
+            match field::get_ref &owner "state":
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamState::ActiveContour active:
+                    let span *field::get_ref active "span"
+                    let cursor *field::get_ref active "cursor"
+                    let index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_next_index &cursor
+                    let invalid_local gui_sfnt_simple_glyph_contour_span_point_count &span
+                    let tag_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref &owner "tag"
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_event_checked_span tag_ref span invalid_local GuiSfntSimpleGlyphPathSinkEventSlot::First:
+                        Result::Err error: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::EventReadFailed index (div_s index 2) none none none none none (some error) none (some span)
+                        Result::Ok _event: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_evidence owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::SpanInvariantInvalid index (div_s index 2) none none none none none none none (some span)
+                _: gui_font_registered_face_simple_glyph_indexed_path_command_stream_error owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamErrorKind::AlreadyCompleted -1 -1 none none

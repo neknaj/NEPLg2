@@ -636,6 +636,20 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_path_s
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_event_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
     gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_path_sink_event_at_checked_span owner span edge_index slot
 
+//: completed Edge authorityからPathCommandTagをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_read_path_command_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn i32 Result GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphOutlinePathCommandTagReadError \owner\path_command_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref running "point_y"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_read_path_command_tag point_y path_command_index
+
+//: completed Edge authorityからEdge owner markerをexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_read_edge_owner %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlineEdgeOwnerMarker GuiSfntSimpleGlyphOutlineEdgeOwnerReadError \owner\edge_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref running "point_y"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_read_edge_owner point_y edge_index
+
 //: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush: 処理中の所有権と付随情報を同じ値として保持します
 //:
 //: neplg2:test[skip]
