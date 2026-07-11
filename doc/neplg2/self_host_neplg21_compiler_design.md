@@ -3539,6 +3539,12 @@ completion一致をsplit変換時だけ検査してcoverage authorityから捨�
 
 このtransportはauthority lifecycleの断絶を閉じるが、expected scopeの由来は引き続きresolver-bound HIR source projectionである。actual Resource IR function/block/operation enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは完成していない。
 
+### Resource-lowering traversal scope authority
+
+context-bound event producerがoperation table長から直接expected countをmintしていた境界を、module-private traversal scope authorityへ置き換える。scope producerはemit前にoperation table全recordのproof key / graph idをrequest contextと照合し、operation ordinalがtable順のdenseな`0..n`であることを要求してから、operation countとbody headerを含むexpected event countを固定する。event table constructorはraw countではなく検査済みscopeだけを受け取る。
+
+このscopeはRust側`ResourceModule.functions → ResourceFunction.blocks → ResourceBlock.ops`列挙を接続する差し替え点である。ただし現段階のscope入力はHIR reader source projection由来operation tableであり、nested block/terminatorを列挙するactual Resource IR enumeratorではない。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

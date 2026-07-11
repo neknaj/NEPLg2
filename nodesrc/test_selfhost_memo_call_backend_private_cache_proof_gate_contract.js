@@ -778,13 +778,63 @@ assertOrdered(
     "unified event owner must carry a pre-emission expected count separately from its emitted count",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "operation_count %i32",
+        "expected_event_count %i32",
+    ],
+    "resource-lowering traversal scope must bind request identity and the pre-emission operation/event counts",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_record_validate_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_proof_key_eq record.key key",
+        "ActualTraversalBodyInputKeyMismatch key",
+        "selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id graph_id",
+        "ActualTraversalBodyInputGraphMismatch record.graph_id.index",
+        "record.operation_ordinal expected_ordinal",
+        "ActualWalkerOperationOrdinalMismatch record.operation_ordinal",
+        "Result::Ok unit",
+    ],
+    "scope record validation must distinguish request key, graph, and dense traversal ordinal failures",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_stage0_case"),
+    [
+        "resource_lowering_traversal_scope_stage0_table_result second_ordinal",
+        "resource_lowering_traversal_scope_authority_from_identity_result target_key target_graph &table",
+        "actual_walker_operation_table_free table",
+        "scope.operation_count 2",
+        "scope.expected_event_count 3",
+    ],
+    "scope runtime must construct an owner table, run the full scope producer, inspect minted counts, and close the owner",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_validate_loop"),
+    [
+        "actual_walker_operation_table_get operations idx",
+        "resource_lowering_traversal_scope_record_validate_result record key graph_id idx",
+        "resource_lowering_traversal_scope_validate_loop operations key graph_id add idx 1 n",
+        "ActualWalkerOperationReadFailed idx",
+    ],
+    "scope producer must validate every operation record before minting expected completion",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result"),
     [
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_with_expected_count add 1 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations",
+        "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_result context operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_from_traversal_scope scope",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events0 body_payload",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1 key graph_id 0 scope.operation_count",
     ],
-    "context-bound producer must fix the expected count before emitting the body and operation events",
+    "context-bound producer must validate a traversal scope authority before emitting body and operation events",
+);
+assert.doesNotMatch(
+    stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result")),
+    /actual_walker_event_table_new_with_expected_count|add 1 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len/,
+    "context-bound event producer must not mint completion directly from a raw operation-table count",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free"),
@@ -5534,11 +5584,12 @@ assertOrdered(
     [
         "field::get context \"key\"",
         "field::get context \"graph_id\"",
-        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new",
+        "selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_result context operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_from_traversal_scope scope",
         "selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary",
         "SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body",
         "selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events0 body_payload",
-        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1 key graph_id 0 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1 key graph_id 0 scope.operation_count",
         "ActualWalkerEventBuildRejected e",
     ],
     "reader source output bridge must reuse the existing operation classifier path when turning source-derived operations into split-output events",

@@ -16,7 +16,8 @@ fn main %impure fn void i32 \void:
     match selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0:
         Result::Ok accepted:
             let coverage_transport_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_stage0;
-            test_assertion_exit_code assert_ne_bool "completion cases rejected and transported" false and accepted coverage_transport_ok
+            let traversal_scope_ok %bool selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_stage0;
+            test_assertion_exit_code assert_ne_bool "completion cases rejected and transported" false and accepted and coverage_transport_ok traversal_scope_ok
         Result::Err _error:
             test_assertion_exit_code assert_ne_bool "completion setup succeeded" false false
 ```

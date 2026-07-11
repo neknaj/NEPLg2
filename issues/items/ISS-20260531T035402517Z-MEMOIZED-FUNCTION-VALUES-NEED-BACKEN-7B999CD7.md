@@ -1060,3 +1060,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 検証はtarget contract、selfhost doctest 19 / 19、production completion rejection smoke、stdlib documentation contract、issues check、trunk build後のplayground CLI JSONをgateとする。
 
 2026-07-11: split ownerで検査したexpected/emitted completion markerがcoverage authority生成時に失われていたため、両countをproduction coverage authorityへ運搬し、下流validatorで一致とevent-shape count合計を再検査するようにした。reader representativeはcompletion未発行のままproductionで拒否する。actual Resource IR function/block/operation enumeratorとsealed backendは未完了である。
+
+2026-07-11: context-bound event producerのraw operation table長からのcompletion mintを廃止し、全operation recordのrequest key / graph idとdense ordinal `0..n`をemit前に検査するResource-lowering traversal scope authorityを追加した。event tableは検査済みscopeからだけexpected countを受け取る。scopeは将来RustのResourceFunction/block/op enumeratorへ差し替える境界であり、現入力はまだHIR projection由来である。

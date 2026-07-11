@@ -83435,3 +83435,13 @@ MERGE_APPROVED
 - `plan.md`は変更していない。expected scopeはまだresolver-bound HIR source projection由来であり、actual Resource IR enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未完了である。
 - native runtimeでactual splitからcoverage mint、downstream validator、owner cleanupまでを1/1で確認した。owner-free request contextへClone/Copyを明示し、value-only coverage authorityはorigin field read前に明示copyしてresource checker上のmoveを防いだ。
 - pass: target contract、selfhost doctest 19/19、coverage transport runtime 1/1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。subagentの差分・全体整合レビューはいずれも最終APPROVED。
+
+# 2026-07-11 selfhost Resource-lowering traversal scope authority
+
+- context-bound event producerがoperation table長から直接expected countをmintしていたため、identity検査とscope確定が同じraw count式に埋もれていたことを根本原因とした。
+- module-private traversal scope authorityを追加し、operation table全recordのproof key / graph idとdenseな`operation_ordinal == index`を検査してからoperation countとbody header込みexpected event countを固定する。
+- runtimeでvalid、wrong key、wrong graph、gap/out-of-order、negative、duplicate ordinalを検査する。
+- event tableはraw countではなくscope authorityからだけcompletionを受け取る。runtimeはactual split→coverage transport経路を引き続き1/1で通過する。
+- `plan.md`は変更していない。scope入力はまだHIR reader source projection由来で、RustのResourceFunction/block/op actual enumerator、effect mask、sealed backend、artifact policy hashは未完了である。
+- subagent差分レビューの指摘により、scope recordへdense ordinal検査と専用`ActualWalkerOperationOrdinalMismatch` taxonomyを追加し、実2-record owner tableでvalid/wrong key/wrong graph/duplicate/gap/negativeを検査した。差分・全体整合レビューはいずれも最終APPROVED。
+- pass: target contract、scope runtime 1/1、selfhost doctest 19/19、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
