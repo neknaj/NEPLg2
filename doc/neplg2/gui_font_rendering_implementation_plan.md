@@ -6516,6 +6516,27 @@ owner / move契約:
 - premature seal、completed seal、phase invariant invalid、owner二重take/use-after-move、private constructor、test-only entryのnormal compile undefinedを検査する。
 - source policyはforwarding chain、lower item read/PointX push exactly once、validation precedence、outer reconstruction、old F5ar/external collection/raw split/PointY以降/fallback/panic/unreachable/wildcard successの禁止を固定する。
 
+### Phase F5nxf: registered indexed PointY population owner
+
+目的:
+
+- F5nxe checked completed PointX owner全体を唯一のauthorityとしてPointY regionを順次構築する。
+- sealed collectionのitemをowner-bound O(1) readで再利用し、外部collection、raw storage、caller supplied pointを再注入しない。
+- PointY completionをchecked ownerとして封印し、Edge cursor開始をF5nxgへ分離する。
+
+owner / move契約:
+
+- startはPointX completed phase invariant、item count、checked PointY cursor、PointY phase invariantの順にfail-fastする。
+- storage lengthは`contour_count + point_count + (cursor.next - cursor.start)`だけから検証し、PointX完了済みscalarを欠いたownerを受理しない。
+- item read/identity failureはsame PointY ownerを保持する。PointY push failureはlower kind、rejected slot、region kind、storage push kindを読んだ後、F5nxc、F5nxd、F5nxe completed、F5nxf runningの順にauthorityを再構築する。
+- budgetはCompleted、0以下、最大1 commitの順で、0以下ではitem readもPointY pushも行わない。owner-bearing型はClone/Copyにせずsingle take/freeを提供する。
+- checked completed sealだけをF5nxg inputにし、F5nxfではEdge lookup、cursor start、command、stroke、raster、render、platformへ進まない。
+
+検証:
+
+- focused doctestでpublic型をcompileし、controlled registered fixtureで4 PointY値、partial resume、exact completion、terminal優先、item read/push failure recoveryを検査する。
+- source policyでowner-bound item read/PointY push exactly once、metadata-before-take、external collection/raw split/old F5as/fallback/panic/unreachable/Edge以降の禁止を固定する。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

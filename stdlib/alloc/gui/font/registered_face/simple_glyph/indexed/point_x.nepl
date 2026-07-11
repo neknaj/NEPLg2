@@ -605,6 +605,17 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_pha
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner field::get_ref owner "running"
     gui_font_registered_face_simple_glyph_indexed_point_x_owner_phase_invariant_check running
 
+//: 後続phaseのstorage追記を許しつつPointX completion authorityを再検査します。
+//: PointX完了後はstorage長だけが後続regionの進捗で増えるため、そのinvalidだけを除外します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_continuation_authority_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck \owner:
+    match gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_phase_invariant_check owner:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Invalid kind:
+            match kind:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantInvalidKind::StorageLengthMismatch: GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid
+                _: GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Invalid kind
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid: GuiFontRegisteredFaceSimpleGlyphIndexedPointXPhaseInvariantCheck::Valid
+
 //: owner を消費して nested F5nxd authority を解放します。
 //:
 //: neplg2:test[skip]
@@ -630,3 +641,111 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_x_step_error_free %im
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXSealError unit \error:
     gui_font_registered_face_simple_glyph_indexed_point_x_owner_free field::get error "owner"
+
+//: F5nxf が completed PointX authority から canonical capacity を借用します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner field::get_ref owner "running"
+    let endpoint %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner field::get_ref running "endpoint"
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_capacity endpoint
+
+//: F5nxf が completed PointX authority の storage progress を借用します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_storage_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner i32 \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_x_owner_storage_len running
+
+//: F5nxf が sealed collection の exact item count を借用します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner i32 \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner field::get_ref owner "running"
+    let endpoint %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner field::get_ref running "endpoint"
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_item_count endpoint
+
+//: F5nxf が sealed collection item を O(1) で読みます。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_item_read %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \owner\item_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner field::get_ref owner "running"
+    let endpoint %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner field::get_ref running "endpoint"
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_item_read endpoint item_index
+
+//: PointY commit 後の same completed PointX authority と cursor を保持します。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPush:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+//: PointY commit failure metadata と same completed PointX authority を保持します。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point %GuiSfntSimpleGlyphPointYSlot
+    kind %GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+
+//: completed PointX authority を保ったまま PointY を exactly once commit します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_push_point_y %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointYSlot Result GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPush GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError \owner\cursor\point:
+    let running %GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner field::get owner "running"
+    let endpoint %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner field::get running "endpoint"
+    let state %GuiFontRegisteredFaceSimpleGlyphIndexedPointXState field::get running "state"
+    match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_point_y endpoint cursor point:
+        Result::Ok pushed:
+            let next_cursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_cursor &pushed
+            let returned gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_take_owner pushed
+            let next_running gui_font_registered_face_simple_glyph_indexed_point_x_owner returned state
+            let next_owner GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner next_running
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPush next_owner next_cursor
+        Result::Err lower:
+            let kind gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_error_kind &lower
+            let rejected_cursor gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_error_cursor &lower
+            let rejected_point gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_error_point &lower
+            let region gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_error_region_error_kind &lower
+            let storage_kind gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_error_storage_push_error_kind &lower
+            let returned gui_font_registered_face_simple_glyph_indexed_contour_endpoint_point_y_push_error_take_owner lower
+            let returned_running gui_font_registered_face_simple_glyph_indexed_point_x_owner returned state
+            let returned_owner GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner returned_running
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError returned_owner rejected_cursor rejected_point kind region storage_kind
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPush GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner \pushed:
+    field::get pushed "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError GuiSfntSimpleGlyphPointYPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \error:
+    *field::get_ref error "cursor"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_point %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError GuiSfntSimpleGlyphPointYSlot \error:
+    *field::get_ref error "point"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: lower metadata を読んだ後に same completed PointX authority を回収します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner \error:
+    field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPush unit \pushed:
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free field::get pushed "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_point_y_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPointYPushError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free field::get error "owner"

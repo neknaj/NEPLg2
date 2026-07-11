@@ -721,3 +721,107 @@ pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free 
 pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_alloc_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageAllocError unit \error:
     let completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get error "completed"
     gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_free completed
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush: PointY commit後のouter ownerとcursor
+//:
+//: [契約/けいやく]: completed authorityと更新済みstorageを分離せず保持します。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError: PointY commit失敗時のrecoverable outer error
+//:
+//: [契約/けいやく]: lower metadataとsame outer ownerを保持し、raw storageを公開しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point %GuiSfntSimpleGlyphPointYSlot
+    kind %GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+//: [目的/もくてき]: successful PointY pushをouter ownerへ再結合します。
+//: [計算量/けいさんりょう]: O(1)です。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush \owner\cursor:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush owner cursor
+
+//: [目的/もくてき]: failed PointY pushをsame outer ownerへ再結合します。
+//: [契約/けいやく]: lower metadataを全て読んだ後にだけ呼びます。
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn GuiSfntSimpleGlyphPointYSlot fn GuiSfntSimpleGlyphPointYPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError \owner\cursor\point\kind\region_error_kind\storage_push_error_kind:
+    GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError owner cursor point kind region_error_kind storage_push_error_kind
+//: gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_point_y: outer ownerを保ったままPointYをcommitする
+//:
+//: [処理/しょり]: lower metadataをstorage回収前に読み、success/error双方でcompleted authorityとreturned storageを再結合します。
+//: [計算量/けいさんりょう]: lower validationとscalar pushを一度だけ行うためO(1)です。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_point_y %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointYSlot Result GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError \owner\cursor\point:
+    let completed %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get owner "completed"
+    let storage %GuiSfntSimpleGlyphOutlineStorage field::get owner "storage"
+    match gui_sfnt_simple_glyph_outline_storage_push_point_y storage cursor point:
+        Result::Ok lower_push:
+            let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_point_y_push_cursor &lower_push
+            let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_y_push_storage lower_push
+            let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_owner completed next_storage
+            Result::Ok gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push next_owner next_cursor
+        Result::Err lower_error:
+            let kind %GuiSfntSimpleGlyphPointYPushErrorKind gui_sfnt_simple_glyph_point_y_push_error_kind &lower_error
+            let rejected_point %GuiSfntSimpleGlyphPointYSlot gui_sfnt_simple_glyph_point_y_push_error_point &lower_error
+            let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_point_y_push_error_region_error_kind &lower_error
+            let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_point_y_push_error_push_error_kind &lower_error
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_y_push_error_storage lower_error
+            let returned_owner %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner gui_font_registered_face_simple_glyph_indexed_outline_storage_owner completed returned_storage
+            Result::Err gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error returned_owner cursor rejected_point kind region_error_kind storage_push_error_kind
+
+//: [目的/もくてき]: PointY push success metadataを読み、outer ownerを一度だけ回収します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner \pushed:
+    field::get pushed "owner"
+
+//: [目的/もくてき]: PointY push failure metadataをowner回収前に読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError GuiSfntSimpleGlyphPointYPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \error:
+    *field::get_ref error "cursor"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_point %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError GuiSfntSimpleGlyphPointYSlot \error:
+    *field::get_ref error "point"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: [注意/ちゅうい]: metadataはこの関数より前に読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner \error:
+    field::get error "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPush unit \pushed:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free field::get pushed "owner"
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_point_y_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePointYPushError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_free field::get error "owner"

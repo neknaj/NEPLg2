@@ -83322,3 +83322,25 @@ MERGE_APPROVED
 
 - 今回完了した eligibility checkpoint は追加しない。
 - full Resource IR traversal、private-effect mask、artifact policy hash など既存の未完了項目は継続する。
+# 2026-07-11 Agent2 GUI font rendering F5nxf registered indexed PointY population owner
+
+## 実装状況
+
+- `plan.md`、GUI font rendering仕様・詳細設計・実装計画、`todo.md`、Issue index、main直近commitを再確認し、F5nxe checked completed PointX owner全体を唯一のauthorityとするPointY populationを実装した。`plan.md`は変更していない。
+- F5nxc outline storage ownerへPointY専用consuming mutation、F5nxd/F5nxeへsame-authority forwardingを追加し、lower metadataをowner回収前に読んでからnested owner chainを再構築する。
+- F5nxf ownerはPointY cursorだけをphase progressとして保持し、storage長を`contour_count + point_count + logical PointY progress`で検査する。外部collection、raw storage、caller supplied pointを受け取らない。
+- bounded stepはCompleted、budget 0以下、最大1 item read/validation/pushの順で進み、checked sealまでEdge cursorを開始しない。
+- public facade、仕様、詳細設計、実装計画、todoをF5nxf/F5nxg境界へ更新した。
+
+## 検証
+
+- pass: `stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/point_y.nepl` focused doctest 69 / 69。
+- pass: F5nxf source-policyを含むWeb GUI font rendering contract。
+- pass: F5nxf test-only entry normal compile isolation。
+- pass: subagent差分レビューと全体整合レビューの指摘を反映。PointX completion invariantのstorage長をPointY進捗後へ再適用していた根本不具合をcontinuation authority check分離で修正し、中間owner wrapperへfreeを追加した。
+- pending: controlled registered runtime fixture、trunk build後のnodesrc CLI JSON確認。
+
+## plan.mdとの差異と次作業
+
+- `plan.md`との差異は、汎用言語計画にGUI font owner pipelineの詳細がない点であり、変更提案はない。詳細authorityはGUI font rendering文書とtodoに記録している。
+- 次はF5nxgでchecked completed PointY ownerをauthorityとしてedge populationへ進み、indexed span / checked-span edge coreを使う。
