@@ -943,6 +943,16 @@ assert.deepEqual(
     "Resource IR inventory must enumerate every Rust ResourceTerminator class without a fallback kind",
 );
 assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind"),
+    ["Wasm", "LlvmIr"],
+    "RawBody terminators must preserve every Rust RawBodyKind without a fallback",
+);
+assert.match(
+    topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind"),
+    /RawBody %SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind/,
+    "RawBody terminators must carry their variant-native kind payload",
+);
+assert.deepEqual(
     enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot"),
     ["Local", "Temporary", "I32Constant", "Return", "Storage", "Unknown"],
     "Resource IR Place inventory must preserve every Rust PlaceRoot variant without a fallback",
@@ -1039,7 +1049,7 @@ assertOrdered(
         "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable",
         "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _return_place",
         "TerminatorPayloadUnexpected record.terminator_ordinal",
-        "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody _raw_body_kind",
         "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _return_place",
         "TerminatorPayloadUnexpected record.terminator_ordinal",
     ],
@@ -7493,8 +7503,14 @@ assert.doesNotMatch(
     /diagnostic_symbol|diagnostic_span|string_search::str_eq|candidate\.name|memo_call"/,
     "private-cache proof gate must not use display symbol, diagnostic span, candidate name, string search, or memo_call string literal as authority",
 );
+const backendPolicyCode = code
+    .replace(topLevelBlock(code, "enum", "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind"), "")
+    .replaceAll(
+        "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind::Wasm",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind::BinaryBody",
+    );
 assert.doesNotMatch(
-    code,
+    backendPolicyCode,
     /cache_(?:lookup|insert)_(?:execute|run|write|read|alloc|drop)|execute_cache_(?:lookup|insert)|CacheAlloc|CacheDrop|Wasm|LLVM|wasm_|llvm_|sealed|backend_bytes|neplobj|neplproof/,
     "private-cache proof gate must not create executable cache operations, backend bytes, sealed representation, or persistent artifact IO",
 );

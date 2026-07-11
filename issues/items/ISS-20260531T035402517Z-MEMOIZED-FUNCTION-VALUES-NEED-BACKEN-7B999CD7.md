@@ -1086,3 +1086,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Place recordのprojection countとPlace順prefix sumからprojection ownerのdense範囲を確定し、same request / graph、Place id、ordinal、variant payloadをscope発行前に検査するようにした。StorageOffset内のrecursive Place linkは同じPlace ownerの実在recordだけを参照できる。EnumPayload stable symbol、usize全域、Unknown分類、actual lowering co-productionは未実装である。
 
 2026-07-11: RustのPlaceRoot::UnknownとResourceOffset::Unknownをvariant modelには残しつつ、inventory scopeでは通常root / offsetの意味を推測せずtyped unsupported rejectionにした。EnumPayload stable symbol、usize全域、canonical type key、actual lowering co-productionは未実装である。
+
+2026-07-11: block inventoryで単一tagへ縮退していたResourceTerminator::RawBodyへ、Rust RawBodyKind::Wasm / LlvmIrの排他的payloadを追加した。両kindの`return_payload=None`成功とReturn Place payload拒否をruntimeで固定した。block-aware nested operation ownerとactual lowering co-productionは未実装である。

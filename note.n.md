@@ -83571,3 +83571,12 @@ MERGE_APPROVED
 - `plan.md`は変更していない。EnumPayload stable symbol、usize全域、canonical type key、block-aware nested owner、actual lowering co-production、PrivateCache / PrivateState effect mask、sealed backend、artifact keyは未完了である。
 - subagent差分レビューと全体整合レビューはいずれもAPPROVED。Unknownは一般Resource IR codecで保持すべきsentinelなので、拒否をinventory/proof scope限定に保つことも確認した。
 - pass: projection contract、proof gate contract、focused runtime 2 / 2、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
+# 2026-07-11 selfhost Resource RawBody kind
+
+- Rust `ResourceTerminator::RawBody { kind }`の必須payloadがselfhost block inventoryで単一tagへ縮退していたため、Wasm / LlvmIrをvariant-native enumとして保持する。
+- 両kindは`return_payload=None`のterminatorとして受理し、Return Place payloadを付けた形は従来どおりtyped rejectionする。backend byte生成やraw body実行は追加しない。
+- source-policyのbare `Wasm|LLVM`禁止は型分類まで誤検出したため、RawBodyKind enumとexact qualified constructorの正当な出現だけを検査対象から除外し、従来のbare `Wasm|LLVM`、wasm / llvm import、実行helper、backend bytes、sealed representation、artifact禁止を維持する。
+- `plan.md`は変更していない。block-aware Branch / Loop / Match owner、operation semantics、actual lowering co-production、EnumPayload stable symbol、usize全域、canonical type key、sealed backend、artifact keyは未完了である。
+- subagent差分レビューの指摘により、RawBodyのexact enum / constructorだけをsource-policy検査対象から除外し従来のbackend禁止を維持した。全体整合レビューの指摘により`return_payload=None`と明記した。両レビューは最終APPROVED。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。

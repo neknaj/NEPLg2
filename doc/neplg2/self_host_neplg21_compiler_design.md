@@ -3557,7 +3557,7 @@ scopeのidentity/count検査だけでは、そのoperation tableがHIR reader pr
 
 ### Resource IR function inventory scope
 
-Rustの`ResourceFunction`は`blocks: Vec<ResourceBlock>`を持ち、各blockは`ops: Vec<ResourceOp>`と必須の`ResourceTerminator`を持つ。selfhost側でもblock inventory ownerを追加し、request key / graph id、dense block ordinal、全blockを通じて隙間のないoperation range、blockごとに1件のdense terminator ordinalとterminator kindを保持する。
+Rustの`ResourceFunction`は`blocks: Vec<ResourceBlock>`を持ち、各blockは`ops: Vec<ResourceOp>`と必須の`ResourceTerminator`を持つ。selfhost側でもblock inventory ownerを追加し、request key / graph id、dense block ordinal、全blockを通じて隙間のないoperation range、blockごとに1件のdense terminator ordinalとterminator kindを保持する。RawBody terminatorはpayloadなしの単一tagへ縮退させず、Rust `RawBodyKind::Wasm / LlvmIr`を排他的payloadとして保持する。
 
 `resource_ir_inventory_scope_authority_result`は空inventoryを拒否し、全block inventoryを順に走査したoperation総数が別ownerのtyped operation table長と一致し、そのoperation table自身もsame key / graph / dense ordinalを満たす場合だけ`ResourceIrInventoryValidated` scopeを発行する。この中間originはcoverage transport後もproduction validatorで拒否する。expected event countは現行unified streamのbody header 1件とoperation event数であり、terminatorはeventに偽装せずinventory coverageとして検査する。
 
