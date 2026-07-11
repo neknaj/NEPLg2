@@ -924,11 +924,20 @@ assert.doesNotMatch(
     "HIR operation-table scope producer must not mint Resource IR enumerator provenance",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory"),
+    [
+        "entry_block_id %i32",
+        "blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord",
+    ],
+    "Resource IR function inventory must keep the Rust entry block identity with its block owner",
+);
+assertOrdered(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord"),
     [
         "key %SelfhostMemoCallBackendPrivateCacheProofKey",
         "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
         "block_ordinal %i32",
+        "block_id %i32",
         "first_operation_ordinal %i32",
         "operation_count %i32",
         "terminator_ordinal %i32",
@@ -1062,6 +1071,10 @@ assertOrdered(
         "proof_key_eq record.key key",
         "resource_graph_id_eq record.graph_id graph_id",
         "record.block_ordinal idx",
+        "record.block_id 0",
+        "BlockIdInvalid record.block_id",
+        "resource_ir_block_id_exists_before_loop inventory record.block_id 0 idx",
+        "BlockIdDuplicate record.block_id",
         "record.operation_count 0",
         "record.first_operation_ordinal next_operation_ordinal",
         "record.terminator_ordinal idx",
@@ -1074,6 +1087,8 @@ assertOrdered(
     [
         "resource_ir_function_inventory_len inventory",
         "BlockMissing",
+        "resource_ir_entry_block_exists_loop inventory inventory.entry_block_id 0 block_count",
+        "EntryBlockMissing inventory.entry_block_id",
         "resource_ir_place_inventory_len places",
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
@@ -1086,6 +1101,16 @@ assertOrdered(
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
+    [
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id second_block_id",
+        "EntryBlockMissing missing_entry",
+        "BlockIdDuplicate duplicate_id",
+        "BlockIdInvalid invalid_id",
+    ],
+    "entry block runtime fixtures must exact-match missing entry, duplicate block ID, and invalid block ID errors",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop"),

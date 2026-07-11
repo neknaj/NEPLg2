@@ -83580,3 +83580,11 @@ MERGE_APPROVED
 - `plan.md`は変更していない。block-aware Branch / Loop / Match owner、operation semantics、actual lowering co-production、EnumPayload stable symbol、usize全域、canonical type key、sealed backend、artifact keyは未完了である。
 - subagent差分レビューの指摘により、RawBodyのexact enum / constructorだけをsource-policy検査対象から除外し従来のbackend禁止を維持した。全体整合レビューの指摘により`return_payload=None`と明記した。両レビューは最終APPROVED。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
+# 2026-07-11 selfhost Resource entry block membership
+
+- Rust `ResourceFunction.entry_block`がselfhost function inventoryから欠落していたため、entry block IDとblock tableを同じownerへ保持し、各recordへdense ordinalとは別のblock IDを追加する。
+- 空block tableは従来の`BlockMissing`を優先する。非空tableではblock IDの非負・一意性とentry ID membershipを検査し、ID 7 / 9の2 block fixtureで非ordinal entry 9を受理、missing entry 8、duplicate ID 7、negative block IDをexact rejectionする。dense block / operation / terminator検査は維持する。
+- `plan.md`は変更していない。block-aware Branch / Loop / Match owner、operation semantics、actual lowering co-production、EnumPayload stable symbol、usize全域、canonical type key、sealed backend、artifact keyは未完了である。
+- 全体整合レビューでentryをdense ordinalとして扱う誤りがblockingとなったため、Rust ResourceBlockIdとdense ordinalを分離し、ID membership / uniquenessへ根本修正した。差分・全体整合レビューはいずれも最終APPROVED。block ID一意性のprior scanはO(n²)だが、semantic contractを変えず後続index化できる。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
