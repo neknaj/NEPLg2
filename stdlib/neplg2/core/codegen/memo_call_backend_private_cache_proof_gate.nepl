@@ -2604,6 +2604,30 @@ struct SelfhostMemoCallBackendPrivateCacheResourceFunctionTypeParameterBindingEr
     binder_depth %i32
     parameter_index %i32
 
+//: SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord: ResourceLocalのordered parameter投影
+//:
+//: [契約/けいやく]:
+//: - local_identityは非zeroのfunction-local opaque identityです。source名、stable symbol、body fingerprintのauthorityではありません。
+//: - place_idは同じgraphのPlace inventoryを指し、そのPlaceは同じopaque identityのLocal rootと同じTypeIdを持たなければなりません。
+struct SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord:
+    local_identity %i32
+    ty %SelfhostTypeId
+    mutable %bool
+    place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+
+struct SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterIdentityMismatch:
+    ordinal %i32
+    actual_identity %i32
+    expected_identity %i32
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord \self:
+        self
+
 //: SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory: ResourceFunction entry blockとblocksのowner
 //:
 //: [契約/けいやく]:
@@ -2614,6 +2638,7 @@ struct SelfhostMemoCallBackendPrivateCacheResourceFunctionTypeParameterBindingEr
 struct SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory:
     entry_block_id %i32
     type_params %Vec SelfhostTypeId
+    params %Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord
     result_ty %SelfhostTypeId
     effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect
     blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord
@@ -2700,6 +2725,19 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     FunctionTypeParameterBindingInvalid %SelfhostMemoCallBackendPrivateCacheResourceFunctionTypeParameterBindingError
     FunctionTypeParameterBindingMismatch %SelfhostMemoCallBackendPrivateCacheResourceFunctionTypeParameterBindingError
     FunctionTypeParametersUnsupported %i32
+    FunctionParameterTableAllocFailed %StdErrorKind
+    FunctionParameterPushFailed %StdErrorKind
+    FunctionParameterReadFailed %i32
+    FunctionParameterIdentityInvalid %i32
+    FunctionParameterTypeInvalid %i32
+    FunctionParameterTypeMissing %i32
+    FunctionParameterPlaceMissing %i32
+    FunctionParameterPlaceRootKindMismatch %i32
+    FunctionParameterPlaceIdentityMismatch %SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterIdentityMismatch
+    FunctionParameterPlaceTypeMismatch %i32
+    FunctionParameterPlaceProjected %i32
+    FunctionParameterIdentityDuplicate %i32
+    FunctionParameterPlaceDuplicate %i32
     BlockTableAllocFailed %StdErrorKind
     BlockPushFailed %StdErrorKind
     BlockReadFailed %i32
@@ -10793,20 +10831,29 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new %
     let type_params_result %Result Vec SelfhostTypeId StdErrorKind v::new
     match type_params_result:
         Result::Ok type_params:
-            let blocks_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord StdErrorKind v::new
-            match blocks_result:
-                Result::Ok blocks:
-                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params result_ty effect blocks
+            let params_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord StdErrorKind v::new
+            match params_result:
+                Result::Ok params:
+                    let blocks_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord StdErrorKind v::new
+                    match blocks_result:
+                        Result::Ok blocks:
+                            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params params result_ty effect blocks
+                        Result::Err e:
+                            v::free type_params
+                            v::free params
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BlockTableAllocFailed e
                 Result::Err e:
                     v::free type_params
-                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BlockTableAllocFailed e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterTableAllocFailed e
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionTypeParameterTableAllocFailed e
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory unit \inventory:
     let type_params %Vec SelfhostTypeId field::get inventory "type_params"
+    let params %Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord field::get inventory "params"
     let blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord field::get inventory "blocks"
     v::free type_params
+    v::free params
     v::free blocks
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_type_param_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory i32 \inventory:
@@ -10859,21 +10906,48 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_valid
 //:
 //: [契約/けいやく]:
 //: - Rust ResourceFunction.type_paramsの順序を変えず、受け取ったTypeIdを末尾へ追加します。
-//: - push失敗時はVecが返すtype parameter ownerとinventory内のblock ownerを閉じ、消費済みinventoryを残しません。
+//: - push失敗時はVecが返すtype parameter ownerとinventory内のparameter / block ownerを閉じ、消費済みinventoryを残しません。
 fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push_type_param %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostTypeId Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\type_param:
     let entry_block_id %i32 field::get inventory "entry_block_id"
     let type_params %Vec SelfhostTypeId field::get inventory "type_params"
+    let params %Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord field::get inventory "params"
     let result_ty %SelfhostTypeId field::get inventory "result_ty"
     let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect field::get inventory "effect"
     let blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord field::get inventory "blocks"
     match v::push type_params type_param:
         Result::Ok next_type_params:
-            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id next_type_params result_ty effect blocks
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id next_type_params params result_ty effect blocks
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free v::vec_push_error_vec e
+            v::free params
             v::free blocks
             Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionTypeParameterPushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory i32 \inventory:
+    let params %&Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord field::get_ref inventory "params"
+    v::len params
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord \inventory\ordinal:
+    let params %&Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord field::get_ref inventory "params"
+    v::get params ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push_parameter %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\parameter:
+    let entry_block_id %i32 field::get inventory "entry_block_id"
+    let type_params %Vec SelfhostTypeId field::get inventory "type_params"
+    let params %Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord field::get inventory "params"
+    let result_ty %SelfhostTypeId field::get inventory "result_ty"
+    let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect field::get inventory "effect"
+    let blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord field::get inventory "blocks"
+    match v::push params parameter:
+        Result::Ok next_params:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params next_params result_ty effect blocks
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free type_params
+            v::free blocks
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPushFailed error
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory i32 \inventory:
     let blocks %&Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord field::get_ref inventory "blocks"
@@ -10886,16 +10960,18 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_get %
 fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
     let entry_block_id %i32 field::get inventory "entry_block_id"
     let type_params %Vec SelfhostTypeId field::get inventory "type_params"
+    let params %Vec SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord field::get inventory "params"
     let result_ty %SelfhostTypeId field::get inventory "result_ty"
     let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect field::get inventory "effect"
     let blocks %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord field::get inventory "blocks"
     match v::push blocks record:
         Result::Ok next_blocks:
-            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params result_ty effect next_blocks
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory entry_block_id type_params params result_ty effect next_blocks
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free v::vec_push_error_vec e
             v::free type_params
+            v::free params
             Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BlockPushFailed error
 
 //: selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_new: 空のPlace inventory ownerを[作/つく]る
@@ -11021,6 +11097,68 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate
                                 Result::Err e
             Option::None:
                 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_validate_parameters_loop: ordered ResourceLocal parameterをPlace ownerへ[結/むす]ぶ
+//:
+//: [契約/けいやく]:
+//: - parameterの表示名やstable symbol authorityはまだ接続せず、function-local opaque identityとgraph-local Placeだけを照合します。
+//: - Place inventory自体のidentity/type scope検査後に呼び、Local root identityとTypeIdがparameter recordに完全一致することを要求します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_duplicate_before_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\parameter\idx\end:
+    if:
+        ge idx end
+        Result::Ok unit
+        match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_get inventory idx:
+            Option::Some previous:
+                if:
+                    eq previous.local_identity parameter.local_identity
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterIdentityDuplicate end
+                    if:
+                        selfhost_memo_call_backend_private_cache_resource_place_id_eq previous.place_id parameter.place_id
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceDuplicate end
+                        selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_duplicate_before_loop inventory parameter add idx 1 end
+            Option::None:
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterReadFailed idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_validate_parameters_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\places\types\ordinal\count:
+    if:
+        ge ordinal count
+        Result::Ok unit
+        match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_get inventory ordinal:
+            Option::Some parameter:
+                match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_duplicate_before_loop inventory parameter 0 ordinal:
+                    Result::Err e:
+                        Result::Err e
+                    Result::Ok _unique:
+                        if:
+                            eq parameter.local_identity 0
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterIdentityInvalid ordinal
+                            if:
+                                lt selfhost_type_id_index parameter.ty 0
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterTypeInvalid ordinal
+                                match selfhost_type_arena_get_record types parameter.ty:
+                                    Option::None:
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterTypeMissing ordinal
+                                    Option::Some _parameter_type:
+                                        match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_get places parameter.place_id.index:
+                                            Option::None:
+                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceMissing ordinal
+                                            Option::Some place:
+                                                match place.root:
+                                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local stable_symbol_identity:
+                                                        if:
+                                                            not eq stable_symbol_identity parameter.local_identity
+                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceIdentityMismatch SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterIdentityMismatch ordinal stable_symbol_identity parameter.local_identity
+                                                            if:
+                                                                not selfhost_type_id_eq place.ty parameter.ty
+                                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceTypeMismatch ordinal
+                                                                if:
+                                                                    not eq place.projection_count 0
+                                                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceProjected ordinal
+                                                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_validate_parameters_loop inventory places types add ordinal 1 count
+                                                    _:
+                                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceRootKindMismatch ordinal
+            Option::None:
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterReadFailed ordinal
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_projection_place_link %fn SelfhostResourceIrPlaceProjection Option i32 \projection:
     match projection:
@@ -11282,28 +11420,33 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authorit
                                                     let place_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places
                                                     match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count:
                                                         Result::Ok _places_valid:
-                                                            match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0:
-                                                                Result::Ok projection_count:
-                                                                    let actual_projection_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_len projections
-                                                                    if:
-                                                                        not eq projection_count actual_projection_count
-                                                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCountMismatch actual_projection_count
-                                                                        match selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0:
-                                                                            Result::Ok operation_count:
-                                                                                let actual_operation_count %i32 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations
-                                                                                if:
-                                                                                    gt operation_count 2147483646
-                                                                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationCountInvalid operation_count
-                                                                                    if:
-                                                                                        not eq operation_count actual_operation_count
-                                                                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationTableMismatch actual_operation_count
-                                                                                        match selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count:
-                                                                                            Result::Ok _valid:
-                                                                                                Result::Ok SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated key graph_id operation_count add operation_count 1
-                                                                                            Result::Err e:
-                                                                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationScopeRejected e
-                                                                            Result::Err e:
-                                                                                Result::Err e
+                                                            let parameter_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_len inventory
+                                                            match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_validate_parameters_loop inventory places types 0 parameter_count:
+                                                                Result::Ok _parameters_valid:
+                                                                    match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0:
+                                                                        Result::Ok projection_count:
+                                                                            let actual_projection_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_len projections
+                                                                            if:
+                                                                                not eq projection_count actual_projection_count
+                                                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCountMismatch actual_projection_count
+                                                                                match selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0:
+                                                                                    Result::Ok operation_count:
+                                                                                        let actual_operation_count %i32 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations
+                                                                                        if:
+                                                                                            gt operation_count 2147483646
+                                                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationCountInvalid operation_count
+                                                                                            if:
+                                                                                                not eq operation_count actual_operation_count
+                                                                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationTableMismatch actual_operation_count
+                                                                                                match selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count:
+                                                                                                    Result::Ok _valid:
+                                                                                                        Result::Ok SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated key graph_id operation_count add operation_count 1
+                                                                                                    Result::Err e:
+                                                                                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationScopeRejected e
+                                                                                    Result::Err e:
+                                                                                        Result::Err e
+                                                                        Result::Err e:
+                                                                            Result::Err e
                                                                 Result::Err e:
                                                                     Result::Err e
                                                         Result::Err e:
@@ -11367,7 +11510,7 @@ pub fn selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scop
             selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_kind_eq error expected_error
     and valid_ok and wrong_key_rejected and wrong_graph_rejected and duplicate_rejected and gap_rejected negative_rejected
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result %impure fn i32 impure fn SelfhostTypeId impure fn SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect impure fn i32 impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \entry_block_id\result_ty\effect\type_param_count\first_type_param\second_type_param\second_block_id\second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_payload:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result %impure fn i32 impure fn SelfhostTypeId impure fn SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect impure fn i32 impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn SelfhostTypeId impure fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \entry_block_id\result_ty\effect\type_param_count\first_type_param\second_type_param\parameter_identity\parameter_ty\parameter_place\second_block_id\second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_payload:
     let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
     let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
     match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new entry_block_id result_ty effect:
@@ -11379,12 +11522,25 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_sta
                     match second_type_param_result:
                         Result::Ok inventory2:
                             let first_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
-                            let first_return_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id first_place
-                            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 7 0 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place first_return_place
-                            match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory2 first:
-                                Result::Ok inventory3:
-                                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_block_id second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload
-                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory3 second
+                            let actual_parameter_identity %i32 if gt parameter_identity 2 1 parameter_identity
+                            let parameter %SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord actual_parameter_identity parameter_ty false parameter_place
+                            let first_parameter_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if lt parameter_identity 0 Result::Ok inventory2 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push_parameter inventory2 parameter
+                            match first_parameter_result:
+                                Result::Ok inventory_with_first_parameter:
+                                    let duplicate_parameter %SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord if eq parameter_identity 3 1 2 parameter_ty true if eq parameter_identity 4 parameter_place selfhost_memo_call_backend_private_cache_resource_place_id_new 1
+                                    let parameter_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt parameter_identity 2 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push_parameter inventory_with_first_parameter duplicate_parameter Result::Ok inventory_with_first_parameter
+                                    match parameter_result:
+                                        Result::Ok inventory_with_parameter:
+                                            let first_return_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id first_place
+                                            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 7 0 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place first_return_place
+                                            match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory_with_parameter first:
+                                                Result::Ok inventory3:
+                                                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_block_id second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory3 second
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
                                 Result::Err e:
                                     Result::Err e
                         Result::Err e:
@@ -11395,7 +11551,25 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_sta
             Result::Err e
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_payload:
-    selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result 9 selfhost_type_id_new 1 SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload
+    selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result 9 selfhost_type_id_new 1 SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 1 selfhost_type_id_new 1 selfhost_memo_call_backend_private_cache_resource_place_id_new 0 9 second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_function_parameter_mutable_preserved_stage0 %impure fn void bool \void:
+    match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new 0 selfhost_type_id_new 0 SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure:
+        Result::Ok inventory0:
+            let parameter %SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord SelfhostMemoCallBackendPrivateCacheResourceFunctionParameterRecord 1 selfhost_type_id_new 0 true selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+            match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push_parameter inventory0 parameter:
+                Result::Ok inventory1:
+                    let preserved %bool match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_get &inventory1 0:
+                        Option::Some stored:
+                            stored.mutable
+                        Option::None:
+                            false
+                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory1
+                    preserved
+                Result::Err _e:
+                    false
+        Result::Err _e:
+            false
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_with_projection_count_stage0_result %impure fn i32 impure fn bool impure fn SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \second_place_index\identity_ok\second_root\second_type\projection_count:
     let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
@@ -11404,7 +11578,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_with_pro
     match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_new:
         Result::Ok places0:
             let place0 %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
-            let record0 %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord key graph_id place0 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Return selfhost_type_id_new 0 0
+            let record0 %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord key graph_id place0 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 1 selfhost_type_id_new 1 0
             match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_push places0 record0:
                 Result::Ok places1:
                     let place1 %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new second_place_index
@@ -11504,11 +11678,15 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_sta
     selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_projection_result key graph_id inventory places operations key graph_id projection_place_id 0 SelfhostResourceIrPlaceProjection::Deref
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case %impure fn i32 impure fn SelfhostTypeId impure fn SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect impure fn SelfhostEffectKind impure fn i32 impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload impure fn bool impure fn i32 bool \entry_block_id\result_ty\effect\key_effect\type_param_count\first_type_param\second_type_param\second_block_id\second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_payload\expect_ok\expected_block_id_error:
-    match selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect type_param_count first_type_param second_type_param second_block_id second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload:
+    let parameter_identity %i32 if eq expected_block_id_error 13 0 if eq expected_block_id_error 17 2 if eq expected_block_id_error 21 3 if eq expected_block_id_error 22 4 if eq expected_block_id_error 23 sub 0 1 1
+    let parameter_ty %SelfhostTypeId if eq expected_block_id_error 14 selfhost_type_id_new sub 0 1 if eq expected_block_id_error 15 selfhost_type_id_new 2 if eq expected_block_id_error 18 selfhost_type_id_new 0 selfhost_type_id_new 1
+    let parameter_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new if eq expected_block_id_error 16 2 if or eq expected_block_id_error 19 eq expected_block_id_error 20 1 0
+    let second_place_root %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot if eq expected_block_id_error 20 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 1 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary 1
+    match selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect type_param_count first_type_param second_type_param parameter_identity parameter_ty parameter_place second_block_id second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload:
         Result::Ok inventory:
             match selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_stage0_table_result 1:
                 Result::Ok operations:
-                    match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary 1 selfhost_type_id_new 1:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true second_place_root selfhost_type_id_new 1:
                         Result::Ok places:
                             let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_effect key_effect
                             let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
@@ -11619,7 +11797,77 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_c
                                                                                             and and and eq detail.ordinal 1 eq detail.type_index selfhost_type_id_index second_type_param eq detail.binder_depth 0 eq detail.parameter_index 0
                                                                                         _:
                                                                                             false
-                                                                                    not expect_ok
+                                                                                    if:
+                                                                                        eq expected_block_id_error 13
+                                                                                        match e:
+                                                                                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterIdentityInvalid ordinal:
+                                                                                                eq ordinal 0
+                                                                                            _:
+                                                                                                false
+                                                                                        if:
+                                                                                            eq expected_block_id_error 14
+                                                                                            match e:
+                                                                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterTypeInvalid ordinal:
+                                                                                                    eq ordinal 0
+                                                                                                _:
+                                                                                                    false
+                                                                                            if:
+                                                                                                eq expected_block_id_error 15
+                                                                                                match e:
+                                                                                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterTypeMissing ordinal:
+                                                                                                        eq ordinal 0
+                                                                                                    _:
+                                                                                                        false
+                                                                                                if:
+                                                                                                    eq expected_block_id_error 16
+                                                                                                    match e:
+                                                                                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceMissing ordinal:
+                                                                                                            eq ordinal 0
+                                                                                                        _:
+                                                                                                            false
+                                                                                                    if:
+                                                                                                        eq expected_block_id_error 17
+                                                                                                        match e:
+                                                                                                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceIdentityMismatch detail:
+                                                                                                                and and eq detail.ordinal 0 eq detail.actual_identity 1 eq detail.expected_identity 2
+                                                                                                            _:
+                                                                                                                false
+                                                                                                        if:
+                                                                                                            eq expected_block_id_error 18
+                                                                                                            match e:
+                                                                                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceTypeMismatch ordinal:
+                                                                                                                    eq ordinal 0
+                                                                                                                _:
+                                                                                                                    false
+                                                                                                            if:
+                                                                                                                eq expected_block_id_error 19
+                                                                                                                match e:
+                                                                                                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceRootKindMismatch ordinal:
+                                                                                                                        eq ordinal 0
+                                                                                                                    _:
+                                                                                                                        false
+                                                                                                                if:
+                                                                                                                    eq expected_block_id_error 20
+                                                                                                                    match e:
+                                                                                                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceProjected ordinal:
+                                                                                                                            eq ordinal 0
+                                                                                                                        _:
+                                                                                                                            false
+                                                                                                                    if:
+                                                                                                                        eq expected_block_id_error 21
+                                                                                                                        match e:
+                                                                                                                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterIdentityDuplicate ordinal:
+                                                                                                                                eq ordinal 1
+                                                                                                                            _:
+                                                                                                                                false
+                                                                                                                        if:
+                                                                                                                            eq expected_block_id_error 22
+                                                                                                                            match e:
+                                                                                                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::FunctionParameterPlaceDuplicate ordinal:
+                                                                                                                                    eq ordinal 1
+                                                                                                                                _:
+                                                                                                                                    false
+                                                                                                                            not expect_ok
                         Result::Err _e:
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
                             selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
@@ -11944,6 +12192,18 @@ pub fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stag
     let function_type_param_missing_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 invalid_function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Impure SelfhostEffectKind::PrivateCache 2 selfhost_type_id_new 0 selfhost_type_id_new 3 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 10
     let function_type_param_kind_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 invalid_function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Impure SelfhostEffectKind::PrivateCache 1 selfhost_type_id_new 1 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 11
     let function_type_param_binding_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 invalid_function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Impure SelfhostEffectKind::PrivateCache 2 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 12
+    let function_parameter_identity_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 13
+    let function_parameter_type_invalid_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 14
+    let function_parameter_type_missing_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 15
+    let function_parameter_place_missing_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 16
+    let function_parameter_place_root_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 17
+    let function_parameter_place_type_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 18
+    let function_parameter_root_kind_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 19
+    let function_parameter_projection_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 20
+    let function_parameter_identity_duplicate_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 21
+    let function_parameter_place_duplicate_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 22
+    let zero_function_parameters_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 9 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload true 23
+    let function_parameter_mutable_preserved %bool selfhost_memo_call_backend_private_cache_resource_ir_function_parameter_mutable_preserved_stage0
     let entry_missing_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 8 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 9 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 1
     let block_id_duplicate_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 7 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 7 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 2
     let block_id_invalid_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 7 function_result_ty SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure SelfhostEffectKind::Pure 0 selfhost_type_id_new 0 selfhost_type_id_new 0 sub 0 1 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false 3
@@ -11990,7 +12250,7 @@ pub fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stag
     let raw_body_binary_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case raw_body_binary place_payload 0
     let raw_body_ir_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case raw_body_ir place_payload 0
     let empty_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_rejected_stage0
-    and valid_ok and function_result_invalid_rejected and function_result_missing_rejected and function_effect_mismatch_rejected and proof_key_effect_rejected and function_type_params_rejected and function_type_param_invalid_rejected and function_type_param_missing_rejected and function_type_param_kind_rejected and function_type_param_binding_rejected and entry_missing_rejected and block_id_duplicate_rejected and block_id_invalid_rejected and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and return_place_accepted and return_place_invalid_rejected and return_place_graph_rejected and return_place_missing_rejected and place_identity_rejected and place_ordinal_rejected and place_root_rejected and place_type_rejected and place_type_missing_rejected and place_unknown_root_rejected and projection_identity_rejected and projection_place_rejected and projection_ordinal_rejected and projection_payload_rejected and projection_link_rejected and projection_link_accepted and projection_unknown_offset_rejected and projection_negative_count_rejected and projection_short_count_rejected and projection_excess_count_rejected and raw_body_binary_accepted and raw_body_ir_accepted and raw_body_binary_payload_rejected and raw_body_ir_payload_rejected empty_rejected
+    and valid_ok and function_result_invalid_rejected and function_result_missing_rejected and function_effect_mismatch_rejected and proof_key_effect_rejected and function_type_params_rejected and function_type_param_invalid_rejected and function_type_param_missing_rejected and function_type_param_kind_rejected and function_type_param_binding_rejected and function_parameter_identity_rejected and function_parameter_type_invalid_rejected and function_parameter_type_missing_rejected and function_parameter_place_missing_rejected and function_parameter_place_root_rejected and function_parameter_place_type_rejected and function_parameter_root_kind_rejected and function_parameter_projection_rejected and function_parameter_identity_duplicate_rejected and function_parameter_place_duplicate_rejected and zero_function_parameters_accepted and function_parameter_mutable_preserved and entry_missing_rejected and block_id_duplicate_rejected and block_id_invalid_rejected and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and return_place_accepted and return_place_invalid_rejected and return_place_graph_rejected and return_place_missing_rejected and place_identity_rejected and place_ordinal_rejected and place_root_rejected and place_type_rejected and place_type_missing_rejected and place_unknown_root_rejected and projection_identity_rejected and projection_place_rejected and projection_ordinal_rejected and projection_payload_rejected and projection_link_rejected and projection_link_accepted and projection_unknown_offset_rejected and projection_negative_count_rejected and projection_short_count_rejected and projection_excess_count_rejected and raw_body_binary_accepted and raw_body_ir_accepted and raw_body_binary_payload_rejected and raw_body_ir_payload_rejected empty_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push: operation record を[追加/ついか]する
 //:

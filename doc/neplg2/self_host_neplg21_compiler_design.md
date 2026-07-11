@@ -3567,6 +3567,8 @@ block terminator inventoryはRust `Option<Place>`に対応するtyped payloadを
 
 Place projectionは巨大proof gate内のflat tagged recordへ押し込まず、`resource_ir_place_projection.nepl`のvariant-native modelとして分離する。Rust `PlaceProjection` 5 variantと`ResourceOffset` 6 variantをnested enumで保持し、signed i64 offsetを縮退させない。Place inventory recordの`projection_count`とPlace順prefix sumで別ownerのprojection範囲を確定し、各projection recordのrequest key / graph / Place id / ordinal、variant固有payloadを全検査する。`StorageOffset`内の`Symbolic` / `ScaledSymbolic` / `Offset` / `ScaledOffset`が持つrecursive Place linkは同じPlace ownerの実在recordへ解決できる場合だけ受理する。ResourceOffset::Unknownはsentinelとしてmodelに残すが、通常offsetとして意味を推測せずinventory scopeでtyped unsupported rejectionにする。Rustの`Box<Place>`はまだopaque index link、EnumPayload Stringはopaque variant identityであり、usize payloadは非負i32範囲に限定する。variant stable symbol結合、usize範囲外rejection、actual loweringとのco-productionは次段で行う。
 
+Rust `ResourceFunction.params` は宣言順の独立ownerとして保持し、各parameterについてfunction-local opaque identity、`TypeId`、`mutable`、graph-local Place linkを失わない。Place inventory全体を検査した後、parameterの型が同じTypeArenaに実在し、参照Placeがprojectionを持たないLocal rootで、opaque identityと型が一致することを検査する。parameter間でidentityまたはPlace linkを再利用してaliasを潰す形は拒否する。`mutable`はlosslessに運搬するがeffectやescapeを推測する根拠にはしない。opaque identityはRustのsource name、stable symbol、body fingerprint authorityではなく、actual HIR-to-Resource co-productionとcanonical name identityは後続段階に残す。従って成功originは非productionの`ResourceIrInventoryValidated`から昇格させない。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

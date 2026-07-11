@@ -83636,3 +83636,12 @@ MERGE_APPROVED
 - `plan.md`は変更していない。block-aware Branch / Loop / Match owner、operation semantics、actual lowering co-production、EnumPayload stable symbol、usize全域、canonical type key、sealed backend、artifact keyは未完了である。
 - 全体整合レビューでentryをdense ordinalとして扱う誤りがblockingとなったため、Rust ResourceBlockIdとdense ordinalを分離し、ID membership / uniquenessへ根本修正した。差分・全体整合レビューはいずれも最終APPROVED。block ID一意性のprior scanはO(n²)だが、semantic contractを変えず後続index化できる。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
+# 2026-07-12 selfhost Resource function parameter inventory
+
+- Rust `ResourceFunction.params: Vec<ResourceLocal>` の欠落を、ordered parameter ownerとして接続した。各recordはfunction-local opaque identity、独立したTypeId、mutable flag、graph-local Place linkを保持する。
+- scopeはPlace inventory全体のidentity/type検査後にparameterを検査し、TypeArena membership、bare Local root、opaque identity/type一致、parameter間のidentity/Place link一意性を要求する。mutable true/falseはlosslessに保持し、effectやescapeへ読み替えない。
+- `local_identity`はsource name、stable symbol、body fingerprint authorityではないことを契約へ明記した。actual HIR-to-Resource co-productionとcanonical local name authorityは未実装で、originは`ResourceIrInventoryValidated`のままである。
+- 差分レビューでmutable未観測、projection付きLocal受理、duplicate alias、root kind/name mismatch混同、Rust source sentinel不足をblockerとして検出し、mutable smoke、projection rejection、identity/place duplicate prior scan、taxonomy分離、contractを追加した。全体整合レビューでprovenance誇張を修正した。
+- `plan.md`は変更していない。ResourceLocal nameのactual authority、function name/origin/span、block span、ResourceOp topology、actual lowering co-production、sealed backend、artifact keyは未完了である。
+- `todo.md`には完了項目を追加せず、次のactual HIR-to-Resource co-production / canonical name authorityだけをfuture項目として記録した。active memoized-function backend issueにもcheckpointと残件を記録した。

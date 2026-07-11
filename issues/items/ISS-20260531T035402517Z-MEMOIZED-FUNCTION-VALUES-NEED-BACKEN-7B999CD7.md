@@ -1100,3 +1100,7 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-12: function type parameter ownerをordinal順に走査し、負TypeIdを`FunctionTypeParameterInvalid`、borrowed TypeArena内の非負missingを`FunctionTypeParameterMissing`へordinal / type index付きで拒否してからmonomorphic unsupported判定へ進める。TypeKind::Var record kind、canonical binder identity、actual lowering由来arena authorityは未実装である。
 
 2026-07-12: 実在するfunction type parameter recordを`Parameter` variantと最小valid bindingに制限し、単一function binderの`depth=0 / parameter_index=ordinal`不一致をtyped rejectionしてからmonomorphic unsupportedへ進める。selfhost ParameterはRust TypeKind::Varのbinder参照shapeだけであり、bound/unbound Option、capability、actual lowering由来unbound evidenceは未実装である。
+
+## 2026-07-12 ResourceFunction parameter inventory checkpoint
+
+Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin / span、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。
