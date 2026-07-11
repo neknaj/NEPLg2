@@ -6647,6 +6647,62 @@ complexityはmetadata / invariant validation O(1)、lower allocation call 1回�
 
 F5nxcの完了をF5nx全体の完了として扱わない。endpoint population以降はF5nxdからF5nxkに残す。
 
+### Phase F5nxd: registered indexed contour endpoint population owner
+
+目的:
+
+- F5nxc empty outline storage owner全体を唯一のinput authorityとして、registered contour span indexからendpoint slotを順次commitする。
+- F5nxc empty invariantをstart時だけ検査し、最初のcommit後はF5nxd固有state/invariantへauthorityを移す。
+- F5nxdはcompleted endpoint ownerで停止し、PointX cursor開始はF5nxeに残す。
+
+owner forwarding / mutation:
+
+- registered indexed ownerのspan count/lookupをauthority sourceとする。
+- indexed path、indexed action、action summary、completed summary、F5nxc ownerへborrowed forwarding operationを各owning moduleに追加する。
+- forwardingはCopy span countまたはtyped span lookup Resultだけを返す。nested owner ref/take、collection ref、item forwarding、generic callbackは公開しない。
+- F5nxc moduleへconsuming contour endpoint push operationを追加する。privateにcompleted/storageを分解し、lower F5e pushをexactly once呼び、success/errorの両方でouter authorityを再構築する。
+
+public state machine:
+
+- new moduleは概念階層をunderscore連結せず、`alloc/gui/font/registered_face/simple_glyph/indexed/contour_endpoint.nepl`とする。既存flat registered-face modulesの一括移動は別migrationとし、新規phase moduleからdirectory hierarchyへ移行する。
+- startはF5nxc ownerだけを受け、F5nxc invariant `Valid`の後だけchecked ContourEndpoint cursorを作る。
+- ownerはF5nxc ownerとprivate stateを保持し、Clone/Copyを実装しない。stateは`Active cursor previous_endpoint`または`Completed cursor last_endpoint`とする。
+- public progressはActive/CompletedのCopy enum、budget statusはPushed endpoint / Completed / StepBudgetExhaustedとする。
+- stepはCompleted、span lookup、endpoint derivation、owner-bound pushの順に進み、caller supplied endpointを受けない。lower lookupがglyph/index/range/count identityを検証済みなのでspan identityを重複検査しない。
+- 最終endpoint push callはPushedを返し、owner stateはCompletedになる。次回budget callがCompletedを返す。
+- checked completed sealだけがcompleted endpoint ownerを作る。F5nxeはこのcompleted ownerだけを受ける。
+
+error / recovery:
+
+- start errorはsame F5nxc owner、InvariantInvalid/SpanCountMismatch/CursorStartFailed/PhaseInvariantInvalid、optional invariant kind、expected/actual span count、cursor error、phase invariant checkを保持する。
+- phase invariant invalid kindはCanonicalCapacityShapeInvalid、StorageCapacityMismatch、StorageShapeMismatch、SpanCountMismatch、CursorInvalid、CursorRegionMismatch、CursorCapacityMismatch、StorageLengthMismatch、ActiveCursorAtEnd、ActivePreviousUnexpected、ActivePreviousMissing、ActivePreviousOutOfRange、ActivePreviousSpanLookupFailed、ActivePreviousSpanMismatch、CompletedCursorNotAtEnd、CompletedLastEndpointOutOfRange、CompletedLastEndpointMismatchの順とする。
+- StorageCapacityMismatchはcapacity 6 fields、StorageShapeMismatchはchecked scalar count/cap、SpanCountMismatchはspan count/contour countを比較する。CursorCapacityMismatchはcanonical capacityからchecked再導出したContourEndpoint cursorとのregion/start/end不一致であり、nextは比較しない。StorageLengthMismatchはlen/cursor nextを比較する。
+- Active previousのrangeは`0 <= previous < point count`、span comparisonはlookup `cursor next - 1`のend point indexとの一致である。Completed last endpointのrangeも`0 <= last < point count`、final comparisonは`last == point count - 1`である。
+- step errorはsame F5nxd owner、SpanLookupFailed/EndpointPushFailed/AlreadyCompleted、contour index、optional lookup error、endpoint、push kind、region error kind、storage push error kindを保持する。
+- F5nxc push successはouter owner/cursor/nonoptional previous endpoint、push errorはouter owner/cursor/endpoint/previous endpoint/push kind/optional region error/optional StdErrorKindを保持する。
+- seal errorはsame F5nxd owner、actual progress、typed phase invariant checkを保持する。Active mismatchをphase invariant failureより先に判定する。
+- completed ownerはrunning F5nxd owner全体をnested ownershipで保持し、Copy metadataだけのcompletion tokenにしない。
+- 全owner-bearing errorはborrowed metadata、single take owner、freeを持ち、Clone/Copyを実装しない。lower metadataはlower owner回収前に読む。
+- budget resultは唯一のrunning ownerとCopy status、single take owner、freeを持つ。running/budget/completed/seal-error freeはnested running/F5nxc ownerをexactly once閉じ、raw completed authority/storageを個別解放しない。
+
+完了条件:
+
+- controlled 2-contour fixtureでspan 0/1をO(1) lookupし、endpoint 1、3をこの順でcommitする。
+- startはcursor 0..2 next 0、previous None、storage len 0である。
+- first push後はcursor next 1、previous Some 1、len 1、second push後はnext 2、last endpoint 3、len 2、state Completedである。
+- Activeでbudget 0/negativeはlookup/pushなしでStepBudgetExhausted、Completedではbudget値に関係なくCompletedである。positive budgetが大きくても1 call最大1endpointとする。
+- direct completed step、premature seal、lookup failure、lower push failureでsame owner recoveryとexact metadataを確認する。lookup errorへrequested index/span count accessorを追加する。
+- deterministic lookup failureは`#test` entryがindex -1のactual lower errorをproductionと同じprivate lookup-result finalizerへ渡す。deterministic push failureは別`#test` entryがinvalid typed endpointをproductionと同じprivate endpoint-push pathへ渡す。production APIへfault flag/callbackを追加しない。
+- test-only entriesがnormal compileでundefinedになることをmodule-specific regressionで固定する。
+- F5nxc invariantはstart時だけ使い、commit後の正常なnonempty storageをStorageNotEmptyとして拒否しない。F5nxd phase invariantが各progressでValidになることを確認する。
+- source policyは5段forwarding、lookup/push exactly once、metadata read-before-take、outer reconstruction、free、no raw split/item forwarding/byte reader/old F5am-F5aq path/fallback/panic/unreachable/parenthesesを固定する。
+- focused registered fixture、new module doctest、F5nxc/F5e regressions、documentation/diagnostic/issues/diff/trunk/playground gatesを通す。
+- subagent plan/implementation reviewがphase invariant切替、no-split forwarding、owner recovery、O(contour count) time/O(1) metadataを承認する。
+
+complexityはstart/invariant/step 1回あたりO(1)、full drain O(contour count)、追加owner metadata O(1)とする。新規collection copyを作らない。
+
+F5nxdの完了をF5nx全体の完了として扱わない。PointX以降はF5nxeからF5nxkに残す。
+
 ## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
 
 目的:

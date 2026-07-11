@@ -536,6 +536,30 @@ fn gui_sfnt_simple_glyph_contour_span_index_lookup_error %fn GuiSfntSimpleGlyphC
 pub fn gui_sfnt_simple_glyph_contour_span_index_lookup_error_kind %fn &GuiSfntSimpleGlyphContourSpanIndexLookupError GuiSfntSimpleGlyphContourSpanIndexLookupErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_sfnt_simple_glyph_contour_span_index_lookup_error_requested_index: lookup が要求した contour index を読む
+//:
+//: [目的/もくてき]: caller が error kind と要求位置を型付き metadata として関連付け、範囲外入力と storage / invariant failure を同じ文字列へ潰さず診断できるようにします。
+//:
+//: [契約/けいやく]: error を借用したまま、lookup 実行時に保存した index を変更せず返します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_lookup_error_requested_index %fn &GuiSfntSimpleGlyphContourSpanIndexLookupError i32 \error:
+    *field::get_ref error "requested_index"
+
+//: gui_sfnt_simple_glyph_contour_span_index_lookup_error_span_count: lookup 時点の indexed contour 数を読む
+//:
+//: [目的/もくてき]: requested index と同じ snapshot の span count を公開し、範囲境界を再計算せず診断と retry 判定に利用できるようにします。
+//:
+//: [契約/けいやく]: error を借用したまま、lookup error 構築時に保存した count を変更せず返します。
+//:
+//: [計算量/けいさんりょう]: O(1) 時間、O(1) 追加領域です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index_lookup_error_span_count %fn &GuiSfntSimpleGlyphContourSpanIndexLookupError i32 \error:
+    *field::get_ref error "span_count"
+
 //: gui_sfnt_simple_glyph_contour_span_index_lookup: owner に束ねた span を O(1) で読む
 //:
 //: [契約/けいやく]:
