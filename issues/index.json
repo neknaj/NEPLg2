@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-12T14:23:19.482Z",
+  "generated_at": "2026-07-11T21:57:59.242Z",
   "counts": {
-    "total": 1371,
-    "open": 59,
+    "total": 1372,
+    "open": 60,
     "resolved": 1312,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "RESOURCE": {
+        "total": 3,
+        "open": 1,
+        "resolved": 2
       },
       "selfhost": {
         "total": 119,
@@ -60,11 +65,6 @@
         "total": 3,
         "open": 0,
         "resolved": 3
-      },
-      "RESOURCE": {
-        "total": 2,
-        "open": 0,
-        "resolved": 2
       },
       "ci": {
         "total": 5,
@@ -288,7 +288,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-12",
+      "updated": "2026-06-15",
       "target": "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty",
       "legacy_id": "",
       "source": "",
@@ -303,7 +303,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-01",
+      "updated": "2026-07-11",
       "target": "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs",
       "legacy_id": "",
       "source": "",
@@ -318,7 +318,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-01",
+      "updated": "2026-07-11",
       "target": "nepl-core/src/effects.rs; nepl-core/src/resource/effect_check.rs; nepl-core/src/resource/resource_summary_value_cache/body_hash.rs",
       "legacy_id": "",
       "source": "",
@@ -520,6 +520,21 @@
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
     },
     {
+      "id": "ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D",
+      "title": "Deep Result owner return projection reuses moved payload",
+      "area": "RESOURCE",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-07-11",
+      "updated": "2026-07-11",
+      "target": "nepl-core/src/resource/owner_return_apply_projection.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D.md"
+    },
+    {
       "id": "ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941",
       "title": "selfhost parser and checker do not implement full prefix expression and type range contracts",
       "area": "selfhost",
@@ -543,7 +558,7 @@
       "priority": "P1",
       "type": "doc",
       "created": "2026-06-05",
-      "updated": "2026-06-06",
+      "updated": "2026-06-21",
       "target": "stdlib/neplg2/**, nodesrc/test_selfhost_documentation_contract.js",
       "legacy_id": "",
       "source": "",
