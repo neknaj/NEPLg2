@@ -947,6 +947,17 @@ assert.deepEqual(
     "Resource IR Place inventory must preserve every Rust PlaceRoot variant without a fallback",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventoryRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "root %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot",
+        "ty %SelfhostTypeId",
+    ],
+    "Resource IR Place inventory must carry identity, root shape, and local type identity together",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_result"),
     [
         "PlaceRoot::Local stable_symbol_identity",
@@ -1017,13 +1028,14 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case"),
     [
-        "resource_ir_place_inventory_stage0_result second_place_index identity_ok second_root",
+        "resource_ir_place_inventory_stage0_result second_place_index identity_ok second_root second_type",
         "resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations",
         "resource_ir_function_inventory_free inventory",
         "resource_ir_place_inventory_free places",
         "actual_walker_operation_table_free operations",
         "PlaceIdentityMismatch idx",
         "PlaceOrdinalMismatch place_index",
+        "PlaceTypeInvalid type_index",
         "PlaceRootInvalid root_identity",
     ],
     "malformed Place inventory runtime fixture must close every owner before exact identity and dense ordinal errors are matched",
