@@ -83506,4 +83506,4 @@ MERGE_APPROVED
 - Resource IR固有Place inventory ownerを追加し、Return Placeがsame request / graph recordとして登録されている場合だけinventory scopeを受理する。
 - operation event tableからPlace存在を推測せず、未登録Placeを`TerminatorReturnPlaceMissing`で拒否する。root/projection/type、escape、actual lowering co-productionは未実装で非productionを維持する。
 - subagent指摘に従い、Place owner全体のsame key / graphとdense ordinalをscope前に検査し、wrong keyとordinal gapをexact runtime errorで固定した。差分・全体整合再レビューはいずれもAPPROVED。
-- pass: target contract、focused runtime 1/1、issues check、`git diff --check`。changed doctestは既存doctest #12のstdout baseline（expected 4行、現main actual 6行）不一致で停止し、今回と無関係な期待値は変更していない。
+- pass: target contract、focused runtime 1/1、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。changed doctestは既存doctest #12のstdout baseline（expected 4行、現main actual 6行）不一致で停止し、今回と無関係な期待値は変更していない。
