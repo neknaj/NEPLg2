@@ -83668,3 +83668,9 @@ MERGE_APPROVED
 - nonempty、empty、dummy、blockとは異なるfile idを受理し、negative file / start、end-before-startをblock ordinalと元span付き`TerminatorSpanInvalid`へexact rejectionする。全terminator kindでspanを保持するfixtureを固定した。
 - Rust modelの全3 terminator variantのspan field、Block loweringの`block.span`、raw body loweringの`function.span`、summary context集約をcontract sentinelで固定した。invalid block spanはinvalid terminator spanより、invalid terminator ordinalはinvalid terminator spanより、invalid terminator spanはunexpected payloadより先にexact rejectionする複合fixtureも追加した。
 - actual u32 narrowing、source text境界、same-file / containmentを要求しないmulti-file source-policy provenance、operation span、actual co-productionは未完了で、成功originは`ResourceIrInventoryValidated`のままである。`plan.md`は変更していない。pass: proof gate contract、focused runtime 1 / 1、`git diff --check`。
+
+# 2026-07-12 selfhost Resource operation spans
+
+- Rust `ResourceOp`全24 variantのspanを、legacy HIR/private-cache classifier recordを変更せず、key / graph / dense ordinal / spanだけを持つ専用ownerへ保存した。block inventoryのoperation総数とowner長を照合後、identity、ordinal、span形状の順に検査する。
+- runtimeはnegative count、key、graph、ordinal、negative file / start、end-before-startをexact typed rejectionし、empty、dummy、blockとは異なるfile idを受理する。Rust modelの全24 variantがspanを持つこともcontract sentinelで固定した。
+- 構造的valid spanをactual provenanceへ読み替えない。Rust u32上位域、source text境界、multi-file aggregation provenance、nested Branch / Loop / Match topology、actual HIR-to-Resource co-productionは未完了で、originは`ResourceIrInventoryValidated`のままである。`plan.md`は変更していない。

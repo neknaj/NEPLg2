@@ -21,6 +21,11 @@ assert.match(rustResourceLower, /fn lower_param_skeleton[\s\S]*name: param\.name
 assert.match(rustResourceModel, /pub struct ResourceFunction \{[\s\S]*pub span: Span,/);
 assert.match(rustResourceModel, /pub struct ResourceBlock \{[\s\S]*pub span: Span,/);
 assert.match(rustResourceModel, /pub enum ResourceTerminator \{[\s\S]*Return \{ value: Option<Place>, span: Span \},[\s\S]*Unreachable \{ span: Span \},[\s\S]*RawBody \{ kind: RawBodyKind, span: Span \},/);
+const rustResourceOp = rustResourceModel.slice(
+    rustResourceModel.indexOf("pub enum ResourceOp {"),
+    rustResourceModel.indexOf("\n#[derive", rustResourceModel.indexOf("pub enum ResourceOp {") + 1),
+);
+assert.equal((rustResourceOp.match(/span: Span/g) || []).length, 24, "every Rust ResourceOp variant must retain its own span");
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -1292,10 +1297,68 @@ assertOrdered(
         "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
         "actual_walker_operation_table_len operations",
         "OperationTableMismatch actual_operation_count",
+        "resource_ir_operation_span_inventory_len operation_spans",
+        "OperationSpanTableMismatch actual_operation_span_count",
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
+        "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result"),
+    [
+        "resource_ir_operation_span_inventory_stage0_result key graph_id operation_count",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans",
+        "resource_ir_operation_span_inventory_free operation_spans",
+        "result",
+    ],
+    "stage0 scope fixture must borrow its separately owned operation spans and close them after validation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_validate_loop"),
+    [
+        "OperationSpanIdentityMismatch idx",
+        "OperationSpanOrdinalMismatch record.operation_ordinal",
+        "source_span_is_valid record.span",
+        "OperationSpanInvalid SelfhostMemoCallBackendPrivateCacheResourceOperationSpanError idx record.span",
+    ],
+    "operation span inventory must validate identity and dense ordinal before span shape",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_runtime_stage0"),
+    [
+        "OperationSpanCountInvalid count",
+        "key_rejected",
+        "graph_rejected",
+        "ordinal_rejected",
+        "negative_file_rejected",
+        "negative_start_rejected",
+        "reverse_rejected",
+        "empty_accepted",
+        "dummy_accepted",
+        "cross_file_accepted",
+    ],
+    "operation span runtime must cover malformed ownership and all structurally valid span shapes",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case"),
+    [
+        "resource_ir_operation_span_inventory_fixture_result key graph_id span_count invalid_second_span",
+        "resource_ir_inventory_scope_with_operation_spans_stage0_result key graph_id &inventory &places &operations &operation_spans",
+        "resource_ir_operation_span_inventory_free operation_spans",
+        "actual_walker_operation_table_free operations",
+        "resource_ir_place_inventory_free places",
+        "resource_ir_function_inventory_free inventory",
+        "OperationSpanTableMismatch actual_count",
+        "ActualWalkerOperationOrdinalMismatch actual_ordinal",
+    ],
+    "custom operation-span fixtures must close every owner and exact-match table mismatch and legacy ordinal precedence",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
+    /operation_span_scope_stage0_case 1 0 false 0[\s\S]*operation_span_scope_stage0_case 1 3 false 0[\s\S]*operation_span_scope_stage0_case 2 2 true 1/,
+    "aggregate runtime must execute short, excess, and legacy-ordinal-before-invalid-span fixtures",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
@@ -1374,7 +1437,7 @@ assertOrdered(
         "selfhost_type_arena_new",
         "selfhost_type_arena_add_type_parameter types0 selfhost_type_parameter_binding_new_unchecked 0 0",
         "selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations",
+        "resource_ir_inventory_scope_stage0_authority_result key graph_id inventory places &projections &types2 operations",
         "selfhost_type_arena_free types2",
         "resource_ir_projection_inventory_free projections",
     ],
