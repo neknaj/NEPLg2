@@ -83674,3 +83674,9 @@ MERGE_APPROVED
 - Rust `ResourceOp`全24 variantのspanを、legacy HIR/private-cache classifier recordを変更せず、key / graph / dense ordinal / spanだけを持つ専用ownerへ保存した。block inventoryのoperation総数とowner長を照合後、identity、ordinal、span形状の順に検査する。
 - runtimeはnegative count、key、graph、ordinal、negative file / start、end-before-startをexact typed rejectionし、empty、dummy、blockとは異なるfile idを受理する。Rust modelの全24 variantがspanを持つこともcontract sentinelで固定した。
 - 構造的valid spanをactual provenanceへ読み替えない。Rust u32上位域、source text境界、multi-file aggregation provenance、nested Branch / Loop / Match topology、actual HIR-to-Resource co-productionは未完了で、originは`ResourceIrInventoryValidated`のままである。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource operation kinds
+
+- Rust `ResourceOp`全24 top-level variantをfallbackなしの専用kind enumへ写し、key / graph / dense ordinal / kindだけを持つownerをlegacy classifierおよびspan ownerから分離した。
+- scopeはblock inventoryのoperation countをlegacy / span / kind owner全てへ照合し、legacy identity / ordinal、span owner、kind identity / ordinalの順に検査する。stage0 wrapperもkind ownerを別生成し、borrow後に必ず解放する。
+- runtimeは24 tag roundtripとnegative countを固定した。nested Branch / Loop / Match topology、variant payload / endpoint、actual HIR-to-Resource co-productionは未完了で、originは`ResourceIrInventoryValidated`を維持する。`plan.md`は変更していない。

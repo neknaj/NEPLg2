@@ -1109,6 +1109,8 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 
 2026-07-12: Rust `ResourceOp`全24 variantのspanをlegacy HIR classifierから分離した専用operation span inventoryへ追加した。scopeはoperation count、key / graph、dense ordinal、span形状を順に検査し、empty / dummy / cross-fileを受理、negative count / identity / ordinal / spanをtyped rejectionする。actual lowering co-production、nested ResourceOp topology、u32 narrowing、source text境界、multi-file provenanceは未実装で、originは`ResourceIrInventoryValidated`を維持する。
 
+2026-07-12: Rust `ResourceOp`全24 top-level variantをfallbackなしのkind tagとして保持する専用operation-kind inventoryを追加した。legacy classifier / span ownerと分離し、scopeは全ownerのcount一致後にlegacy、span、kindのidentity / dense ordinalを順に検査する。stage0もkind ownerを別生成してborrow後に解放する。nested Branch / Loop / Match topology、variant payload / endpoint、actual lowering co-productionは未実装で、originは`ResourceIrInventoryValidated`を維持する。
+
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
 Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。

@@ -26,6 +26,10 @@ const rustResourceOp = rustResourceModel.slice(
     rustResourceModel.indexOf("\n#[derive", rustResourceModel.indexOf("pub enum ResourceOp {") + 1),
 );
 assert.equal((rustResourceOp.match(/span: Span/g) || []).length, 24, "every Rust ResourceOp variant must retain its own span");
+for (const variant of ["Expr", "DeclareLocal", "Read", "Assign", "Borrow", "Move", "Drop", "EndScope", "CallEffect", "FunctionValue", "Call", "IndirectCall", "RawMemory", "RawAddressAlias", "RawAddressView", "StorageOrigin", "CollectionSlotLifecycle", "CollectionStorageRelocate", "CollectionSlotDropTraversal", "CollectionSlotTransformRange", "Construct", "Branch", "Loop", "Match"]) {
+    assert.match(rustResourceOp, new RegExp(`\\n    ${variant}(?: \\{|\\()`), `Rust ResourceOp must retain ${variant}`);
+    assert.match(source, new RegExp(`\\n    ${variant}\\n`), `selfhost operation kind must retain ${variant}`);
+}
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -1299,8 +1303,11 @@ assertOrdered(
         "OperationTableMismatch actual_operation_count",
         "resource_ir_operation_span_inventory_len operation_spans",
         "OperationSpanTableMismatch actual_operation_span_count",
+        "resource_ir_operation_kind_inventory_len operation_kinds",
+        "OperationKindTableMismatch actual_operation_kind_count",
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
+        "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
@@ -1309,11 +1316,18 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result"),
     [
         "resource_ir_operation_span_inventory_stage0_result key graph_id operation_count",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans",
+        "resource_ir_operation_kind_inventory_stage0_result key graph_id operation_count",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds",
+        "resource_ir_operation_kind_inventory_free operation_kinds",
         "resource_ir_operation_span_inventory_free operation_spans",
         "result",
     ],
     "stage0 scope fixture must borrow its separately owned operation spans and close them after validation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_runtime_stage0"),
+    ["OperationKindCountInvalid count", "operation_kind_inventory_stage0_result key graph_id 24", "operation_kind_roundtrip_loop &inventory 0"],
+    "operation kind runtime must reject negative count and roundtrip all 24 top-level variants",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_validate_loop"),
@@ -1345,19 +1359,22 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case"),
     [
         "resource_ir_operation_span_inventory_fixture_result key graph_id span_count invalid_second_span",
-        "resource_ir_inventory_scope_with_operation_spans_stage0_result key graph_id &inventory &places &operations &operation_spans",
+        "resource_ir_operation_kind_inventory_fixture_result key graph_id kind_count bad_kind_identity",
+        "resource_ir_inventory_scope_with_operation_owners_stage0_result key graph_id &inventory &places &operations &operation_spans &operation_kinds",
+        "resource_ir_operation_kind_inventory_free operation_kinds",
         "resource_ir_operation_span_inventory_free operation_spans",
         "actual_walker_operation_table_free operations",
         "resource_ir_place_inventory_free places",
         "resource_ir_function_inventory_free inventory",
         "OperationSpanTableMismatch actual_count",
         "ActualWalkerOperationOrdinalMismatch actual_ordinal",
+        "OperationKindTableMismatch actual_count",
     ],
     "custom operation-span fixtures must close every owner and exact-match table mismatch and legacy ordinal precedence",
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
-    /operation_span_scope_stage0_case 1 0 false 0[\s\S]*operation_span_scope_stage0_case 1 3 false 0[\s\S]*operation_span_scope_stage0_case 2 2 true 1/,
+    /operation_span_scope_stage0_case 1 0 false 2 false 0[\s\S]*operation_span_scope_stage0_case 1 3 false 2 false 0[\s\S]*operation_span_scope_stage0_case 2 2 true 2 false 1[\s\S]*operation_span_scope_stage0_case 1 2 false 1 true 2[\s\S]*operation_span_scope_stage0_case 1 2 false 3 false 2/,
     "aggregate runtime must execute short, excess, and legacy-ordinal-before-invalid-span fixtures",
 );
 assertOrdered(
