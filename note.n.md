@@ -83661,3 +83661,10 @@ MERGE_APPROVED
 - second block ordinal 1の非空`file=2 [5,8)`、empty、dummyを受理し、negative file / start、end-before-startをordinalと元span付き`BlockSpanInvalid`へexact rejectionする。function spanはfile 1なのでsame-file / containmentを要求しないpositiveも固定した。
 - Rust model/lower/contextのblock span sentinelをcontractで固定した。invalid block ID / duplicate IDはinvalid spanより先に拒否するcompound fixtureも追加した。actual u32 narrowing、same-file / containmentを要求しないmulti-file source-policy aggregation provenance、terminator / operation span co-productionは未完了で、成功originは非productionの`ResourceIrInventoryValidated`を維持する。
 - `plan.md`は変更していない。actual span producer、ResourceOp topology、sealed backend、artifact keyは未完了である。
+
+# 2026-07-12 selfhost Resource terminator span
+
+- Rust `ResourceTerminator::Return / Unreachable / RawBody`各variantのspanをblock inventoryへ独立fieldとして保持し、block span、operation range、dense terminator ordinal後かつpayload検査前に`source_span_is_valid`で1回検査する。
+- nonempty、empty、dummy、blockとは異なるfile idを受理し、negative file / start、end-before-startをblock ordinalと元span付き`TerminatorSpanInvalid`へexact rejectionする。全terminator kindでspanを保持するfixtureを固定した。
+- Rust modelの全3 terminator variantのspan field、Block loweringの`block.span`、raw body loweringの`function.span`、summary context集約をcontract sentinelで固定した。invalid block spanはinvalid terminator spanより、invalid terminator ordinalはinvalid terminator spanより、invalid terminator spanはunexpected payloadより先にexact rejectionする複合fixtureも追加した。
+- actual u32 narrowing、source text境界、same-file / containmentを要求しないmulti-file source-policy provenance、operation span、actual co-productionは未完了で、成功originは`ResourceIrInventoryValidated`のままである。`plan.md`は変更していない。pass: proof gate contract、focused runtime 1 / 1、`git diff --check`。

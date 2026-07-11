@@ -20,8 +20,11 @@ assert.match(rustResourceModel, /pub enum PlaceRoot \{[\s\S]*Local\(String\)/);
 assert.match(rustResourceLower, /fn lower_param_skeleton[\s\S]*name: param\.name\.clone\(\),[\s\S]*ty: param\.ty,[\s\S]*mutable: param\.mutable,[\s\S]*place: Place::local\(param\.name\.clone\(\), param\.ty\)/);
 assert.match(rustResourceModel, /pub struct ResourceFunction \{[\s\S]*pub span: Span,/);
 assert.match(rustResourceModel, /pub struct ResourceBlock \{[\s\S]*pub span: Span,/);
+assert.match(rustResourceModel, /pub enum ResourceTerminator \{[\s\S]*Return \{ value: Option<Place>, span: Span \},[\s\S]*Unreachable \{ span: Span \},[\s\S]*RawBody \{ kind: RawBodyKind, span: Span \},/);
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
+assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
+assert.match(rustResourceLower, /HirBody::Wasm\(_\) => ResourceTerminator::RawBody \{[\s\S]*kind: RawBodyKind::Wasm,[\s\S]*span: function\.span,[\s\S]*HirBody::LlvmIr\(_\) => ResourceTerminator::RawBody \{[\s\S]*kind: RawBodyKind::LlvmIr,[\s\S]*span: function\.span,/);
 assert.match(rustSpan, /pub struct FileId\(pub u32\)/);
 assert.match(rustSpan, /A half-open byte range `\[start, end\)`[\s\S]*pub start: u32,[\s\S]*pub end: u32,/);
 assert.match(rustSpan, /pub fn dummy\(\) -> Span[\s\S]*file_id: FileId\(0\),[\s\S]*start: 0,[\s\S]*end: 0,/);
@@ -958,6 +961,7 @@ assertOrdered(
         "first_operation_ordinal %i32",
         "operation_count %i32",
         "terminator_ordinal %i32",
+        "terminator_span %SelfhostSourceSpan",
         "terminator_kind %SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind",
         "return_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload",
     ],
@@ -1104,6 +1108,9 @@ assertOrdered(
         "BlockSpanInvalid SelfhostMemoCallBackendPrivateCacheResourceBlockSpanError idx record.span",
         "record.first_operation_ordinal next_operation_ordinal",
         "record.terminator_ordinal idx",
+        "source_span_is_valid record.terminator_span",
+        "TerminatorSpanInvalid SelfhostMemoCallBackendPrivateCacheResourceTerminatorSpanError idx record.terminator_span",
+        "resource_ir_terminator_payload_validate_result record places",
         "resource_ir_inventory_validate_loop inventory places key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count",
     ],
     "validated block identity must lead to one span check before operation range and terminator coverage",
@@ -1293,7 +1300,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
     [
-        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect span second_block_span type_param_count first_type_param second_type_param parameter_identity parameter_ty parameter_place second_block_id",
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect span second_block_span second_terminator_span type_param_count first_type_param second_type_param parameter_identity parameter_ty parameter_place second_block_id",
         "resource_walker_stage0_key_with_effect key_effect",
         "EntryBlockMissing missing_entry",
         "BlockIdDuplicate duplicate_id",
@@ -1333,6 +1340,13 @@ assertOrdered(
         "detail.span.file_id second_block_span.file_id",
         "detail.span.start second_block_span.start",
         "detail.span.end second_block_span.end",
+        "TerminatorSpanInvalid detail",
+        "detail.block_ordinal 1",
+        "detail.span.file_id second_terminator_span.file_id",
+        "detail.span.start second_terminator_span.start",
+        "detail.span.end second_terminator_span.end",
+        "TerminatorOrdinalMismatch ordinal",
+        "eq ordinal 2",
     ],
     "function header runtime fixtures must exact-match block identity, declaration type parameters, result type, and surface effect errors",
 );
