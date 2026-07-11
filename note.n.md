@@ -83344,3 +83344,14 @@ MERGE_APPROVED
 
 - `plan.md`との差異は、汎用言語計画にGUI font owner pipelineの詳細がない点であり、変更提案はない。詳細authorityはGUI font rendering文書とtodoに記録している。
 - 次はF5nxgでchecked completed PointY ownerをauthorityとしてedge populationへ進み、indexed span / checked-span edge coreを使う。
+# 2026-07-11 Agent2 GUI font rendering F5nxf completion
+
+- F5nxe checked completed PointX ownerを唯一のauthorityとして、registered indexed PointY populationを実装した。`plan.md`は変更していない。独立issueは存在せず、`todo.md`とGUI font rendering実装計画F5nxfをauthorityとした。
+- subagent差分レビューと全体整合レビューを再実施し、PointX完了時storage長をPointY追記後へ再適用する根本不具合をcontinuation authority checkへ分離した。中間owner-bearing wrapperのfree、source-policyのstart/read/identity/seal/raw split/F5nxg handoff検査も補完した。
+- controlled registered fixtureは非一様PointY `3, -3, 4, 4`、budget 0、forced item read/PointY push failure、metadata、same-owner recovery、cursor/storage進捗、terminal優先、checked sealを実行検査する。
+- pass: F5nxf focused doctest 69 / 69。
+- pass: integrated registered-face fixture 1 / 1、runtime assertion 32 / 32。`NEPL_TEST_CASE_TIMEOUT_MS=300000`を使用した。
+- pass: Web GUI font rendering source-policy、normal compile isolation、stdlib documentation baseline、issues check、`git diff --check`。
+- pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp_playground_editor_gui_font_f5nxf.json`、13 / 13。JSON出力を確認した。
+- F5nxfはchecked completed PointY ownerで停止し、Edge cursorやspan lookupを開始しない。次はF5nxgでこのowner全体をauthorityとしてindexed span / checked-span edge coreへ接続する。

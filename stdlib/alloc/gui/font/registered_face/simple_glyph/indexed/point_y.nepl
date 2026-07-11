@@ -272,7 +272,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_storage_len %
     let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref owner "point_x"
     gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_storage_len point_x
 
-//: F5nxe 固有 invariant を契約上の優先順位で検査します。
+//: F5nxf 固有 invariant を契約上の優先順位で検査します。
 //:
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \owner:
