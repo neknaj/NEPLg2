@@ -83251,3 +83251,40 @@ MERGE_APPROVED
 - pass: `trunk build`
 - pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_font_registered_face_f5no.json`
 - checked JSON: `tmp/playground_editor_font_registered_face_f5no.json` は `caseCount=13`, `passedCount=13`, `failedCount=0`。
+# 2026-07-11 selfhost resource-lowering source vocabulary eligibility
+
+## 目的
+
+- producer source vocabulary summary を記録するだけでなく、fresh witness authority 発行前の fail-closed eligibility gate に接続する。
+- escaping / observation / unsupported source を含む traversal output が authority owner へ進めないことを owner cleanup と typed error まで含めて固定する。
+
+## 実装内容
+
+- `SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind` を追加し、negative count、accepted source 不在、escaping、observation、unsupported を区別した。
+- eligibility gate は accepted source が 1 件以上で、それ以外の source count がすべて 0 件の場合だけ成功する。
+- traversal-output owner path と source-table owner path の両方で、coverage validation と fresh witness authority 発行より先に eligibility を検査する。
+- rejection 時は walker input / observation owner または source table owner を閉じ、`SourceVocabularyRejected` として返す。
+- contract test に eligibility enum、fail-closed 判定順、production error taxonomy を追加した。
+
+## plan.md との差異
+
+- plan.md の self-host compiler / Resource IR 方針に沿う authority boundary の補強であり、plan.md の変更は不要。
+- full Resource IR graph walker、PrivateCache / PrivateState effect mask、sealed backend representation、artifact stable key projectionは未実装である。
+
+## 検証
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist web/dist -o tmp/selfhost-source-vocabulary-eligibility-doctest.json -j 1` (18/18)
+- pass: `PATH="/tmp/nepl-trunk-bin:$PATH" NO_COLOR=false trunk build`。WSL では `Trunk.toml` の `npm.cmd` 用に `/tmp` の `npm` symlink を使った。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-source-vocabulary-eligibility-cli.json`。JSON は `caseCount=13`、`passedCount=13`、`failedCount=0`。
+
+## subagent review
+
+- 差分レビューは、eligibility error を payload に加えた production error の Clone / Copy 契約不足を blocking として指摘した。eligibility error enum に Clone / Copy を追加し、contract test で固定した。
+- 差分レビューは、2 つの authority owner path で eligibility、coverage、fresh witness の順序と rejection cleanup を直接検査する必要を指摘した。両経路の `assertOrdered` と cleanup 契約コメントを追加した。
+- 全体整合レビューは、production stage0 smoke が PrivateCache source に旧 `OutputRejected(WitnessUnsupportedSource)` を期待している点を blocking として指摘した。resource-lowering path だけを `SourceVocabularyRejected(UnsupportedSourcePresent)` へ更新し、source-derived HIR reader path の旧分類とは分離した。
+
+## todo.md
+
+- 今回完了した eligibility checkpoint は追加しない。
+- full Resource IR traversal、private-effect mask、artifact policy hash など既存の未完了項目は継続する。

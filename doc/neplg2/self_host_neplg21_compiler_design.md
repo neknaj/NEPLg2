@@ -3503,6 +3503,14 @@ body-reader source output 用の `actual_traversal_source_output_into_no_escape_
 
 この checkpoint も full Resource IR graph walker 完了ではない。underlying source vocabulary はまだ resolver-bound HIR body reader 由来であり、request-evidence gate、GraphInput / proof table push、PrivateCache / PrivateState effect mask、sealed memoized backend representation、Wasm / LLVM fragment、`.neplobj` / `.neplproof` artifact key はまだ作らない。残件は actual Resource IR graph walker 本体が source vocabulary と fresh witness / coverage authority を同じ resolver-bound body identity へ実発行すること、PrivateCache / PrivateState effect mask 実体、sealed backend representation、artifact stable key projectionである。
 
+## 2026-07-11 selfhost resource-lowering source vocabulary eligibility checkpoint
+
+producer source vocabulary summary を保持するだけでは、escaping / observation / unsupported source が混在した traversal output でも fresh witness authority 発行処理を開始できる。そこで `ActualTraversalProducerSourceVocabularyEligibilityErrorKind` と module-private eligibility gate を追加し、accepted source が 1 件以上で、escaping / observation / unsupported source がすべて 0 件の場合だけ authority 発行へ進める。負の count も内部 constructor または算術の破損として拒否する。
+
+traversal-output owner path と source-table owner path は、coverage identity 検査と fresh witness 構築より前に同じ eligibility gate を通る。拒否時はそれぞれ walker input / observation owner または source table owner を閉じ、`ProductionOutputErrorKind::SourceVocabularyRejected` で分類する。eligibility は source vocabulary の authority 発行資格だけを表し、fresh witness、no-escape proof、PrivateCache / PrivateState effect mask、backend readiness を完成扱いしない。
+
+この checkpoint も underlying vocabulary を作る full Resource IR graph walker 本体ではない。次は actual traversal が resolver-bound HIR reader の代用ではなく source vocabulary、fresh witness、coverage record を実 traversal から発行し、private-effect mask と artifact policy hash へ接続する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

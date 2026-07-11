@@ -2306,6 +2306,18 @@ struct SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabular
     observation_source_count %i32
     unsupported_source_count %i32
 
+//: SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind: producer source vocabulary の authority 発行拒否理由
+//:
+//: [契約/けいやく]:
+//: - accepted source が 1 件以上あり、escaping / observation / unsupported source が 0 件の場合だけ authority 発行へ進めます。
+//: - 負の count は module-private constructor の誤用または算術破損として fail-closed に拒否します。
+pub enum SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind:
+    NegativeSourceCount
+    AcceptedSourceMissing
+    EscapingSourcePresent
+    ObservationSourcePresent
+    UnsupportedSourcePresent
+
 //: SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput: resource-lowering producer が[発行/はっこう]した source owner
 //:
 //: [目的/もくてき]:
@@ -2982,6 +2994,7 @@ pub struct SelfhostMemoCallBackendPrivateCacheBodyReaderNoEscapeCoverageStage0Su
 //: - output value、source table、fresh witness owner、coverage pair は public payload にしません。
 pub enum SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind:
     OutputRejected %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind
+    SourceVocabularyRejected %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind
     SourceDerivedHirBodyReaderRejected
 
 //: SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputStage0Summary: traversal output origin gate smoke の代表結果
@@ -4069,6 +4082,16 @@ impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceV
 //: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary: producer source vocabulary summary の Copy marker
 impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary:
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary \self:
+        self
+
+//: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind: eligibility rejection を値として[複製/ふくせい]する
+impl Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind: eligibility rejection の Copy marker
+impl Copy for SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind \self:
         self
 
 //: Clone for SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderSeed: reader seed evidence を値として[複製/ふくせい]する
@@ -10507,6 +10530,29 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_voc
 fn selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_sources_result %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable Result SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \sources:
     selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_from_sources_loop_result sources 0 selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_len sources selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_empty
 
+//: selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_eligibility_result: source vocabulary が authority 発行可能か[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - count の健全性を先に検査し、その後 unsupported、observation、escaping、accepted missing の順に fail-closed に分類します。
+//: - この gate は source summary の資格だけを検査し、fresh witness や no-escape proof を作りません。
+fn selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_eligibility_result %fn SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary Result void SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind \vocabulary:
+    if:
+        or lt vocabulary.accepted_source_count 0 or lt vocabulary.escaping_source_count 0 or lt vocabulary.observation_source_count 0 lt vocabulary.unsupported_source_count 0
+        Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::NegativeSourceCount
+        if:
+            gt vocabulary.unsupported_source_count 0
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent
+            if:
+                gt vocabulary.observation_source_count 0
+                Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::ObservationSourcePresent
+                if:
+                    gt vocabulary.escaping_source_count 0
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::EscapingSourcePresent
+                    if:
+                        eq vocabulary.accepted_source_count 0
+                        Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::AcceptedSourceMissing
+                        Result::Ok ()
+
 //: selfhost_memo_call_backend_private_cache_region_proof_input_kind_from_source_kind: traversal source kind を region proof input kind へ[写/うつ]す
 //:
 //: [契約/けいやく]:
@@ -16342,7 +16388,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //:
 //: [契約/けいやく]:
 //: - coverage authority は traversal output が保持する context / body root と照合してから使います。
-//: - coverage validation failure では traversal output が保持する walker input / observation owner を必ず閉じます。
+//: - source vocabulary rejection と coverage validation failure では traversal output が保持する walker input / observation owner を必ず閉じます。
 //: - fresh witness authority bundle と source vocabulary は traversal output owner から内部的に発行し、source table を caller に露出しません。
 //: - source output envelope、source-only producer output owner、production fresh witness input owner、no-escape handoff pair、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_authority_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \output:
@@ -16350,17 +16396,22 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
     let coverage_authority %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority field::get output "coverage_authority"
     let body_root %SelfhostHirExprId field::get output "body_root"
     let source_vocabulary %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary field::get output "source_vocabulary"
-    match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
-        Result::Ok _identity:
-            match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result output:
-                Result::Ok witness_bundle:
-                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root source_vocabulary witness_bundle
+    match selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_eligibility_result source_vocabulary:
+        Result::Ok _eligible:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
+                Result::Ok _identity:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_into_fresh_witness_authority_bundle_result output:
+                        Result::Ok witness_bundle:
+                            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root source_vocabulary witness_bundle
+                        Result::Err e:
+                            let no_escape_error %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected no_escape_error
                 Result::Err e:
-                    let no_escape_error %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e
-                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected no_escape_error
+                    selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free output
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected e
         Result::Err e:
             selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free output
-            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected e
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceVocabularyRejected e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_from_body_root_result: resolver 済み body root から producer output owner を[作/つく]る
 //:
@@ -16708,7 +16759,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage
 //: - coverage authority は request root / body root / body module fingerprint / graph id を producer output の identity と照合してから使います。
 //: - fresh witness は producer source owner 専用 helper で発行し、source output envelope や production fresh witness input owner へ戻しません。
 //: - source vocabulary summary は producer output から authority output へ移し、fresh witness authority と同じ resolver-bound body identity に束ねます。
-//: - coverage validation failure では producer output が保持していた source owner を必ず閉じます。
+//: - source vocabulary rejection と coverage validation failure では producer output が保持していた source owner を必ず閉じます。
 //: - この helper は no-escape handoff pair、request-evidence gate、GraphInput、proof table push、effect mask、backend bytes、sealed representation、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_output_into_authority_output_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerAuthorityOutput SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind \output:
     let context %SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext field::get output "context"
@@ -16716,17 +16767,22 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
     let body_root %SelfhostHirExprId field::get output "body_root"
     let source_vocabulary %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary field::get output "source_vocabulary"
     let sources %SelfhostMemoCallBackendPrivateCacheActualWalkerTraversalSourceTable field::get output "sources"
-    match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
-        Result::Ok _identity:
-            match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result context sources:
-                Result::Ok witness_bundle:
-                    Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root source_vocabulary witness_bundle
+    match selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_eligibility_result source_vocabulary:
+        Result::Ok _eligible:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_production_coverage_authority_validate_result coverage_authority context body_root:
+                Result::Ok _identity:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_sources_into_fresh_witness_authority_bundle_result context sources:
+                        Result::Ok witness_bundle:
+                            Result::Ok selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new context coverage_authority body_root source_vocabulary witness_bundle
+                        Result::Err e:
+                            let no_escape_error %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected no_escape_error
                 Result::Err e:
-                    let no_escape_error %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectNoEscapeCoverageErrorKind selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_from_region_error e
-                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected no_escape_error
+                    selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected e
         Result::Err e:
             selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_table_free sources
-            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected e
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceVocabularyRejected e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_into_no_escape_authority_bundle_result: producer authority output を no-escape authority bundle へ[進/すす]める
 //:
@@ -16847,6 +16903,32 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
             match b:
                 SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::OutputRejected b_error:
                     selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_no_escape_coverage_error_kind_eq a_error b_error
+                _:
+                    false
+        SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceVocabularyRejected a_error:
+            match b:
+                SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceVocabularyRejected b_error:
+                    match a_error:
+                        SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::NegativeSourceCount:
+                            match b_error:
+                                SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::NegativeSourceCount: true
+                                _: false
+                        SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::AcceptedSourceMissing:
+                            match b_error:
+                                SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::AcceptedSourceMissing: true
+                                _: false
+                        SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::EscapingSourcePresent:
+                            match b_error:
+                                SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::EscapingSourcePresent: true
+                                _: false
+                        SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::ObservationSourcePresent:
+                            match b_error:
+                                SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::ObservationSourcePresent: true
+                                _: false
+                        SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent:
+                            match b_error:
+                                SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent: true
+                                _: false
                 _:
                     false
         SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceDerivedHirBodyReaderRejected:
@@ -17157,7 +17239,8 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_production_outp
     let resource_authority_bundle_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.resource_lowering_authority_bundle_witness_count 1
     let resource_no_escape_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.resource_lowering_no_escape_pair_code 13
     let resource_private_cache_count_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_result_i32_eq summary.resource_lowering_private_cache_effect_source_count 1
-    let resource_private_cache_no_escape_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_result_eq summary.resource_lowering_private_cache_effect_no_escape_rejected unsupported_expected
+    let source_vocabulary_unsupported_expected %SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind SelfhostMemoCallBackendPrivateCacheActualTraversalProductionOutputErrorKind::SourceVocabularyRejected SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityErrorKind::UnsupportedSourcePresent
+    let resource_private_cache_no_escape_ok %bool selfhost_memo_call_backend_private_cache_actual_traversal_production_output_error_result_eq summary.resource_lowering_private_cache_effect_no_escape_rejected source_vocabulary_unsupported_expected
     and:
         source_count_ok
         and:
