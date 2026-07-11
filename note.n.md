@@ -83463,3 +83463,11 @@ MERGE_APPROVED
 - operation累積とbody header加算はi32 overflow前にtyped rejectionとし、empty inventory、negative count、block/op/terminator gap、operation table count不一致をruntimeで拒否する。
 - subagent差分レビューは独立inventoryとHIR-shaped operation ownerから`ResourceIrEnumerated`を発行できるprovenance launderingをblockingとした。中間originへ縮退してproduction拒否を固定し、差分・全体整合レビューはいずれも最終APPROVED。
 - `plan.md`は変更していない。pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource terminator payload inventory
+
+- block terminator inventoryへReturn payload有無を追加し、Unreachable / RawBodyにreturn payloadが付くmalformed shapeを拒否する。
+- block boundaryを持たないpreorder recursive inventory案は、nested childが別blockへ跨げるレビューblockerのため撤回した。Branch / Loop / Matchはparent shape、block boundary、sibling intervalを同じopaque ownerで表す後続sliceへ戻した。
+- actual Return Place identity / escape classification、operation semantics、HIR-to-Resource co-produced function ownerは未実装である。`ResourceIrEnumerated`は発行しない。`plan.md`は変更していない。
+- runtimeはReturn Some/None、Unreachable payload無し/有り拒否、RawBody payload無し/有り拒否を全実行する。subagent差分・全体整合レビューはいずれもrecursive案撤回後の最終差分をAPPROVED。
+- pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。

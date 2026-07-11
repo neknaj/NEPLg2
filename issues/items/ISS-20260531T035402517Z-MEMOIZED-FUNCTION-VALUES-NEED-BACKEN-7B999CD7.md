@@ -1066,3 +1066,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: HIR projection由来scopeがsplit後に無条件`ResourceLoweringTraversalProduced`へ再分類されていたため、fixture / HIR projection / actual Resource IRのscope provenanceをevent tableとsplit outputまで運搬する。現HIR pathは`HirProjectionTraversalProduced` coverageにだけ写され、production validatorで拒否する。`ResourceIrEnumerated`の発行境界とactual Resource IR enumeratorは未実装である。
 
 2026-07-11: Rust `ResourceFunction.blocks[].ops + terminator`に対応するtyped block inventory ownerを追加し、dense block/op range、全blockのterminator coverage、same request/graph、operation ownerとの総数一致を全検査して非productionの`ResourceIrInventoryValidated` scopeを発行する境界を接続した。独立ownerの一致だけではactual provenanceにならないため`ResourceIrEnumerated`は未発行であり、HIR lowering結果からinventory/operation ownerを同時生成するmaterializerとterminator escape classificationが残る。
+
+2026-07-11: block terminator inventoryへReturn payload-presence coverageを追加し、Unreachable / RawBodyにreturn payloadが付く形を拒否した。actual Return Place、Branch / Loop / Matchのblock-aware recursive owner、operation意味分類、HIR-to-Resource co-produced ownerは未実装である。

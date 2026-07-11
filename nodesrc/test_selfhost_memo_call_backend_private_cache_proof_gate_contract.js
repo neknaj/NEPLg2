@@ -932,6 +932,7 @@ assertOrdered(
         "operation_count %i32",
         "terminator_ordinal %i32",
         "terminator_kind %SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind",
+        "return_has_value %bool",
     ],
     "Resource IR block inventory must bind identity, dense block/op ranges, and one explicit terminator record",
 );
@@ -939,6 +940,20 @@ assert.deepEqual(
     enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind"),
     ["Return", "Unreachable", "RawBody"],
     "Resource IR inventory must enumerate every Rust ResourceTerminator class without a fallback kind",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_validate_result"),
+    [
+        "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return",
+        "Result::Ok unit",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable",
+        "record.return_has_value",
+        "TerminatorPayloadUnexpected record.terminator_ordinal",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody",
+        "record.return_has_value",
+        "TerminatorPayloadUnexpected record.terminator_ordinal",
+    ],
+    "only Return terminators may carry ResourceTerminator value presence",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop"),

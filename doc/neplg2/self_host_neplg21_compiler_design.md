@@ -3563,6 +3563,8 @@ Rustの`ResourceFunction`は`blocks: Vec<ResourceBlock>`を持ち、各blockは`
 
 このcheckpointはactual provenanceの前段構造検査に留まり、`ResourceIrEnumerated`は発行しない。HIR lowering結果から`ResourceFunction` inventoryとoperation tableを同一opaque ownerとしてmaterializeする本体、nested operationの意味分類、terminator return placeのescape event化は未実装である。次はHIR projection fixtureを使わず、selfhost loweringが作るtyped Resource function ownerから両recordを同時生成する。
 
+block terminator inventoryにはReturn valueの有無も保持する。`Return`だけがpayload有無を持て、`Unreachable`と`RawBody`にreturn payloadが付く形は拒否する。ただしpayloadの`Place` identityとescape classificationはまだ保持しない。Branch / Loop / Matchのblock-aware recursive inventoryは、parent shape・block boundary・sibling intervalを同時に表すopaque lowering ownerと一緒に後続実装する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

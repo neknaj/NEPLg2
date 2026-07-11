@@ -2527,6 +2527,7 @@ struct SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord:
     operation_count %i32
     terminator_ordinal %i32
     terminator_kind %SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind
+    return_has_value %bool
 
 impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord \self:
@@ -2550,6 +2551,7 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     OperationRangeMismatch %i32
     OperationCountInvalid %i32
     TerminatorOrdinalMismatch %i32
+    TerminatorPayloadUnexpected %i32
     OperationTableMismatch %i32
     OperationScopeRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
@@ -10620,6 +10622,21 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push 
             v::free v::vec_push_error_vec e
             Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BlockPushFailed error
 
+fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \record:
+    match record.terminator_kind:
+        SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return:
+            Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable:
+            if:
+                record.return_has_value
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorPayloadUnexpected record.terminator_ordinal
+                Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody:
+            if:
+                record.return_has_value
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorPayloadUnexpected record.terminator_ordinal
+                Result::Ok unit
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\key\graph_id\idx\block_count\next_operation_ordinal:
     if:
         ge idx block_count
@@ -10641,10 +10658,14 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop 
                                 if:
                                     not eq record.terminator_ordinal idx
                                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorOrdinalMismatch record.terminator_ordinal
-                                    if:
-                                        gt record.operation_count sub 2147483647 next_operation_ordinal
-                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationCountInvalid record.operation_count
-                                        selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop inventory key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_validate_result record:
+                                        Result::Ok _valid:
+                                            if:
+                                                gt record.operation_count sub 2147483647 next_operation_ordinal
+                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationCountInvalid record.operation_count
+                                                selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop inventory key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count
+                                        Result::Err e:
+                                            Result::Err e
             Option::None:
                 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BlockReadFailed idx
 
@@ -10773,23 +10794,23 @@ pub fn selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scop
             selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_kind_eq error expected_error
     and valid_ok and wrong_key_rejected and wrong_graph_rejected and duplicate_rejected and gap_rejected negative_rejected
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result %impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn bool Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_has_value:
     let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
     let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
     match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new:
         Result::Ok inventory0:
-            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 0 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return
+            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 0 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return true
             match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory0 first:
                 Result::Ok inventory1:
-                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable
+                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_has_value
                     selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory1 second
                 Result::Err e:
                     Result::Err e
         Result::Err e:
             Result::Err e
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn bool bool \second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\expect_ok:
-    match selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn bool impure fn bool bool \second_block_ordinal\second_first_operation_ordinal\second_operation_count\second_terminator_ordinal\second_terminator_kind\second_return_has_value\expect_ok:
+    match selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_has_value:
         Result::Ok inventory:
             match selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_stage0_table_result 1:
                 Result::Ok operations:
@@ -10850,14 +10871,18 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_re
 //: assert_true selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0;
 //: ```
 pub fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0 %impure fn void bool \void:
-    let valid_ok %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 true
-    let block_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 2 1 1 1 false
-    let operation_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 2 1 1 false
-    let operation_count_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 2 1 false
-    let negative_operation_count_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 sub 0 1 1 false
-    let terminator_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 2 false
+    let valid_ok %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable false true
+    let block_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 2 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable false false
+    let operation_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 2 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable false false
+    let operation_count_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 2 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable false false
+    let negative_operation_count_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 sub 0 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable false false
+    let terminator_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 2 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable false false
+    let unreachable_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable true false
+    let return_none_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return false true
+    let raw_body_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody false true
+    let raw_body_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody true false
     let empty_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_rejected_stage0
-    and valid_ok and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected empty_rejected
+    and valid_ok and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and raw_body_accepted and raw_body_payload_rejected empty_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push: operation record を[追加/ついか]する
 //:

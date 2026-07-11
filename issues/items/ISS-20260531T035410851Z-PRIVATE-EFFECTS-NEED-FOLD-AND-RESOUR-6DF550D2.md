@@ -138,6 +138,8 @@ HIR reader source projection由来のoperation scopeとactual Resource IR enumer
 
 2026-07-11 follow-upで、Rust Resource function-shaped block/op/terminator inventoryを全検査する非production `ResourceIrInventoryValidated` scope境界を追加した。actual materializerとのco-production authorityがないため`ResourceIrEnumerated`は発行せず、PrivateState / PrivateCache operation event、fresh region、non-escape evidence、slot coverageもまだ生成しない。
 
+同日follow-upでReturn terminatorのpayload有無をinventoryへ保持した。PrivateState / PrivateCache semantics、block-aware nested operation、Return Place escape evidenceは合成しない。
+
 ## 2026-07-11 source vocabulary eligibility authority integration
 
 memo_call production authority boundaryで、source vocabulary eligibilityとcoverage identityを同じmodule-private authorityに束ね、no-escape bundle変換時に再検査するようにした。これによりescaping / observation / unsupported sourceやbody / graph identity不一致をprivate-effect mask前にfail-closedで止める。
