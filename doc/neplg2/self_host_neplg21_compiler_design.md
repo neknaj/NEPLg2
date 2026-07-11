@@ -3511,6 +3511,14 @@ traversal-output owner path と source-table owner path は、coverage identity 
 
 この checkpoint も underlying vocabulary を作る full Resource IR graph walker 本体ではない。次は actual traversal が resolver-bound HIR reader の代用ではなく source vocabulary、fresh witness、coverage record を実 traversal から発行し、private-effect mask と artifact policy hash へ接続する。
 
+## 2026-07-11 selfhost resource-lowering source vocabulary eligibility authority checkpoint
+
+copyable source vocabulary summary は eligibility 判定後も summary のまま authority output に保存されていたため、後続が「検査済みの same-body vocabulary」と「未検査 count」を型で区別できなかった。`ActualTraversalProducerSourceVocabularyEligibilityAuthority` を module-private に追加し、accepted-only eligibility と coverage authority の request root / body root / module fingerprint / graph id 照合が両方成功した場合だけ発行する。
+
+producer traversal owner path と source-table owner path はこの authority producer を共有し、成功時は eligibility authority と fresh witness owner を producer authority output に束ねる。拒否時は従来どおり walker input / observation owner または source table owner を閉じる。`Result void` では generic success typeを表せないため eligibility predicate の成功型を `unit` に修正し、parser が後続検査へ進める契約も回復した。
+
+この authority は vocabulary provenance と same-body identity だけを固定し、full Resource IR graph walker、fresh region の実 traversal 発行、PrivateCache / PrivateState effect mask、sealed backend representation、artifact policy hash を完成扱いしない。次は actual Resource traversal output がこの authority の入力 vocabulary と coverage record を resolver-bound HIR reader の代用なしに生成する境界へ進む。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

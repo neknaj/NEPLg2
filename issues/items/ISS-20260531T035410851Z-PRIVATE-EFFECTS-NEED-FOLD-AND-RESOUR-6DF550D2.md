@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-21
+updated: 2026-07-11
 target: "nepl-core/src/effects.rs; nepl-core/src/resource/effect_check.rs; nepl-core/src/resource/resource_summary_value_cache/body_hash.rs"
 ---
 
@@ -131,6 +131,12 @@ subagent review:
 - Resource summary body hash / capability policy hash / artifact policy hash に private effect operation と mask policy version を含める。
 - memo_call backend request-evidence proof と private effect mask を接続する。
 - sealed backend representation、`.neplobj` / `.neplproof` stable key projection、private cache observation ban を接続する。
+
+## 2026-07-11 source vocabulary eligibility authority integration
+
+memo_call production authority boundaryで、source vocabulary eligibilityとcoverage identityを同じmodule-private authorityに束ね、no-escape bundle変換時に再検査するようにした。これによりescaping / observation / unsupported sourceやbody / graph identity不一致をprivate-effect mask前にfail-closedで止める。
+
+このcheckpointはPrivateCache / PrivateState mask実体、actual traversal由来coverage record、Resource summary hash / capability policy hash / artifact policy hashへの投影を完成させない。これらは引き続き本issueの残件である。
 
 ## 2026-06-21 selfhost private effect no-escape gate checkpoint
 

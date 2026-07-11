@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-21
+updated: 2026-07-11
 target: "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs"
 ---
 
@@ -1031,3 +1031,18 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_g
 `stdlib/neplg2/core/check/module/memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、memo_call backend proof chain が将来発行する `PrivateState` / `PrivateCache` no-escape proof を、operation method body fact table へ渡す直前で消費できる checker-layer boundary を固定した。
 
 この checkpoint は memo_call backend request-evidence proof の完了ではない。gate は typed proof table と HIR-root scan record を照合するだけで、`RequestEvidenceProven`、Resource proof production、GraphInput、sealed backend bytes、PrivateCache / PrivateState effect mask、`.neplobj` / `.neplproof` artifact key は作らない。backend 側の残件は、real Resource IR / HIR lowering result から accepted traversal source と fresh witness を生成し、その proof を request-evidence bridge と private effect no-escape gate の両方へ整合した identity で渡す上位 orchestration である。
+
+## 2026-07-11 selfhost source vocabulary eligibility authority checkpoint
+
+producer source vocabulary の count summary を authority output に直接保持せず、accepted-only 判定と request root / resolver body root / body module fingerprint / graph id の coverage identity 照合を通過した module-private eligibility authority に変換する境界を追加した。producer traversal owner path と source-table owner path は同じ authority producerを使い、no-escape bundle 変換時にも vocabulary と identity を再検査する。
+
+`Result void` で generic success type を表していた parser blockerを `Result unit` に修正し、後続に潜在していた typed Vec constructor、impure Result argument、readiness identity、multi-term predicate の型不整合も根本修正した。reader source生成失敗とappend失敗ではowner責務が異なるため、前者だけproducer source ownerを閉じ、後者はcallee cleanup後のerrorをそのまま返す。
+
+このcheckpointはsealed backend representation、cache allocation/hit/miss、identity-observation banの最終接続、backend bytes、artifact keyを完成させない。残件はactual Resource traversal由来source/coverage/fresh witnessをeligibility authorityへ渡し、private-effect maskとsealed backendへ進めることである。
+
+検証:
+
+- `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- selfhost doctest 18 / 18
+- `trunk build`
+- playground editor CLI 13 / 13

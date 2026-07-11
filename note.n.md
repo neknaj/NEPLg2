@@ -83318,6 +83318,40 @@ MERGE_APPROVED
 - 差分レビューは、2 つの authority owner path で eligibility、coverage、fresh witness の順序と rejection cleanup を直接検査する必要を指摘した。両経路の `assertOrdered` と cleanup 契約コメントを追加した。
 - 全体整合レビューは、production stage0 smoke が PrivateCache source に旧 `OutputRejected(WitnessUnsupportedSource)` を期待している点を blocking として指摘した。resource-lowering path だけを `SourceVocabularyRejected(UnsupportedSourcePresent)` へ更新し、source-derived HIR reader path の旧分類とは分離した。
 
+# 2026-07-11 selfhost resource-lowering source vocabulary eligibility authority
+
+## 目的と実装
+
+- eligibility 判定後も copyable count summary を authority output に直接保持していたため、未検査 summary と検査済み same-body vocabulary を型で区別できないことを根本原因とした。
+- module-private `SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabularyEligibilityAuthority` を追加し、request root、resolver body root、body module fingerprint、graph id、accepted-only vocabulary を束ねた。
+- authority producer は vocabulary eligibility と coverage identity の両方を検査する。traversal-output owner path と source-table owner path はこの producer を共有し、成功時だけ fresh-witness owner と eligibility authority を authority output に格納する。
+- rejection path は walker input / observation owner または source table owner を閉じ、元の typed production error を保持する。
+- 直前 checkpoint の eligibility predicate が generic success type に `void` を使って parser を止めていたため、正しい `unit` に修正した。これにより後続の潜在型エラーも検出可能になった。
+
+## plan.md・issue・残件
+
+- `plan.md` は変更していない。ISS-20260531T035402517 と ISS-20260531T035410851 の production authority boundary を進める変更である。
+- full Resource IR graph walker、actual traversal 由来 coverage record / fresh region witness、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hash は未実装であり、`todo.md` の未完了項目は削除していない。
+
+## 検証状況
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: parser は eligibility predicate の `Result unit` を受理する。
+- initial fail: `tmp/selfhost-source-vocabulary-eligibility-authority-tests-2.json` は changed scan 1 / 1 が compile failure。`Result unit` により parser 停止を解消した後、同一 module と依存 `memo_call_backend_request_table.nepl` の stage0 fixture / readiness helper / impure owner factory 引数に潜在していた型エラーが可視化された。
+- fixed: `Vec<SelfhostHirExprId>` constructor の Result 型を明示し、impure owner factory の Result を typed localへ分離し、readiness identity helperの値境界と4項predicateの二分木を修正した。
+- pass: 差分レビュー後、producer bridge failure の二重解放を除去した。
+- pass: eligibility authority を no-escape bundle 変換時にも body / graph identity、accepted-only vocabulary、coverage authorityまで再検査し、rejection で witness owner を閉じる contract を追加した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=900000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --dist dist -o tmp/selfhost-source-vocabulary-eligibility-authority-final-doctest.json -j 1 --batch-size 18 --failure-nonfatal`。18 / 18。
+- pass: `PATH="/tmp:$PATH" NO_COLOR=false trunk build`。WSLの`npm.cmd` hook用に`/tmp/npm.cmd` symlinkを使用した。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/selfhost-source-vocabulary-eligibility-authority-cli.json`。13 / 13。
+- pass: stdlib documentation contract、issues check、target contract、`git diff --check`。
+- timeout: `node nodesrc/run_source_policy_regressions.js` 全体は既存 `test_resource_checker_responsibility.js` が単独10分を超えたため停止した。今回対象の `test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` は個別にpassしている。
+
+## subagent review
+
+- 差分レビューは producer bridge failure path の caller-side free が callee cleanup と二重解放になる点、eligibility authority が downstream で未検査のまま捨てられる点を blocker とした。caller free を削除し、downstream validation helper と contract assertionを追加した。
+- 全体整合レビューは `Result void` 修正後に露出した同一 module の型エラーを無関係扱いせず、focused doctest 18 / 18 を merge gate とするよう指摘した。設計コメントを eligibility authority の運搬へ更新し、未完了範囲を維持した。
+
 ## todo.md
 
 - 今回完了した eligibility checkpoint は追加しない。
