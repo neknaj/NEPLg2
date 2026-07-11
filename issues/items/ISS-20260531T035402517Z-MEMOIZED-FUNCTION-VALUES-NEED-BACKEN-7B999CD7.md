@@ -1098,3 +1098,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-12: Rust `ResourceFunction.type_params`に対応するordered `Vec<SelfhostTypeId>` ownerをfunction inventoryへ追加した。call occurrenceのproof key `type_arg_count`とは比較せず、現行monomorphic backendでは非空ownerを`FunctionTypeParametersUnsupported(actual_count)`でentry membership後かつresult/effect検査前に拒否する。actual lowering co-productionとgeneric Resource backendは未実装である。
 
 2026-07-12: function type parameter ownerをordinal順に走査し、負TypeIdを`FunctionTypeParameterInvalid`、borrowed TypeArena内の非負missingを`FunctionTypeParameterMissing`へordinal / type index付きで拒否してからmonomorphic unsupported判定へ進める。TypeKind::Var record kind、canonical binder identity、actual lowering由来arena authorityは未実装である。
+
+2026-07-12: 実在するfunction type parameter recordを`Parameter` variantと最小valid bindingに制限し、単一function binderの`depth=0 / parameter_index=ordinal`不一致をtyped rejectionしてからmonomorphic unsupportedへ進める。selfhost ParameterはRust TypeKind::Varのbinder参照shapeだけであり、bound/unbound Option、capability、actual lowering由来unbound evidenceは未実装である。

@@ -83619,6 +83619,16 @@ MERGE_APPROVED
 - subagent差分レビューの指摘によりfixtureを2要素ownerへ拡張し、`[valid(0), invalid(-1)]`と`[valid(0), missing(2)]`がordinal 1をexact rejectionするruntimeを追加した。全体整合レビューの指摘で未実装taxonomyをRustの`TypeKind::Var`表記へ修正し、両レビューは最終APPROVED。単一内容commitのff-only統合粒度も承認された。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。
 
+# 2026-07-12 selfhost Resource function type parameter binder shape
+
+- arena実在確認後のtype parameter recordを`Parameter` variantへ限定し、bindingの非負depth/indexと単一function binderの`depth=0 / parameter_index=ordinal`を検査する。
+- primitive recordはkind mismatch、2要素`[Parameter(0,0), Parameter(0,0)]`はordinal 1のbinding mismatchへexact rejectionし、正常`Parameter(0,0)`だけが従来のmonomorphic unsupportedへ到達する。
+- negative bindingはsafe `selfhost_type_arena_add_type_parameter`がarena投入前にownerを閉じて拒否するため通常runtimeでは到達不能である。validatorの`FunctionTypeParameterBindingInvalid`はunchecked/raw arenaに対するdefense-in-depth taxonomyとして維持し、通常fixtureのarenaへ壊れた未参照recordを混入しない。
+- selfhost ParameterはRust `TypeKind::Var`のbinder参照shapeだけを持つ。Rustのbound/unbound Option、copy/clone/drop capability、actual lowering由来unbound evidence、canonical binder identityは未完了で、解決済みVarを検出したとは主張しない。
+- `plan.md`は変更していない。actual co-production、generic backend、ResourceOp topology、sealed backend、artifact keyも未完了である。
+- subagentレビューでvalidatorの旧契約コメントとsafe arenaでは到達不能なinvalid binding taxonomyの説明不足を修正し、通常fixture arenaへraw invalid recordを混入しないことを再確認した。差分・全体整合レビューはいずれも最終APPROVEDで、単一内容commitのff-only統合粒度も承認された。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。
+
 # 2026-07-11 selfhost Resource entry block membership
 
 - Rust `ResourceFunction.entry_block`がselfhost function inventoryから欠落していたため、entry block IDとblock tableを同じownerへ保持し、各recordへdense ordinalとは別のblock IDを追加する。
