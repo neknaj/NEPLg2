@@ -1308,7 +1308,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1317,12 +1317,38 @@ assertOrdered(
     [
         "resource_ir_operation_span_inventory_stage0_result key graph_id operation_count",
         "resource_ir_operation_kind_inventory_stage0_result key graph_id operation_count",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds",
+        "resource_ir_expr_payload_inventory_stage0_result &operation_kinds key graph_id output ty",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads",
+        "resource_ir_expr_payload_inventory_free expr_payloads",
         "resource_ir_operation_kind_inventory_free operation_kinds",
         "resource_ir_operation_span_inventory_free operation_spans",
         "result",
     ],
     "stage0 scope fixture must borrow its separately owned operation spans and close them after validation",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
+    [
+        "resource_ir_expr_payload_inventory_len expr_payloads",
+        "resource_ir_expr_payload_inventory_validate_loop expr_payloads operation_kinds places types key graph_id 0 operation_count 0 expr_payload_count",
+        "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
+    ],
+    "Expr sparse payloads must validate outside the large scope checker before inventory authority is minted",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_validate_loop"),
+    ["ExprPayloadUnexpected payload_idx", "ResourceIrOperationKind::Expr", "ExprPayloadMissing operation_idx", "expr_payload_record_validate_result", "ExprPayloadUnexpected payload.operation_ordinal"],
+    "merge-cursor validation must require exactly one payload for Expr and none for non-Expr operations",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_record_validate_result"),
+    ["ExprPayloadIdentityMismatch ordinal", "ExprPayloadOrdinalMismatch record.operation_ordinal", "ExprPayloadTypeInvalid ordinal", "ExprPayloadTypeMissing ordinal", "ExprPayloadOutputMissing ordinal", "ExprPayloadOutputTypeMismatch ordinal", "expr_payload_kind_type_validate_result record.kind types ordinal"],
+    "Expr payload identity, output membership, expression type, output type equality, and kind-specific type payload must all validate",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_runtime_stage0"),
+    ["resource_ir_expr_kind_roundtrip_loop 0"],
+    "Expr payload runtime must roundtrip all 18 Rust ResourceExprKind variants",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_runtime_stage0"),

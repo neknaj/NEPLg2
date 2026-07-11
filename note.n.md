@@ -83680,3 +83680,10 @@ MERGE_APPROVED
 - Rust `ResourceOp`全24 top-level variantをfallbackなしの専用kind enumへ写し、key / graph / dense ordinal / kindだけを持つownerをlegacy classifierおよびspan ownerから分離した。
 - scopeはblock inventoryのoperation countをlegacy / span / kind owner全てへ照合し、legacy identity / ordinal、span owner、kind identity / ordinalの順に検査する。stage0 wrapperもkind ownerを別生成し、borrow後に必ず解放する。
 - runtimeは24 tag roundtripとnegative countを固定した。nested Branch / Loop / Match topology、variant payload / endpoint、actual HIR-to-Resource co-productionは未完了で、originは`ResourceIrInventoryValidated`を維持する。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource Expr payload
+
+- Rust `ResourceOp::Expr`を専用sparse ownerへ写し、`ResourceExprKind`全18 variant、output Place、expression TypeId、`LayoutSizeOf`対象TypeIdをlosslessに保持した。
+- operation kind ownerとのmerge-cursorでExpr payloadの欠落とnon-Expr payload混入を拒否し、identity / dense ordinal、Place membership、TypeArena membership、output型一致を検査する。
+- scopeへ直接matchを追加すると巨大関数のresource typecheckが診断なしで失敗した。Expr検査とauthority生成をprivate helperへ抽出して型推論量を局所化し、focused compileを復旧した。
+- 残る23 operation payload、nested Branch / Loop / Match topology、actual HIR-to-Resource co-productionは未完了で、originは`ResourceIrInventoryValidated`を維持する。`plan.md`は変更していない。
