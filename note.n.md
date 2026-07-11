@@ -83563,3 +83563,11 @@ MERGE_APPROVED
 - `plan.md`は変更していない。EnumPayload stable symbol、usize全域、Unknown分類、canonical type key、block-aware nested owner、actual lowering co-production、PrivateCache / PrivateState effect mask、sealed backend、artifact keyは未完了である。
 - subagent差分レビューの指摘によりsource-policyのexact import例外、Place / projection構造contract、負count / short table / excess recordのexact runtimeを追加した。全体整合レビューの指摘により登録済みrecursive Place linkのaccepted pathも追加し、両レビューは最終APPROVED。
 - pass: projection contract、proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。
+
+# 2026-07-11 selfhost Resource Place Unknown classification
+
+- RustのPlaceRoot::UnknownとResourceOffset::Unknownをvariant modelから削除せず、inventory scopeでそれぞれ`PlaceRootUnsupported`と`ProjectionUnsupported`へfail-closedに分類する。
+- Unknownを通常root / offsetとして受理して意味を推測する経路をscope発行前に閉じる。既知rootとKnown / Symbolic系offsetの受理、structural invalid payloadとのerror taxonomyは維持する。
+- `plan.md`は変更していない。EnumPayload stable symbol、usize全域、canonical type key、block-aware nested owner、actual lowering co-production、PrivateCache / PrivateState effect mask、sealed backend、artifact keyは未完了である。
+- subagent差分レビューと全体整合レビューはいずれもAPPROVED。Unknownは一般Resource IR codecで保持すべきsentinelなので、拒否をinventory/proof scope限定に保つことも確認した。
+- pass: projection contract、proof gate contract、focused runtime 2 / 2、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。

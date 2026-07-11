@@ -8,7 +8,7 @@
 //: - usize payloadは現段階では非負i32範囲だけを扱い、範囲外値はactual materializerでtyped rejectionします。
 //: - Box<Place> payloadは同一Resource function owner内Placeへのopaque i32 linkとして保持し、inventory scopeが同じPlace owner内のmembershipを検査します。
 //: - EnumPayloadのvariantは現段階ではopaque i32 identityで、Rust String / stable symbol authorityとの結合はactual materializerに残します。
-//: - Unknown offsetはsentinelとして保持しますが、production provenance発行前にunsupportedへ分類する必要があります。
+//: - Unknown offsetはsentinelとして保持しますが、inventory scopeではunsupportedとしてfail-closedに拒否します。
 
 //: SelfhostResourceIrIndexedProjection: Field / TupleFieldの非負indexとbyte offsetを保持する
 pub struct SelfhostResourceIrIndexedProjection:
@@ -115,6 +115,22 @@ pub fn selfhost_resource_ir_place_projection_is_structurally_valid %fn SelfhostR
         SelfhostResourceIrPlaceProjection::StorageOffset offset:
             selfhost_resource_ir_resource_offset_is_structurally_valid offset
 
+//: selfhost_resource_ir_place_projection_is_inventory_supported: inventory scopeで意味を保持できるprojectionかを[判定/はんてい]する
+//:
+//: [契約/けいやく]:
+//: - Rust ResourceOffset::Unknownは構造上のsentinelとしてmodelに保持しますが、通常offsetと同じ意味では処理しません。
+//: - Unknown以外の全variantはstructural validatorを別途通すことを前提にsupportedとします。
+pub fn selfhost_resource_ir_place_projection_is_inventory_supported %fn SelfhostResourceIrPlaceProjection bool \projection:
+    match projection:
+        SelfhostResourceIrPlaceProjection::StorageOffset offset:
+            match offset:
+                SelfhostResourceIrResourceOffset::Unknown:
+                    false
+                _:
+                    true
+        _:
+            true
+
 //: selfhost_resource_ir_place_projection_stage0: 全projection / offset variantと主要rejectionのruntime smoke
 //:
 //: neplg2:test[skip]
@@ -139,8 +155,10 @@ pub fn selfhost_resource_ir_place_projection_stage0 %fn void bool \void:
     let scaled_offset_ok %bool selfhost_resource_ir_resource_offset_is_structurally_valid SelfhostResourceIrResourceOffset::ScaledOffset scaled_offset
     let unknown_ok %bool selfhost_resource_ir_resource_offset_is_structurally_valid SelfhostResourceIrResourceOffset::Unknown
     let storage_ok %bool selfhost_resource_ir_place_projection_is_structurally_valid SelfhostResourceIrPlaceProjection::StorageOffset SelfhostResourceIrResourceOffset::Known 8
+    let known_supported %bool selfhost_resource_ir_place_projection_is_inventory_supported SelfhostResourceIrPlaceProjection::StorageOffset SelfhostResourceIrResourceOffset::Known 8
+    let unknown_unsupported %bool not selfhost_resource_ir_place_projection_is_inventory_supported SelfhostResourceIrPlaceProjection::StorageOffset SelfhostResourceIrResourceOffset::Unknown
     let bad_index %SelfhostResourceIrIndexedProjection SelfhostResourceIrIndexedProjection sub 0 1 0
     let bad_index_rejected %bool not selfhost_resource_ir_place_projection_is_structurally_valid SelfhostResourceIrPlaceProjection::Field bad_index
     let bad_scale %SelfhostResourceIrScaledPlaceLink SelfhostResourceIrScaledPlaceLink 1 sub 0 1
     let bad_scale_rejected %bool not selfhost_resource_ir_resource_offset_is_structurally_valid SelfhostResourceIrResourceOffset::ScaledSymbolic bad_scale
-    and field_ok and tuple_ok and enum_ok and deref_ok and known_ok and symbolic_ok and scaled_symbolic_ok and offset_ok and scaled_offset_ok and unknown_ok and storage_ok and bad_index_rejected bad_scale_rejected
+    and field_ok and tuple_ok and enum_ok and deref_ok and known_ok and symbolic_ok and scaled_symbolic_ok and offset_ok and scaled_offset_ok and unknown_ok and storage_ok and known_supported and unknown_unsupported and bad_index_rejected bad_scale_rejected

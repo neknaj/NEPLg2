@@ -53,5 +53,17 @@ ordered(
     "offset structural validation must be variant-specific",
 );
 
+ordered(
+    [
+        "selfhost_resource_ir_place_projection_is_inventory_supported",
+        "SelfhostResourceIrPlaceProjection::StorageOffset offset:",
+        "SelfhostResourceIrResourceOffset::Unknown:",
+        "false",
+        "_:",
+        "true",
+    ],
+    "Unknown storage offsets must remain modeled but be classified unsupported at inventory scope",
+);
+
 assert.doesNotMatch(source, /ResourceIrEnumerated|ResourceLoweringTraversalProduced|RequestEvidenceProven/);
 console.log("selfhost Resource IR Place projection contract ok");
