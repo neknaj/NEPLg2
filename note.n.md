@@ -83520,6 +83520,12 @@ MERGE_APPROVED
 - type arena membership / canonical type keyは未証明で、projection/escapeとactual co-productionも未実装のため非productionを維持する。
 - subagentの差分・全体整合レビューはいずれもAPPROVED。pass: target contract、focused runtime 1/1、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
 
+# 2026-07-11 selfhost Resource Place projection model
+
+- 巨大proof gate内のflat 15-field projection record案はRust variant排他性を失いcompileも10分超へ退行したため破棄した。
+- 独立moduleへRust PlaceProjection 5 variant / ResourceOffset 6 variantをnested enumとして追加し、i64 offsetを保持する。opaque recursive Place linkのmembership、usize全域、dense owner接続は未実装で非production modelに留める。
+- subagentの差分・全体整合レビューは指摘修正後ともにAPPROVED。履歴粒度も内容commit 1個のff-only統合を承認。pass: projection contract、committed runtime 1/1、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
 # 2026-07-11 selfhost Resource Place type arena membership
 
 - Place inventory scopeへborrowed SelfhostTypeArenaを追加し、各非負TypeIdのrecord実在を検査する。fixture arenaはscope結果を得た直後に解放する。

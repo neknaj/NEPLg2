@@ -1080,3 +1080,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Place inventory recordへ非負SelfhostTypeIdを追加し、負indexをscope前に拒否した。type arena membership / canonical type key、projection、escape classification、actual lowering co-productionは未実装である。
 
 2026-07-11: Place TypeIdをborrowed SelfhostTypeArenaへ照合し、非負でもarena recordが欠落するindexを拒否した。canonical type key、actual lowering由来arena authority、projection、escape classification、actual lowering co-productionは未実装である。
+
+2026-07-11: Rust PlaceProjection / ResourceOffset全variantのvariant-native selfhost modelを独立moduleへ追加した。i64 offsetは保持し、Box<Place>はopaque place index link、usizeは非負i32範囲に限定する。Place inventory ownerへのdense列接続とrecursive membershipは未実装である。
