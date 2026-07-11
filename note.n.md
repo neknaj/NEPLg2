@@ -83493,3 +83493,10 @@ MERGE_APPROVED
 - Place escape classification、private region identity、block-aware recursive owner、HIR-to-Resource co-productionは未実装で、originは非productionのまま。`plan.md`は変更していない。
 - negative Return Placeは`TerminatorReturnPlaceInvalid(-1)`、Unreachable / RawBody Placeは`TerminatorPayloadUnexpected(1)`をruntimeでexact matchする。subagent差分・全体整合レビューはいずれも最終APPROVED。
 - pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource Return Place graph identity
+
+- Return Place payloadへResourceGraphIdを束ね、block inventoryのgraphと一致しないpayloadをtyped rejectionにした。
+- negative Place、wrong graph、non-Return payloadをそれぞれexact errorでruntime検査する。root/projection/type、place table membership、escapeは未実装で非productionを維持する。
+- subagentの差分レビューと全体整合レビューはいずれもAPPROVED。target contract、focused runtime 1/1、変更対象selfhost doctest 10/10、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13は通過した。
+- documentation baselineは今回追加した宣言へ日本語contractを付けた状態でも、現行mainに既存する別laneの未文書化宣言によりstdlib `2806 > 2756`、selfhost `93 > 71`で失敗する。baseline値は変更していない。

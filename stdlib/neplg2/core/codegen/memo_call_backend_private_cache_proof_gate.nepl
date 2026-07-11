@@ -2513,14 +2513,22 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind:
     Unreachable
     RawBody
 
+//: SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace: Return terminatorのgraph-local Place handle
+//:
+//: [契約/けいやく]:
+//: - Rust PlaceをResource function graphへ結び付ける前段としてgraph identityとResourcePlaceIdを一体で保持します。
+//: - Rust Placeのroot/projection/type、place table membership、escape statusはまだ証明しません。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace:
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+
 //: SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload: Return terminatorのoptional Place handle
 //:
 //: [契約/けいやく]:
-//: - `Place`はgraph-localなResourcePlaceIdだけを保持し、Rust Placeのroot/projection/type、graph membership、escape statusをまだ証明しません。
 //: - このpayloadを保持できるterminatorはReturnだけです。Unreachable / RawBodyへ付与した場合はinventory validationで拒否します。
 enum SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload:
     None
-    Place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    Place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
 
 impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload \self:
@@ -2570,6 +2578,7 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     TerminatorOrdinalMismatch %i32
     TerminatorPayloadUnexpected %i32
     TerminatorReturnPlaceInvalid %i32
+    TerminatorReturnPlaceGraphMismatch %i32
     OperationTableMismatch %i32
     OperationScopeRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
@@ -10646,22 +10655,25 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_valid
             match record.return_payload:
                 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None:
                     Result::Ok unit
-                SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place place:
+                SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place return_place:
                     if:
-                        lt place.index 0
-                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorReturnPlaceInvalid place.index
-                        Result::Ok unit
+                        lt return_place.place_id.index 0
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorReturnPlaceInvalid return_place.place_id.index
+                        if:
+                            not selfhost_memo_call_backend_private_cache_resource_graph_id_eq return_place.graph_id record.graph_id
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorReturnPlaceGraphMismatch return_place.graph_id.index
+                            Result::Ok unit
         SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable:
             match record.return_payload:
                 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None:
                     Result::Ok unit
-                SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _place:
+                SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _return_place:
                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorPayloadUnexpected record.terminator_ordinal
         SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody:
             match record.return_payload:
                 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None:
                     Result::Ok unit
-                SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _place:
+                SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _return_place:
                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorPayloadUnexpected record.terminator_ordinal
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\key\graph_id\idx\block_count\next_operation_ordinal:
@@ -10827,7 +10839,8 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result 
     match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new:
         Result::Ok inventory0:
             let first_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
-            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 0 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place first_place
+            let first_return_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id first_place
+            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 0 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place first_return_place
             match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory0 first:
                 Result::Ok inventory1:
                     let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_kind second_return_payload
@@ -10890,7 +10903,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_re
         Result::Err _e:
             false
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload impure fn bool bool \terminator_kind\return_payload\expect_invalid_place:
+fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload impure fn i32 bool \terminator_kind\return_payload\expected_error_kind:
     match selfhost_memo_call_backend_private_cache_resource_ir_inventory_stage0_result 1 1 1 1 terminator_kind return_payload:
         Result::Ok inventory:
             match selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_stage0_table_result 1:
@@ -10903,17 +10916,24 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_
                     match result:
                         Result::Err error:
                             if:
-                                expect_invalid_place
+                                eq expected_error_kind 1
                                 match error:
                                     SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorReturnPlaceInvalid place_index:
                                         eq place_index sub 0 1
                                     _:
                                         false
-                                match error:
-                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorPayloadUnexpected terminator_ordinal:
-                                        eq terminator_ordinal 1
-                                    _:
-                                        false
+                                if:
+                                    eq expected_error_kind 2
+                                    match error:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorReturnPlaceGraphMismatch graph_index:
+                                            eq graph_index 2
+                                        _:
+                                            false
+                                    match error:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TerminatorPayloadUnexpected terminator_ordinal:
+                                            eq terminator_ordinal 1
+                                        _:
+                                            false
                         Result::Ok _scope:
                             false
                 Result::Err _e:
@@ -10934,22 +10954,29 @@ pub fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stag
     let no_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None
     let return_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 1
     let invalid_return_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new sub 0 1
-    let place_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place return_place
-    let invalid_place_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place invalid_return_place
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let wrong_graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 2
+    let return_place_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id return_place
+    let invalid_return_place_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id invalid_return_place
+    let wrong_graph_return_place_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace wrong_graph_id return_place
+    let place_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place return_place_value
+    let invalid_place_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place invalid_return_place_value
+    let wrong_graph_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place wrong_graph_return_place_value
     let valid_ok %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload true
     let block_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 2 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false
     let operation_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 2 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false
     let operation_count_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 2 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false
     let negative_operation_count_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 sub 0 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false
     let terminator_gap_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 2 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload false
-    let unreachable_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable place_payload false
+    let unreachable_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable place_payload 0
     let return_none_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return no_payload true
     let return_place_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return place_payload true
-    let return_place_invalid_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return invalid_place_payload true
+    let return_place_invalid_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return invalid_place_payload 1
+    let return_place_graph_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return wrong_graph_payload 2
     let raw_body_accepted %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case 1 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody no_payload true
-    let raw_body_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody place_payload false
+    let raw_body_payload_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_terminator_error_stage0_case SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody place_payload 0
     let empty_rejected %bool selfhost_memo_call_backend_private_cache_resource_ir_inventory_empty_scope_rejected_stage0
-    and valid_ok and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and return_place_accepted and return_place_invalid_rejected and raw_body_accepted and raw_body_payload_rejected empty_rejected
+    and valid_ok and block_gap_rejected and operation_gap_rejected and operation_count_rejected and negative_operation_count_rejected and terminator_gap_rejected and unreachable_payload_rejected and return_none_accepted and return_place_accepted and return_place_invalid_rejected and return_place_graph_rejected and raw_body_accepted and raw_body_payload_rejected empty_rejected
 
 //: selfhost_memo_call_backend_private_cache_actual_walker_operation_table_push: operation record を[追加/ついか]する
 //:
