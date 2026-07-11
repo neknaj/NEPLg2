@@ -1103,6 +1103,8 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 
 2026-07-12: Rust `ResourceFunction.span`のselfhost非負i32範囲への構造投影をfunction inventoryへ追加し、entry membership後のheader検査で`source_span_is_valid`を要求する。valid nonempty / empty rangeを受理し、negative file / startとend-before-startを元span payload付き`FunctionSpanInvalid`へ拒否する。actual lowering co-production、Rust u32上位域、source length / UTF-8 boundary、function name / origin authority、block / terminator / operation spanは未実装である。
 
+2026-07-12: Rust `ResourceBlock.span`のselfhost非負i32投影を各block inventory recordへ追加し、block identity / ordinal / nonnegative ID / unique ID後かつoperation range前に1回検査する。valid nonempty / empty / dummyとfunction spanとは別fileのpositiveを受理し、3 invalid caseをblock ordinal 1と元span付き`BlockSpanInvalid`へ拒否する。invalid ID / duplicate IDはinvalid spanより先に拒否する。actual lowering co-production、u32 narrowing、same-file / containmentを要求しないmulti-file source-policy aggregation provenance、terminator / operation spanは未実装である。
+
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
 Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。

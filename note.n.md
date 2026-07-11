@@ -83654,3 +83654,10 @@ MERGE_APPROVED
 - preservation smokeはnewからtype parameter、parameter、blockを順にpushした後も`(7,11,19)`とmutable=trueをexact readし、ownerをfreeする。非空type parameter ownerをscope成功へ流してmonomorphic rejectionを迂回しない。
 - `plan.md`は変更していない。actual function inventory co-production、u32上位域、source length / UTF-8 boundary、function name / origin authority、block / terminator / operation span、ResourceOp topology、sealed backend、artifact keyは未完了である。
 - pass: proof gate contract、focused runtime 1 / 1、`git diff --check`。
+
+# 2026-07-12 selfhost Resource block span
+
+- Rust `ResourceBlock.span`を各block inventory recordへselfhost非負i32投影として保持し、block identity / ordinal後、operation range前に`source_span_is_valid`で検査する。
+- second block ordinal 1の非空`file=2 [5,8)`、empty、dummyを受理し、negative file / start、end-before-startをordinalと元span付き`BlockSpanInvalid`へexact rejectionする。function spanはfile 1なのでsame-file / containmentを要求しないpositiveも固定した。
+- Rust model/lower/contextのblock span sentinelをcontractで固定した。invalid block ID / duplicate IDはinvalid spanより先に拒否するcompound fixtureも追加した。actual u32 narrowing、same-file / containmentを要求しないmulti-file source-policy aggregation provenance、terminator / operation span co-productionは未完了で、成功originは非productionの`ResourceIrInventoryValidated`を維持する。
+- `plan.md`は変更していない。actual span producer、ResourceOp topology、sealed backend、artifact keyは未完了である。
