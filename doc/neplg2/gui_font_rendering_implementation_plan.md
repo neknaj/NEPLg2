@@ -6547,6 +6547,29 @@ owner / move契約:
 - source policyでPendingだけのspan lookup、Activeのchecked-span edge read、Edge push exactly once、metadata-before-take、external collection/raw split/endpoint marker/full scan/fallback/panic/unreachable/Command以降の禁止を固定する。
 - normal compile regressionでtest-only failure injectionがproduction surfaceへ露出しないことを固定する。
 
+### Phase F5nxh: registered indexed PathCommandTag population owner
+
+目的:
+
+- F5nxg checked completed Edge owner全体を唯一の入力authorityとしてPathCommandTag regionを順次構築する。
+- `PendingContour | ActiveContour | Completed`でcontour spanをcontourごとに1回だけ読み、checked-span event coreを各logical commandへ再利用する。
+- checked completed PathCommandTag ownerだけをF5nxi command value / cursor / stream preparationへ渡す。
+
+owner / state契約:
+
+- startはEdge completion invariant、checked PathCommandTag cursor construction、PathCommandTag phase invariantの順にfail-fastする。
+- logical command indexから`edge_index = div_s index 2`、`event_slot_ordinal = rem_s index 2`を導出し、ordinal 0/1だけをchecked-span event coreへ渡す。
+- success時だけevent kindをstable tag scalarへ変換してowner-bound pushをexactly once呼ぶ。failureはsame registered authorityと失敗前cursor/stateを保持し、lower metadataはowner take前に読む。
+- budgetはCompleted、0以下、最大1 tag commitの順である。0以下ではspan lookup、event read、tag pushを行わない。
+- checked sealだけがF5nxi inputとなる。command value/stream、stroke、raster、render、platform APIへは進まない。
+
+検証:
+
+- controlled 2-contour / 4-edge fixtureでlogical index 0..7の8 tags、`index / 2` edge mapping、`index % 2` event ordinal、contour transition、partial resume、exact completion、terminal優先を検査する。
+- span/event/push failureについてmetadata read-before-take、same-owner retry、cursor/storage不変、phase invariant維持を検査する。
+- source policyでPendingだけのspan lookup、Activeのchecked-span event read、tag push exactly once、external collection/raw split/full scan/fallback/panic/unreachable/F5nxi以降の禁止を固定する。
+- normal compile regressionでtest-only failure injectionとprivate constructorがproduction surfaceへ露出しないことを固定する。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

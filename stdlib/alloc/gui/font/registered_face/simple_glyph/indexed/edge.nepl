@@ -30,6 +30,9 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind:
     PendingContour
     ActiveContour
@@ -43,6 +46,9 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending:
     contour_index %i32
     expected_start %i32
@@ -56,6 +62,9 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive:
     span %GuiSfntSimpleGlyphContourSpan
     expected_start %i32
@@ -69,18 +78,30 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState:
     PendingContour %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending
     ActiveContour %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive
     Completed %GuiSfntSimpleGlyphOutlineScalarRegionCursor
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner:
     point_y %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner
     state %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner:
     running %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind:
     PointYCompletionInvariantInvalid
     CursorInvalid
@@ -98,6 +119,9 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKi
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck:
     Valid
     Invalid %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind
@@ -110,6 +134,9 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind:
     PointYCompletionInvariantInvalid
     CursorStartFailed
@@ -123,6 +150,9 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError:
     owner %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner
     kind %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind
@@ -130,6 +160,9 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError:
     cursor_error %Option StdErrorKind
     phase_invariant %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind:
     PointYInvariantInvalid
     CursorStartFailed
@@ -148,6 +181,9 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError:
     owner %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
     kind %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind
@@ -160,6 +196,9 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError:
     storage_push_error_kind %Option StdErrorKind
     recovered_invariant %Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus: 処理状態を有限個の型付き選択肢として表します
+//:
+//: neplg2:test[skip]
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus:
     Pushed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot
     Completed
@@ -173,33 +212,54 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus:
     fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus \value:
         value
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep:
     owner %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
     status %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError:
     owner %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner
     actual %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind
     invariant %GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_edge_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \point_y\state:
     GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner point_y state
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_edge_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind fn Option GuiSfntSimpleGlyphContourSpanIndexLookupError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError fn Option GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot fn Option i32 fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind fn Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \owner\kind\span_error\edge_read_error\cursor\edge\scalar\region\storage\recovered:
     GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError owner kind span_error edge_read_error cursor edge scalar region storage recovered
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_owner_pending: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_edge_owner_pending %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePending \owner:
     let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
     match state:
         GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::PendingContour pending: some *pending
         _: none
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_owner_active: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_edge_owner_active %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgeActive \owner:
     let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
     match state:
         GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour active: some *active
         _: none
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_check: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \owner:
     let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref owner "point_y"
     let lower gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_continuation_authority_check point_y
@@ -256,6 +316,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_phase_invariant_
                                                                 then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CompletedCursorNotAtEnd
                                                                 else GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError \point_y:
     let invariant gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_phase_invariant_check &point_y
     match invariant:
@@ -274,6 +337,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_start %fn GuiFontRegis
                             let returned %GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get owner "point_y"
                             Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError returned GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind::PhaseInvariantInvalid invariant none phase
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \owner:
     let state %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState field::get_ref owner "state"
     match state:
@@ -281,6 +347,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind %f
         GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour _active: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::ActiveContour
         GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed _cursor: GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::Completed
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_activate: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 fn gui_font_registered_face_simple_glyph_indexed_edge_activate %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \owner:
     match gui_font_registered_face_simple_glyph_indexed_edge_owner_pending &owner:
         Option::Some pending:
@@ -300,6 +369,9 @@ fn gui_font_registered_face_simple_glyph_indexed_edge_activate %fn GuiFontRegist
                             Result::Ok gui_font_registered_face_simple_glyph_indexed_edge_owner point_y GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::ActiveContour active
         Option::None: Result::Ok owner
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_step: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \input:
     match gui_font_registered_face_simple_glyph_indexed_edge_activate input:
         Result::Err error: Result::Err error
@@ -371,12 +443,18 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_step %impure fn GuiFon
                                                         else GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed next_cursor
                                             Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep (gui_font_registered_face_simple_glyph_indexed_edge_owner returned next_state) (GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::Pushed slot)
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_drain_budget: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_drain_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError \owner\remaining:
     match gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind &owner:
         GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind::Completed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::Completed
         _:
             if le remaining 0 then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStatus::StepBudgetExhausted else gui_font_registered_face_simple_glyph_indexed_edge_step owner
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_seal_completed: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_completed %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError \owner:
     let actual gui_font_registered_face_simple_glyph_indexed_edge_owner_progress_kind &owner
     match actual:
@@ -387,6 +465,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_completed %fn Gui
                 GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid _kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError owner actual invariant
         _: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError owner actual GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \step:
     field::get step "owner"
 
@@ -400,71 +481,270 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_budget_step_status %fn
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartErrorKind \error:
     *field::get_ref error "kind"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start_error_point_y_invariant: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_point_y_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck \error:
     *field::get_ref error "point_y_invariant"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start_error_cursor_error: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_cursor_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError Option StdErrorKind \error:
     *field::get_ref error "cursor_error"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start_error_phase_invariant: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_phase_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \error:
     *field::get_ref error "phase_invariant"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start_error_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner \error:
     field::get error "owner"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_span_error: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_span_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphContourSpanIndexLookupError \error:
     *field::get_ref error "span_error"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_edge_read_error: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_edge_read_error %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \error:
     *field::get_ref error "edge_read_error"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_rejected_cursor: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_rejected_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlineScalarRegionCursor \error:
     *field::get_ref error "rejected_cursor"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_rejected_edge: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_rejected_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot \error:
     *field::get_ref error "rejected_edge"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_scalar_value: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_scalar_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option i32 \error:
     *field::get_ref error "scalar_value"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_region_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
     *field::get_ref error "region_error_kind"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_storage_push_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option StdErrorKind \error:
     *field::get_ref error "storage_push_error_kind"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_recovered_invariant: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_recovered_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError Option GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \error:
     *field::get_ref error "recovered_invariant"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \error:
     field::get error "owner"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_seal_error_actual: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_actual %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeProgressKind \error:
     *field::get_ref error "actual"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_seal_error_invariant: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_invariant %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \error:
     *field::get_ref error "invariant"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_seal_error_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner \error:
     field::get error "owner"
 
+//: completed Edge authorityからcontour spanをowner-bound lookupで読みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref running "point_y"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_contour_span_lookup point_y contour_index
+
+//: gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_capacity: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_capacity %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_capacity field::get_ref running "point_y"
+//: gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_storage_len: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_storage_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner i32 \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_storage_len field::get_ref running "point_y"
+//: gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_continuation_authority_check: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_continuation_authority_check %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck \owner:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref running "point_y"
+    match gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_continuation_authority_check point_y:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Invalid _kind: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::PointYCompletionInvariantInvalid
+        GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid:
+            match field::get_ref running "state":
+                GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState::Completed cursor:
+                    let capacity gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_capacity point_y
+                    match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::Edge:
+                        Result::Err _error: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorCapacityMismatch
+                        Result::Ok expected:
+                            let bounds_ok and eq gui_sfnt_simple_glyph_outline_scalar_region_cursor_start cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &expected and eq gui_sfnt_simple_glyph_outline_scalar_region_cursor_end cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &expected eq gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_end cursor
+                            if bounds_ok then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid else GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorCapacityMismatch
+                _: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CompletedCursorNotAtEnd
+
+//: completed Edge authorityからchecked span内のsink eventをexactly once forwardingします。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref running "point_y"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_path_sink_event_at_checked_span point_y span edge_index slot
+
+//: gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_event_checked_span: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_event_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_path_sink_event_at_checked_span owner span edge_index slot
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush:
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPush
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState
+//: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError:
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedEdgeState
+//: completed Edge authorityからPathCommandTag mutationへexactly once forwardingします。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_push_path_command_tag %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot Result GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError \owner\cursor\tag:
+    let running field::get owner "running"
+    let state field::get running "state"
+    let point_y field::get running "point_y"
+    match gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_push_path_command_tag point_y cursor tag:
+        Result::Ok lower: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush lower state
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError lower state
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_cursor: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_cursor field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner \value:
+    let state field::get value "state"
+    let point_y gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_take_owner field::get value "lower"
+    GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner point_y state
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_cursor: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_cursor field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_tag: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_tag field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_scalar_value: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_scalar_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError i32 \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_scalar_value field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_region_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError GuiSfntSimpleGlyphOutlineRegionPushErrorKind \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_region_error_kind field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_storage_push_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError Option StdErrorKind \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_storage_push_error_kind field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner \value:
+    let state field::get value "state"
+    let point_y gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_take_owner field::get value "lower"
+    GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner point_y state
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPush unit \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_free field::get value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgePathCommandTagPushError unit \value:
+    gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_free field::get value "lower"
+
+//: gui_font_registered_face_simple_glyph_indexed_edge_owner_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner unit \owner:
     gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free field::get owner "point_y"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner unit \owner:
     gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get owner "running"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_budget_step_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeBudgetStep unit \step:
     gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get step "owner"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_start_error_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeStartError unit \error:
     gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free field::get error "owner"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_error_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeError unit \error:
     gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get error "owner"
 
+//: gui_font_registered_face_simple_glyph_indexed_edge_seal_error_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_edge_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeSealError unit \error:
     gui_font_registered_face_simple_glyph_indexed_edge_owner_free field::get error "owner"

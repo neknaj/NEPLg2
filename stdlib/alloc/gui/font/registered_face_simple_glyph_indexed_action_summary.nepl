@@ -375,6 +375,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_contou
     let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
     gui_font_registered_face_simple_glyph_indexed_action_owner_contour_edge_checked_span action span edge_index
 
+//: summary authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_path_sink_event_at_checked_span action span edge_index slot
+
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_owner_item_read: running summary authority から classified point item を借用して読む
 //:
 //: [目的/もくてき]: 後続 phase が running summary の action continuation と registered collection authority を分離せず、point item と typed read error を取得できるようにします。
@@ -686,6 +692,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_ow
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
     let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
     gui_font_registered_face_simple_glyph_indexed_action_summary_owner_contour_edge_checked_span summary span edge_index
+
+//: completed summary authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_owner_path_sink_event_at_checked_span summary span edge_index slot
 
 //: gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_item_read: completed summary authority から classified point item を借用して読む
 //:
