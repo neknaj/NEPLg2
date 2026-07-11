@@ -951,6 +951,8 @@ assertOrdered(
         "TerminatorReturnPlaceInvalid return_place.place_id.index",
         "resource_graph_id_eq return_place.graph_id record.graph_id",
         "TerminatorReturnPlaceGraphMismatch return_place.graph_id.index",
+        "resource_ir_place_inventory_contains_loop places record.key return_place 0 place_count",
+        "TerminatorReturnPlaceMissing return_place.place_id.index",
         "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable",
         "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _return_place",
         "TerminatorPayloadUnexpected record.terminator_ordinal",
@@ -970,7 +972,7 @@ assertOrdered(
         "record.operation_count 0",
         "record.first_operation_ordinal next_operation_ordinal",
         "record.terminator_ordinal idx",
-        "resource_ir_inventory_validate_loop inventory key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count",
+        "resource_ir_inventory_validate_loop inventory places key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count",
     ],
     "Resource IR inventory validation must scan every block in Rust order and require dense operation ranges and terminator coverage",
 );
@@ -979,13 +981,28 @@ assertOrdered(
     [
         "resource_ir_function_inventory_len inventory",
         "BlockMissing",
-        "resource_ir_inventory_validate_loop inventory key graph_id 0 block_count 0",
+        "resource_ir_place_inventory_len places",
+        "resource_ir_place_inventory_validate_loop places key graph_id 0 place_count",
+        "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
         "actual_walker_operation_table_len operations",
         "OperationTableMismatch actual_operation_count",
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case"),
+    [
+        "resource_ir_place_inventory_stage0_result second_place_index identity_ok",
+        "resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations",
+        "resource_ir_function_inventory_free inventory",
+        "resource_ir_place_inventory_free places",
+        "actual_walker_operation_table_free operations",
+        "PlaceIdentityMismatch idx",
+        "PlaceOrdinalMismatch place_index",
+    ],
+    "malformed Place inventory runtime fixture must close every owner before exact identity and dense ordinal errors are matched",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result")),

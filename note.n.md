@@ -83500,3 +83500,10 @@ MERGE_APPROVED
 - negative Place、wrong graph、non-Return payloadをそれぞれexact errorでruntime検査する。root/projection/type、place table membership、escapeは未実装で非productionを維持する。
 - subagentの差分レビューと全体整合レビューはいずれもAPPROVED。target contract、focused runtime 1/1、変更対象selfhost doctest 10/10、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13は通過した。
 - documentation baselineは今回追加した宣言へ日本語contractを付けた状態でも、現行mainに既存する別laneの未文書化宣言によりstdlib `2806 > 2756`、selfhost `93 > 71`で失敗する。baseline値は変更していない。
+
+# 2026-07-11 selfhost Resource Return Place inventory membership
+
+- Resource IR固有Place inventory ownerを追加し、Return Placeがsame request / graph recordとして登録されている場合だけinventory scopeを受理する。
+- operation event tableからPlace存在を推測せず、未登録Placeを`TerminatorReturnPlaceMissing`で拒否する。root/projection/type、escape、actual lowering co-productionは未実装で非productionを維持する。
+- subagent指摘に従い、Place owner全体のsame key / graphとdense ordinalをscope前に検査し、wrong keyとordinal gapをexact runtime errorで固定した。差分・全体整合再レビューはいずれもAPPROVED。
+- pass: target contract、focused runtime 1/1、issues check、`git diff --check`。changed doctestは既存doctest #12のstdout baseline（expected 4行、現main actual 6行）不一致で停止し、今回と無関係な期待値は変更していない。

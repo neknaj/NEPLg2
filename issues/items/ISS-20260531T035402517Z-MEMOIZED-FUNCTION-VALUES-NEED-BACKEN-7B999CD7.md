@@ -1072,3 +1072,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Return payload-presenceをRust `Option<Place>`相当のtyped payloadへ昇格し、Return None / nonnegative graph-local Place idを受理、negative Place idとnon-Return Place payloadを拒否した。Place root/projection/type、graph membership、escape classification、actual lowering co-productionは未実装である。
 
 2026-07-11: Return Place payloadへgraph identityを束ね、block inventoryとsame graphの場合だけ受理するmembership前段を追加した。Place root/projection/typeとtable membership、escape classificationは未実装である。
+
+2026-07-11: Resource IR固有Place inventory ownerを追加し、Return Placeをsame request / graphの登録済みPlaceだけに制限した。root/projection/type、escape classification、actual lowering co-productionは未実装である。
