@@ -1068,3 +1068,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Rust `ResourceFunction.blocks[].ops + terminator`に対応するtyped block inventory ownerを追加し、dense block/op range、全blockのterminator coverage、same request/graph、operation ownerとの総数一致を全検査して非productionの`ResourceIrInventoryValidated` scopeを発行する境界を接続した。独立ownerの一致だけではactual provenanceにならないため`ResourceIrEnumerated`は未発行であり、HIR lowering結果からinventory/operation ownerを同時生成するmaterializerとterminator escape classificationが残る。
 
 2026-07-11: block terminator inventoryへReturn payload-presence coverageを追加し、Unreachable / RawBodyにreturn payloadが付く形を拒否した。actual Return Place、Branch / Loop / Matchのblock-aware recursive owner、operation意味分類、HIR-to-Resource co-produced ownerは未実装である。
+
+2026-07-11: Return payload-presenceをRust `Option<Place>`相当のtyped payloadへ昇格し、Return None / nonnegative graph-local Place idを受理、negative Place idとnon-Return Place payloadを拒否した。Place root/projection/type、graph membership、escape classification、actual lowering co-productionは未実装である。

@@ -83485,3 +83485,11 @@ MERGE_APPROVED
 - actual Return Place identity / escape classification、operation semantics、HIR-to-Resource co-produced function ownerは未実装である。`ResourceIrEnumerated`は発行しない。`plan.md`は変更していない。
 - runtimeはReturn Some/None、Unreachable payload無し/有り拒否、RawBody payload無し/有り拒否を全実行する。subagent差分・全体整合レビューはいずれもrecursive案撤回後の最終差分をAPPROVED。
 - pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 selfhost Resource Return Place payload
+
+- terminator inventoryのbool presenceをRust `Option<Place>`相当の`None / Place(ResourcePlaceId)`へ置換した。
+- Return None / valid nonnegative Placeを受理し、negative Place、Unreachable / RawBodyのPlace payloadをscope発行前に拒否する。
+- Place escape classification、private region identity、block-aware recursive owner、HIR-to-Resource co-productionは未実装で、originは非productionのまま。`plan.md`は変更していない。
+- negative Return Placeは`TerminatorReturnPlaceInvalid(-1)`、Unreachable / RawBody Placeは`TerminatorPayloadUnexpected(1)`をruntimeでexact matchする。subagent差分・全体整合レビューはいずれも最終APPROVED。
+- pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。

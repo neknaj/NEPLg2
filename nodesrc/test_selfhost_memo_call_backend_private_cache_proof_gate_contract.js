@@ -932,7 +932,7 @@ assertOrdered(
         "operation_count %i32",
         "terminator_ordinal %i32",
         "terminator_kind %SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind",
-        "return_has_value %bool",
+        "return_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload",
     ],
     "Resource IR block inventory must bind identity, dense block/op ranges, and one explicit terminator record",
 );
@@ -945,15 +945,18 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_validate_result"),
     [
         "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return",
-        "Result::Ok unit",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place place",
+        "place.index 0",
+        "TerminatorReturnPlaceInvalid place.index",
         "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable",
-        "record.return_has_value",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _place",
         "TerminatorPayloadUnexpected record.terminator_ordinal",
         "SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::RawBody",
-        "record.return_has_value",
+        "SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place _place",
         "TerminatorPayloadUnexpected record.terminator_ordinal",
     ],
-    "only Return terminators may carry ResourceTerminator value presence",
+    "only Return terminators may carry a valid typed Resource Place payload",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop"),

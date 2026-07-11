@@ -140,6 +140,8 @@ HIR reader source projection由来のoperation scopeとactual Resource IR enumer
 
 同日follow-upでReturn terminatorのpayload有無をinventoryへ保持した。PrivateState / PrivateCache semantics、block-aware nested operation、Return Place escape evidenceは合成しない。
 
+次follow-upでpayloadをtyped Resource Place optionへ置換した。Place identityは保持するが、private regionとの対応やescape statusはまだ発行しない。
+
 ## 2026-07-11 source vocabulary eligibility authority integration
 
 memo_call production authority boundaryで、source vocabulary eligibilityとcoverage identityを同じmodule-private authorityに束ね、no-escape bundle変換時に再検査するようにした。これによりescaping / observation / unsupported sourceやbody / graph identity不一致をprivate-effect mask前にfail-closedで止める。
