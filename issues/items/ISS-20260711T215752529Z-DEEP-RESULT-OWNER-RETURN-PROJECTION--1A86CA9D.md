@@ -26,6 +26,7 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - GUI production chainでは`writer_step_budget(owner, 1)`の`Result<BudgetStep, StepError>`適用時に、同じregistered source authority由来の複数deep owner leafが順番に`ReturnValue` transferされ、2件目以降が`Moved`として拒否される。
 - outer/inner enum pathをpayload bindへ遅延する試作は単純な`Result<Step, E>`では元の誤報を消したが、GUIではstruct fieldと複数の内部owner enumを挟むleaf群が同じsourceへ解決されるため誤報が残った。
 - moved sourceを単にskipする方法は、別variantが選択された場合にownerを返せなくなる。outer variant名だけの平坦化や最初のleaf採用では正当なowner transferを証明できない。
+- 同一`OwnerProjectionSource`だけを排他的deep targetの共通prefixへaggregate化する試作はunit対照を通過したが、productionではsource suffixが異なるleaf同士がruntime alias解決で同じaggregate authorityへ収束するため対象にならず、誤報が残った。authority groupはsource path完全一致ではなくcallee `StorageId`由来の抽象groupとしてsummaryへ保存する必要がある。
 
 ## 問題
 
@@ -37,7 +38,7 @@ Valid production owner chains cannot be exercised by runtime fixtures; F5nxj int
 
 ## 修正方針
 
-GUIから抽出したstruct fieldと内部owner enumを含む複数leaf最小再現を追加する。summary sourceとreturn targetの対応をleaf単位の排他的variant pathおよびaggregate authority identity付きで保持し、同じaggregate moveをleafごとの独立moveとして再適用しない。genuine use-after-move診断と、異なるowner sourceを持つ複数leaf transferは維持する。
+GUIから抽出したstruct fieldと内部owner enumを含む複数leaf最小再現を追加する。summary生成時のcallee-local `StorageId`ごとにstableなfunction-local abstract authority groupを採番し、source leafと排他的return target leafを同じgroupへ束ねる。適用側はgroupを1回だけmoveし、選択pathのtargetへmaterializeする。同じaggregate moveをleafごとの独立moveとして再適用せず、genuine use-after-move診断、異なるauthority groupを持つ複数leaf transfer、非排他的複製拒否を維持する。
 
 ## 検証
 
