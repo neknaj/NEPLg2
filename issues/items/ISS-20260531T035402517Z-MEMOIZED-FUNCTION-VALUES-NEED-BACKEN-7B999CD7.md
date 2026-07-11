@@ -1082,3 +1082,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Place TypeIdをborrowed SelfhostTypeArenaへ照合し、非負でもarena recordが欠落するindexを拒否した。canonical type key、actual lowering由来arena authority、projection、escape classification、actual lowering co-productionは未実装である。
 
 2026-07-11: Rust PlaceProjection / ResourceOffset全variantのvariant-native selfhost modelを独立moduleへ追加した。i64 offsetは保持し、Box<Place>はopaque place index link、usizeは非負i32範囲に限定する。Place inventory ownerへのdense列接続とrecursive membershipは未実装である。
+
+2026-07-11: Place recordのprojection countとPlace順prefix sumからprojection ownerのdense範囲を確定し、same request / graph、Place id、ordinal、variant payloadをscope発行前に検査するようにした。StorageOffset内のrecursive Place linkは同じPlace ownerの実在recordだけを参照できる。EnumPayload stable symbol、usize全域、Unknown分類、actual lowering co-productionは未実装である。

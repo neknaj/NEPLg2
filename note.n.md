@@ -83554,3 +83554,12 @@ MERGE_APPROVED
 - pass: focused runtime 1 / 1、Web GUI font source-policy、normal compile isolation、stdlib documentation contract、issues check、`git diff --check`、`NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
 - pass: playground editor CLI 13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。
 - 次はF5nxjでcommand sink plan / allocation / writerへ進む。フォント解析からnative / GUI表示までの最終目標は未完了であり、このcheckpointを全体完成とは扱わない。
+
+# 2026-07-11 selfhost Resource Place projection owner
+
+- Place recordの`projection_count`とPlace順prefix sumでprojection ownerの連続範囲を確定し、各recordのrequest key / graph / Place id / ordinalとvariant固有payloadをscope発行前に全検査する。
+- `StorageOffset`のSymbolic / ScaledSymbolic / Offset / ScaledOffsetが持つrecursive Place linkは、同じPlace inventory owner内に実在するrecordだけを参照できる。identity、Place割当、ordinal、payload、dangling linkをruntimeでexact rejectionする。
+- projection ownerとTypeArenaはborrowed scope検査後にfixtureが必ず解放する。scope originは非productionの`ResourceIrInventoryValidated`を維持し、actual lowering co-productionなしに`ResourceIrEnumerated`を発行しない。
+- `plan.md`は変更していない。EnumPayload stable symbol、usize全域、Unknown分類、canonical type key、block-aware nested owner、actual lowering co-production、PrivateCache / PrivateState effect mask、sealed backend、artifact keyは未完了である。
+- subagent差分レビューの指摘によりsource-policyのexact import例外、Place / projection構造contract、負count / short table / excess recordのexact runtimeを追加した。全体整合レビューの指摘により登録済みrecursive Place linkのaccepted pathも追加し、両レビューは最終APPROVED。
+- pass: projection contract、proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。

@@ -135,6 +135,7 @@ assertOrdered(
         "#import \"neplg2/core/resolve/name_resolver\" as *",
         "#import \"neplg2/core/ty/effect\" as *",
         "#import \"neplg2/core/ty/ty\" as *",
+        "#import \"./resource_ir_place_projection\" as *",
         "#import \"./memo_call_backend_request\" as *",
         "#import \"./memo_call_backend_request_table\" as *",
     ],
@@ -142,7 +143,7 @@ assertOrdered(
 );
 assert.doesNotMatch(
     code,
-    /#import ".*(?:resource|proof\/|memo_trait|PrivateCache|PrivateState|prechecked|wasm|llvm|lower|check\/expr|compiler_known|artifact|serializer|reader|neplobj|neplproof)/,
+    /#import "(?!\.\/resource_ir_place_projection")(?:.*(?:resource|proof\/|memo_trait|PrivateCache|PrivateState|prechecked|wasm|llvm|lower|check\/expr|compiler_known|artifact|serializer|reader|neplobj|neplproof))/,
     "private-cache proof gate must not import Resource IR, proof store, memo trait proof layers, private cache/state implementation, prechecked artifacts, backend bytes, checker, compiler-known registry, or artifact IO",
 );
 assert.doesNotMatch(
@@ -954,8 +955,53 @@ assertOrdered(
         "place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
         "root %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot",
         "ty %SelfhostTypeId",
+        "projection_count %i32",
     ],
-    "Resource IR Place inventory must carry identity, root shape, and local type identity together",
+    "Resource IR Place inventory must carry identity, root shape, local type identity, and dense projection range together",
+);
+assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventoryRecord"),
+    [
+        "key %SelfhostMemoCallBackendPrivateCacheProofKey",
+        "graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId",
+        "place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId",
+        "projection_ordinal %i32",
+        "projection %SelfhostResourceIrPlaceProjection",
+    ],
+    "projection records must bind request identity, owning Place, dense ordinal, and variant-native payload",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop"),
+    [
+        "ge ordinal projection_count",
+        "resource_ir_projection_inventory_get projections cursor",
+        "proof_key_eq record.key key",
+        "resource_graph_id_eq record.graph_id graph_id",
+        "ProjectionIdentityMismatch cursor",
+        "resource_place_id_eq record.place_id place_id",
+        "ProjectionPlaceMismatch cursor",
+        "record.projection_ordinal ordinal",
+        "ProjectionOrdinalMismatch record.projection_ordinal",
+        "selfhost_resource_ir_place_projection_is_structurally_valid record.projection",
+        "ProjectionPayloadInvalid cursor",
+        "resource_ir_projection_place_link record.projection",
+        "link_index 0",
+        "link_index place_count",
+        "ProjectionPlaceLinkMissing link_index",
+        "resource_ir_place_inventory_get places link_index",
+    ],
+    "each projection range must validate identity, owner, ordinal, payload, and recursive Place membership before advancing",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop"),
+    [
+        "resource_ir_place_inventory_get places place_idx",
+        "place.projection_count 0",
+        "ProjectionCountInvalid place.projection_count",
+        "resource_ir_projection_inventory_validate_place_loop projections places key graph_id place.place_id 0 place.projection_count cursor place_count",
+        "resource_ir_projection_inventory_validate_places_loop projections places key graph_id add place_idx 1 place_count next_cursor",
+    ],
+    "Place-order prefix validation must reject negative counts and carry the projection cursor across every Place",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_result"),
@@ -1017,6 +1063,9 @@ assertOrdered(
         "BlockMissing",
         "resource_ir_place_inventory_len places",
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
+        "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
+        "resource_ir_projection_inventory_len projections",
+        "ProjectionCountMismatch actual_projection_count",
         "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
         "actual_walker_operation_table_len operations",
         "OperationTableMismatch actual_operation_count",
@@ -1039,15 +1088,44 @@ assertOrdered(
     "Place inventory validation must require every nonnegative local TypeId to exist in the borrowed type arena",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_types_result"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_projection_result"),
     [
+        "resource_ir_projection_inventory_stage0_result projection_key projection_graph_id projection_place_id projection_ordinal projection",
         "selfhost_type_arena_new",
         "selfhost_type_arena_add_primitive types0 SelfhostPrimitiveTypeKind::Unit",
         "selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places &types2 operations",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations",
         "selfhost_type_arena_free types2",
+        "resource_ir_projection_inventory_free projections",
     ],
-    "runtime fixture must pass a real borrowed type arena into scope validation and close its owner afterwards",
+    "runtime fixture must pass borrowed projection and type owners into scope validation and close both afterwards",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_error_stage0_case"),
+    [
+        "resource_ir_inventory_scope_with_stage0_projection_result key graph_id &inventory &places &operations projection_key graph_id projection_place_id projection_ordinal projection",
+        "resource_ir_function_inventory_free inventory",
+        "resource_ir_place_inventory_free places",
+        "actual_walker_operation_table_free operations",
+        "ProjectionIdentityMismatch cursor",
+        "ProjectionPlaceMismatch cursor",
+        "ProjectionOrdinalMismatch ordinal",
+        "ProjectionPayloadInvalid cursor",
+        "ProjectionPlaceLinkMissing linked_place_index",
+    ],
+    "malformed projection runtime fixture must close all outer owners and exact-match dense ownership, payload, and recursive Place link errors",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_count_error_stage0_case"),
+    [
+        "resource_ir_place_inventory_with_projection_count_stage0_result",
+        "resource_ir_projection_inventory_count_stage0_result key graph_id record_count",
+        "resource_ir_inventory_scope_with_projection_owner_stage0_result",
+        "ProjectionCountInvalid count",
+        "ProjectionReadFailed cursor",
+        "ProjectionCountMismatch count",
+    ],
+    "dense projection fixtures must exact-match negative declared counts, short tables, and excess records",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case"),
