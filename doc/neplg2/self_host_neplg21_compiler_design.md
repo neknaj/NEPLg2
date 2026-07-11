@@ -3563,7 +3563,7 @@ Rustの`ResourceFunction`は`blocks: Vec<ResourceBlock>`を持ち、各blockは`
 
 このcheckpointはactual provenanceの前段構造検査に留まり、`ResourceIrEnumerated`は発行しない。HIR lowering結果から`ResourceFunction` inventoryとoperation tableを同一opaque ownerとしてmaterializeする本体、nested operationの意味分類、terminator return placeのescape event化は未実装である。次はHIR projection fixtureを使わず、selfhost loweringが作るtyped Resource function ownerから両recordを同時生成する。
 
-block terminator inventoryはRust `Option<Place>`に対応するtyped payloadを保持する。`Return`はNoneまたはsame graph identity付き非負idのResource Placeを持て、専用Place inventory ownerのsame request / graph recordに存在する場合だけ受理する。このdense PlaceId inventoryはRustに同型tableがあるという主張ではなく、後続materializerがRustの`Place { root, projections, ty }`構造値をcanonicalizeするためのselfhost固有modelである。`Unreachable`と`RawBody`にPlace payloadが付く形、負のPlace id、block inventoryと異なるgraph identity、未登録Placeは拒否する。root/projection/typeとescape classificationはまだ扱わない。
+block terminator inventoryはRust `Option<Place>`に対応するtyped payloadを保持する。`Return`はNoneまたはsame graph identity付き非負idのResource Placeを持て、専用Place inventory ownerのsame request / graph recordに存在する場合だけ受理する。このdense PlaceId inventoryはRustに同型tableがあるという主張ではなく、後続materializerがRustの`Place { root, projections, ty }`構造値をcanonicalizeするためのselfhost固有modelである。Place recordはRust `PlaceRoot`のLocal / Temporary / I32Constant / Return / Storage / Unknownをfallbackなしで保持する。現段階のLocal payloadはRust `Local(String)`やstable symbol authorityに未結合な非zero opaque identityであり、Temporary / Storageの負identityとLocal placeholder 0だけをstructural rejectionする。UnknownはRust sentinelを保持するためinventoryでは受理するが、`ResourceIrEnumerated`発行前に拒否またはunsupportedへ明示分類する。`Unreachable`と`RawBody`にPlace payloadが付く形、負のPlace id、block inventoryと異なるgraph identity、未登録Placeは拒否する。projection/typeとescape classificationはまだ扱わない。
 
 ## 既存 issue との対応
 

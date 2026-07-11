@@ -941,6 +941,29 @@ assert.deepEqual(
     ["Return", "Unreachable", "RawBody"],
     "Resource IR inventory must enumerate every Rust ResourceTerminator class without a fallback kind",
 );
+assert.deepEqual(
+    enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot"),
+    ["Local", "Temporary", "I32Constant", "Return", "Storage", "Unknown"],
+    "Resource IR Place inventory must preserve every Rust PlaceRoot variant without a fallback",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_result"),
+    [
+        "PlaceRoot::Local stable_symbol_identity",
+        "eq stable_symbol_identity 0",
+        "PlaceRootInvalid stable_symbol_identity",
+        "PlaceRoot::Temporary resource_identity",
+        "lt resource_identity 0",
+        "PlaceRootInvalid resource_identity",
+        "PlaceRoot::I32Constant _value",
+        "PlaceRoot::Return",
+        "PlaceRoot::Storage storage_identity",
+        "lt storage_identity 0",
+        "PlaceRootInvalid storage_identity",
+        "PlaceRoot::Unknown",
+    ],
+    "Place root validation must distinguish all Rust roots and reject malformed selfhost canonical identities",
+);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_validate_result"),
     [
@@ -994,13 +1017,14 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_error_stage0_case"),
     [
-        "resource_ir_place_inventory_stage0_result second_place_index identity_ok",
+        "resource_ir_place_inventory_stage0_result second_place_index identity_ok second_root",
         "resource_ir_inventory_scope_authority_result key graph_id &inventory &places &operations",
         "resource_ir_function_inventory_free inventory",
         "resource_ir_place_inventory_free places",
         "actual_walker_operation_table_free operations",
         "PlaceIdentityMismatch idx",
         "PlaceOrdinalMismatch place_index",
+        "PlaceRootInvalid root_identity",
     ],
     "malformed Place inventory runtime fixture must close every owner before exact identity and dense ordinal errors are matched",
 );

@@ -1074,3 +1074,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-11: Return Place payloadへgraph identityを束ね、block inventoryとsame graphの場合だけ受理するmembership前段を追加した。Place root/projection/typeとtable membership、escape classificationは未実装である。
 
 2026-07-11: Resource IR固有Place inventory ownerを追加し、Return Placeをsame request / graphの登録済みPlaceだけに制限した。root/projection/type、escape classification、actual lowering co-productionは未実装である。
+
+2026-07-11: Place inventory recordへRust PlaceRoot全6 variantの非production構造分類を追加し、Local placeholder 0とTemporary / Storageの負identityを拒否した。Local(String) / stable symbol authorityとの結合、Unknownのproduction前分類、projection/type、escape classification、actual lowering co-productionは未実装である。
