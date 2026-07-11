@@ -1278,3 +1278,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_comma
     let state field::get error "state"
     let storage gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_take_owner field::get error "lower"
     GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner storage state
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush unit \pushed:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_free field::get pushed "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_free field::get error "lower"

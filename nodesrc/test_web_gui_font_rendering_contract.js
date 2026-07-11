@@ -3748,6 +3748,13 @@ const registeredPathCommandTagBudget = functionSlice(allocFontRegisteredFaceSimp
 assertOrderedFragments(registeredPathCommandTagBudget, ["owner_progress_kind &owner", "Completed", "le remaining 0", "StepBudgetExhausted", "indexed_path_command_tag_step owner"], "F5nxh budget must prefer terminal and avoid work at zero");
 const registeredPathCommandTagSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_completed");
 assertOrderedFragments(registeredPathCommandTagSeal, ["owner_progress_kind &owner", "Completed", "owner_phase_invariant_check &owner", "Valid", "PathCommandTagCompletedOwner owner"], "F5nxh must seal only a checked completed PathCommandTag owner for F5nxi");
+for (const helper of [
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_test_force_span_lookup_failure",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_test_force_event_read_failure",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_test_force_tag_push_failure",
+]) {
+    assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag, new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+${helper}\\b`), `F5nxh test helper must remain test-only: ${helper}`);
+}
 function assertSingleForward(source, functionName, downstreamName, message) {
     const body = functionSlice(source, functionName);
     assert(body.length > 0, `${message}: missing ${functionName}`);
@@ -3809,6 +3816,18 @@ for (const freeName of [
     "gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error_free",
 ]) {
     assert(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, freeName).length > 0, `F5nxh owner-bearing surface must provide ${freeName}`);
+}
+for (const [source, freeName] of [
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl, "gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl, "gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_free"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_free"],
+]) {
+    assert(functionSlice(source, freeName).length > 0, `F5nxh forwarding owner-bearing surface must provide ${freeName}`);
 }
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,

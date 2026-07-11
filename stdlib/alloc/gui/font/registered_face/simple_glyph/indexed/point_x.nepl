@@ -842,9 +842,15 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_x_edge_push_free %imp
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_edge_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXEdgePushError unit \error:
     gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_free field::get error "owner"
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush:
     lower %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush
     state %GuiFontRegisteredFaceSimpleGlyphIndexedPointXState
+//: GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError: 処理中の所有権と付随情報を同じ値として保持します
+//:
+//: neplg2:test[skip]
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError:
     lower %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError
     state %GuiFontRegisteredFaceSimpleGlyphIndexedPointXState
@@ -857,23 +863,57 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_pus
     match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_path_command_tag endpoint cursor tag:
         Result::Ok lower: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush lower state
         Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError lower state
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_cursor: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \value:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_cursor field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner \value:
     let state field::get value "state"
     let endpoint gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_take_owner field::get value "lower"
     GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner endpoint state
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_cursor: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \value:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_cursor field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_tag: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot \value:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_tag field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_scalar_value: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_scalar_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError i32 \value:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_scalar_value field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_region_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError GuiSfntSimpleGlyphOutlineRegionPushErrorKind \value:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_region_error_kind field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_storage_push_error_kind: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError Option StdErrorKind \value:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_storage_push_error_kind field::get_ref value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_take_owner: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner \value:
     let state field::get value "state"
     let endpoint gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_take_owner field::get value "lower"
     GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointXOwner endpoint state
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush unit \value:
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_free field::get value "lower"
+//: gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_free: 処理の契約を一つの入口に固定します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError unit \value:
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_free field::get value "lower"

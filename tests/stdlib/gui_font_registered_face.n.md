@@ -2312,7 +2312,44 @@ fn registered_face_path_command_tag_success_ok %impure fn GuiFontRegisteredFaceS
             gui_font_registered_face_simple_glyph_indexed_path_command_tag_start_error_free start_error
             false
         Result::Ok owner:
-            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_drain_budget owner 0:
+            let span_error %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagError gui_font_registered_face_simple_glyph_indexed_path_command_tag_test_force_span_lookup_failure owner
+            let span_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_kind &span_error:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagErrorKind::SpanLookupFailed: true
+                _: false
+            let span_metadata_ok %bool is_some gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_span_error &span_error
+            let span_recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_take_owner span_error
+            let event_error %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagError gui_font_registered_face_simple_glyph_indexed_path_command_tag_test_force_event_read_failure span_recovered
+            let event_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_kind &event_error:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagErrorKind::EventReadFailed: true
+                _: false
+            let event_metadata_ok %bool is_some gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_event_error &event_error
+            let event_recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_take_owner event_error
+            let push_error %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagError gui_font_registered_face_simple_glyph_indexed_path_command_tag_test_force_tag_push_failure event_recovered
+            let push_kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_kind &push_error:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagErrorKind::TagPushFailed: true
+                _: false
+            let push_cursor_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_rejected_cursor &push_error:
+                Option::None: false
+                Option::Some cursor: eq gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+            let push_tag_ok %bool is_some gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_rejected_tag &push_error
+            let push_scalar_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_scalar_value &push_error:
+                Option::Some value: eq value 4
+                Option::None: false
+            let push_region_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_region_error_kind &push_error:
+                Option::Some kind:
+                    match kind:
+                        GuiSfntSimpleGlyphOutlineRegionPushErrorKind::StorageCursorMismatch: true
+                        _: false
+                Option::None: false
+            let push_metadata_ok %bool and push_cursor_ok and push_tag_ok and push_scalar_ok and push_region_ok is_none gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_storage_push_error_kind &push_error
+            let push_invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_recovered_invariant &push_error:
+                Option::Some invariant:
+                    match invariant:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid: true
+                        _: false
+                Option::None: false
+            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_take_owner push_error
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_drain_budget recovered 0:
                 Result::Err error:
                     gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_free error
                     false
@@ -2321,7 +2358,7 @@ fn registered_face_path_command_tag_success_ok %impure fn GuiFontRegisteredFaceS
                         GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagBudgetStatus::StepBudgetExhausted: true
                         _: false
                     let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_take_owner exhausted
-                    and exhausted_ok registered_face_path_command_tag_drain_ok recovered 0
+                    and span_kind_ok and span_metadata_ok and event_kind_ok and event_metadata_ok and push_kind_ok and push_metadata_ok and push_invariant_ok and exhausted_ok registered_face_path_command_tag_drain_ok recovered 0
 
 fn registered_face_edge_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner impure fn i32 bool \owner\expected_index:
     if lt expected_index 4:

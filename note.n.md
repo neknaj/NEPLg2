@@ -83490,6 +83490,11 @@ MERGE_APPROVED
 
 - F5nxg checked completed Edge ownerを唯一のauthorityとし、`PendingContour / ActiveContour / Completed`でcontour span lookupをcontourごとにexactly onceへ制限する契約を追加した。
 - logical command indexから`edge_index = index / 2`と`event_slot_ordinal = index % 2`を導出し、checked-span event coreから8 PathCommandTag scalarを順序付きcommitする。start precedence、budget terminal優先、same-owner error recovery、checked seal、F5nxi handoffを仕様・詳細設計・実装計画へ固定した。
-- facade、source-policy、controlled registered runtime fixtureをF5nxhへ更新中である。F5nxhはcommand value / stream preparationへ進まず、フォントレンダリングエンジンとGUI表示の最終目標は未完了である。
+- facade、source-policy、controlled registered runtime fixtureをF5nxhへ更新した。F5nxhはcommand value / stream preparationへ進まず、フォントレンダリングエンジンとGUI表示の最終目標は未完了である。
 - controlled all-off-curve fixtureではchecked-span eventが8件とも`SkipNoSegment`となるため、stable PathCommandTag scalarは`4, 4, 4, 4, 4, 4, 4, 4`である。logical index 0..7、edge index `index / 2`、event ordinal `index % 2`、contour/local identity、budget 0、terminal、checked seal/freeをruntime 1 / 1で確認した。
-- pass: Web GUI font source-policy、registered face runtime 1 / 1、assertion 32 / 32、`git diff --check`。
+- span lookup、checked event read、PathCommandTag pushのtest-only failureを実行し、typed metadata、failure前state、recovered invariant、same-owner retry/freeを検査した。normal compileでは3 helperがpublic surfaceに存在しないことを確認した。
+- subagent差分レビューと全体整合レビューの指摘に従い、Pending/Active/Completed進捗invariant、push failure後invariant、owner-bearing forwarding wrapperのfree対称性、全forwarding/mutation段のsource-policyを補完した。最終レビューblockerは全て修正した。
+- pass: F5nxh focused doctest 1 / 1、Web GUI font source-policy、normal compile isolation、registered face runtime 1 / 1、assertion 32 / 32、stdlib documentation contract、`git diff --check`。
+- pass: `NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`。
+- pass: playground editor CLI 13 / 13。JSONの`caseCount: 13`、`passedCount: 13`、`failedCount: 0`を確認した。
+- 次はF5nxiでchecked completed PathCommandTag ownerをauthorityとしてcommand value / stream preparationへ進む。個別checkpointを最終完成とは扱わない。
