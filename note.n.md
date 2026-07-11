@@ -83610,6 +83610,15 @@ MERGE_APPROVED
 - subagent差分レビューの指摘により、block push失敗時のtype parameter owner解放とnormal freeの両owner解放をcontractへ追加し、ordered append / failure cleanupの日本語docを補った。差分・全体整合レビューはいずれも最終APPROVEDで、内容commit 1個のff-only統合粒度も承認された。
 - pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。
 
+# 2026-07-12 selfhost Resource function type parameter arena membership
+
+- ordered type parameter ownerをborrowed TypeArenaへordinal順に照合し、負indexを`FunctionTypeParameterInvalid`、非負missing recordを`FunctionTypeParameterMissing`へordinal / type index付きでtyped rejectionする。
+- dangling TypeIdを`FunctionTypeParametersUnsupported`へ丸めず、全要素の実在を確認した後だけ現行monomorphic backendの非空owner rejectionへ進める。invalid/missing fixtureはinvalid result、nonPure proof key、Impure surfaceよりtype parameter errorを優先する。
+- Type recordのTypeKind::Var kind強制、canonical binder identity、actual lowering由来arena authority、generic Resource backend、ResourceOp topology co-productionは未完了で、originは`ResourceIrInventoryValidated`のままにする。
+- `plan.md`は変更していない。sealed backendとartifact keyも未完了である。
+- subagent差分レビューの指摘によりfixtureを2要素ownerへ拡張し、`[valid(0), invalid(-1)]`と`[valid(0), missing(2)]`がordinal 1をexact rejectionするruntimeを追加した。全体整合レビューの指摘で未実装taxonomyをRustの`TypeKind::Var`表記へ修正し、両レビューは最終APPROVED。単一内容commitのff-only統合粒度も承認された。
+- pass: proof gate contract、focused runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`PATH="/tmp:$PATH" trunk build`、playground editor CLI JSON 13 / 13。
+
 # 2026-07-11 selfhost Resource entry block membership
 
 - Rust `ResourceFunction.entry_block`がselfhost function inventoryから欠落していたため、entry block IDとblock tableを同じownerへ保持し、各recordへdense ordinalとは別のblock IDを追加する。

@@ -1096,3 +1096,5 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 2026-07-12: Rust `ResourceFunction.effect`のsurface Pure / Impureを専用domainとしてfunction inventory ownerへ追加した。内部`SelfhostEffectKind`とは同一視せず、memo proof keyの非Pure internal effectは専用taxonomyで先行拒否し、その後memo requestが要求するsurface Pureとのactual / expected mismatchをresult TypeId検査後かつPlace走査前にtyped rejectionする。actual loweringからのco-production、内部effectのno-escape fold、ResourceOp topology ownerは未実装である。
 
 2026-07-12: Rust `ResourceFunction.type_params`に対応するordered `Vec<SelfhostTypeId>` ownerをfunction inventoryへ追加した。call occurrenceのproof key `type_arg_count`とは比較せず、現行monomorphic backendでは非空ownerを`FunctionTypeParametersUnsupported(actual_count)`でentry membership後かつresult/effect検査前に拒否する。actual lowering co-productionとgeneric Resource backendは未実装である。
+
+2026-07-12: function type parameter ownerをordinal順に走査し、負TypeIdを`FunctionTypeParameterInvalid`、borrowed TypeArena内の非負missingを`FunctionTypeParameterMissing`へordinal / type index付きで拒否してからmonomorphic unsupported判定へ進める。TypeKind::Var record kind、canonical binder identity、actual lowering由来arena authorityは未実装である。

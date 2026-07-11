@@ -1133,6 +1133,20 @@ assertOrdered(
     "function inventory push must preserve every ResourceFunction header field",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_validate_type_params_loop"),
+    [
+        "ge ordinal count",
+        "resource_ir_function_inventory_type_param_get inventory ordinal",
+        "selfhost_type_id_index type_param",
+        "FunctionTypeParameterInvalid SelfhostMemoCallBackendPrivateCacheResourceFunctionTypeParameterError ordinal type_index",
+        "selfhost_type_arena_get_record types type_param",
+        "resource_ir_function_inventory_validate_type_params_loop inventory types add ordinal 1 count",
+        "FunctionTypeParameterMissing SelfhostMemoCallBackendPrivateCacheResourceFunctionTypeParameterError ordinal type_index",
+        "FunctionTypeParameterReadFailed ordinal",
+    ],
+    "function type parameters must be traversed in owner order and exist in the borrowed type arena",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"),
     [
         "resource_ir_function_inventory_len inventory",
@@ -1140,7 +1154,8 @@ assertOrdered(
         "resource_ir_entry_block_exists_loop inventory entry_block_id 0 block_count",
         "EntryBlockMissing entry_block_id",
         "resource_ir_function_inventory_type_param_len inventory",
-        "FunctionTypeParametersUnsupported selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_type_param_len inventory",
+        "resource_ir_function_inventory_validate_type_params_loop inventory types 0 type_param_count",
+        "FunctionTypeParametersUnsupported type_param_count",
         "selfhost_type_id_index result_ty 0",
         "FunctionResultTypeInvalid selfhost_type_id_index result_ty",
         "selfhost_type_arena_get_record types result_ty",
@@ -1165,7 +1180,7 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_case"),
     [
-        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect has_type_param second_block_id",
+        "resource_ir_inventory_with_entry_stage0_result entry_block_id result_ty effect type_param_count first_type_param second_type_param second_block_id",
         "resource_walker_stage0_key_with_effect key_effect",
         "EntryBlockMissing missing_entry",
         "BlockIdDuplicate duplicate_id",
@@ -1179,6 +1194,11 @@ assertOrdered(
         "selfhost_effect_kind_eq actual_effect key_effect",
         "FunctionTypeParametersUnsupported actual_count",
         "eq actual_count 1",
+        "FunctionTypeParameterInvalid detail",
+        "detail.ordinal",
+        "sub type_param_count 1",
+        "detail.type_index",
+        "FunctionTypeParameterMissing detail",
     ],
     "function header runtime fixtures must exact-match block identity, declaration type parameters, result type, and surface effect errors",
 );
