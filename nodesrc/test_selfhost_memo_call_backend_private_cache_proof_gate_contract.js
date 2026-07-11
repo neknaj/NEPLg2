@@ -771,6 +771,20 @@ assert.doesNotMatch(
     "resource-lowering producer traversal output must not implement Clone or Copy because it owns walker input and observation tables",
 );
 assertOrdered(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable"),
+    ["events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload", "expected_event_count %i32", "emitted_event_count %i32"],
+    "unified event owner must carry a pre-emission expected count separately from its emitted count",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result"),
+    [
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_with_expected_count add 1 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations",
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_table_push events0 body_payload",
+        "selfhost_memo_call_backend_private_cache_actual_walker_operation_classifier_append_records_loop operations events1",
+    ],
+    "context-bound producer must fix the expected count before emitting the body and operation events",
+);
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free"),
     [
         'field::get output "walker_input"',
@@ -783,19 +797,25 @@ assertOrdered(
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output"),
     [
+        "selfhost_memo_call_backend_private_cache_actual_walker_event_completion_validate_result output.expected_event_count output.emitted_event_count",
+        "Result::Err e",
+        "selfhost_memo_call_backend_private_cache_resource_walker_input_free walker_input",
+        "selfhost_memo_call_backend_private_cache_observation_ban_table_free observations",
+        "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_completed_split_output context body_root source_vocabulary output",
+    ],
+    "resource-lowering producer split-output conversion must reject missing or mismatched producer completion before structural coverage validation and close both owners",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_completed_split_output"),
+    [
         'field::get_ref output_ref "walker_input"',
-        'field::get_ref walker_input_ref "bodies"',
-        'field::get_ref walker_input_ref "places"',
-        'field::get_ref walker_input_ref "edges"',
-        'field::get_ref walker_input_ref "unsupported"',
-        'field::get_ref output_ref "observations"',
         "selfhost_memo_call_backend_private_cache_resource_walker_validate_input_result walker_input_ref",
         "selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced context.root_expr_id body_root context.body_module_fingerprint context.graph_id v::len bodies v::len places v::len edges v::len unsupported selfhost_memo_call_backend_private_cache_observation_ban_table_len observations_ref",
         'field::get output "walker_input"',
         'field::get output "observations"',
         "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_new context coverage_authority body_root source_vocabulary walker_input observations",
     ],
-    "resource-lowering producer split-output conversion must build same-body coverage authority, keep source vocabulary, and move walker input and observation owners into the producer traversal output",
+    "completion-validated split-output conversion must build same-body coverage authority and move both owners into the producer traversal output",
 );
 assert.doesNotMatch(
     stripDocComments(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output")),

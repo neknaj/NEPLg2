@@ -1054,3 +1054,7 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 このcheckpointはactual Resource IR walker本体、走査completion marker、sealed backendを完成させない。次はactual lowering traversal outputがsource vocabulary、coverage event-shape record、fresh witnessを同じowner lifecycleから実発行する接続である。
 
 検証はtarget contract、selfhost doctest 18 / 18、trunk build、playground editor CLI 13 / 13で行った。
+
+2026-07-11: operation projection直後・event emit前にexpected event countを固定し、unified event push由来emitted countとsplit後に照合するcompletion markerをproduction resource-lowering adapterへ追加した。missing、under-emit、over-emitはowner cleanup付きtyped errorで拒否する。現expected scopeはresolver-bound HIR reader source projectionでありactual Resource IR enumeratorではないため、full traversal producer、sealed backend、artifact keyは未完了である。
+
+検証はtarget contract、selfhost doctest 19 / 19、production completion rejection smoke、stdlib documentation contract、issues check、trunk build後のplayground CLI JSONをgateとする。

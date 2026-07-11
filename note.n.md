@@ -83417,3 +83417,12 @@ MERGE_APPROVED
 - 差分レビューはreader representativeがproduction authorityと同型で混入できる点、raw countが走査完全性を証明しない点、異常count runtime不足をblockingとした。origin discriminator、structural validator後mint、event-shape runtime smoke、completion marker未完の明記で対応した。
 - 再レビューはreader origin taxonomyとlegacy型/comment driftを指摘した。production origin wrapperを独立させて`SourceRejected`へ分類し、`CompleteAuthority`単体はcompletion proofでないことを明記した。最終実装・owner cleanupはAPPROVED。
 - 全体整合レビューはwalker structural validation前mintをblockingとした。validation成功後だけproduction envelopeを作り、reader outputをwalker-shaped representativeと記述してAPPROVEDとなった。
+
+# 2026-07-11 selfhost traversal completion marker authority
+
+- event-shape countだけではproducerの予定eventが欠落・重複していないことを判定できないため、unified event ownerへpre-emission expected countとpush由来emitted countを分離して追加した。
+- context-bound operation projectionはbody headerとoperation数からexpectedをemit前に固定する。split outputは両countをowner pairと一緒に移し、production resource-lowering pathはmissing / under-emit / over-emitをstructural coverage validation前に拒否してownerを閉じる。
+- generic fixtureはexpected `-1`のcompletion未発行状態を維持し、production coverage authorityへ流用できない。runtime smokeはexact match、missing、under-emit、over-emitを検査する。
+- `plan.md`は変更していない。actual Resource IR enumerator、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashは未完了である。現在のexpected scopeはresolver-bound HIR reader source projection由来なので、full traversal completenessとは扱わない。
+- subagent差分レビューと全体整合レビューで、seed fixtureのindent、completion判定前の不要borrow、任意errorを成功扱いするsmoke、旧18/18と新19/19のissue記録順を修正した。両レビューは最終APPROVED。
+- pass: target contract、selfhost doctest 19 / 19、production completion runtime 1 / 1、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13 / 13。

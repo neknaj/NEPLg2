@@ -3527,6 +3527,12 @@ production resource-lowering originだけがcomplete authorityへ進める。min
 
 このcheckpointはactual Resource IR walker本体、expected-vs-seen completion markerによる走査完全性証明、PrivateCache / PrivateState effect mask、sealed backend、artifact policy hashを完成させない。次はresolver-bound HIR readerの代用をactual lowering traversal outputへ置換し、このevent-shape recordとsource vocabulary/fresh witnessを同じproducer ownerから実発行する。
 
+### Unified traversal event completion marker
+
+Production resource-lowering adapterは、source vocabularyをoperation tableへ投影した直後かつevent emit前にexpected event countを固定する。unified event ownerはpush成功ごとにemitted countだけを更新し、split outputへ両方を同時にmoveする。production coverage authorityはexpectedが発行済みでexpectedとemittedが一致し、さらにwalker structural validationが成功した場合だけmintする。generic fixtureのevent tableはcompletion未発行の`-1`を保持するため、production originへ流用できない。
+
+現在のexpected authorityはresolver-bound HIR reader source projection由来であり、actual Resource IR scope enumeratorではない。このmarkerはprojection途中のevent欠落・重複を検出するが、full Resource IR traversalが全operationを列挙した完全性proofではない。次はactual lowering traversal enumeratorがexpected scope、source vocabulary、fresh witnessを同じowner lifecycleから発行する境界へ置換する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

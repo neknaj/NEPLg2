@@ -1839,8 +1839,11 @@ enum SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload:
 //: [契約/けいやく]:
 //: - table は module-private owner です。外部 module から stream を渡せる public API は、actual Resource walker 本体が authority を持つまで作りません。
 //: - table 自体に `Clone` / `Copy` を実装してはいけません。
+//: - `expected_event_count` はoperation projection直後かつemit前に固定し、pushごとに`emitted_event_count`だけを進めます。`-1`はfixture用のcompletion未発行状態です。
 struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable:
     events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload
+    expected_event_count %i32
+    emitted_event_count %i32
 
 //: SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput: unified event stream を分配した owner pair
 //:
@@ -1848,9 +1851,12 @@ struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable:
 //: - `walker_input` は body / place / edge / unsupported event だけを持ち、既存 scanner で GraphInput へ正規化されます。
 //: - `observations` は `ObservationDetected` だけを保持します。`NoObservationDetected` は proof ではないため、accepted path には進めず、単に分配後の観測禁止 table に追加しません。
 //: - この struct は owner を 2 つ持つため、`Clone` / `Copy` を実装してはいけません。
+//: - expected / emitted countはunified event ownerからsplitと同時に移し、production coverage mint前に一致を再検査します。
 struct SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput:
     walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput
     observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable
+    expected_event_count %i32
+    emitted_event_count %i32
 
 //: SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext: actual traversal body reader が[信頼/しんらい]する request authority
 //:
@@ -2583,6 +2589,8 @@ pub enum SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind
     ActualWalkerEventTableAllocFailed %StdErrorKind
     ActualWalkerEventPushFailed %StdErrorKind
     ActualWalkerEventReadFailed %i32
+    ActualWalkerEventCompletionMissing
+    ActualWalkerEventCompletionMismatch %i32
     WalkerInputBuildRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
     ObservationTableBuildRejected %StdErrorKind
     ScannerOutputRejected %SelfhostMemoCallBackendPrivateCacheResourceWalkerInputScannerErrorKind
@@ -5177,7 +5185,7 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_new %impur
     let events_result %Result Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload StdErrorKind v::new
     match events_result:
         Result::Ok events:
-            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable events
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable events -1 0
         Result::Err e:
             Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventTableAllocFailed e
 
@@ -5190,6 +5198,40 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_len %fn &S
     let events %&Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get_ref table "events"
     v::len events
 
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_expected_event_count %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable i32 \table:
+    let count %&i32 field::get_ref table "expected_event_count"
+    *count
+
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_emitted_event_count %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable i32 \table:
+    let count %&i32 field::get_ref table "emitted_event_count"
+    *count
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_completion_validate_result: producer予定件数とemit済み件数を[照合/しょうごう]する
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_completion_validate_result %fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \expected_event_count\emitted_event_count:
+    if:
+        lt expected_event_count 0
+        Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMissing
+        if:
+            not eq expected_event_count emitted_event_count
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMismatch expected_event_count
+            Result::Ok unit
+
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_with_expected_count: producer 計画件数付きevent ownerを[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - expected count はsourceからoperationへ投影した直後、event emit前に固定します。emit後のtable長から逆算してはいけません。
+//: - generic fixtureは従来constructorを使い、completion authorityを持たない`-1`のままproduction resource-lowering pathへ進めません。
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_with_expected_count %impure fn i32 Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \expected_event_count:
+    if:
+        lt expected_event_count 0
+        Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMissing
+        match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
+            Result::Ok table:
+                let events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get table "events"
+                Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable events expected_event_count 0
+            Result::Err e:
+                Result::Err e
+
 //: selfhost_memo_call_backend_private_cache_actual_walker_event_table_get: unified event payload を index で[読/よ]む
 fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_get %fn &SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable fn i32 Option SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload \table\idx:
     let events %&Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get_ref table "events"
@@ -5201,9 +5243,11 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_get %fn &S
 //: - push は payload を stream owner に保存するだけです。body / place / edge / observation の semantic validation は、既存 walker input push と observation table push へ分配するときに行います。
 fn selfhost_memo_call_backend_private_cache_actual_walker_event_table_push %impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind \table\payload:
     let events %Vec SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload field::get table "events"
+    let expected_event_count %i32 field::get table "expected_event_count"
+    let emitted_event_count %i32 field::get table "emitted_event_count"
     match v::push events payload:
         Result::Ok next_events:
-            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable next_events
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable next_events expected_event_count add emitted_event_count 1
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free v::vec_push_error_vec e
@@ -7625,6 +7669,10 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_error
             2
         SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed _idx:
             3
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMissing:
+            10
+        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMismatch _expected:
+            11
         SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected _e:
             4
         SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ObservationTableBuildRejected _e:
@@ -7664,6 +7712,10 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_normalizer_u
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventPushFailed _e:
                     false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed _idx:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMissing:
+                    false
+                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMismatch _expected:
                     false
                 SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected _e:
                     false
@@ -7917,6 +7969,10 @@ pub fn selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bri
                         SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventPushFailed _e:
                             false
                         SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventReadFailed _idx:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMissing:
+                            false
+                        SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMismatch _expected:
                             false
                         SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::WalkerInputBuildRejected _e:
                             false
@@ -9316,6 +9372,14 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_cove
         Result::Err _error:
             false
 
+//: selfhost_memo_call_backend_private_cache_actual_walker_event_completion_accepts: completion markerが一致するか[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_actual_walker_event_completion_accepts %fn i32 fn i32 bool \expected_event_count\emitted_event_count:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_completion_validate_result expected_event_count emitted_event_count:
+        Result::Ok _complete:
+            true
+        Result::Err _error:
+            false
+
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_stage0: originとcount rejectionのruntime smoke
 pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_stage0 %fn void bool \void:
     let request_root %SelfhostHirExprId selfhost_hir_expr_id_new 0
@@ -9329,18 +9393,26 @@ pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_
     let unsupported %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced request_root body_root 77 graph_id 1 1 1 1 0
     let observation %SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageCompleteAuthority selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_authority_new SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageOrigin::ResourceLoweringTraversalProduced request_root body_root 77 graph_id 1 1 1 0 1
     and:
-        selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts accepted
+        selfhost_memo_call_backend_private_cache_actual_walker_event_completion_accepts 3 3
         and:
-            not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts reader
+            not selfhost_memo_call_backend_private_cache_actual_walker_event_completion_accepts -1 0
             and:
-                not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts zero_body
+                not selfhost_memo_call_backend_private_cache_actual_walker_event_completion_accepts 3 2
                 and:
-                    not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts two_bodies
+                    not selfhost_memo_call_backend_private_cache_actual_walker_event_completion_accepts 3 4
                     and:
-                        not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts negative
+                        selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts accepted
                         and:
-                            not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts unsupported
-                            not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts observation
+                            not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts reader
+                            and:
+                                not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts zero_body
+                                and:
+                                    not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts two_bodies
+                                    and:
+                                        not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts negative
+                                        and:
+                                            not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts unsupported
+                                            not selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_event_shape_accepts observation
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq: producer summary の代表 contract を[確認/かくにん]する
 pub fn selfhost_memo_call_backend_private_cache_actual_traversal_private_effect_coverage_handoff_producer_stage0_summary_eq %fn SelfhostMemoCallBackendPrivateCacheActualTraversalPrivateEffectCoverageHandoffProducerStage0Summary bool \summary:
@@ -9810,7 +9882,7 @@ fn selfhost_memo_call_backend_private_cache_actual_walker_event_split_loop %impu
     if:
         ge idx n
         then:
-            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations
+            Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations selfhost_memo_call_backend_private_cache_actual_walker_event_table_expected_event_count events selfhost_memo_call_backend_private_cache_actual_walker_event_table_emitted_event_count events
         else:
             match selfhost_memo_call_backend_private_cache_actual_walker_event_table_get events idx:
                 Option::Some payload:
@@ -11821,7 +11893,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_ou
         Result::Ok input:
             match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_seed_empty_observations_result seed:
                 Result::Ok observations:
-                    Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations -1 0
                 Result::Err e:
                     selfhost_memo_call_backend_private_cache_resource_walker_input_free input
                     Result::Err e
@@ -12401,7 +12473,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_availab
 fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_events_from_context_operations_result %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheActualWalkerEventTable SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context\operations:
     let key %SelfhostMemoCallBackendPrivateCacheProofKey field::get context "key"
     let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId field::get context "graph_id"
-    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_table_new_with_expected_count add 1 selfhost_memo_call_backend_private_cache_actual_walker_operation_table_len operations:
         Result::Ok events0:
             let body %SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord selfhost_memo_call_backend_private_cache_resource_walker_body_record_new key graph_id SelfhostMemoCallBackendPrivateCacheResourceGraphCompleteness::ClosedForPrivateCacheBoundary
             let body_payload %SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload SelfhostMemoCallBackendPrivateCacheActualWalkerEventPayload::Body body
@@ -12819,7 +12891,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_split_o
         Result::Ok input:
             match observations_result:
                 Result::Ok observations:
-                    Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations -1 0
                 Result::Err e:
                     selfhost_memo_call_backend_private_cache_resource_walker_input_free input
                     Result::Err e
@@ -12896,7 +12968,7 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_availa
         Result::Ok input:
             match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_empty_observations_result:
                 Result::Ok observations:
-                    selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_availability_result Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations
+                    selfhost_memo_call_backend_private_cache_actual_traversal_body_adapter_source_count_from_availability_result Result::Ok SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations -1 0
                 Result::Err e:
                     selfhost_memo_call_backend_private_cache_resource_walker_input_free input
                     Result::Err e
@@ -16272,6 +16344,17 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
 //: - split output から walker input owner と observation table owner を取り出し、同じ resolver-bound context / body root 由来の coverage authority / source vocabulary と束ねます。
 //: - source table、fresh witness、no-escape coverage、request-evidence、effect mask、backend bytes、artifact key は作りません。
 fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context\body_root\source_vocabulary\output:
+    match selfhost_memo_call_backend_private_cache_actual_walker_event_completion_validate_result output.expected_event_count output.emitted_event_count:
+        Result::Err e:
+            let walker_input %SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get output "walker_input"
+            let observations %SelfhostMemoCallBackendPrivateCacheObservationBanTable field::get output "observations"
+            selfhost_memo_call_backend_private_cache_resource_walker_input_free walker_input
+            selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected e
+        Result::Ok _complete:
+            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_completed_split_output context body_root source_vocabulary output
+
+fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_completed_split_output %impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext impure fn SelfhostHirExprId impure fn SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary impure fn SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput Result SelfhostMemoCallBackendPrivateCacheActualTraversalResourceLoweringProducerTraversalOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context\body_root\source_vocabulary\output:
     let output_ref %&SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput &output
     let walker_input_ref %&SelfhostMemoCallBackendPrivateCacheResourceWalkerInput field::get_ref output_ref "walker_input"
     let bodies %&Vec SelfhostMemoCallBackendPrivateCacheResourceWalkerBodyRecord field::get_ref walker_input_ref "bodies"
@@ -16300,6 +16383,78 @@ fn selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_p
             selfhost_memo_call_backend_private_cache_resource_walker_input_free walker_input
             selfhost_memo_call_backend_private_cache_observation_ban_table_free observations
             Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalInputRejected e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0_case: completion異常をproduction変換へ[渡/わた]す
+fn selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0_case %impure fn i32 impure fn i32 Result bool SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \expected_event_count\emitted_event_count:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 8:
+                Result::Ok table:
+                    let result %Result bool SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            match selfhost_memo_call_backend_private_cache_actual_traversal_body_reader_request_context_from_entry_result &module entry root 77 0:
+                                Result::Ok context:
+                                    match selfhost_memo_call_backend_private_cache_resource_walker_stage0_closed_place_edge_input_result SelfhostMemoCallBackendPrivateCacheResourcePlaceKind::PrivateCacheStorage 0 SelfhostMemoCallBackendPrivateCacheResourceEdgeKind::CloneOutOwnedValue:
+                                        Result::Ok input:
+                                            match selfhost_memo_call_backend_private_cache_actual_walker_traversal_source_collector_stage0_empty_observations_result:
+                                                Result::Ok observations:
+                                                    let output %SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput SelfhostMemoCallBackendPrivateCacheActualWalkerEventSplitOutput input observations expected_event_count emitted_event_count
+                                                    let vocabulary %SelfhostMemoCallBackendPrivateCacheActualTraversalProducerSourceVocabulary selfhost_memo_call_backend_private_cache_actual_traversal_producer_source_vocabulary_new 1 0 0 0
+                                                    match selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_from_split_output context selfhost_memo_call_backend_private_cache_actual_traversal_body_stage0_body_root_expr_id vocabulary output:
+                                                        Result::Ok traversal_output:
+                                                            selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_traversal_output_free traversal_output
+                                                            Result::Ok false
+                                                        Result::Err completion_error:
+                                                            let normalizer_error %SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind if:
+                                                                lt expected_event_count 0
+                                                                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMissing
+                                                                SelfhostMemoCallBackendPrivateCacheActualWalkerEventNormalizerErrorKind::ActualWalkerEventCompletionMismatch expected_event_count
+                                                            let expected_error %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerEventBuildRejected normalizer_error
+                                                            Result::Ok selfhost_memo_call_backend_private_cache_actual_walker_event_producer_bridge_error_kind_eq completion_error expected_error
+                                                Result::Err e:
+                                                    selfhost_memo_call_backend_private_cache_resource_walker_input_free input
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::ActualWalkerTraversalInputRejected e
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestEntryMissing 0
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::RequestCollectionFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0: production completion拒否とowner cleanupのruntime smoke
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #import "core/test" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//: assert_result_ok_true selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0;
+//: ```
+pub fn selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0 %impure fn void Result bool SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0_case sub 0 1 0:
+        Result::Ok missing_rejected:
+            match selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0_case 3 2:
+                Result::Ok under_emit_rejected:
+                    match selfhost_memo_call_backend_private_cache_actual_traversal_completion_boundary_stage0_case 3 4:
+                        Result::Ok over_emit_rejected:
+                            Result::Ok and missing_rejected and under_emit_rejected over_emit_rejected
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_call_backend_private_cache_actual_traversal_resource_lowering_producer_authority_output_new: producer authority output owner を[作/つく]る
 //:

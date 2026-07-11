@@ -144,6 +144,8 @@ production coverage envelopeへwalker-shaped split output由来のbody / place /
 
 effect mask実体、Resource summary/capability/artifact policy hashへのevent coverage投影、actual Resource IR walker本体、走査completion markerは未完了である。
 
+2026-07-11: unified event ownerにpre-emission expected countとpush由来emitted countを分離して保持し、split後かつcoverage authority mint前に一致を要求するcompletion marker境界を追加した。generic fixtureはcompletion未発行としてproduction pathで拒否する。expectedは現時点ではHIR reader source projection由来でありactual Resource IR enumerator由来ではないため、full traversal completenessとeffect mask実体は引き続き未完了である。
+
 ## 2026-06-21 selfhost private effect no-escape gate checkpoint
 
 Selfhost 側に `memo_trait_operation_private_effect_no_escape_gate.nepl` を追加し、`Eq` / `Hash` method body の `PrivateState` / `PrivateCache` effect summary を Resource IR no-escape proof table と照合してから既存 method body fact table へ投入する checker-layer boundary を固定した。
