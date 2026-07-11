@@ -83485,3 +83485,11 @@ MERGE_APPROVED
 - actual Return Place identity / escape classification、operation semantics、HIR-to-Resource co-produced function ownerは未実装である。`ResourceIrEnumerated`は発行しない。`plan.md`は変更していない。
 - runtimeはReturn Some/None、Unreachable payload無し/有り拒否、RawBody payload無し/有り拒否を全実行する。subagent差分・全体整合レビューはいずれもrecursive案撤回後の最終差分をAPPROVED。
 - pass: target contract、focused runtime 1/1、selfhost doctest 20/20、stdlib documentation contract、issues check、`git diff --check`、`trunk build`、playground editor CLI 13/13。
+
+# 2026-07-11 GUI font rendering F5nxh registered indexed PathCommandTag population owner
+
+- F5nxg checked completed Edge ownerを唯一のauthorityとし、`PendingContour / ActiveContour / Completed`でcontour span lookupをcontourごとにexactly onceへ制限する契約を追加した。
+- logical command indexから`edge_index = index / 2`と`event_slot_ordinal = index % 2`を導出し、checked-span event coreから8 PathCommandTag scalarを順序付きcommitする。start precedence、budget terminal優先、same-owner error recovery、checked seal、F5nxi handoffを仕様・詳細設計・実装計画へ固定した。
+- facade、source-policy、controlled registered runtime fixtureをF5nxhへ更新中である。F5nxhはcommand value / stream preparationへ進まず、フォントレンダリングエンジンとGUI表示の最終目標は未完了である。
+- controlled all-off-curve fixtureではchecked-span eventが8件とも`SkipNoSegment`となるため、stable PathCommandTag scalarは`4, 4, 4, 4, 4, 4, 4, 4`である。logical index 0..7、edge index `index / 2`、event ordinal `index % 2`、contour/local identity、budget 0、terminal、checked seal/freeをruntime 1 / 1で確認した。
+- pass: Web GUI font source-policy、registered face runtime 1 / 1、assertion 32 / 32、`git diff --check`。

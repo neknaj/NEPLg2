@@ -197,6 +197,12 @@ F5nxfはF5nxe completed ownerを分解せず、owner-bound item readで得たlog
 
 F5nxgはchecked completed PointY owner全体をauthorityとしてEdge region cursorを開始する。`PendingContour`だけがowner内indexed sourceからcontour spanをO(1) lookupでexactly once取得し、`ActiveContour`は保存済みchecked spanを各edgeで再利用する。edge scalarはlogical point順にcontour owner indexを保持し、2 contours / 4 pointsでは`0, 0, 1, 1`となる。contour終端のwrapはexisting checked-span edge coreだけで解決し、endpoint marker走査、full scan、raw collection/storage splitを行わない。budget 0以下はlookup/pushを行わず、Completedはbudgetより優先する。lookup/read/push failureはsame registered authorityと失敗前stateを保持し、checked sealだけがF5nxhへ渡る。
 
+F5nxhはF5nxg checked completed Edge owner全体だけを入力authorityとしてPathCommandTag regionを構築する。外部collection、capacity、cursor、span、edge、event、tag scalarを受け取らない。private stateは`PendingContour(contour_index, expected_start, cursor) | ActiveContour(checked_span, expected_start, cursor) | Completed(cursor)`であり、`PendingContour`だけがowner-bound indexed span lookupをexactly once行い、`ActiveContour`は保存済みspanを再利用する。startのfail-fast precedenceはEdge completion invariant、checked PathCommandTag cursor construction、PathCommandTag phase invariantの順である。
+
+logical path command indexは`cursor.next - cursor.start`だけから導出し、`edge_index = div_s logical_index 2`、`event_slot_ordinal = rem_s logical_index 2`とする。ordinalは0と1だけを許し、checked spanから導出したcontour-local edge indexとexisting checked-span event coreへ渡す。event success後だけstable PathCommandTag scalarへ写し、owner-bound tag pushをexactly once行う。2 contours / 4 edgesでは8 tagsをlogical index 0から7の順でcommitし、absolute storage indexをedge indexとして使わない。
+
+stepはterminal確認、budget 0以下、Pending span lookup、checked-span event read、event kindからstable tagへのexact projection、tag pushの順である。F5nxhにはstored tagとの独立identity比較はなく、checked event payloadから得たkindを`gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind`でtagへ写し、そのtagだけをslotとscalarのsourceにする。Completedはbudgetより優先し、0以下ではlookup/read/pushを行わない。lookup/read/push failureはsame registered authorityと失敗前stateを保持し、lower push metadataはowner takeより前に保存する。checked sealはCompletedかつphase invariant Validの場合だけF5nxiへ渡す。F5nxhはcommand value、cursor/stream preparation、stroke、raster、render、platform APIへ進まない。
+
 ### SFNT representative names
 
 SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。

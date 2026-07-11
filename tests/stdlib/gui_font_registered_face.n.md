@@ -11,7 +11,7 @@
 - WOFF decode 境界が来るまでは `SfntOnly` 以外の decode policy を parse 前に拒否します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=32 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"registered face simple glyph success and composite rejection\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"registered face simple glyph indexed endpoint PointX PointY population\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"registered face simple glyph missing loca\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"registered face simple glyph missing glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"registered face simple glyph malformed point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=bool label=\"registered face simple glyph mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_face_binds_resource_bytes_to_sfnt_metadata\" count=32 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"face id\" expected=\"11\" actual=\"11\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"selected face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"owner resource len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"metadata face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"metadata face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid face registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid face parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"invalid face owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"malformed registered kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"malformed parse kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"malformed owner len\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"unsupported decode kind\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"unsupported decode no parse\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"unsupported decode owner len\" expected=\"96\" actual=\"96\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"invalid raw face id rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"registered face table success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"registered face table duplicate recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"registered face table duplicate face recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"registered face glyph lookup success and missing recovery\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"registered face horizontal metric success\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"registered face horizontal metric missing table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"registered face horizontal metric malformed table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"registered face horizontal metric mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"registered face simple glyph success and composite rejection\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"registered face simple glyph indexed endpoint PointX PointY Edge PathCommandTag population\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"registered face simple glyph missing loca\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"registered face simple glyph missing glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"registered face simple glyph malformed point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=bool label=\"registered face simple glyph mapping mismatch\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -2252,6 +2252,77 @@ fn registered_face_point_y_phase_valid %fn &GuiFontRegisteredFaceSimpleGlyphInde
         GuiFontRegisteredFaceSimpleGlyphIndexedPointYPhaseInvariantCheck::Valid: true
         _: false
 
+fn registered_face_path_command_tag_slot_ok %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot fn i32 bool \slot\expected_index:
+    let expected_edge %i32 div_s expected_index 2
+    let expected_contour %i32 if lt expected_edge 2 then 0 else 1
+    let expected_local %i32 if lt expected_edge 2 then expected_edge else sub expected_edge 2
+    let expected_scalar %i32 4
+    let event_ok %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_event_slot slot:
+        GuiSfntSimpleGlyphPathSinkEventSlot::First: eq rem_s expected_index 2 0
+        GuiSfntSimpleGlyphPathSinkEventSlot::Second: eq rem_s expected_index 2 1
+    and eq expected_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_path_command_index slot and eq expected_edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_edge_index slot and eq expected_contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_index slot and eq expected_local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_edge_index slot and eq expected_scalar gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_scalar_value slot event_ok
+
+fn registered_face_path_command_tag_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner impure fn i32 bool \owner\expected_index:
+    if lt expected_index 8:
+        then:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_drain_budget owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_free error
+                    false
+                Result::Ok step:
+                    let pushed_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_status &step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagBudgetStatus::Pushed slot:
+                            registered_face_path_command_tag_slot_ok &slot expected_index
+                        _: false
+                    let next %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_take_owner step
+                    let invariant_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_owner_phase_invariant_check &next:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagPhaseInvariantCheck::Valid: true
+                        _: false
+                    and pushed_ok and invariant_ok registered_face_path_command_tag_drain_ok next add expected_index 1
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_drain_budget owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_free error
+                    false
+                Result::Ok terminal:
+                    let terminal_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_status &terminal:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagBudgetStatus::Completed: true
+                        _: false
+                    let completed_running %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_take_owner terminal
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_step completed_running:
+                        Result::Ok unexpected:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_tag_owner_free gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_take_owner unexpected
+                            false
+                        Result::Err completed_error:
+                            let recovery_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_kind &completed_error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagErrorKind::AlreadyCompleted: true
+                                _: false
+                            let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_take_owner completed_error
+                            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_completed recovered:
+                                Result::Err seal_error:
+                                    gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error_free seal_error
+                                    false
+                                Result::Ok completed:
+                                    gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_free completed
+                                    and terminal_ok recovery_ok
+
+fn registered_face_path_command_tag_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner bool \edge:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_start edge:
+        Result::Err start_error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_tag_start_error_free start_error
+            false
+        Result::Ok owner:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_drain_budget owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_free error
+                    false
+                Result::Ok exhausted:
+                    let exhausted_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_status &exhausted:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagBudgetStatus::StepBudgetExhausted: true
+                        _: false
+                    let recovered %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner gui_font_registered_face_simple_glyph_indexed_path_command_tag_budget_step_take_owner exhausted
+                    and exhausted_ok registered_face_path_command_tag_drain_ok recovered 0
+
 fn registered_face_edge_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner impure fn i32 bool \owner\expected_index:
     if lt expected_index 4:
         then:
@@ -2293,8 +2364,7 @@ fn registered_face_edge_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphInde
                                     gui_font_registered_face_simple_glyph_indexed_edge_owner_free gui_font_registered_face_simple_glyph_indexed_edge_seal_error_take_owner unsealed
                                     false
                                 Result::Ok completed:
-                                    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_free completed
-                                    and terminal_ok recovery_ok
+                                    and terminal_ok and recovery_ok registered_face_path_command_tag_success_ok completed
 
 fn registered_face_edge_success_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner bool \point_y:
     match gui_font_registered_face_simple_glyph_indexed_edge_start point_y:
@@ -3210,7 +3280,7 @@ fn main %impure fn void i32 \void:
     let report11 %TestReport test_report_push report10 assert "registered face horizontal metric malformed table" registered_face_horizontal_metric_malformed_ok
     let report12 %TestReport test_report_push report11 assert "registered face horizontal metric mapping mismatch" registered_face_horizontal_metric_mismatch_ok
     let report13 %TestReport test_report_push report12 assert "registered face simple glyph success and composite rejection" registered_face_simple_glyph_success_ok
-    let report14 %TestReport test_report_push report13 assert "registered face simple glyph indexed endpoint PointX PointY population" registered_face_simple_glyph_collection_success_ok
+    let report14 %TestReport test_report_push report13 assert "registered face simple glyph indexed endpoint PointX PointY Edge PathCommandTag population" registered_face_simple_glyph_collection_success_ok
     let report15 %TestReport test_report_push report14 assert "registered face simple glyph missing loca" registered_face_simple_glyph_missing_loca_ok
     let report16 %TestReport test_report_push report15 assert "registered face simple glyph missing glyf" registered_face_simple_glyph_missing_glyf_ok
     let report17 %TestReport test_report_push report16 assert "registered face simple glyph malformed point data" registered_face_simple_glyph_malformed_ok

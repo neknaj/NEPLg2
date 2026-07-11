@@ -257,6 +257,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_contour_edge_c
     let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
     gui_font_registered_face_simple_glyph_indexed_path_owner_contour_edge_checked_span path span edge_index
 
+//: action authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let path %&GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner field::get_ref owner "path"
+    gui_font_registered_face_simple_glyph_indexed_path_owner_path_sink_event_at_checked_span path span edge_index slot
+
 //: gui_font_registered_face_simple_glyph_indexed_action_owner_item_read: action authority から classified point item を借用して読む
 //:
 //: [目的/もくてき]: endpoint population が action continuation と registered collection authority を分離せず、point item と typed read error を取得できるようにします。

@@ -288,6 +288,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_contour_edge_
     let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref owner "point_x"
     gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_contour_edge_checked_span point_x span edge_index
 
+//: running PointY authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let point_x %&GuiFontRegisteredFaceSimpleGlyphIndexedPointXCompletedOwner field::get_ref owner "point_x"
+    gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_path_sink_event_at_checked_span point_x span edge_index slot
+
 //: F5nxf 固有 invariant を契約上の優先順位で検査します。
 //:
 //: neplg2:test[skip]
@@ -672,6 +678,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_con
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
     gui_font_registered_face_simple_glyph_indexed_point_y_owner_contour_edge_checked_span running span edge_index
 
+//: completed PointY authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_point_y_owner_path_sink_event_at_checked_span running span edge_index slot
+
 //: owner を消費して nested F5nxe authority を解放します。
 //:
 //: neplg2:test[skip]
@@ -769,3 +781,39 @@ pub fn gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_free %imp
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_point_y_edge_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYEdgePushError unit \error:
     gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_free field::get error "owner"
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPush:
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPush
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedPointYState
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError:
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedPointXPathCommandTagPushError
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedPointYState
+//: completed PointY authorityからPathCommandTag mutationへexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_push_path_command_tag %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot Result GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError \owner\cursor\tag:
+    let running field::get owner "running"
+    let state field::get running "state"
+    let point_x field::get running "point_x"
+    match gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_push_path_command_tag point_x cursor tag:
+        Result::Ok lower: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPush lower state
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError lower state
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \value:
+    gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_cursor field::get_ref value "lower"
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner \value:
+    let state field::get value "state"
+    let point_x gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_take_owner field::get value "lower"
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner point_x state
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \value:
+    gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_cursor field::get_ref value "lower"
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot \value:
+    gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_tag field::get_ref value "lower"
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_scalar_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError i32 \value:
+    gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_scalar_value field::get_ref value "lower"
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError GuiSfntSimpleGlyphOutlineRegionPushErrorKind \value:
+    gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_region_error_kind field::get_ref value "lower"
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError Option StdErrorKind \value:
+    gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_storage_push_error_kind field::get_ref value "lower"
+pub fn gui_font_registered_face_simple_glyph_indexed_point_y_path_command_tag_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPointYPathCommandTagPushError GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner \value:
+    let state field::get value "state"
+    let point_x gui_font_registered_face_simple_glyph_indexed_point_x_path_command_tag_push_error_take_owner field::get value "lower"
+    GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPointYOwner point_x state

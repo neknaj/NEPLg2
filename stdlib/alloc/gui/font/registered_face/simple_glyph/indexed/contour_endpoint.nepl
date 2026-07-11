@@ -447,6 +447,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_cont
     let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref owner "storage"
     gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_contour_edge_checked_span storage span edge_index
 
+//: endpoint authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let storage %&GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get_ref owner "storage"
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_path_sink_event_at_checked_span storage span edge_index slot
+
 //: [目的/もくてき]: F5nxd owner invariant を[検査/けんさ]します。
 //: [アルゴリズム]: storage shape、span、cursor、phase state を[契約順/けいやくじゅん]に[照合/しょうごう]します。
 //: [契約/けいやく]: [最初/さいしょ]の typed invalid reason を[返/かえ]します。
@@ -946,6 +952,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get_ref owner "running"
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_contour_edge_checked_span running span edge_index
 
+//: completed endpoint authority から checked span 内の sink event を exactly once forwarding します。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get_ref owner "running"
+    gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_path_sink_event_at_checked_span running span edge_index slot
+
 //: gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_point_x: completed endpoint authorityを保ってPointXをcommitする
 //:
 //: [契約/けいやく]: F5nxc mutationへexactly once委譲し、success/error双方で同じF5nxd completed authorityを再構築します。
@@ -1215,3 +1227,54 @@ pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_edge_push_
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_edge_push_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointEdgePushError unit \error:
     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_free field::get error "owner"
+
+//: lower PathCommandTag commitとendpoint phase stateを分離せず保持します。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush:
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePathCommandTagPush
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState
+
+//: lower failureとendpoint phase stateを保持し、same-owner recoveryを可能にします。
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError:
+    lower %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStoragePathCommandTagPushError
+    state %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState
+
+//: completed endpoint authorityからPathCommandTag mutationへexactly once forwardingします。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_path_command_tag %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot Result GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError \owner\cursor\tag:
+    let running %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner field::get owner "running"
+    let state %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointState field::get running "state"
+    let storage %GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner field::get running "storage"
+    match gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_path_command_tag storage cursor tag:
+        Result::Ok lower: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush lower state
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError lower state
+
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_cursor field::get_ref pushed "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPush GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner \pushed:
+    let state field::get pushed "state"
+    let storage gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_take_owner field::get pushed "lower"
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner storage state
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_cursor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError GuiSfntSimpleGlyphOutlineScalarRegionCursor \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_cursor field::get_ref error "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_tag %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_tag field::get_ref error "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_scalar_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError i32 \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_scalar_value field::get_ref error "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_region_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_region_error_kind field::get_ref error "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_storage_push_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError Option StdErrorKind \error:
+    gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_storage_push_error_kind field::get_ref error "lower"
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_contour_endpoint_path_command_tag_push_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointPathCommandTagPushError GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner \error:
+    let state field::get error "state"
+    let storage gui_font_registered_face_simple_glyph_indexed_outline_storage_path_command_tag_push_error_take_owner field::get error "lower"
+    GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointCompletedOwner gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner storage state

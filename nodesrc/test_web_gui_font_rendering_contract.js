@@ -437,6 +437,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedPointY = read("stdlib/alloc/gui/f
 const allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPointY);
 const allocFontRegisteredFaceSimpleGlyphIndexedEdge = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/edge.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedEdge);
+const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_tag.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3734,6 +3736,80 @@ const registeredEdgeBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphInd
 assertOrderedFragments(registeredEdgeBudget, ["owner_progress_kind &owner", "Completed", "le remaining 0", "StepBudgetExhausted", "indexed_edge_step owner"], "F5nxg budget must prefer terminal and avoid work at zero");
 const registeredEdgeSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_seal_completed");
 assertOrderedFragments(registeredEdgeSeal, ["owner_progress_kind &owner", "Completed", "owner_phase_invariant_check &owner", "Valid", "EdgeCompletedOwner owner"], "F5nxg must seal only a checked completed Edge owner for F5nxh");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/path_command_tag"\s+as\s+\*/, "facade must export F5nxh PathCommandTag owner");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/edge"\s+as\s+\*/, "F5nxh must import the sealed Edge authority");
+const registeredPathCommandTagActivate = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_tag_activate");
+assertOrderedFragments(registeredPathCommandTagActivate, ["indexed_path_command_tag_owner_pending &owner", "Option::Some pending", "completed_owner_contour_span_lookup edge_ref contour_index", "SpanInvariantInvalid", "ActiveContour"], "F5nxh must look up one indexed span only while activating PendingContour");
+assert(registeredPathCommandTagActivate.split("completed_owner_contour_span_lookup edge_ref contour_index").length - 1 === 1, "F5nxh PendingContour activation must perform one O(1) span lookup");
+const registeredPathCommandTagStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_tag_step");
+assertOrderedFragments(registeredPathCommandTagStep, ["indexed_path_command_tag_activate input", "owner_logical_command_index &owner", "div_s logical_command_index 2", "rem_s logical_command_index 2", "completed_owner_contour_event_checked_span edge_ref span contour_edge_index event_slot", "completed_owner_push_path_command_tag edge cursor slot"], "F5nxh must map command index to edge/event ordinal and push one owner-bound tag scalar");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, /(?:contour_endpoint|endpoint_marker|full_scan|fullscan|collection_ref|take_collection|storage_ref|take_storage|raw_collection|split|callback|_with_tables|\bfallback\b|\bpanic\b|\bunreachable\b|path_command_value|path_command_stream|\bStroke\b|\bRaster\b|RenderTarget|\bplatform\b)/, "F5nxh must not reintroduce endpoint/full-scan/raw split or F5nxi/later-phase paths");
+const registeredPathCommandTagBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_tag_drain_budget");
+assertOrderedFragments(registeredPathCommandTagBudget, ["owner_progress_kind &owner", "Completed", "le remaining 0", "StepBudgetExhausted", "indexed_path_command_tag_step owner"], "F5nxh budget must prefer terminal and avoid work at zero");
+const registeredPathCommandTagSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_completed");
+assertOrderedFragments(registeredPathCommandTagSeal, ["owner_progress_kind &owner", "Completed", "owner_phase_invariant_check &owner", "Valid", "PathCommandTagCompletedOwner owner"], "F5nxh must seal only a checked completed PathCommandTag owner for F5nxi");
+function assertSingleForward(source, functionName, downstreamName, message) {
+    const body = functionSlice(source, functionName);
+    assert(body.length > 0, `${message}: missing ${functionName}`);
+    assert((body.match(new RegExp(`\\b${downstreamName}\\b`, "g")) || []).length === 1, `${message}: ${functionName} must call ${downstreamName} exactly once`);
+}
+for (const [source, functionName, downstreamName] of [
+    [allocFontRegisteredFaceSimpleGlyphCollectionImpl, "gui_font_registered_face_simple_glyph_indexed_owner_path_sink_event_at_checked_span", "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPathImpl, "gui_font_registered_face_simple_glyph_indexed_path_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedActionImpl, "gui_font_registered_face_simple_glyph_indexed_action_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_path_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl, "gui_font_registered_face_simple_glyph_indexed_action_summary_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_action_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedActionSummaryImpl, "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_action_summary_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl, "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl, "gui_font_registered_face_simple_glyph_indexed_point_y_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl, "gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_point_y_owner_path_sink_event_at_checked_span"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_path_sink_event_at_checked_span", "gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_path_sink_event_at_checked_span"],
+]) {
+    assertSingleForward(source, functionName, downstreamName, "F5nxh checked-span event forwarding chain");
+}
+for (const [source, functionName, downstreamName] of [
+    [allocFontRegisteredFaceSimpleGlyphIndexedOutlineStorageImpl, "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_path_command_tag", "gui_sfnt_simple_glyph_outline_storage_push_region_scalar"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedContourEndpointImpl, "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_path_command_tag", "gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_push_path_command_tag"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointXImpl, "gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_push_path_command_tag", "gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_push_path_command_tag"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedPointYImpl, "gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_push_path_command_tag", "gui_font_registered_face_simple_glyph_indexed_point_x_completed_owner_push_path_command_tag"],
+    [allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_push_path_command_tag", "gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_push_path_command_tag"],
+]) {
+    assertSingleForward(source, functionName, downstreamName, "F5nxh PathCommandTag mutation forwarding chain");
+}
+assertOrderedFragments(registeredPathCommandTagStep, [
+    "path_command_tag_push_error_cursor &lower",
+    "path_command_tag_push_error_tag &lower",
+    "path_command_tag_push_error_scalar_value &lower",
+    "path_command_tag_push_error_region_error_kind &lower",
+    "path_command_tag_push_error_storage_push_error_kind &lower",
+    "path_command_tag_push_error_take_owner lower",
+    "PathCommandTagOwner returned original_state",
+    "owner_phase_invariant_check &recovered",
+    "some recovered_invariant",
+], "F5nxh push failure must read lower metadata before take, reconstruct the Edge-bound state, and record the recovered invariant");
+const registeredEdgePathCommandTagErrorTake = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedEdgeImpl, "gui_font_registered_face_simple_glyph_indexed_edge_path_command_tag_push_error_take_owner");
+assertOrderedFragments(registeredEdgePathCommandTagErrorTake, ["let state", "path_command_tag_push_error_take_owner", "EdgeCompletedOwner", "EdgeOwner point_y state"], "F5nxh lower error recovery must reconstruct the completed Edge authority with its saved state");
+for (const ownerType of [
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagStartError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagError",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagBudgetStep",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagSealError",
+]) {
+    assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag, new RegExp(`impl\\s+(?:Clone|Copy)\\s+for\\s+${ownerType}\\b`), `F5nxh owner-bearing ${ownerType} must remain move-only`);
+}
+for (const freeName of [
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_owner_free",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_free",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_start_error_free",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_error_free",
+    "gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error_free",
+]) {
+    assert(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl, freeName).length > 0, `F5nxh owner-bearing surface must provide ${freeName}`);
+}
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,
     "registered_face_simple_glyph_summary_completed_close_ok",
