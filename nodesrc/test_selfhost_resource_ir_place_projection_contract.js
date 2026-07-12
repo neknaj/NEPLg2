@@ -18,6 +18,9 @@ function ordered(tokens, message) {
 
 ordered(
     [
+        "struct SelfhostResourceIrVariantStableSymbol:",
+        "schema_version %i32",
+        "identity %i32",
         "enum SelfhostResourceIrResourceOffset:",
         "Known %i32",
         "Symbolic %i32",
@@ -28,13 +31,40 @@ ordered(
         "enum SelfhostResourceIrPlaceProjection:",
         "Field %SelfhostResourceIrIndexedProjection",
         "TupleField %SelfhostResourceIrIndexedProjection",
-        "EnumPayload %i32",
+        "EnumPayload %SelfhostResourceIrVariantStableSymbol",
         "Deref",
         "StorageOffset %SelfhostResourceIrResourceOffset",
     ],
     "Rust projection and offset variants must remain exhaustive and variant-native",
 );
 assert.equal((source.match(/offset %i64/g) || []).length, 2, "Offset and ScaledOffset must both retain signed i64 payloads");
+
+ordered(
+    [
+        "selfhost_resource_ir_variant_stable_symbol_is_valid",
+        "and eq symbol.schema_version 1 not eq symbol.identity 0",
+        "selfhost_resource_ir_variant_stable_symbol_eq",
+        "and selfhost_resource_ir_variant_stable_symbol_is_valid left and selfhost_resource_ir_variant_stable_symbol_is_valid right and eq left.schema_version right.schema_version eq left.identity right.identity",
+        "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol:",
+        "selfhost_resource_ir_variant_stable_symbol_is_valid variant_symbol",
+    ],
+    "EnumPayload must reject placeholder symbols and use one typed comparison authority",
+);
+
+ordered(
+    [
+        "SelfhostResourceIrVariantStableSymbol 1 41",
+        "SelfhostResourceIrVariantStableSymbol 1 43",
+        "SelfhostResourceIrVariantStableSymbol 1 0",
+        "enum_placeholder_rejected",
+        "enum_unknown_schema_rejected",
+        "enum_symbol_equal",
+        "enum_symbols_distinct",
+        "enum_placeholders_not_equal",
+        "enum_unknown_schemas_not_equal",
+    ],
+    "projection stage0 must cover accepted, placeholder, equal, and distinct variant symbols",
+);
 
 ordered(
     [

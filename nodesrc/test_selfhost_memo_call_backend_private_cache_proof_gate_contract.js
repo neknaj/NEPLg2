@@ -8,9 +8,11 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl";
 const inventoryPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_inventory_part.nepl";
+const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
 const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartSource = fs.readFileSync(path.join(repoRoot, inventoryPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
 const source = anchorSource.replace(
     inventoryPartMergeDirective,
@@ -24,6 +26,41 @@ const rustResourceContext = fs.readFileSync(path.join(repoRoot, "nepl-core/src/r
 
 assert.match(rustResourceModel, /pub struct ResourceLocal \{[\s\S]*pub name: String,[\s\S]*pub ty: TypeId,[\s\S]*pub mutable: bool,[\s\S]*pub place: Place,/);
 assert.match(rustResourceModel, /pub enum PlaceRoot \{[\s\S]*Local\(String\)/);
+assert.match(rustResourceModel, /pub enum PlaceProjection \{[\s\S]*EnumPayload \{ variant: String \}/);
+assertOrdered(
+    topLevelBlock(projectionSource, "struct", "SelfhostResourceIrVariantStableSymbol"),
+    ["schema_version %i32", "identity %i32"],
+    "EnumPayload stable symbol evidence must use a typed identity schema",
+);
+assert.match(
+    topLevelBlock(projectionSource, "enum", "SelfhostResourceIrPlaceProjection"),
+    /EnumPayload %SelfhostResourceIrVariantStableSymbol/,
+    "EnumPayload must carry typed stable symbol evidence instead of an opaque integer",
+);
+assertOrdered(
+    topLevelBlock(projectionSource, "fn", "selfhost_resource_ir_variant_stable_symbol_is_valid"),
+    ["and eq symbol.schema_version 1 not eq symbol.identity 0"],
+    "variant stable symbol validation must reject the placeholder identity",
+);
+assertOrdered(
+    topLevelBlock(projectionSource, "fn", "selfhost_resource_ir_variant_stable_symbol_eq"),
+    ["and selfhost_resource_ir_variant_stable_symbol_is_valid left and selfhost_resource_ir_variant_stable_symbol_is_valid right and eq left.schema_version right.schema_version eq left.identity right.identity"],
+    "variant stable symbol comparison must have one typed equality authority",
+);
+assertOrdered(
+    topLevelBlock(projectionSource, "fn", "selfhost_resource_ir_place_projection_stage0"),
+    [
+        "SelfhostResourceIrVariantStableSymbol 1 41",
+        "SelfhostResourceIrVariantStableSymbol 1 43",
+        "SelfhostResourceIrVariantStableSymbol 1 0",
+        "enum_placeholder_rejected",
+        "enum_unknown_schema_rejected",
+        "enum_symbols_distinct",
+        "enum_placeholders_not_equal",
+        "enum_unknown_schemas_not_equal",
+    ],
+    "projection stage0 must cover accepted, placeholder, and distinct variant symbols",
+);
 assert.match(rustResourceLower, /fn lower_param_skeleton[\s\S]*name: param\.name\.clone\(\),[\s\S]*ty: param\.ty,[\s\S]*mutable: param\.mutable,[\s\S]*place: Place::local\(param\.name\.clone\(\), param\.ty\)/);
 assert.match(rustResourceModel, /pub struct ResourceFunction \{[\s\S]*pub span: Span,/);
 assert.match(rustResourceModel, /pub struct ResourceBlock \{[\s\S]*pub span: Span,/);
@@ -1107,6 +1144,23 @@ assertOrdered(
         "resource_ir_projection_inventory_validate_places_loop projections places key graph_id add place_idx 1 place_count next_cursor",
     ],
     "Place-order prefix validation must reject negative counts and carry the projection cursor across every Place",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
+    [
+        "SelfhostResourceIrVariantStableSymbol 1 41",
+        "SelfhostResourceIrVariantStableSymbol 1 43",
+        "SelfhostResourceIrVariantStableSymbol 1 0",
+        "SelfhostResourceIrVariantStableSymbol 2 41",
+        "projection_enum_payload_accepted",
+        "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_a sub 0 1",
+        "projection_enum_placeholder_rejected",
+        "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_placeholder 3",
+        "projection_enum_unknown_schema_rejected",
+        "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_unknown_schema 3",
+        "projection_enum_symbols_distinct",
+    ],
+    "public inventory smoke must accept valid EnumPayload evidence and reject placeholder and unknown-schema evidence as ProjectionPayloadInvalid at cursor 0",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_result"),
