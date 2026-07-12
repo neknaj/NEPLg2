@@ -18589,6 +18589,139 @@ fn probe <(OwnerBag,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_
 }
 
 #[test]
+fn resource_ir_owner_check_scales_owner_return_projection_depth() {
+    for depth in [1usize, 2, 4, 8, 16, 32] {
+        let mut wrappers = String::from("struct Depth0:\n    leaf <LeafOwner>\n\n");
+        for level in 1..=depth {
+            wrappers.push_str(&format!(
+                "struct Depth{level}:\n    inner <Depth{}>\n\n",
+                level - 1
+            ));
+        }
+        let mut unwrap = String::new();
+        let mut current = format!("depth_{depth}");
+        for level in (1..=depth).rev() {
+            let next = format!("depth_{}", level - 1);
+            unwrap.push_str(&format!(
+                "    let {next} <Depth{}> field::get {current} \"inner\"\n",
+                level - 1
+            ));
+            current = next;
+        }
+        let source = format!(
+            r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum LeafState<.T>:
+    Empty
+    Ready <RegionToken .T>
+
+struct LeafOwner:
+    state <LeafState u8>
+
+{wrappers}struct OwnerPair:
+    source <Depth{depth}>
+    writer <Depth{depth}>
+
+struct Step:
+    owner <OwnerPair>
+
+struct NestedError:
+    owner <OwnerPair>
+
+enum StepError:
+    Direct <OwnerPair>
+    Nested <NestedError>
+
+fn free_deep <(Depth{depth})*>()> (depth_{depth}):
+{unwrap}    let leaf <LeafOwner> field::get {current} "leaf"
+    match field::get leaf "state":
+        LeafState::Empty:
+            ()
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+
+fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    if:
+        ok_path
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            direct_error
+            then:
+                Result<Step,StepError>::Err StepError::Direct owner
+            else:
+                Result<Step,StepError>::Err StepError::Nested NestedError owner
+
+fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    route owner ok_path direct_error
+"#
+        );
+        let (module, types) = typecheck_resource_stdlib_source(
+            &source,
+            "alloc/gui/font/registered_face/simple_glyph/indexed/owner_projection_depth.nepl",
+            CompileTarget::Wasm,
+        );
+        let resource = lower_hir_module(&module, &types);
+        let report = check_resource_owner_obligations(&resource, &types);
+        assert!(
+            report.diagnostics.is_empty(),
+            "depth {depth} owner suffix must retain exclusive Result returns: {:#?}\nresource:\n{}",
+            report.diagnostics,
+            resource.dump_text()
+        );
+
+        let negative_source = [
+            source.as_str(),
+            &format!(
+                "\nfn double_move_deep <(OwnerPair)*>()> (owner):\n    free_deep field::get owner \"source\"\n    free_deep field::get owner \"source\"\n"
+            ),
+        ]
+        .concat();
+        let (negative_module, negative_types) = typecheck_resource_stdlib_source(
+            &negative_source,
+            "alloc/gui/font/registered_face/simple_glyph/indexed/owner_projection_depth_negative.nepl",
+            CompileTarget::Wasm,
+        );
+        let negative_resource = lower_hir_module(&negative_module, &negative_types);
+        let negative_report = check_resource_owner_obligations(&negative_resource, &negative_types);
+        assert!(
+            negative_report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(
+                    diagnostic,
+                    ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                        if function.starts_with("double_move_deep__")
+                )),
+            "depth {depth} repeated projected move must be rejected: {:#?}",
+            negative_report.diagnostics
+        );
+
+        if depth == 32 {
+            compile_resource_source_with_path(
+                &source,
+                CompileTarget::Wasm,
+                stdlib_root().join(
+                    "alloc/gui/font/registered_face/simple_glyph/indexed/owner_projection_depth.nepl",
+                ),
+            )
+            .expect("the deepest owner return projection control must pass normal compile");
+        }
+    }
+}
+
+#[test]
 fn resource_ir_compiler_rejects_non_copy_move_from_live_shared_reference() {
     let source = r#"
 #entry main

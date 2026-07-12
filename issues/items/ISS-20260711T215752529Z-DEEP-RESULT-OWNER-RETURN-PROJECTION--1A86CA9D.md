@@ -39,6 +39,7 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - production moduleだけをimportして型投影を列挙するprobeは通常stackでoverflowし、64 MiBでもtypecheck完了前に90秒を超えたため撤去した。代わりにsource 3／writer 2の独立deep authority、direct Ok、下位Result委譲、AlreadyCompleted、nested SourceReadFailed、writer cleanup後のWriterPushFailed source-only returnを同時に持つcheap retained回帰を追加し、Resource owner checkとnormal compileが通過した。5 fieldそれぞれの二重moveが`OwnerUnavailable`になるnegative controlも固定した。production同数leafと外側variant topologyの組合せだけでも再現しないため、次はsource/writer内部enum projectionの宣言差を一段ずつ移植する。
 - 5-owner回帰のleaf直上を非generic enumからproduction `VecStorage<T>`同型の`Apply<LeafState<T>> -> Ready payload -> Apply<RegionToken<T>>`へ変更した。positive全return pathと5 fieldのnegative controlは引き続き通過し、generic enumの型引数置換も単独原因ではないと確認した。次はsource側2 Vecのowner wrapperにauthorityとは別fieldのsibling phase enumを一段だけ追加する。
 - source側2 authorityを同じwrapperへまとめ、owner-free siblingとしてPendingContour scalar／ActiveContour aggregate payload／Completedのphase enumを追加した。`OwnerTokenOnly`ではこのsibling自体はowner leaf投影から除外されるため、positive全return pathと5 leaf negative controlの通過が固定するのはsource authority suffixへ追加されたwrapper prefix一段であり、phase enumの影響ではない。次はowner-bearing suffixのwrapper深度を段階的に増やしてproduction chain深度との境界を検査する。
+- owner-bearing suffix wrapper深度を1／2／4／8／16／32層へ増やすretained回帰を追加した。各深度でOk／direct Err／nested Errの正当なreturnが通り、同じdeep projected sourceの二重moveは`OwnerUnavailable`になり、32層はnormal compileも通過した。単一leaf suffix深度32以下では再現しないため、次はproduction同様の5 leaf非対称return topologyへ深度を組み合わせる。
 
 ## 問題
 
