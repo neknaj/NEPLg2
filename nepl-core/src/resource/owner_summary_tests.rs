@@ -68,6 +68,12 @@ enum StepError:
     Nested <NestedError>
     SourceOnly <SourceOwner>
 
+struct LowerStep:
+    writer <WriterOwner>
+
+struct LowerError:
+    writer <WriterOwner>
+
 fn free_outer <(OuterOwner)*>()> (owner):
     let inner <InnerOwner> field::get owner "inner"
     let leaf <LeafOwner> field::get inner "leaf"
@@ -85,29 +91,40 @@ fn free_writer <(WriterOwner)*>()> (owner):
     free_outer field::get owner "path_sink_scalars"
     free_outer field::get owner "raster_mask_scalars"
 
-fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error, source_only):
+fn observe_source <(&SourceOwner)->i32> (source):
+    0
+
+fn lower_push <(WriterOwner,bool)*>Result<LowerStep,LowerError>> (writer, ok_path):
     if:
         ok_path
+        then Result<LowerStep,LowerError>::Ok LowerStep writer
+        else Result<LowerStep,LowerError>::Err LowerError writer
+
+fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, lower_ok, direct_error, nested_error):
+    let source <SourceOwner> field::get owner "source"
+    let writer <WriterOwner> field::get owner "writer"
+    let observed <i32> observe_source &source
+    if:
+        direct_error
         then:
-            Result<Step,StepError>::Ok Step owner
+            Result<Step,StepError>::Err StepError::Direct OwnerPair source writer
         else if:
-            direct_error
+            nested_error
             then:
-                Result<Step,StepError>::Err StepError::Direct owner
-            else if:
-                source_only
-                then:
-                    let source <SourceOwner> field::get owner "source"
-                    let writer <WriterOwner> field::get owner "writer"
-                    free_writer writer
+                Result<Step,StepError>::Err StepError::Nested NestedError OwnerPair source writer
+            else match lower_push writer lower_ok:
+                Result::Ok lower:
+                    let next_writer <WriterOwner> field::get lower "writer"
+                    Result<Step,StepError>::Ok Step OwnerPair source next_writer
+                Result::Err lower:
+                    let failed_writer <WriterOwner> field::get lower "writer"
+                    free_writer failed_writer
                     Result<Step,StepError>::Err StepError::SourceOnly source
-                else:
-                    Result<Step,StepError>::Err StepError::Nested NestedError owner
 
-fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
-    budget owner completed exhausted lower_ok direct_error source_only
+fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, nested_error):
+    budget owner completed exhausted lower_ok direct_error nested_error
 
-fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, nested_error):
     if:
         completed
         then:
@@ -117,7 +134,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
             then:
                 Result<Step,StepError>::Ok Step owner
             else:
-                route owner lower_ok direct_error source_only
+                route owner lower_ok direct_error nested_error
 "#;
     let root = stdlib_root();
     let mut loader = Loader::new(root.clone());
@@ -154,14 +171,28 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
         .expect("budget function index");
     let rooted_summaries =
         compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, budget_index);
-    assert_eq!(rooted_summaries.len(), 5, "unexpected rooted closure");
+    assert_eq!(rooted_summaries.len(), 6, "unexpected rooted closure");
     assert!(rooted_summaries.iter().all(|summary| {
         summary.function.starts_with("route__")
             || summary.function.starts_with("budget__")
+            || summary.function.starts_with("lower_push__")
+            || summary.function.starts_with("observe_source__")
             || summary.function.starts_with("free_writer__")
             || summary.function.starts_with("free_outer__")
             || summary.function.starts_with("dealloc_region__")
     }));
+    assert!(
+        rooted_summaries
+            .iter()
+            .any(|summary| summary.function.starts_with("lower_push__")),
+        "writer-only lower Result helper must belong to the rooted owner-summary closure"
+    );
+    assert!(
+        rooted_summaries
+            .iter()
+            .all(|summary| !summary.function.starts_with("observe_source__")),
+        "owner-free source observation must not enter the owner-summary closure"
+    );
     for rooted in &rooted_summaries {
         let full = summaries
             .iter()
