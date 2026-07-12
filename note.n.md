@@ -83721,3 +83721,10 @@ MERGE_APPROVED
 - kind ownerとのmerge-cursorでmissing / unexpectedを拒否し、identity / ordinalと両Placeのwrong graph / missing membershipをfield固有errorへ分類する。stage0はkindとsyntheticの全4組合せをtransportする。
 - scope authorityと全stage0 lifecycleへownerを接続し、Expr / DeclareLocal / Read / Assign / Borrow検査後も非production originを維持する。
 - actual co-production、borrow semantics、残る19 payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource Move payload
+
+- Rust `ResourceOp::Move { source, output, span }`のspan以外をprivate sparse ownerへ保持した。source / outputは独立したgraph-bound Place handleである。
+- kind ownerとのmerge-cursorでmissing / unexpectedを拒否し、identity / ordinalと両Placeのwrong graph / missing membershipをfield固有errorへ分類する。異なるsource / outputを保持するpositive fixtureを固定した。
+- scope authorityと全stage0 lifecycleへownerを接続し、Expr / DeclareLocal / Read / Assign / Borrow / Move検査後も非production originを維持する。
+- actual co-production、move semantics、残る18 payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。

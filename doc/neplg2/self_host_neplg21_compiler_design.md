@@ -3618,6 +3618,12 @@ Rust `ResourceOp::Borrow { source, output, kind, synthetic, span }`のspan以外
 
 scope authorityはExpr、DeclareLocal、Read、Assign、Borrowの順でownerを検査する。stage0 matrixはidentity / ordinal / 両Place境界のnegative caseに加えてkind二値とsynthetic二値の全組合せをtransportし、originは非productionの`ResourceIrInventoryValidated`を維持する。borrow semantics、actual co-production、残る19 payloadは未完成である。
 
+### 2026-07-12 Resource Move payload
+
+Rust `ResourceOp::Move { source, output, span }`のspan以外をprivate sparse payload ownerへ保持する。source / outputはgraph identity付きPlace handleとして独立に検査し、merge-cursorはMove ordinalごとの欠落と他kind ordinalへの混入をfail-closedに拒否する。
+
+scope authorityはExpr、DeclareLocal、Read、Assign、Borrow、Moveの順でownerを検査する。stage0 matrixはidentity / ordinal / sourceとoutputそれぞれのwrong graph / missing membershipをexact errorへ分類し、異なる両Placeを保持できることを検査する。これは構造transportだけであり、move semantics、actual co-production、残る18 payloadは未完成で、originは非productionの`ResourceIrInventoryValidated`を維持する。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。
