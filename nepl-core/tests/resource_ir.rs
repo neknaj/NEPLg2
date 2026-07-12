@@ -18333,9 +18333,21 @@ struct InnerOwner:
 struct OuterOwner:
     inner <InnerOwner>
 
-struct SourceOwner:
+struct SourceIndexActive:
+    cursor <i32>
+
+enum SourceIndexState:
+    PendingContour <i32>
+    ActiveContour <SourceIndexActive>
+    Completed
+
+struct SourceIndexOwner:
     first <OuterOwner>
     second <OuterOwner>
+    state <SourceIndexState>
+
+struct SourceOwner:
+    index <SourceIndexOwner>
     third <OuterOwner>
 
 struct WriterOwner:
@@ -18437,12 +18449,14 @@ fn probe <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>>
         source,
         r#"
 fn double_move_source_first <(SourceOwner)*>()> (owner):
-    free_outer field::get owner "first"
-    free_outer field::get owner "first"
+    let index <SourceIndexOwner> field::get owner "index"
+    free_outer field::get index "first"
+    free_outer field::get index "first"
 
 fn double_move_source_second <(SourceOwner)*>()> (owner):
-    free_outer field::get owner "second"
-    free_outer field::get owner "second"
+    let index <SourceIndexOwner> field::get owner "index"
+    free_outer field::get index "second"
+    free_outer field::get index "second"
 
 fn double_move_source_third <(SourceOwner)*>()> (owner):
     free_outer field::get owner "third"
