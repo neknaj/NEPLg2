@@ -3640,7 +3640,7 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 `ResourceOp::CollectionStorageRelocate { old_storage, new_storage, span }`はkind tag 17専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinalと、独立したgraph-bound old/new storage Placeを持つ。scopeはEndScopeの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両endpointのgraph / membershipをtyped rejectionする。positive fixtureではold/newが異なるPlaceであることも固定する。
 
-このEndScope後という順序はRust enum順ではなく、実装済みsparse ownerの検査順である。現行の検査順はEndScope、CollectionStorageRelocate、CollectionSlotDropTraversal、CollectionSlotTransformRange、RawAddressAlias、RawAddressView、StorageOriginである。Rust enum上でEndScopeとCollectionStorageRelocateの間にあるCallEffect、FunctionValue、Call、IndirectCall、RawMemory、CollectionSlotLifecycleは未実装のままであり、後から接続したRawAddressAlias、RawAddressView、StorageOriginと混同して検査済みと主張しない。
+このEndScope後という順序はRust enum順ではなく、実装済みsparse ownerの検査順である。現行の検査順はEndScope、CollectionStorageRelocate、CollectionSlotDropTraversal、CollectionSlotTransformRange、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycle、RawMemoryである。Rust enum上でEndScopeとCollectionStorageRelocateの間にあるCallEffect、FunctionValue、Call、IndirectCallは未実装のままであり、後から接続したRawMemory、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycleと混同して検査済みと主張しない。
 
 この境界はstorage pairの構造transportだけを保証する。raw realloc relocation proof、canonical owner-cell、slot state rekey、proofの一回消費、actual co-productionはRust checkerと将来の後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは15件である。
 
@@ -3679,6 +3679,12 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 `ResourceOp::CollectionSlotLifecycle { target, event, span }`はkind tag 16専用のprivate sparse ownerで保持する。eventはRustと同じ6 variantをvariant-native enumで表し、`InitializeEmpty` / `BorrowRead` / `MoveOut` / `DropInitialized` / `StorageDealloc`は各1個のTypeId、`ReplaceInitialized`はold/new TypeIdと`ReturnOldOwner` / `DropOldOwner`を直接所有する。dummy値やoptional fieldへ平坦化せず、すべてのTypeIdをborrowしたTypeArenaのmembershipで検査する。Replaceのold/new型は別々のtyped rejectionに分類する。
 
 scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、dense operation ordinal、graph-bound target、event固有型を照合するが、slot state遷移、owner transfer/drop proof、actual materializer co-productionはまだ証明しない。残る9 operation payload / endpoint ownerとwalker operation tableのactual co-productionは後続sliceで接続する。
+
+### 2026-07-13 Resource RawMemory payload
+
+`ResourceOp::RawMemory`はkind tag 12のsparse headerと、Rust `Vec<Place>`順のdense arg endpoint ownerへ分ける。headerはproof key、graph、operation ordinal、13種の`RawMemoryOp`、output、overflow検査済みarg範囲を持つ。endpointはoperation ordinal、0始まりarg ordinal、graph-bound Placeを持ち、Vecと同じく同一Placeの重複を許す。
+
+検査はheader/endpointのmissing/unexpected、identity/ordinal、range overflow/gap/excess、output/argのPlace membershipとgraph mismatchをtyped errorで区別する。このinventoryはraw memoryの意味、source capability、actual Resource IRとのco-productionを証明せず、`ResourceIrInventoryValidated`をproduction originへ昇格させない。残るoperation payloadは8件である。
 
 ## 完了条件
 

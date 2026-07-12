@@ -83821,7 +83821,14 @@ MERGE_APPROVED
 ## 2026-07-13 selfhost Resource CollectionSlotLifecycle payload
 
 - Rust `ResourceOp::CollectionSlotLifecycle { target, event, span }`をkind tag 16専用のprivate sparse ownerへ接続した。6 eventとReplaceの2 replacementをvariant-nativeに保持し、dummy/optional payloadへ平坦化しない。
+
 - targetはgraph-bound Placeとして、event固有TypeIdはborrowしたTypeArenaのmembershipとして検査する。Replace old/new型を個別errorに分け、missing / unexpected、identity / ordinalを含むexact rejection matrixを固定する。
 - stage0 matrixは6 eventすべてとReplaceの`ReturnOldOwner` / `DropOldOwner`をlosslessに再読出しし、payload missing / unexpected、key / graph identity、ordinal、target membership / graph、Initialize / Borrow / Move / Replace old / Replace new / Drop / Storageの各TypeId membershipをtyped errorとordinal 16で照合する。
 - `git diff --check`と通常visibility/parser gateは通過した。`trunk build`はWSL環境でpre-build hookの`npm.cmd`を起動できず、実行環境要因で開始前に停止した。
 - このownerは非productionの`ResourceIrInventoryValidated`を強化するだけで、slot state遷移、owner transfer/drop proof、actual materializer co-productionを証明しない。残るResource operation payloadは9件。
+
+## 2026-07-13 selfhost Resource RawMemory payload
+
+- Rust `ResourceOp::RawMemory { operation, output, args, span }`をkind tag 12専用のprivate sparse headerとdense arg endpoint ownerへ投影した。`RawMemoryOp`全13種、output、checked args range、argsのoperation/arg ordinalとgraph-bound Placeをvariant-nativeに保持する。
+- argsはRust `Vec<Place>`と同じく0件・複数件・同一Placeの重複を許可する。header/endpointの欠落・混入、identity/ordinal、range overflow/gap/excess、output/argのmissing/wrong graphをtyped errorへ分離する。
+- このownerは非productionの`ResourceIrInventoryValidated`構造境界であり、raw memory semantics、capability、actual HIR-to-Resource co-productionを証明しない。残る8 operation payload、nested topology、walker operation table同時生成は未完成である。
