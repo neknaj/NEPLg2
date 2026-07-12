@@ -36,6 +36,7 @@ use nepl_core::source_map::CompilerMemoryType;
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 fn stdlib_root() -> PathBuf {
@@ -18306,6 +18307,194 @@ fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, 
         ),
     )
     .expect("the deep distinct-owner variant route must pass the normal compile pipeline");
+}
+
+#[test]
+fn resource_ir_owner_check_routes_production_shaped_five_owner_budget_variants() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum LeafState:
+    Ready <RegionToken<u8>>
+    Empty
+
+struct LeafOwner:
+    state <LeafState>
+
+struct InnerOwner:
+    leaf <LeafOwner>
+
+struct OuterOwner:
+    inner <InnerOwner>
+
+struct SourceOwner:
+    first <OuterOwner>
+    second <OuterOwner>
+    third <OuterOwner>
+
+struct WriterOwner:
+    first <OuterOwner>
+    second <OuterOwner>
+
+struct WritingOwner:
+    source <SourceOwner>
+    writer <WriterOwner>
+
+struct BudgetStep:
+    owner <WritingOwner>
+
+struct SourceReadError:
+    retained <WritingOwner>
+
+enum StepError:
+    AlreadyCompleted <WritingOwner>
+    SourceReadFailed <SourceReadError>
+    WriterPushFailed <SourceOwner>
+
+fn free_outer <(OuterOwner)*>()> (owner):
+    let inner <InnerOwner> field::get owner "inner"
+    let leaf <LeafOwner> field::get inner "leaf"
+    match field::get leaf "state":
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        LeafState::Empty:
+            ()
+
+fn free_writer <(WriterOwner)*>()> (owner):
+    let first <OuterOwner> field::get owner "first"
+    let second <OuterOwner> field::get owner "second"
+    free_outer first
+    free_outer second
+
+fn route <(WritingOwner,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, ok_path, source_read, writer_push):
+    if:
+        ok_path
+        then:
+            Result<BudgetStep,StepError>::Ok BudgetStep owner
+        else if:
+            source_read
+            then:
+                Result<BudgetStep,StepError>::Err StepError::SourceReadFailed SourceReadError owner
+            else if:
+                writer_push
+                then:
+                    let source <SourceOwner> field::get owner "source"
+                    let writer <WriterOwner> field::get owner "writer"
+                    free_writer writer
+                    Result<BudgetStep,StepError>::Err StepError::WriterPushFailed source
+                else:
+                    Result<BudgetStep,StepError>::Err StepError::AlreadyCompleted owner
+
+fn budget <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
+    if:
+        completed
+        then:
+            Result<BudgetStep,StepError>::Ok BudgetStep owner
+        else if:
+            exhausted
+            then:
+                Result<BudgetStep,StepError>::Ok BudgetStep owner
+            else:
+                route owner lower_ok source_read writer_push
+
+fn probe <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
+    budget owner completed exhausted lower_ok source_read writer_push
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/five_owner_budget_variants.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "five distinct authorities must retain production-shaped exclusive Result paths: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/five_owner_budget_variants.nepl",
+        ),
+    )
+    .expect("the production-shaped five-owner budget control must pass normal compile");
+
+    let negative_source = [
+        source,
+        r#"
+fn double_move_source_first <(SourceOwner)*>()> (owner):
+    free_outer field::get owner "first"
+    free_outer field::get owner "first"
+
+fn double_move_source_second <(SourceOwner)*>()> (owner):
+    free_outer field::get owner "second"
+    free_outer field::get owner "second"
+
+fn double_move_source_third <(SourceOwner)*>()> (owner):
+    free_outer field::get owner "third"
+    free_outer field::get owner "third"
+
+fn double_move_writer_first <(WriterOwner)*>()> (owner):
+    free_outer field::get owner "first"
+    free_outer field::get owner "first"
+
+fn double_move_writer_second <(WriterOwner)*>()> (owner):
+    free_outer field::get owner "second"
+    free_outer field::get owner "second"
+"#,
+    ]
+    .concat();
+    let (negative_module, negative_types) = typecheck_resource_stdlib_source(
+        &negative_source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/five_owner_budget_negative.nepl",
+        CompileTarget::Wasm,
+    );
+    let negative_resource = lower_hir_module(&negative_module, &negative_types);
+    let negative_report = check_resource_owner_obligations(&negative_resource, &negative_types);
+    let unavailable_functions = negative_report
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| match diagnostic {
+            ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                if function.starts_with("double_move_") =>
+            {
+                Some(
+                    function
+                        .split("__")
+                        .next()
+                        .expect("double-move function prefix")
+                        .to_string(),
+                )
+            }
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        unavailable_functions,
+        BTreeSet::from([
+            "double_move_source_first".to_string(),
+            "double_move_source_second".to_string(),
+            "double_move_source_third".to_string(),
+            "double_move_writer_first".to_string(),
+            "double_move_writer_second".to_string(),
+        ]),
+        "all five owner leaves must reject a repeated projected move: {:#?}",
+        negative_report.diagnostics
+    );
 }
 
 #[test]

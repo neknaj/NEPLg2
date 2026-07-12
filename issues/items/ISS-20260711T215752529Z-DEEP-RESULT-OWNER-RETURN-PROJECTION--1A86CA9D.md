@@ -36,6 +36,7 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - cheap fixtureをproduction budget形状へ拡張し、2本のdirect Ok、下位Result委譲、writer authorityの明示dealloc後にsourceだけを返すSourceOnly Errを同時に検査した。summaryはsource 4 path／writer 3 pathの7 path-conditioned mappingを保持し、call-site owner checkとnormal compileも通過した。direct return mergeと非対称cleanupだけでは再現せず、次はlower source/writer内部projectionを段階移植する。
 - 一回限りの実stdlib `Vec<i32>`探索でも、source/writer Vec、budget direct Ok、lower委譲、writer `free`、SourceOnly Errを組み合わせてowner checkが約68秒で通過した。高コストな非再現fixtureは残さず、次はproduction同様のsource 3 Vec／writer 2 Vec wrapperをsyntheticに検査する。
 - 一回限りのsource 3 Vec／writer 2 Vec探索も同じbudget／cleanup形状で約52秒で通過した。高コストfixtureは残さず、production同数のVec allocationだけでは再現せず単独原因ではないことを確認した。`owner_summary_raw_i32_leaf`も再確認し、owner tokenを含むaggregateは`OwnerTokenOnly`となり通常のi32 metadataをleafへ加えないため、この仮説も棄却した。次はproduction型のenum alternativeとreturn projection graphを列挙し、同じ投影形状だけをcheap synthetic fixtureへ移植する。
+- production moduleだけをimportして型投影を列挙するprobeは通常stackでoverflowし、64 MiBでもtypecheck完了前に90秒を超えたため撤去した。代わりにsource 3／writer 2の独立deep authority、direct Ok、下位Result委譲、AlreadyCompleted、nested SourceReadFailed、writer cleanup後のWriterPushFailed source-only returnを同時に持つcheap retained回帰を追加し、Resource owner checkとnormal compileが通過した。5 fieldそれぞれの二重moveが`OwnerUnavailable`になるnegative controlも固定した。production同数leafと外側variant topologyの組合せだけでも再現しないため、次はsource/writer内部enum projectionの宣言差を一段ずつ移植する。
 
 ## 問題
 
