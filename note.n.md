@@ -83701,3 +83701,10 @@ MERGE_APPROVED
 2026-07-12: Selfhost `PlaceProjection::EnumPayload`をopaque i32からtyped `SelfhostResourceIrVariantStableSymbol` evidenceへ置換した。非zero identityを同じsymbol authority内のstable比較単位とし、0 placeholderをinventory payload validationで拒否し、異なるsymbol identityを同一視しないruntime / contractを追加した。Rust `String` spellingのcanonical intern、enum type key membership、serialized authority、actual co-productionは未接続であり、lossless String保持やproduction originは主張しない。`plan.md`は変更していない。
 
 2026-07-12: Resource IRのRust usize payload 7 fieldに、producer-facing i64からselfhost supported range `0..2147483647`へのchecked narrowingを追加した。負値と2147483648以上をfield固有typed errorで拒否し、0 / 2147483647をruntime smokeで受理する。uncheckedに構築されたnegative i32 payloadは従来のstructural inventory validationで拒否する。i64はRust usize全域の表現ではなく、actual co-production / production originは未接続である。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource Read payload
+
+- Rust `ResourceOp::Read { source, output, span }`のspan以外をprivate sparse payload ownerへ保持した。recordはproof key、graph id、dense operation ordinalと、graph identityを内包するsource / output Place handleを持つ。
+- operation kind ownerとのmerge-cursorでRead payload欠落とnon-Read payload混入を拒否し、record identity / ordinal、source / outputそれぞれのgraph一致とPlace inventory membershipを検査する。sourceとoutputは同一Placeに縮退させず、異なるhandleを保持できるpositive fixtureを固定した。
+- runtimeはpositive、missing、unexpected、key / record graph / ordinal、source / outputのmissing / wrong graphをfield固有errorとordinalでexact検査する。scope authorityはExpr、DeclareLocal、Readの順にpayload ownerを検査した後だけ非productionの`ResourceIrInventoryValidated`を維持する。
+- 当初候補だったBranch / Loop / Match topologyは、block-aware nested ownerと再帰的ordinal設計を先に確定しないとflat operation ownerへ誤ったauthorityを固定するため、このsliceでは採用しなかった。actual HIR-to-Resource co-production、残る21 operation payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。

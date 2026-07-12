@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1457,9 +1457,12 @@ assertOrdered(
         "resource_ir_declare_local_payload_inventory_len declare_local_payloads",
         "resource_ir_declare_local_payload_inventory_validate_loop",
         "Result::Ok _declare_local_payloads_valid",
+        "resource_ir_read_payload_inventory_len read_payloads",
+        "resource_ir_read_payload_inventory_validate_loop",
+        "Result::Ok _read_payloads_valid",
         "ResourceIrInventoryValidated",
     ],
-    "scope authority must validate Expr then DeclareLocal sparse payloads before retaining the non-production origin",
+    "scope authority must validate Expr, DeclareLocal, then Read sparse payloads before retaining the non-production origin",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord"),
@@ -1521,7 +1524,10 @@ assertOrdered(
         "resource_ir_expr_payload_inventory_stage0_result &operation_kinds key graph_id output ty",
         "resource_ir_declare_local_payload_inventory_stage0_result &operation_kinds key graph_id 0 9 false no_initializer",
         "Result::Ok declare_local_payloads",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads",
+        "resource_ir_read_payload_inventory_stage0_result &operation_kinds key graph_id read_source read_output",
+        "Result::Ok read_payloads",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads",
+        "resource_ir_read_payload_inventory_free read_payloads",
         "resource_ir_declare_local_payload_inventory_free declare_local_payloads",
         "resource_ir_expr_payload_inventory_free expr_payloads",
         "resource_ir_operation_kind_inventory_free operation_kinds",
@@ -1532,8 +1538,43 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads/,
-    "the explicit-owner stage0 caller must pass its borrowed DeclareLocal owner to scope authority",
+    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads/,
+    "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
+);
+
+for (const token of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadRecord",
+    "source %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace",
+    "output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory",
+    "ReadPayloadMissing",
+    "ReadPayloadUnexpected",
+    "ReadPayloadIdentityMismatch",
+    "ReadPayloadOrdinalMismatch",
+    "ReadSourceMissing",
+    "ReadSourceGraphMismatch",
+    "ReadOutputMissing",
+    "ReadOutputGraphMismatch",
+]) assert.match(inventoryPartSource, new RegExp(token), `Read payload contract must retain ${token}`);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_read_payload_record_validate_result"),
+    ["ReadPayloadIdentityMismatch", "ReadPayloadOrdinalMismatch", "read_place_validate_result record.source", "read_place_validate_result record.output"],
+    "Read must validate payload identity and ordinal before both graph-bound Place handles",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_read_payload_inventory_validate_loop"),
+    ["operation_kind_inventory_get kinds operation_idx", "resource_ir_operation_kind_is_read operation.kind", "ReadPayloadMissing operation_idx", "read_payload_record_validate_result", "ReadPayloadUnexpected operation_idx"],
+    "Read sparse payloads must be joined to operation kinds with a fail-closed merge cursor",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_read_payload_stage0"),
+    ["stage0_case 0", "stage0_case 1", "stage0_case 2", "stage0_case 3", "stage0_case 4", "stage0_case 5", "stage0_case 6", "stage0_case 7", "stage0_case 8", "stage0_case 9"],
+    "Read runtime matrix must cover positive, sparse join, identity, ordinal, and both Place boundaries",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
+    /resource_ir_read_payload_stage0/,
+    "the public inventory runtime facade must execute the private Read payload matrix",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
