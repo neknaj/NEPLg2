@@ -18080,6 +18080,125 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_returns_deep_multi_owner_aggregate_through_result() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum SourceState:
+    Ready <RegionToken<u8>>
+    Closed
+
+enum WriterState:
+    Ready <RegionToken<i32>>
+    Closed
+
+struct SourceOwner:
+    state <SourceState>
+
+struct WriterOwner:
+    state <WriterState>
+
+struct WritingOwner:
+    source <SourceOwner>
+    writer <WriterOwner>
+    next <i32>
+
+struct Step:
+    owner <WritingOwner>
+    exhausted <bool>
+
+struct RetainedError:
+    source <SourceOwner>
+    writer <WriterOwner>
+
+struct SourceOnlyError:
+    source <SourceOwner>
+
+enum StepError:
+    Retained <RetainedError>
+    SourceOnly <SourceOnlyError>
+
+fn step_budget <(WritingOwner,i32)*>Result<Step,StepError>> (owner, remaining):
+    Result<Step,StepError>::Ok Step owner true
+
+fn free_source <(SourceOwner)*>()> (owner):
+    match field::get owner "state":
+        SourceState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        SourceState::Closed:
+            ()
+
+fn free_writer <(WriterOwner)*>()> (owner):
+    match field::get owner "state":
+        WriterState::Ready region:
+            match dealloc_region<i32> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        WriterState::Closed:
+            ()
+
+fn main <()*>()> ():
+    match alloc_region_bytes<u8> 1:
+        Result::Err _:
+            ()
+        Result::Ok source_region:
+            match alloc_region_bytes<i32> 4:
+                Result::Err _:
+                    match dealloc_region<u8> source_region:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
+                Result::Ok writer_region:
+                    let owner <WritingOwner> WritingOwner (SourceOwner SourceState::Ready source_region) (WriterOwner WriterState::Ready writer_region) 0
+                    match step_budget owner 0:
+                        Result::Ok step:
+                            let returned <WritingOwner> field::get step "owner"
+                            let returned_source <SourceOwner> field::get returned "source"
+                            let returned_writer <WriterOwner> field::get returned "writer"
+                            free_source returned_source
+                            free_writer returned_writer
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_return_regression.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "both distinct owner authorities behind inner enums must each transfer exactly once through the selected Result payload: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_return_regression.nepl",
+        ),
+    )
+    .expect("the distinct-authority control must pass the normal compile pipeline");
+}
+
+#[test]
 fn resource_ir_compiler_rejects_non_copy_move_from_live_shared_reference() {
     let source = r#"
 #entry main
