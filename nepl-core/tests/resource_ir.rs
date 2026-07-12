@@ -18320,12 +18320,12 @@ fn resource_ir_owner_check_routes_production_shaped_five_owner_budget_variants()
 #import "core/mem/allocator" as *
 #import "core/result" as *
 
-enum LeafState:
-    Ready <RegionToken<u8>>
+enum LeafState<.T>:
     Empty
+    Ready <RegionToken .T>
 
 struct LeafOwner:
-    state <LeafState>
+    state <LeafState u8>
 
 struct InnerOwner:
     leaf <LeafOwner>
