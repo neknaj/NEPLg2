@@ -3624,6 +3624,12 @@ Rust `ResourceOp::Move { source, output, span }`のspan以外をprivate sparse p
 
 scope authorityはExpr、DeclareLocal、Read、Assign、Borrow、Moveの順でownerを検査する。stage0 matrixはidentity / ordinal / sourceとoutputそれぞれのwrong graph / missing membershipをexact errorへ分類し、異なる両Placeを保持できることを検査する。これは構造transportだけであり、move semantics、actual co-production、残る18 payloadは未完成で、originは非productionの`ResourceIrInventoryValidated`を維持する。
 
+### 2026-07-12 Resource Drop payload
+
+`ResourceOp::Drop { place, span }`はDrop operationだけを持つprivate sparse ownerへ分離する。recordはproof key、graph id、dense operation ordinal、graph identityを内包するPlace handleを保持する。kind ownerとのmerge-cursorはDropの欠落とnon-Dropへの混入を拒否し、identity、ordinal、wrong graph、Place ownerに存在しないhandleをfield固有errorへ分類する。
+
+scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpositive、missing / unexpected、key / graph identity、ordinal、Place membership / graph境界を網羅する。このsliceが保証するのはRust variantの構造transportだけであり、destructor execution、drop flag、no-escape proof、actual co-production、残る17 payloadは未完成である。originは非productionの`ResourceIrInventoryValidated`を維持する。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

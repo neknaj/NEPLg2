@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1541,7 +1541,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads/,
+    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
@@ -1655,6 +1655,27 @@ assertOrdered(
     "Move runtime matrix must cover positive, sparse join, identity, ordinal, and both Place boundaries",
 );
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_move_payload_stage0/, "public runtime must execute Move matrix");
+for (const token of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory",
+    "DropPayloadMissing", "DropPayloadUnexpected", "DropPayloadIdentityMismatch", "DropPayloadOrdinalMismatch",
+    "DropPlaceMissing", "DropPlaceGraphMismatch",
+]) assert.match(inventoryPartSource, new RegExp(token), `Drop payload contract must retain ${token}`);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_drop_payload_record_validate_result"),
+    ["DropPayloadIdentityMismatch", "DropPayloadOrdinalMismatch", "DropPlaceGraphMismatch", "place_inventory_contains_loop", "DropPlaceMissing"],
+    "Drop must validate identity and ordinal before its graph-bound Place handle",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_drop_payload_inventory_validate_loop"),
+    ["operation_kind_inventory_get kinds operation_idx", "resource_ir_operation_kind_is_drop operation.kind", "DropPayloadMissing operation_idx", "drop_payload_record_validate_result", "DropPayloadUnexpected operation_idx"],
+    "Drop sparse payloads must use a fail-closed merge cursor",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_drop_payload_stage0"),
+    ["stage0_case 0", "stage0_case 1", "stage0_case 2", "stage0_case 3", "stage0_case 4", "stage0_case 5", "stage0_case 6", "stage0_case 7"],
+    "Drop runtime matrix must cover positive, sparse join, identity, ordinal, and Place boundaries",
+);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_drop_payload_stage0/, "public runtime must execute Drop matrix");
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [
@@ -1665,9 +1686,10 @@ assertOrdered(
         "resource_ir_assign_payload_inventory_validate_loop",
         "resource_ir_borrow_payload_inventory_validate_loop",
         "resource_ir_move_payload_inventory_validate_loop",
+        "resource_ir_drop_payload_inventory_validate_loop",
         "SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated",
     ],
-    "Expr, DeclareLocal, Read, Assign, Borrow, and Move sparse payloads must validate before inventory authority is minted",
+    "Expr, DeclareLocal, Read, Assign, Borrow, Move, and Drop sparse payloads must validate before inventory authority is minted",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_validate_loop"),
