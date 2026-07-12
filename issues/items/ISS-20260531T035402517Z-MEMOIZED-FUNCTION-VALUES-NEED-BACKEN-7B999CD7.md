@@ -1126,3 +1126,5 @@ source-policyはanchorとmerged partを別sourceとして読み、merge path、p
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
 Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。
+
+2026-07-12: Rust Resource IRの`Field.index` / `Field.offset_bytes` / `TupleField.index` / `TupleField.offset_bytes` / `ResourceOffset::Known` / `ScaledSymbolic.scale` / `ScaledOffset.scale`を、producer-facing i64入力からselfhost supported range `0..2147483647`へchecked narrowingするtyped materializer境界を追加した。負値と2147483648以上はfield固有errorで拒否し、0と上限を受理する。i64はRust usize全域の代替表現ではなく、actual co-production / production originは開いていない。

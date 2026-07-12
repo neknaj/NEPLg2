@@ -3615,3 +3615,5 @@ memo_call backend proof gate内のResource IR inventory model、owner、validato
 - `.neplmeta`、`.neplproof`、`.neplobj` の役割が分離されている。
 - `memo_call` と private effect が Pure / Impure の表層二値と矛盾しない。
 - `stdlib/neplg2/` の既存 skeleton を活かしつつ、古い NEPLg2.0 記述を NEPLg2.1 へ更新する道筋が明確である。
+
+2026-07-12 Resource IR usize narrowing checkpointでは、Rust側がusizeで持つField / TupleFieldのindexとbyte offset、Known offset、ScaledSymbolic / ScaledOffsetのscaleを、producer-facing i64からselfhost supported range `0..2147483647`へ縮小する。縮小後だけvariant-native i32 payloadを構築し、負値と上限超過はfield固有typed errorにする。i64はRust usize全域を保持する代替表現ではない。この境界はnonproduction modelの入力制約であり、actual lowering co-productionやproduction originを証明しない。

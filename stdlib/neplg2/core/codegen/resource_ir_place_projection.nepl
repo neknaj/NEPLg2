@@ -5,7 +5,7 @@
 //: Rust Resource IRのPlaceProjection / ResourceOffset構造をselfhost側でfallbackなしに保持する非production modelです。
 //:
 //: [契約/けいやく]:
-//: - usize payloadは現段階では非負i32範囲だけを扱い、範囲外値はactual materializerでtyped rejectionします。
+//: - Rust usize payloadはproducer-facing i64入力から`0..2147483647`へchecked narrowingします。i64はRust usize全域の代替表現ではなく、selfhostが保持できる範囲の境界です。
 //: - Box<Place> payloadは同一Resource function owner内Placeへのopaque i32 linkとして保持し、inventory scopeが同じPlace owner内のmembershipを検査します。
 //: - EnumPayloadのvariantはtyped stable symbol evidenceで保持し、0をplaceholderとして拒否します。Rust String spellingからのcanonical internとenum type keyとの結合はactual materializerに残します。
 //: - Unknown offsetはsentinelとして保持しますが、inventory scopeではunsupportedとしてfail-closedに拒否します。
@@ -57,6 +57,35 @@ pub enum SelfhostResourceIrPlaceProjection:
     Deref
     StorageOffset %SelfhostResourceIrResourceOffset
 
+//: SelfhostResourceIrUsizeNarrowErrorKind: Rust usize payloadをselfhost表現へ縮小する際のfield固有error
+pub enum SelfhostResourceIrUsizeNarrowErrorKind:
+    FieldIndexNegative
+    FieldIndexOutOfRange
+    FieldOffsetBytesNegative
+    FieldOffsetBytesOutOfRange
+    TupleFieldIndexNegative
+    TupleFieldIndexOutOfRange
+    TupleFieldOffsetBytesNegative
+    TupleFieldOffsetBytesOutOfRange
+    ResourceOffsetKnownNegative
+    ResourceOffsetKnownOutOfRange
+    ScaledSymbolicScaleNegative
+    ScaledSymbolicScaleOutOfRange
+    ScaledOffsetScaleNegative
+    ScaledOffsetScaleOutOfRange
+
+pub enum SelfhostResourceIrUsizeNarrowResult:
+    Ok %i32
+    Err %SelfhostResourceIrUsizeNarrowErrorKind
+
+pub enum SelfhostResourceIrProjectionNarrowResult:
+    Ok %SelfhostResourceIrPlaceProjection
+    Err %SelfhostResourceIrUsizeNarrowErrorKind
+
+pub enum SelfhostResourceIrOffsetNarrowResult:
+    Ok %SelfhostResourceIrResourceOffset
+    Err %SelfhostResourceIrUsizeNarrowErrorKind
+
 impl Clone for SelfhostResourceIrIndexedProjection:
     fn clone %fn &SelfhostResourceIrIndexedProjection SelfhostResourceIrIndexedProjection \self:
         *self
@@ -107,6 +136,120 @@ pub fn selfhost_resource_ir_variant_stable_symbol_is_valid %fn SelfhostResourceI
 //: selfhost_resource_ir_variant_stable_symbol_eq: 同じsymbol authorityが発行したvariant identityを比較する
 pub fn selfhost_resource_ir_variant_stable_symbol_eq %fn SelfhostResourceIrVariantStableSymbol fn SelfhostResourceIrVariantStableSymbol bool \left\right:
     and selfhost_resource_ir_variant_stable_symbol_is_valid left and selfhost_resource_ir_variant_stable_symbol_is_valid right and eq left.schema_version right.schema_version eq left.identity right.identity
+
+fn selfhost_resource_ir_usize_narrow_result %fn i64 fn SelfhostResourceIrUsizeNarrowErrorKind fn SelfhostResourceIrUsizeNarrowErrorKind SelfhostResourceIrUsizeNarrowResult \value\negative_error\out_of_range_error:
+    if:
+        lt value extend_s 0
+        SelfhostResourceIrUsizeNarrowResult::Err negative_error
+        if:
+            gt value extend_s 2147483647
+            SelfhostResourceIrUsizeNarrowResult::Err out_of_range_error
+            SelfhostResourceIrUsizeNarrowResult::Ok wrap value
+
+//: selfhost_resource_ir_field_projection_from_usize_i64: Fieldのindex / offset_bytesをselfhost supported rangeへ縮小する
+pub fn selfhost_resource_ir_field_projection_from_usize_i64 %fn i64 fn i64 SelfhostResourceIrProjectionNarrowResult \index\offset_bytes:
+    match selfhost_resource_ir_usize_narrow_result index SelfhostResourceIrUsizeNarrowErrorKind::FieldIndexNegative SelfhostResourceIrUsizeNarrowErrorKind::FieldIndexOutOfRange:
+        SelfhostResourceIrUsizeNarrowResult::Err error:
+            SelfhostResourceIrProjectionNarrowResult::Err error
+        SelfhostResourceIrUsizeNarrowResult::Ok narrowed_index:
+            match selfhost_resource_ir_usize_narrow_result offset_bytes SelfhostResourceIrUsizeNarrowErrorKind::FieldOffsetBytesNegative SelfhostResourceIrUsizeNarrowErrorKind::FieldOffsetBytesOutOfRange:
+                SelfhostResourceIrUsizeNarrowResult::Err error:
+                    SelfhostResourceIrProjectionNarrowResult::Err error
+                SelfhostResourceIrUsizeNarrowResult::Ok narrowed_offset:
+                    SelfhostResourceIrProjectionNarrowResult::Ok SelfhostResourceIrPlaceProjection::Field SelfhostResourceIrIndexedProjection narrowed_index narrowed_offset
+
+//: selfhost_resource_ir_tuple_field_projection_from_usize_i64: TupleFieldのindex / offset_bytesをselfhost supported rangeへ縮小する
+pub fn selfhost_resource_ir_tuple_field_projection_from_usize_i64 %fn i64 fn i64 SelfhostResourceIrProjectionNarrowResult \index\offset_bytes:
+    match selfhost_resource_ir_usize_narrow_result index SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldIndexNegative SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldIndexOutOfRange:
+        SelfhostResourceIrUsizeNarrowResult::Err error:
+            SelfhostResourceIrProjectionNarrowResult::Err error
+        SelfhostResourceIrUsizeNarrowResult::Ok narrowed_index:
+            match selfhost_resource_ir_usize_narrow_result offset_bytes SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldOffsetBytesNegative SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldOffsetBytesOutOfRange:
+                SelfhostResourceIrUsizeNarrowResult::Err error:
+                    SelfhostResourceIrProjectionNarrowResult::Err error
+                SelfhostResourceIrUsizeNarrowResult::Ok narrowed_offset:
+                    SelfhostResourceIrProjectionNarrowResult::Ok SelfhostResourceIrPlaceProjection::TupleField SelfhostResourceIrIndexedProjection narrowed_index narrowed_offset
+
+//: selfhost_resource_ir_known_offset_from_usize_i64: ResourceOffset::Knownをselfhost supported rangeへ縮小する
+pub fn selfhost_resource_ir_known_offset_from_usize_i64 %fn i64 SelfhostResourceIrOffsetNarrowResult \value:
+    match selfhost_resource_ir_usize_narrow_result value SelfhostResourceIrUsizeNarrowErrorKind::ResourceOffsetKnownNegative SelfhostResourceIrUsizeNarrowErrorKind::ResourceOffsetKnownOutOfRange:
+        SelfhostResourceIrUsizeNarrowResult::Err error:
+            SelfhostResourceIrOffsetNarrowResult::Err error
+        SelfhostResourceIrUsizeNarrowResult::Ok narrowed:
+            SelfhostResourceIrOffsetNarrowResult::Ok SelfhostResourceIrResourceOffset::Known narrowed
+
+//: selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64: ScaledSymbolicのscaleをselfhost supported rangeへ縮小する
+pub fn selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 %fn i32 fn i64 SelfhostResourceIrOffsetNarrowResult \place_index\scale:
+    match selfhost_resource_ir_usize_narrow_result scale SelfhostResourceIrUsizeNarrowErrorKind::ScaledSymbolicScaleNegative SelfhostResourceIrUsizeNarrowErrorKind::ScaledSymbolicScaleOutOfRange:
+        SelfhostResourceIrUsizeNarrowResult::Err error:
+            SelfhostResourceIrOffsetNarrowResult::Err error
+        SelfhostResourceIrUsizeNarrowResult::Ok narrowed:
+            SelfhostResourceIrOffsetNarrowResult::Ok SelfhostResourceIrResourceOffset::ScaledSymbolic SelfhostResourceIrScaledPlaceLink place_index narrowed
+
+//: selfhost_resource_ir_scaled_offset_from_usize_i64: ScaledOffsetのscaleをselfhost supported rangeへ縮小する
+pub fn selfhost_resource_ir_scaled_offset_from_usize_i64 %fn i32 fn i64 fn i64 SelfhostResourceIrOffsetNarrowResult \place_index\offset\scale:
+    match selfhost_resource_ir_usize_narrow_result scale SelfhostResourceIrUsizeNarrowErrorKind::ScaledOffsetScaleNegative SelfhostResourceIrUsizeNarrowErrorKind::ScaledOffsetScaleOutOfRange:
+        SelfhostResourceIrUsizeNarrowResult::Err error:
+            SelfhostResourceIrOffsetNarrowResult::Err error
+        SelfhostResourceIrUsizeNarrowResult::Ok narrowed:
+            SelfhostResourceIrOffsetNarrowResult::Ok SelfhostResourceIrResourceOffset::ScaledOffset SelfhostResourceIrScaledPlaceOffsetLink place_index offset narrowed
+
+fn selfhost_resource_ir_usize_narrow_error_code %fn SelfhostResourceIrUsizeNarrowErrorKind i32 \error:
+    match error:
+        SelfhostResourceIrUsizeNarrowErrorKind::FieldIndexNegative: 1
+        SelfhostResourceIrUsizeNarrowErrorKind::FieldIndexOutOfRange: 2
+        SelfhostResourceIrUsizeNarrowErrorKind::FieldOffsetBytesNegative: 3
+        SelfhostResourceIrUsizeNarrowErrorKind::FieldOffsetBytesOutOfRange: 4
+        SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldIndexNegative: 5
+        SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldIndexOutOfRange: 6
+        SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldOffsetBytesNegative: 7
+        SelfhostResourceIrUsizeNarrowErrorKind::TupleFieldOffsetBytesOutOfRange: 8
+        SelfhostResourceIrUsizeNarrowErrorKind::ResourceOffsetKnownNegative: 9
+        SelfhostResourceIrUsizeNarrowErrorKind::ResourceOffsetKnownOutOfRange: 10
+        SelfhostResourceIrUsizeNarrowErrorKind::ScaledSymbolicScaleNegative: 11
+        SelfhostResourceIrUsizeNarrowErrorKind::ScaledSymbolicScaleOutOfRange: 12
+        SelfhostResourceIrUsizeNarrowErrorKind::ScaledOffsetScaleNegative: 13
+        SelfhostResourceIrUsizeNarrowErrorKind::ScaledOffsetScaleOutOfRange: 14
+
+fn selfhost_resource_ir_projection_narrow_result_error_code_eq %fn SelfhostResourceIrProjectionNarrowResult fn i32 bool \result\expected:
+    match result:
+        SelfhostResourceIrProjectionNarrowResult::Ok _:
+            false
+        SelfhostResourceIrProjectionNarrowResult::Err error:
+            eq selfhost_resource_ir_usize_narrow_error_code error expected
+
+fn selfhost_resource_ir_offset_narrow_result_error_code_eq %fn SelfhostResourceIrOffsetNarrowResult fn i32 bool \result\expected:
+    match result:
+        SelfhostResourceIrOffsetNarrowResult::Ok _:
+            false
+        SelfhostResourceIrOffsetNarrowResult::Err error:
+            eq selfhost_resource_ir_usize_narrow_error_code error expected
+
+fn selfhost_resource_ir_projection_narrow_result_is_valid %fn SelfhostResourceIrProjectionNarrowResult bool \result:
+    match result:
+        SelfhostResourceIrProjectionNarrowResult::Ok projection:
+            selfhost_resource_ir_place_projection_is_structurally_valid projection
+        SelfhostResourceIrProjectionNarrowResult::Err _:
+            false
+
+fn selfhost_resource_ir_offset_narrow_result_is_valid %fn SelfhostResourceIrOffsetNarrowResult bool \result:
+    match result:
+        SelfhostResourceIrOffsetNarrowResult::Ok offset:
+            selfhost_resource_ir_resource_offset_is_structurally_valid offset
+        SelfhostResourceIrOffsetNarrowResult::Err _:
+            false
+
+fn selfhost_resource_ir_usize_narrowing_stage0 %fn void bool \void:
+    let zero %i64 extend_s 0
+    let max %i64 extend_s 2147483647
+    let negative %i64 extend_s sub 0 1
+    let too_large %i64 add max extend_s 1
+    let field_zero %SelfhostResourceIrProjectionNarrowResult selfhost_resource_ir_field_projection_from_usize_i64 zero zero
+    let tuple_max %SelfhostResourceIrProjectionNarrowResult selfhost_resource_ir_tuple_field_projection_from_usize_i64 max max
+    let known_zero %SelfhostResourceIrOffsetNarrowResult selfhost_resource_ir_known_offset_from_usize_i64 zero
+    let scaled_symbolic_max %SelfhostResourceIrOffsetNarrowResult selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 max
+    let scaled_offset_max %SelfhostResourceIrOffsetNarrowResult selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 max
+    and selfhost_resource_ir_projection_narrow_result_is_valid field_zero and selfhost_resource_ir_projection_narrow_result_is_valid tuple_max and selfhost_resource_ir_offset_narrow_result_is_valid known_zero and selfhost_resource_ir_offset_narrow_result_is_valid scaled_symbolic_max and selfhost_resource_ir_offset_narrow_result_is_valid scaled_offset_max and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 negative zero 1 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 too_large zero 2 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 zero negative 3 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 zero too_large 4 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 negative zero 5 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 too_large zero 6 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 zero negative 7 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 zero too_large 8 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_known_offset_from_usize_i64 negative 9 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_known_offset_from_usize_i64 too_large 10 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 negative 11 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 too_large 12 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 negative 13 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 too_large 14
 
 //: selfhost_resource_ir_resource_offset_is_structurally_valid: offset payloadのnonproduction構造制約を検査する
 pub fn selfhost_resource_ir_resource_offset_is_structurally_valid %fn SelfhostResourceIrResourceOffset bool \offset:
@@ -194,4 +337,4 @@ pub fn selfhost_resource_ir_place_projection_stage0 %fn void bool \void:
     let bad_index_rejected %bool not selfhost_resource_ir_place_projection_is_structurally_valid SelfhostResourceIrPlaceProjection::Field bad_index
     let bad_scale %SelfhostResourceIrScaledPlaceLink SelfhostResourceIrScaledPlaceLink 1 sub 0 1
     let bad_scale_rejected %bool not selfhost_resource_ir_resource_offset_is_structurally_valid SelfhostResourceIrResourceOffset::ScaledSymbolic bad_scale
-    and field_ok and tuple_ok and enum_ok and enum_placeholder_rejected and enum_unknown_schema_rejected and enum_symbol_equal and enum_symbols_distinct and enum_placeholders_not_equal and enum_unknown_schemas_not_equal and deref_ok and known_ok and symbolic_ok and scaled_symbolic_ok and offset_ok and scaled_offset_ok and unknown_ok and storage_ok and known_supported and unknown_unsupported and bad_index_rejected bad_scale_rejected
+    and field_ok and tuple_ok and enum_ok and enum_placeholder_rejected and enum_unknown_schema_rejected and enum_symbol_equal and enum_symbols_distinct and enum_placeholders_not_equal and enum_unknown_schemas_not_equal and deref_ok and known_ok and symbolic_ok and scaled_symbolic_ok and offset_ok and scaled_offset_ok and unknown_ok and storage_ok and known_supported and unknown_unsupported and bad_index_rejected and bad_scale_rejected selfhost_resource_ir_usize_narrowing_stage0 ()

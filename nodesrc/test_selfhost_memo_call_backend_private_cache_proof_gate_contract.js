@@ -1711,6 +1711,21 @@ assertOrdered(
     ],
     "malformed projection runtime fixture must close all outer owners and exact-match dense ownership, payload, and recursive Place link errors",
 );
+for (const name of [
+    "projection_field_index_negative_rejected",
+    "projection_field_offset_negative_rejected",
+    "projection_tuple_index_negative_rejected",
+    "projection_tuple_offset_negative_rejected",
+    "projection_known_negative_rejected",
+    "projection_scaled_symbolic_negative_rejected",
+    "projection_scaled_offset_negative_rejected",
+]) {
+    assert.match(
+        topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
+        new RegExp(`let ${name} %bool selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_error_stage0_case[^\\n]* 3`),
+        `${name} must reach inventory validation and exact-match ProjectionPayloadInvalid at cursor 0`,
+    );
+}
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_count_error_stage0_case"),
     [
