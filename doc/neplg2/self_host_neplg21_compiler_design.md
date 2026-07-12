@@ -3640,7 +3640,7 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 `ResourceOp::CollectionStorageRelocate { old_storage, new_storage, span }`はkind tag 17専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinalと、独立したgraph-bound old/new storage Placeを持つ。scopeはEndScopeの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両endpointのgraph / membershipをtyped rejectionする。positive fixtureではold/newが異なるPlaceであることも固定する。
 
-このEndScope後という順序は実装済みsparse ownerの検査順である。Rust enumのvariant順ではEndScopeとCollectionStorageRelocateの間にCallEffect、FunctionValue、Call、IndirectCall、RawMemory、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycleがあるが、これらの未実装payloadを飛ばして検査済みと主張しない。
+このEndScope後という順序はRust enum順ではなく、実装済みsparse ownerの検査順である。現行の検査順はEndScope、CollectionStorageRelocate、CollectionSlotDropTraversal、CollectionSlotTransformRange、RawAddressAlias、RawAddressView、StorageOriginである。Rust enum上でEndScopeとCollectionStorageRelocateの間にあるCallEffect、FunctionValue、Call、IndirectCall、RawMemory、CollectionSlotLifecycleは未実装のままであり、後から接続したRawAddressAlias、RawAddressView、StorageOriginと混同して検査済みと主張しない。
 
 この境界はstorage pairの構造transportだけを保証する。raw realloc relocation proof、canonical owner-cell、slot state rekey、proofの一回消費、actual co-productionはRust checkerと将来の後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは15件である。
 
@@ -3667,6 +3667,12 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 `ResourceOp::RawAddressView { source, target, kind, span }`はkind tag 14専用のprivate sparse ownerで保持する。sourceとtargetは独立したgraph-bound Placeとして照合し、kindはRustと同じ`Offset` / `MemPtrOffset` / `NonOwningProjection` / `InternalHelper`をfallbackなしで運ぶ。scopeはRawAddressAlias ownerの後に検査し、missing / unexpected、identity / ordinal、各endpointのgraph / membershipをfield固有typed rejectionへ分類する。
 
 このownerは構造payloadのlossless transportだけを担い、raw view semantics、provenance、source capability、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは11件である。
+
+### 2026-07-13 Resource StorageOrigin payload
+
+`ResourceOp::StorageOrigin { target, origin, span }`はkind tag 15専用のprivate sparse ownerで保持する。targetはgraph-bound Placeとして照合し、originはRustと同じ`Owned` / `Unmanaged` / `Internal`をfallbackなしで運ぶ。scope上はRawAddressView ownerの後に検査し、missing / unexpected、identity / ordinal、targetのgraph / membershipをfield固有typed rejectionへ分類する。
+
+このownerは構造payloadのlossless transportだけを担い、storage ownership semantics、provenance、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは10件である。
 
 ## 完了条件
 

@@ -83812,3 +83812,9 @@ MERGE_APPROVED
 - Rust `ResourceOp::RawAddressView { source, target, kind, span }`をkind tag 14専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはOffset / MemPtrOffset / NonOwningProjection / InternalHelperの全4 variantを保持する。
 - sparse mergeはpayload missing / unexpected、identity / ordinal、各Placeのmissing / wrong graphをexact errorへ分類する。runtime matrixは全kind transportとmode 0〜9を検査する。
 - このcheckpointは構造payloadのnonproduction inventoryであり、view semantics、provenance、source capability、actual materializer co-productionを主張しない。payload ownerは11件未完成で、selfhost compilerの最終目標も未完了である。`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource StorageOrigin payload
+
+- Rust `ResourceOp::StorageOrigin { target, origin, span }`をkind tag 15専用のprivate sparse ownerへ接続した。targetはgraph-bound Placeで、originはOwned / Unmanaged / Internalの全3 variantを保持する。
+- sparse mergeはpayload missing / unexpected、identity / ordinal、targetのmissing / wrong graphをexact errorへ分類する。runtime matrixは全origin transportとnegative modeを検査する。
+- このcheckpointは構造payloadのnonproduction inventoryであり、storage ownership semantics、provenance、actual materializer co-productionを主張しない。payload ownerは10件未完成で、selfhost compilerの最終目標も未完了である。`plan.md`は変更していない。
