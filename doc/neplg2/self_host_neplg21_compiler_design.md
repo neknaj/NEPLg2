@@ -3640,9 +3640,59 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 `ResourceOp::CollectionStorageRelocate { old_storage, new_storage, span }`はkind tag 17専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinalと、独立したgraph-bound old/new storage Placeを持つ。scopeはEndScopeの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両endpointのgraph / membershipをtyped rejectionする。positive fixtureではold/newが異なるPlaceであることも固定する。
 
-このEndScope後という順序は実装済みsparse ownerの検査順である。Rust enumのvariant順ではEndScopeとCollectionStorageRelocateの間にCallEffect、FunctionValue、Call、IndirectCall、RawMemory、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycleがあるが、これらの未実装payloadを飛ばして検査済みと主張しない。
+このEndScope後という順序はRust enum順ではなく、実装済みsparse ownerの検査順である。現行の検査順はEndScope、CollectionStorageRelocate、CollectionSlotDropTraversal、CollectionSlotTransformRange、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycle、RawMemoryである。Rust enum上でEndScopeとCollectionStorageRelocateの間にあるCallEffect、FunctionValue、Call、IndirectCallは未実装のままであり、後から接続したRawMemory、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycleと混同して検査済みと主張しない。
 
 この境界はstorage pairの構造transportだけを保証する。raw realloc relocation proof、canonical owner-cell、slot state rekey、proofの一回消費、actual co-productionはRust checkerと将来の後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは15件である。
+
+### 2026-07-13 Resource CollectionSlotDropTraversal payload
+
+`ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`はkind tag 18専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinal、独立したgraph-bound storage / initialized-count Placeとexpected TypeIdを持つ。scopeはCollectionStorageRelocateの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両Placeのgraph / membership、TypeIdの負index / 同じborrowed TypeArena内のmembershipをfield固有typed rejectionへ分類する。
+
+この境界はpayloadのlosslessな構造transportだけを保証し、drop traversalの実行、initialized rangeの全称証明、expected typeとslot element typeの一致、actual co-productionは後段authorityに残る。
+
+### 2026-07-13 Resource CollectionSlotTransformRange payload
+
+`ResourceOp::CollectionSlotTransformRange { source_storage, source_initialized_count, output_storage, output_initialized_count, expected_ty, span }`はkind tag 19専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinal、相互に独立した4個のgraph-bound Placeとexpected TypeIdを持つ。scopeはCollectionSlotDropTraversalの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、各Placeのgraph / membership、TypeIdの負index / 同じborrowed TypeArena内のmembershipをfield固有typed rejectionへ分類する。
+
+このauthorityが証明するのはRust Resource IR payloadの構造とowner整合だけである。transform実行、source range全域の初期化、output range全域の生成、failure時rollback、要素型一致、actual loweringとのco-productionはまだ証明しない。
+
+### 2026-07-13 Resource RawAddressAlias payload
+
+`ResourceOp::RawAddressAlias { source, target, kind, span }`はkind tag 13専用のprivate sparse ownerで保持する。sourceとtargetは独立したgraph-bound Placeとして照合し、kindはRustと同じ`Transparent` / `InternalHelper` / `OwnerTokenConstruct`をfallbackなしで運ぶ。scope上の検証順は既存のTransformRange chainの後へ置くが、Rust enum上で両者の間にある未実装variantを検証済みとは扱わない。このownerは構造payloadのlossless transportだけを担い、alias safety、provenance semantics、source capability、actual co-productionは証明しないためnonproduction originを維持する。
+
+この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは12件である。
+
+### 2026-07-13 Resource RawAddressView payload
+
+`ResourceOp::RawAddressView { source, target, kind, span }`はkind tag 14専用のprivate sparse ownerで保持する。sourceとtargetは独立したgraph-bound Placeとして照合し、kindはRustと同じ`Offset` / `MemPtrOffset` / `NonOwningProjection` / `InternalHelper`をfallbackなしで運ぶ。scopeはRawAddressAlias ownerの後に検査し、missing / unexpected、identity / ordinal、各endpointのgraph / membershipをfield固有typed rejectionへ分類する。
+
+このownerは構造payloadのlossless transportだけを担い、raw view semantics、provenance、source capability、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは11件である。
+
+### 2026-07-13 Resource StorageOrigin payload
+
+`ResourceOp::StorageOrigin { target, origin, span }`はkind tag 15専用のprivate sparse ownerで保持する。targetはgraph-bound Placeとして照合し、originはRustと同じ`Owned` / `Unmanaged` / `Internal`をfallbackなしで運ぶ。scope上はRawAddressView ownerの後に検査し、missing / unexpected、identity / ordinal、targetのgraph / membershipをfield固有typed rejectionへ分類する。
+
+このownerは構造payloadのlossless transportだけを担い、storage ownership semantics、provenance、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、この時点で残るoperation payloadは10件である。
+
+### 2026-07-13 Resource CollectionSlotLifecycle payload
+
+`ResourceOp::CollectionSlotLifecycle { target, event, span }`はkind tag 16専用のprivate sparse ownerで保持する。eventはRustと同じ6 variantをvariant-native enumで表し、`InitializeEmpty` / `BorrowRead` / `MoveOut` / `DropInitialized` / `StorageDealloc`は各1個のTypeId、`ReplaceInitialized`はold/new TypeIdと`ReturnOldOwner` / `DropOldOwner`を直接所有する。dummy値やoptional fieldへ平坦化せず、すべてのTypeIdをborrowしたTypeArenaのmembershipで検査する。Replaceのold/new型は別々のtyped rejectionに分類する。
+
+scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、dense operation ordinal、graph-bound target、event固有型を照合するが、slot state遷移、owner transfer/drop proof、actual materializer co-productionはまだ証明しない。残る9 operation payload / endpoint ownerとwalker operation tableのactual co-productionは後続sliceで接続する。
+
+### 2026-07-13 Resource RawMemory payload
+
+`ResourceOp::RawMemory`はkind tag 12のsparse headerと、Rust `Vec<Place>`順のdense arg endpoint ownerへ分ける。headerはproof key、graph、operation ordinal、13種の`RawMemoryOp`、output、overflow検査済みarg範囲を持つ。endpointはoperation ordinal、0始まりarg ordinal、graph-bound Placeを持ち、Vecと同じく同一Placeの重複を許す。
+
+検査はheader/endpointのmissing/unexpected、identity/ordinal、range overflow/gap/excess、output/argのPlace membershipとgraph mismatchをtyped errorで区別する。このinventoryはraw memoryの意味、source capability、actual Resource IRとのco-productionを証明せず、`ResourceIrInventoryValidated`をproduction originへ昇格させない。残るoperation payloadは8件である。
+
+### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
+
+`PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。
+
+table validationはidentityのnon-placeholder / schema / range / dense ordinal membership、overflow-freeなbyte rangeの連続性、duplicate spellingの不在を検査する。projection inventory scopeは入口でtable全体を一度だけ検査し、検査後のprivate再帰走査へ同じimmutable borrowを引き回す。再帰走査は各`EnumPayload`の対象recordだけをmembership検査するため、table全体を繰り返し走査せず、外部から偽造できるevidenceも公開しない。projection固有の構造検査後に`EnumPayload`だけをcanonical recordへ解決し、missing / malformed symbolなら`ProjectionCanonicalSymbolInvalid`でscope発行を拒否する。非Enum projectionもcanonical owner全体の検査を省略せず、正しい空tableなら受理し、malformed tableなら実Deref recordがあっても拒否する。stage0 lifecycleは必要なspellingをinternしてからownerを渡し、scope検査後にtableを解放する。
+
+ただしenum type key membership、Unicode normalization、serialized cross-session identity、actual loweringとのtable co-productionはまだ証明しない。それらはactual Resource function materializerがtype authorityと同時に生成する後続sliceで接続する。この接続sliceはResource operation payloadの残数8件を減らさない。
 
 ## 完了条件
 

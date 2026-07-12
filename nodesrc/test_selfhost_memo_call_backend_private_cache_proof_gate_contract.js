@@ -23,6 +23,8 @@ const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/res
 const rustResourceLower = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/lower.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustSpan = fs.readFileSync(path.join(repoRoot, "nepl-core/src/span.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustResourceContext = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/resource_summary_value_cache/context.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustCollectionSlotLifecycleModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/collection_slot_lifecycle_model.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustEffects = fs.readFileSync(path.join(repoRoot, "nepl-core/src/effects.rs"), "utf8").replace(/\r\n/g, "\n");
 
 assert.match(rustResourceModel, /pub struct ResourceLocal \{[\s\S]*pub name: String,[\s\S]*pub ty: TypeId,[\s\S]*pub mutable: bool,[\s\S]*pub place: Place,/);
 assert.match(rustResourceModel, /pub enum PlaceRoot \{[\s\S]*Local\(String\)/);
@@ -232,6 +234,27 @@ assert.doesNotMatch(
     /public entrypoint/,
     "docs must not describe the private proof gate as a public entrypoint",
 );
+
+assert.match(rustEffects, /pub enum RawMemoryOp \{\s*Alloc,\s*Dealloc,\s*Realloc,\s*Load,\s*Store,\s*LoadU8,\s*StoreU8,\s*BulkCopy,\s*BulkMove,\s*MemorySize,\s*MemoryGrow,\s*FillBytes,\s*Fill,\s*\}/, "Rust RawMemoryOp must retain all 13 operations");
+assert.match(rustResourceModel, /RawMemory \{\s*operation: RawMemoryOp,\s*output: Place,\s*args: Vec<Place>,\s*span: Span,\s*\}/, "Rust RawMemory payload shape must retain operation, output, args, and span");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryOperation", "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory", "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory",
+    "RawMemoryPayloadTableAllocFailed", "RawMemoryPayloadPushFailed", "RawMemoryArgTableAllocFailed", "RawMemoryArgPushFailed", "RawMemoryPayloadMissing", "RawMemoryPayloadUnexpected", "RawMemoryPayloadIdentityMismatch", "RawMemoryPayloadOrdinalMismatch", "RawMemoryArgRangeInvalid", "RawMemoryArgMissing", "RawMemoryArgUnexpected", "RawMemoryArgOrdinalMismatch", "RawMemoryArgPlaceMissing", "RawMemoryArgPlaceGraphMismatch", "RawMemoryOutputPlaceMissing", "RawMemoryOutputPlaceGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `RawMemory structural payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_raw_memory"), /operation_kind_tag kind 12/, "RawMemory owner must select kind tag 12");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_inventory_new"), ["v::new", "Result::Ok records", "RawMemoryPayloadTableAllocFailed"], "RawMemory header allocation must preserve typed failure");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_inventory_push"), ["v::push", "Result::Err e", "field::get e \"error\"", "v::free v::vec_push_error_vec e", "RawMemoryPayloadPushFailed error"], "RawMemory header push failure must close recovered owner");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_arg_inventory_new"), ["v::new", "Result::Ok records", "RawMemoryArgTableAllocFailed"], "RawMemory arg allocation must preserve typed failure");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_arg_inventory_push"), ["v::push", "Result::Err e", "field::get e \"error\"", "v::free v::vec_push_error_vec e", "RawMemoryArgPushFailed error"], "RawMemory arg push failure must close recovered owner");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_record_validate_result"), ["RawMemoryPayloadIdentityMismatch", "RawMemoryPayloadOrdinalMismatch", "RawMemoryArgRangeInvalid", "RawMemoryOutputPlaceMissing", "RawMemoryOutputPlaceGraphMismatch"], "RawMemory header must validate identity, range, and output deterministically");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_arg_range_validate_loop"), ["RawMemoryArgMissing", "RawMemoryArgUnexpected", "RawMemoryArgOrdinalMismatch", "RawMemoryArgPlaceMissing", "RawMemoryArgPlaceGraphMismatch"], "RawMemory dense args must retain exact rejection taxonomy");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_stage0_error_matches"), ["RawMemoryPayloadMissing", "RawMemoryPayloadUnexpected", "RawMemoryPayloadIdentityMismatch", "RawMemoryPayloadOrdinalMismatch", "RawMemoryArgRangeInvalid", "RawMemoryArgMissing", "RawMemoryArgUnexpected", "RawMemoryArgOrdinalMismatch", "RawMemoryArgPlaceMissing", "RawMemoryArgPlaceGraphMismatch", "RawMemoryOutputPlaceMissing", "RawMemoryOutputPlaceGraphMismatch"], "RawMemory runtime must exact-match every typed rejection");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_stage0"), Array.from({ length: 29 }, (_, index) => `raw_memory_payload_stage0_case ${index}`), "RawMemory runtime must transport all 13 operations, zero/multiple args, and every negative mode");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_stage0_case"), ["let output_index %i32 if eq mode 27 9 0", "let arg_index %i32 if eq mode 25 9 0", "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgRecord arg_operation arg_ordinal arg_place", "SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgRecord 12 1 output"], "RawMemory positive matrix must accept duplicate arg Place endpoints");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_slot_lifecycle_payload_inventory_validate_loop[\s\S]*raw_memory_payload_inventory_validate_loop/, "scope must validate RawMemory after CollectionSlotLifecycle");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_raw_memory_payload_stage0/, "public runtime must execute RawMemory matrix");
+for (const caller of ["selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"]) assert.match(topLevelBlock(source, "fn", caller), /collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args/, `${caller} must propagate RawMemory after CollectionSlotLifecycle`);
+for (const caller of ["selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case"]) assertOrdered(topLevelBlock(source, "fn", caller), ["Result::Ok collection_slot_lifecycle_payloads", "Result::Ok raw_memory_payloads", "Result::Ok raw_memory_args", "&collection_slot_lifecycle_payloads &raw_memory_payloads &raw_memory_args", "resource_ir_raw_memory_arg_inventory_free raw_memory_args", "resource_ir_raw_memory_payload_inventory_free raw_memory_payloads", "resource_ir_collection_slot_lifecycle_payload_inventory_free collection_slot_lifecycle_payloads"], `${caller} must borrow and close RawMemory inside CollectionSlotLifecycle lifecycle`);
 assert.ok(
     runner.includes('"nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js"'),
     "private-cache proof gate source policy test must be registered in run_source_policy_regressions.js",
@@ -1126,6 +1149,7 @@ assertOrdered(
         "ProjectionPayloadInvalid cursor",
         "selfhost_resource_ir_place_projection_is_inventory_supported record.projection",
         "ProjectionUnsupported cursor",
+        "resource_ir_enum_projection_symbol_scope_validate_result record.projection symbols",
         "resource_ir_projection_place_link record.projection",
         "link_index 0",
         "link_index place_count",
@@ -1135,20 +1159,34 @@ assertOrdered(
     "each projection range must validate identity, owner, ordinal, payload, and recursive Place membership before advancing",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_validated_loop"),
     [
         "resource_ir_place_inventory_get places place_idx",
         "place.projection_count 0",
         "ProjectionCountInvalid place.projection_count",
-        "resource_ir_projection_inventory_validate_place_loop projections places key graph_id place.place_id 0 place.projection_count cursor place_count",
-        "resource_ir_projection_inventory_validate_places_loop projections places key graph_id add place_idx 1 place_count next_cursor",
+        "resource_ir_projection_inventory_validate_place_loop projections places symbols key graph_id place.place_id 0 place.projection_count cursor place_count",
+        "resource_ir_projection_inventory_validate_places_validated_loop projections places symbols key graph_id add place_idx 1 place_count next_cursor",
     ],
     "Place-order prefix validation must reject negative counts and carry the projection cursor across every Place",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_malformed_symbols_non_enum_rejected_stage0"),
+    ["projection_inventory_stage0_result key graph_id place_id 0 SelfhostResourceIrPlaceProjection::Deref", "place_inventory_with_projection_count_stage0_result", "SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrVariantStableSymbol 1 2 0 0", "projection_inventory_validate_places_loop &projections &places &malformed key graph_id 0 1 0", "ProjectionCanonicalSymbolInvalid symbol_error", "IdentityMembershipMismatch identity"],
+    "actual non-Enum projection traversal must still reject a malformed canonical owner before membership traversal",
+);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /projection_malformed_symbols_non_enum_rejected_stage0|resource_ir_enum_projection_symbol_scope_stage0/, "public inventory smoke must retain canonical projection coverage");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop"),
+    ["canonical_symbol_table_validate_result symbols", "ProjectionCanonicalSymbolInvalid e", "projection_inventory_validate_places_validated_loop projections places symbols"],
+    "projection scope must validate the complete canonical owner once before traversing any projection, including non-Enum inventories",
+);
+assert.doesNotMatch(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result"), /canonical_symbol_table_contains_result/, "per-Enum membership must not rescan the complete canonical table");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result"), /field::get_ref symbols "records"[\s\S]*variant_stable_symbol_eq record.symbol symbol/, "private per-Enum membership must read only the validated table's identity record");
+assert.doesNotMatch(inventoryPartSource, /^pub\s+(?:struct|fn)\s+SelfhostMemoCallBackendPrivateCacheResourceIrCanonical/m, "validated canonical scope authority must remain private to the merged inventory module");
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
     [
-        "SelfhostResourceIrVariantStableSymbol 1 41",
+        "SelfhostResourceIrVariantStableSymbol 1 1",
         "SelfhostResourceIrVariantStableSymbol 1 43",
         "SelfhostResourceIrVariantStableSymbol 1 0",
         "SelfhostResourceIrVariantStableSymbol 2 41",
@@ -1158,9 +1196,11 @@ assertOrdered(
         "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_placeholder 3",
         "projection_enum_unknown_schema_rejected",
         "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_unknown_schema 3",
+        "projection_enum_missing_canonical_rejected",
+        "SelfhostResourceIrVariantStableSymbol 1 41 7",
         "projection_enum_symbols_distinct",
     ],
-    "public inventory smoke must accept valid EnumPayload evidence and reject placeholder and unknown-schema evidence as ProjectionPayloadInvalid at cursor 0",
+    "public inventory smoke must accept an interned EnumPayload and reject malformed or missing canonical symbols",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_result"),
@@ -1403,7 +1443,7 @@ assertOrdered(
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_function_inventory_parameter_len inventory",
         "resource_ir_function_inventory_validate_parameters_loop inventory places types 0 parameter_count",
-        "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
+        "resource_ir_projection_inventory_validate_places_loop projections places symbols key graph_id 0 place_count 0",
         "resource_ir_projection_inventory_len projections",
         "ProjectionCountMismatch actual_projection_count",
         "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
@@ -1416,7 +1456,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1528,7 +1568,10 @@ assertOrdered(
         "Result::Ok read_payloads",
         "resource_ir_assign_payload_inventory_stage0_result &operation_kinds key graph_id assign_target assign_value",
         "Result::Ok assign_payloads",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
+        "resource_ir_canonical_symbol_table_new",
+        'resource_ir_canonical_symbol_table_intern symbols0 "Variant"',
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections &symbols types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
+        "resource_ir_canonical_symbol_table_free symbols",
         "resource_ir_assign_payload_inventory_free assign_payloads",
         "resource_ir_read_payload_inventory_free read_payloads",
         "resource_ir_declare_local_payload_inventory_free declare_local_payloads",
@@ -1541,7 +1584,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads/,
+    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols0 &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols0/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
@@ -1709,6 +1752,129 @@ assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_ca
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_storage_relocate_payload_stage0_case"), /not eq stored.old_storage.place_id.index stored.new_storage.place_id.index/, "positive CollectionStorageRelocate fixture must retain distinct storage endpoints");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /end_scope_payload_inventory_validate_loop[\s\S]*collection_storage_relocate_payload_inventory_validate_loop/, "scope must validate CollectionStorageRelocate after EndScope");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_storage_relocate_payload_stage0/, "public runtime must execute CollectionStorageRelocate matrix");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory",
+    "CollectionSlotDropTraversalPayloadMissing", "CollectionSlotDropTraversalPayloadUnexpected", "CollectionSlotDropTraversalPayloadIdentityMismatch", "CollectionSlotDropTraversalPayloadOrdinalMismatch",
+    "CollectionSlotDropTraversalStorageMissing", "CollectionSlotDropTraversalStorageGraphMismatch", "CollectionSlotDropTraversalInitializedCountMissing", "CollectionSlotDropTraversalInitializedCountGraphMismatch",
+    "CollectionSlotDropTraversalExpectedTypeInvalid", "CollectionSlotDropTraversalExpectedTypeMissing",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `CollectionSlotDropTraversal payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_collection_slot_drop_traversal"), /operation_kind_tag kind 18/, "CollectionSlotDropTraversal owner must select kind tag 18");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_record_validate_result"), ["CollectionSlotDropTraversalPayloadIdentityMismatch", "CollectionSlotDropTraversalPayloadOrdinalMismatch", "record.storage", "record.initialized_count", "record.expected_ty"], "CollectionSlotDropTraversal payload must validate identity, both endpoints, and expected type deterministically");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_stage0_with_types"), /not eq stored.storage.place_id.index stored.initialized_count.place_id.index/, "positive CollectionSlotDropTraversal fixture must retain distinct endpoints");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_storage_relocate_payload_inventory_validate_loop[\s\S]*collection_slot_drop_traversal_payload_inventory_validate_loop/, "scope must validate CollectionSlotDropTraversal after CollectionStorageRelocate");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_slot_drop_traversal_payload_stage0/, "public runtime must execute CollectionSlotDropTraversal matrix");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_stage0_error_matches"),
+    ["CollectionSlotDropTraversalPayloadMissing", "CollectionSlotDropTraversalPayloadUnexpected", "CollectionSlotDropTraversalPayloadIdentityMismatch", "CollectionSlotDropTraversalPayloadOrdinalMismatch", "CollectionSlotDropTraversalStorageMissing", "CollectionSlotDropTraversalStorageGraphMismatch", "CollectionSlotDropTraversalInitializedCountMissing", "CollectionSlotDropTraversalInitializedCountGraphMismatch", "CollectionSlotDropTraversalExpectedTypeInvalid", "CollectionSlotDropTraversalExpectedTypeMissing"],
+    "CollectionSlotDropTraversal runtime must exact-match every typed rejection in diagnostic order",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_stage0"),
+    Array.from({ length: 12 }, (_, mode) => `collection_slot_drop_traversal_payload_stage0_case ${mode}`),
+    "CollectionSlotDropTraversal public matrix must execute the positive case and all eleven negative modes",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_record_validate_result"),
+    /selfhost_type_arena_get_record types record\.expected_ty/,
+    "CollectionSlotDropTraversal expected type must belong to the borrowed TypeArena",
+);
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory",
+    "CollectionSlotTransformRangePayloadMissing", "CollectionSlotTransformRangePayloadUnexpected", "CollectionSlotTransformRangePayloadIdentityMismatch", "CollectionSlotTransformRangePayloadOrdinalMismatch",
+    "CollectionSlotTransformRangeSourceStorageMissing", "CollectionSlotTransformRangeSourceStorageGraphMismatch", "CollectionSlotTransformRangeSourceInitializedCountMissing", "CollectionSlotTransformRangeSourceInitializedCountGraphMismatch",
+    "CollectionSlotTransformRangeOutputStorageMissing", "CollectionSlotTransformRangeOutputStorageGraphMismatch", "CollectionSlotTransformRangeOutputInitializedCountMissing", "CollectionSlotTransformRangeOutputInitializedCountGraphMismatch",
+    "CollectionSlotTransformRangeExpectedTypeInvalid", "CollectionSlotTransformRangeExpectedTypeMissing",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `CollectionSlotTransformRange payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_collection_slot_transform_range"), /operation_kind_tag kind 19/, "CollectionSlotTransformRange owner must select kind tag 19");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_record_validate_result"), ["CollectionSlotTransformRangePayloadIdentityMismatch", "CollectionSlotTransformRangePayloadOrdinalMismatch", "record.source_storage", "record.source_initialized_count", "record.output_storage", "record.output_initialized_count", "record.expected_ty"], "CollectionSlotTransformRange payload must validate identity, all four endpoints, and expected type deterministically");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0_with_types"), /stored\.source_storage[\s\S]*stored\.source_initialized_count[\s\S]*stored\.output_storage[\s\S]*stored\.output_initialized_count/, "positive CollectionSlotTransformRange fixture must retain four distinct endpoints");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_slot_drop_traversal_payload_inventory_validate_loop[\s\S]*collection_slot_transform_range_payload_inventory_validate_loop/, "scope must validate CollectionSlotTransformRange after CollectionSlotDropTraversal");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_slot_transform_range_payload_stage0/, "public runtime must execute CollectionSlotTransformRange matrix");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0_error_matches"),
+    ["CollectionSlotTransformRangePayloadMissing", "CollectionSlotTransformRangePayloadUnexpected", "CollectionSlotTransformRangePayloadIdentityMismatch", "CollectionSlotTransformRangePayloadOrdinalMismatch", "CollectionSlotTransformRangeSourceStorageMissing", "CollectionSlotTransformRangeSourceStorageGraphMismatch", "CollectionSlotTransformRangeSourceInitializedCountMissing", "CollectionSlotTransformRangeSourceInitializedCountGraphMismatch", "CollectionSlotTransformRangeOutputStorageMissing", "CollectionSlotTransformRangeOutputStorageGraphMismatch", "CollectionSlotTransformRangeOutputInitializedCountMissing", "CollectionSlotTransformRangeOutputInitializedCountGraphMismatch", "CollectionSlotTransformRangeExpectedTypeInvalid", "CollectionSlotTransformRangeExpectedTypeMissing"],
+    "CollectionSlotTransformRange runtime must exact-match every typed rejection in diagnostic order",
+);
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0"), Array.from({ length: 16 }, (_, mode) => `collection_slot_transform_range_payload_stage0_case ${mode}`), "CollectionSlotTransformRange public matrix must execute the positive case and all fifteen negative modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_record_validate_result"), /selfhost_type_arena_get_record types record\.expected_ty/, "CollectionSlotTransformRange expected type must belong to the borrowed TypeArena");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasKind", "Transparent", "InternalHelper", "OwnerTokenConstruct",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory",
+    "RawAddressAliasPayloadMissing", "RawAddressAliasPayloadUnexpected", "RawAddressAliasPayloadIdentityMismatch", "RawAddressAliasPayloadOrdinalMismatch",
+    "RawAddressAliasSourceMissing", "RawAddressAliasSourceGraphMismatch", "RawAddressAliasTargetMissing", "RawAddressAliasTargetGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `RawAddressAlias payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_raw_address_alias"), /operation_kind_tag kind 13/, "RawAddressAlias owner must select kind tag 13");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_record_validate_result"), ["RawAddressAliasPayloadIdentityMismatch", "RawAddressAliasPayloadOrdinalMismatch", "record.source", "record.target"], "RawAddressAlias payload must validate identity and both endpoints deterministically");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_stage0_error_matches"), ["RawAddressAliasPayloadMissing", "RawAddressAliasPayloadUnexpected", "RawAddressAliasPayloadIdentityMismatch", "RawAddressAliasPayloadOrdinalMismatch", "RawAddressAliasSourceMissing", "RawAddressAliasSourceGraphMismatch", "RawAddressAliasTargetMissing", "RawAddressAliasTargetGraphMismatch"], "RawAddressAlias runtime must exact-match every typed rejection in diagnostic order");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_stage0"), ["Transparent", "raw_address_alias_payload_stage0_case 0 transparent", "InternalHelper", "OwnerTokenConstruct", ...Array.from({ length: 9 }, (_, index) => `raw_address_alias_payload_stage0_case ${index + 1}`)], "RawAddressAlias runtime must transport all three kinds and execute all exact modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_slot_transform_range_payload_inventory_validate_loop[\s\S]*raw_address_alias_payload_inventory_validate_loop/, "scope must validate RawAddressAlias after the previously implemented TransformRange chain without claiming intermediate Rust variants");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_raw_address_alias_payload_stage0/, "public runtime must execute RawAddressAlias matrix");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewKind", "Offset", "MemPtrOffset", "NonOwningProjection", "InternalHelper",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory",
+    "RawAddressViewPayloadTableAllocFailed", "RawAddressViewPayloadPushFailed",
+    "RawAddressViewPayloadMissing", "RawAddressViewPayloadUnexpected", "RawAddressViewPayloadIdentityMismatch", "RawAddressViewPayloadOrdinalMismatch",
+    "RawAddressViewSourceMissing", "RawAddressViewSourceGraphMismatch", "RawAddressViewTargetMissing", "RawAddressViewTargetGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `RawAddressView payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_raw_address_view"), /operation_kind_tag kind 14/, "RawAddressView owner must select kind tag 14");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_record_validate_result"), ["RawAddressViewPayloadIdentityMismatch", "RawAddressViewPayloadOrdinalMismatch", "record.source", "record.target"], "RawAddressView payload must validate identity and both endpoints deterministically");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_stage0_error_matches"), ["RawAddressViewPayloadMissing", "RawAddressViewPayloadUnexpected", "RawAddressViewPayloadIdentityMismatch", "RawAddressViewPayloadOrdinalMismatch", "RawAddressViewSourceMissing", "RawAddressViewSourceGraphMismatch", "RawAddressViewTargetMissing", "RawAddressViewTargetGraphMismatch"], "RawAddressView runtime must exact-match every typed rejection in diagnostic order");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_inventory_new"), ["v::new", "Result::Ok records", "RawAddressViewPayloadTableAllocFailed"], "RawAddressView allocation failure must retain its typed error mapping");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_inventory_push"), ["v::push", "Result::Err e", "field::get e \"error\"", "v::free v::vec_push_error_vec e", "RawAddressViewPayloadPushFailed error"], "RawAddressView push failure must close the recovered Vec before returning its typed error");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_inventory_stage0_fill_result"), ["resource_ir_raw_address_view_payload_inventory_push payloads record", "Result::Ok next", "Result::Err e: Result::Err e"], "RawAddressView fill must transfer the inventory owner through push success and preserve push failure ownership handling");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_stage0"), ["Offset", "raw_address_view_payload_stage0_case 0 offset", "MemPtrOffset", "NonOwningProjection", "InternalHelper", ...Array.from({ length: 9 }, (_, index) => `raw_address_view_payload_stage0_case ${index + 1}`)], "RawAddressView runtime must transport all four kinds and execute all exact modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /raw_address_alias_payload_inventory_validate_loop[\s\S]*raw_address_view_payload_inventory_validate_loop/, "scope must validate RawAddressView after RawAddressAlias");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_raw_address_view_payload_stage0/, "public runtime must execute RawAddressView matrix");
+for (const caller of [
+    "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result",
+]) assert.match(topLevelBlock(source, "fn", caller), /raw_address_alias_payloads raw_address_view_payloads/, `${caller} must propagate the RawAddressView owner after RawAddressAlias`);
+for (const caller of [
+    "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case",
+]) assertOrdered(topLevelBlock(source, "fn", caller), ["Result::Ok raw_address_view_payloads", "&raw_address_alias_payloads &raw_address_view_payloads", "resource_ir_raw_address_view_payload_inventory_free raw_address_view_payloads"], `${caller} must borrow then close the generated RawAddressView owner`);
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrStorageOrigin", "Owned", "Unmanaged", "Internal",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory",
+    "StorageOriginPayloadTableAllocFailed", "StorageOriginPayloadPushFailed", "StorageOriginPayloadMissing", "StorageOriginPayloadUnexpected",
+    "StorageOriginPayloadIdentityMismatch", "StorageOriginPayloadOrdinalMismatch", "StorageOriginTargetMissing", "StorageOriginTargetGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `StorageOrigin payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_storage_origin"), /operation_kind_tag kind 15/, "StorageOrigin owner must select kind tag 15");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_storage_origin_payload_record_validate_result"), ["StorageOriginPayloadIdentityMismatch", "StorageOriginPayloadOrdinalMismatch", "record.target"], "StorageOrigin payload must validate identity and target deterministically");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_storage_origin_payload_stage0_error_matches"), ["StorageOriginPayloadMissing", "StorageOriginPayloadUnexpected", "StorageOriginPayloadIdentityMismatch", "StorageOriginPayloadOrdinalMismatch", "StorageOriginTargetMissing", "StorageOriginTargetGraphMismatch"], "StorageOrigin runtime must exact-match every typed rejection in diagnostic order");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_storage_origin_payload_inventory_new"), ["v::new", "Result::Ok records", "StorageOriginPayloadTableAllocFailed"], "StorageOrigin allocation failure must retain its typed error mapping");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_storage_origin_payload_inventory_push"), ["v::push", "Result::Err e", "field::get e \"error\"", "v::free v::vec_push_error_vec e", "StorageOriginPayloadPushFailed error"], "StorageOrigin push failure must close the recovered Vec before returning its typed error");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_storage_origin_payload_inventory_stage0_fill_result"), ["resource_ir_storage_origin_payload_inventory_push payloads record", "Result::Ok next", "Result::Err e: Result::Err e"], "StorageOrigin fill must transfer the inventory owner through push success and preserve push failure ownership handling");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_storage_origin_payload_stage0"), ["Owned", "storage_origin_payload_stage0_case 0 owned", "Unmanaged", "Internal", ...Array.from({ length: 7 }, (_, index) => `storage_origin_payload_stage0_case ${index + 1}`)], "StorageOrigin runtime must transport all three origins and execute all exact modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /raw_address_view_payload_inventory_validate_loop[\s\S]*storage_origin_payload_inventory_validate_loop/, "scope must validate StorageOrigin after RawAddressView");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_storage_origin_payload_stage0/, "public runtime must execute StorageOrigin matrix");
+for (const caller of ["selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"]) assert.match(topLevelBlock(source, "fn", caller), /raw_address_view_payloads storage_origin_payloads/, `${caller} must propagate StorageOrigin after RawAddressView`);
+for (const caller of ["selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case"]) assertOrdered(topLevelBlock(source, "fn", caller), ["Result::Ok storage_origin_payloads", "&raw_address_view_payloads &storage_origin_payloads", "resource_ir_storage_origin_payload_inventory_free storage_origin_payloads"], `${caller} must borrow then close the generated StorageOrigin owner`);
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecycleEvent", "InitializeEmpty", "BorrowRead", "MoveOut", "ReplaceInitialized", "DropInitialized", "StorageDealloc",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotReplacement", "ReturnOldOwner", "DropOldOwner",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory",
+    "CollectionSlotLifecyclePayloadTableAllocFailed", "CollectionSlotLifecyclePayloadPushFailed", "CollectionSlotLifecyclePayloadMissing", "CollectionSlotLifecyclePayloadUnexpected",
+    "CollectionSlotLifecyclePayloadIdentityMismatch", "CollectionSlotLifecyclePayloadOrdinalMismatch", "CollectionSlotLifecycleTargetMissing", "CollectionSlotLifecycleTargetGraphMismatch",
+    "CollectionSlotLifecycleInitializeTypeMissing", "CollectionSlotLifecycleBorrowTypeMissing", "CollectionSlotLifecycleMoveTypeMissing", "CollectionSlotLifecycleReplaceOldTypeMissing", "CollectionSlotLifecycleReplaceNewTypeMissing", "CollectionSlotLifecycleDropTypeMissing", "CollectionSlotLifecycleStorageTypeMissing",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `CollectionSlotLifecycle payload contract must contain ${symbol}`);
+assert.match(rustCollectionSlotLifecycleModel, /pub enum CollectionSlotReplacement \{\s*ReturnOldOwner,\s*DropOldOwner,\s*\}/, "Rust CollectionSlotReplacement must retain both owner policies");
+assert.match(
+    rustCollectionSlotLifecycleModel,
+    /pub enum CollectionSlotLifecycleEvent \{\s*InitializeEmpty \{\s*value_ty: TypeId,\s*\},\s*BorrowRead \{\s*expected_ty: TypeId,\s*\},\s*MoveOut \{\s*expected_ty: TypeId,\s*\},\s*ReplaceInitialized \{\s*old_ty: TypeId,\s*new_ty: TypeId,\s*old_owner: CollectionSlotReplacement,\s*\},\s*DropInitialized \{\s*expected_ty: TypeId,\s*\},\s*StorageDealloc \{\s*value_ty: TypeId,\s*\},\s*\}/,
+    "Rust CollectionSlotLifecycleEvent shape must retain all six variant-native payloads",
+);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_collection_slot_lifecycle"), /operation_kind_tag kind 16/, "CollectionSlotLifecycle owner must select kind tag 16");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_lifecycle_payload_inventory_new"), ["v::new", "Result::Ok records", "CollectionSlotLifecyclePayloadTableAllocFailed"], "CollectionSlotLifecycle allocation must preserve typed failure");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_lifecycle_payload_inventory_push"), ["v::push", "Result::Err e", "field::get e \"error\"", "v::free v::vec_push_error_vec e", "CollectionSlotLifecyclePayloadPushFailed error"], "CollectionSlotLifecycle push failure must close recovered owner");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_lifecycle_payload_inventory_stage0_fill_result"), ["collection_slot_lifecycle_payload_inventory_push payloads record", "Result::Ok next", "Result::Err e: Result::Err e"], "CollectionSlotLifecycle fill must transfer owner exactly");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_lifecycle_event_validate_result"), ["InitializeEmpty", "BorrowRead", "MoveOut", "ReplaceInitialized", "replacement.old_ty", "CollectionSlotLifecycleReplaceOldTypeMissing", "replacement.new_ty", "CollectionSlotLifecycleReplaceNewTypeMissing", "DropInitialized", "StorageDealloc"], "CollectionSlotLifecycle must validate every variant-native type payload");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_lifecycle_payload_stage0_error_matches"), ["CollectionSlotLifecyclePayloadMissing", "CollectionSlotLifecyclePayloadUnexpected", "CollectionSlotLifecyclePayloadIdentityMismatch", "CollectionSlotLifecyclePayloadOrdinalMismatch", "CollectionSlotLifecycleTargetMissing", "CollectionSlotLifecycleTargetGraphMismatch", "CollectionSlotLifecycleInitializeTypeMissing", "CollectionSlotLifecycleBorrowTypeMissing", "CollectionSlotLifecycleMoveTypeMissing", "CollectionSlotLifecycleReplaceOldTypeMissing", "CollectionSlotLifecycleReplaceNewTypeMissing", "CollectionSlotLifecycleDropTypeMissing", "CollectionSlotLifecycleStorageTypeMissing"], "CollectionSlotLifecycle runtime must exact-match every typed rejection");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_lifecycle_payload_stage0"), ["stage0_case 0 0", "stage0_case 0 1", "stage0_case 0 2", "stage0_case 0 3", "stage0_case 0 4", "stage0_case 0 5", "stage0_case 0 6", ...Array.from({ length: 14 }, (_, index) => `stage0_case ${index + 1}`)], "CollectionSlotLifecycle runtime must transport all events and replacements before every negative mode");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /storage_origin_payload_inventory_validate_loop[\s\S]*collection_slot_lifecycle_payload_inventory_validate_loop/, "scope must validate CollectionSlotLifecycle after StorageOrigin");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_slot_lifecycle_payload_stage0/, "public runtime must execute CollectionSlotLifecycle matrix");
+for (const caller of ["selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"]) assert.match(topLevelBlock(source, "fn", caller), /storage_origin_payloads collection_slot_lifecycle_payloads/, `${caller} must propagate CollectionSlotLifecycle after StorageOrigin`);
+for (const caller of ["selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result", "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case"]) assertOrdered(topLevelBlock(source, "fn", caller), ["Result::Ok storage_origin_payloads", "Result::Ok collection_slot_lifecycle_payloads", "&storage_origin_payloads &collection_slot_lifecycle_payloads", "resource_ir_collection_slot_lifecycle_payload_inventory_free collection_slot_lifecycle_payloads", "resource_ir_storage_origin_payload_inventory_free storage_origin_payloads"], `${caller} must borrow and close CollectionSlotLifecycle inside StorageOrigin lifecycle`);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [

@@ -1,5 +1,11 @@
 #indent 4
+#import "alloc/collections/vec" as v
+#import "alloc/diag/error" as *
+#import "alloc/string/access" as string
+#import "core/field" as field
 #import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
 
 //: # codegen/resource_ir_place_projection
 //: Rust Resource IRのPlaceProjection / ResourceOffset構造をselfhost側でfallbackなしに保持する非production modelです。
@@ -7,7 +13,7 @@
 //: [契約/けいやく]:
 //: - Rust usize payloadはproducer-facing i64入力から`0..2147483647`へchecked narrowingします。i64はRust usize全域の代替表現ではなく、selfhostが保持できる範囲の境界です。
 //: - Box<Place> payloadは同一Resource function owner内Placeへのopaque i32 linkとして保持し、inventory scopeが同じPlace owner内のmembershipを検査します。
-//: - EnumPayloadのvariantはtyped stable symbol evidenceで保持し、0をplaceholderとして拒否します。Rust String spellingからのcanonical internとenum type keyとの結合はactual materializerに残します。
+//: - EnumPayloadのvariantはtyped stable symbol evidenceで保持し、canonical symbol tableがRust String spellingのbyte列を所有します。実inventory scopeへのtable引き回しとenum type keyとの結合はactual materializerに残します。
 //: - Unknown offsetはsentinelとして保持しますが、inventory scopeではunsupportedとしてfail-closedに拒否します。
 
 //: SelfhostResourceIrIndexedProjection: Field / TupleFieldの非負indexとbyte offsetを保持する
@@ -39,6 +45,38 @@ pub struct SelfhostResourceIrScaledPlaceOffsetLink:
 pub struct SelfhostResourceIrVariantStableSymbol:
     schema_version %i32
     identity %i32
+
+//: SelfhostResourceIrCanonicalSymbolRecord: canonical identityと所有byte範囲を結ぶdense record
+pub struct SelfhostResourceIrCanonicalSymbolRecord:
+    symbol %SelfhostResourceIrVariantStableSymbol
+    byte_start %i32
+    byte_len %i32
+
+//: SelfhostResourceIrCanonicalSymbolTable: Rust String spellingをbyte-copyで所有するcanonical intern owner
+//:
+//: [契約/けいやく]:
+//: - schema version 1で、identityはrecord ordinal + 1の非0dense identityです。
+//: - spellingはUTF-8 byte列としてbytes ownerへcopyし、入力strのlifetimeに依存しません。
+//: - internは同じspellingに同じidentityを返し、異なるspellingを異なるidentityにします。
+pub struct SelfhostResourceIrCanonicalSymbolTable:
+    records %Vec SelfhostResourceIrCanonicalSymbolRecord
+    bytes %Vec i32
+
+pub enum SelfhostResourceIrCanonicalSymbolErrorKind:
+    RecordTableAllocFailed %StdErrorKind
+    ByteTableAllocFailed %StdErrorKind
+    BytePushFailed %StdErrorKind
+    RecordPushFailed %StdErrorKind
+    RecordReadFailed %i32
+    IdentityPlaceholder
+    IdentitySchemaMismatch %i32
+    IdentityOutOfRange %i32
+    IdentityMembershipMismatch %i32
+    DuplicateSpelling %i32
+
+pub struct SelfhostResourceIrCanonicalSymbolInterned:
+    table %SelfhostResourceIrCanonicalSymbolTable
+    symbol %SelfhostResourceIrVariantStableSymbol
 
 //: SelfhostResourceIrResourceOffset: Rust ResourceOffset全variantの排他的payload
 pub enum SelfhostResourceIrResourceOffset:
@@ -136,6 +174,281 @@ pub fn selfhost_resource_ir_variant_stable_symbol_is_valid %fn SelfhostResourceI
 //: selfhost_resource_ir_variant_stable_symbol_eq: 同じsymbol authorityが発行したvariant identityを比較する
 pub fn selfhost_resource_ir_variant_stable_symbol_eq %fn SelfhostResourceIrVariantStableSymbol fn SelfhostResourceIrVariantStableSymbol bool \left\right:
     and selfhost_resource_ir_variant_stable_symbol_is_valid left and selfhost_resource_ir_variant_stable_symbol_is_valid right and eq left.schema_version right.schema_version eq left.identity right.identity
+
+//: selfhost_resource_ir_canonical_symbol_table_new: 空のcanonical spelling ownerを作る
+pub fn selfhost_resource_ir_canonical_symbol_table_new %impure fn void Result SelfhostResourceIrCanonicalSymbolTable SelfhostResourceIrCanonicalSymbolErrorKind \void:
+    match v::new:
+        Result::Err e:
+            Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::RecordTableAllocFailed e
+        Result::Ok records:
+            match v::new:
+                Result::Err e:
+                    v::free records
+                    Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::ByteTableAllocFailed e
+                Result::Ok bytes:
+                    Result::Ok SelfhostResourceIrCanonicalSymbolTable records bytes
+
+//: selfhost_resource_ir_canonical_symbol_table_free: spelling byte ownerとrecord ownerを閉じる
+pub fn selfhost_resource_ir_canonical_symbol_table_free %impure fn SelfhostResourceIrCanonicalSymbolTable unit \table:
+    v::free field::get table "bytes"
+    v::free field::get table "records"
+
+fn selfhost_resource_ir_canonical_symbol_record_bytes_eq_loop %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrCanonicalSymbolRecord fn str fn i32 bool \table\record\spelling\idx:
+    if:
+        ge idx record.byte_len
+        true
+        match v::get field::get_ref table "bytes" add record.byte_start idx:
+            Option::None:
+                false
+            Option::Some stored:
+                match string::byte_at spelling idx:
+                    Option::None:
+                        false
+                    Option::Some actual:
+                        if eq stored actual selfhost_resource_ir_canonical_symbol_record_bytes_eq_loop table record spelling add idx 1 false
+
+fn selfhost_resource_ir_canonical_symbol_record_spelling_eq %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrCanonicalSymbolRecord fn str bool \table\record\spelling:
+    and eq record.byte_len string::len spelling selfhost_resource_ir_canonical_symbol_record_bytes_eq_loop table record spelling 0
+
+fn selfhost_resource_ir_canonical_symbol_lookup_loop %fn &SelfhostResourceIrCanonicalSymbolTable fn str fn i32 fn i32 Result SelfhostResourceIrVariantStableSymbol SelfhostResourceIrCanonicalSymbolErrorKind \table\spelling\idx\count:
+    if:
+        ge idx count
+        Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange add count 1
+        match v::get field::get_ref table "records" idx:
+            Option::None:
+                Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::RecordReadFailed idx
+            Option::Some record:
+                if selfhost_resource_ir_canonical_symbol_record_spelling_eq table record spelling Result::Ok record.symbol selfhost_resource_ir_canonical_symbol_lookup_loop table spelling add idx 1 count
+
+fn selfhost_resource_ir_canonical_symbol_append_bytes_loop %impure fn Vec i32 impure fn str impure fn i32 impure fn i32 Result Vec i32 SelfhostResourceIrCanonicalSymbolErrorKind \bytes\spelling\idx\count:
+    if:
+        ge idx count
+        Result::Ok bytes
+        match string::byte_at spelling idx:
+            Option::None:
+                v::free bytes
+                Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch idx
+            Option::Some byte:
+                match v::push bytes byte:
+                    Result::Err e:
+                        let error %StdErrorKind field::get e "error"
+                        v::free v::vec_push_error_vec e
+                        Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::BytePushFailed error
+                    Result::Ok next:
+                        selfhost_resource_ir_canonical_symbol_append_bytes_loop next spelling add idx 1 count
+
+fn selfhost_resource_ir_canonical_symbol_table_intern_validated %impure fn SelfhostResourceIrCanonicalSymbolTable impure fn str Result SelfhostResourceIrCanonicalSymbolInterned SelfhostResourceIrCanonicalSymbolErrorKind \table\spelling:
+    let record_count %i32 v::len field::get_ref table "records"
+    match selfhost_resource_ir_canonical_symbol_lookup_loop &table spelling 0 record_count:
+        Result::Ok symbol:
+            Result::Ok SelfhostResourceIrCanonicalSymbolInterned table symbol
+        Result::Err e:
+            match e:
+                SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange _:
+                    let records %Vec SelfhostResourceIrCanonicalSymbolRecord field::get table "records"
+                    let bytes %Vec i32 field::get table "bytes"
+                    let byte_start %i32 v::len &bytes
+                    let byte_len %i32 string::len spelling
+                    match selfhost_resource_ir_canonical_symbol_append_bytes_loop bytes spelling 0 byte_len:
+                        Result::Err append_error:
+                            v::free records
+                            Result::Err append_error
+                        Result::Ok next_bytes:
+                            let symbol %SelfhostResourceIrVariantStableSymbol SelfhostResourceIrVariantStableSymbol 1 add record_count 1
+                            let record %SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrCanonicalSymbolRecord symbol byte_start byte_len
+                            match v::push records record:
+                                Result::Err push_error:
+                                    let error %StdErrorKind field::get push_error "error"
+                                    v::free next_bytes
+                                    v::free v::vec_push_error_vec push_error
+                                    Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::RecordPushFailed error
+                                Result::Ok next_records:
+                                    Result::Ok SelfhostResourceIrCanonicalSymbolInterned SelfhostResourceIrCanonicalSymbolTable next_records next_bytes symbol
+                _:
+                    selfhost_resource_ir_canonical_symbol_table_free table
+                    Result::Err e
+
+//: selfhost_resource_ir_canonical_symbol_table_intern: table全体を検査してからspellingをcopyし、canonical identityとownerを返す
+pub fn selfhost_resource_ir_canonical_symbol_table_intern %impure fn SelfhostResourceIrCanonicalSymbolTable impure fn str Result SelfhostResourceIrCanonicalSymbolInterned SelfhostResourceIrCanonicalSymbolErrorKind \table\spelling:
+    match selfhost_resource_ir_canonical_symbol_table_validate_result &table:
+        Result::Err e:
+            selfhost_resource_ir_canonical_symbol_table_free table
+            Result::Err e
+        Result::Ok _valid:
+            selfhost_resource_ir_canonical_symbol_table_intern_validated table spelling
+
+fn selfhost_resource_ir_canonical_symbol_table_contains_validated_result %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrVariantStableSymbol Result unit SelfhostResourceIrCanonicalSymbolErrorKind \table\symbol:
+    if:
+        eq symbol.identity 0
+        Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityPlaceholder
+        if:
+            not eq symbol.schema_version 1
+            Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentitySchemaMismatch symbol.schema_version
+            block:
+                let index %i32 sub symbol.identity 1
+                let count %i32 v::len field::get_ref table "records"
+                if:
+                    or lt index 0 ge index count
+                    Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange symbol.identity
+                    match v::get field::get_ref table "records" index:
+                        Option::None:
+                            Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::RecordReadFailed index
+                        Option::Some record:
+                            if selfhost_resource_ir_variant_stable_symbol_eq record.symbol symbol Result::Ok unit Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch symbol.identity
+
+//: selfhost_resource_ir_canonical_symbol_table_contains_result: table全体を検査してからidentityの実recordを照合する
+pub fn selfhost_resource_ir_canonical_symbol_table_contains_result %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrVariantStableSymbol Result unit SelfhostResourceIrCanonicalSymbolErrorKind \table\symbol:
+    match selfhost_resource_ir_canonical_symbol_table_validate_result table:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _valid:
+            selfhost_resource_ir_canonical_symbol_table_contains_validated_result table symbol
+
+fn selfhost_resource_ir_canonical_symbol_records_bytes_eq_loop %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrCanonicalSymbolRecord fn SelfhostResourceIrCanonicalSymbolRecord fn i32 bool \table\left\right\idx:
+    if:
+        ge idx left.byte_len
+        true
+        match v::get field::get_ref table "bytes" add left.byte_start idx:
+            Option::None:
+                false
+            Option::Some left_byte:
+                match v::get field::get_ref table "bytes" add right.byte_start idx:
+                    Option::None:
+                        false
+                    Option::Some right_byte:
+                        if eq left_byte right_byte selfhost_resource_ir_canonical_symbol_records_bytes_eq_loop table left right add idx 1 false
+
+fn selfhost_resource_ir_canonical_symbol_duplicate_before_loop %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrCanonicalSymbolRecord fn i32 fn i32 Result unit SelfhostResourceIrCanonicalSymbolErrorKind \table\record\idx\end:
+    if:
+        ge idx end
+        Result::Ok unit
+        match v::get field::get_ref table "records" idx:
+            Option::None:
+                Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::RecordReadFailed idx
+            Option::Some previous:
+                if:
+                    and eq previous.byte_len record.byte_len selfhost_resource_ir_canonical_symbol_records_bytes_eq_loop table previous record 0
+                    Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::DuplicateSpelling end
+                    selfhost_resource_ir_canonical_symbol_duplicate_before_loop table record add idx 1 end
+
+fn selfhost_resource_ir_canonical_symbol_table_validate_loop %fn &SelfhostResourceIrCanonicalSymbolTable fn i32 fn i32 fn i32 Result unit SelfhostResourceIrCanonicalSymbolErrorKind \table\idx\count\expected_byte_start:
+    if:
+        ge idx count
+        if eq expected_byte_start v::len field::get_ref table "bytes" Result::Ok unit Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch idx
+        match v::get field::get_ref table "records" idx:
+            Option::None:
+                Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::RecordReadFailed idx
+            Option::Some record:
+                let bytes_len %i32 v::len field::get_ref table "bytes"
+                if:
+                    or lt record.byte_start 0 gt record.byte_start bytes_len
+                    Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch record.symbol.identity
+                    if:
+                        or lt record.byte_len 0 gt record.byte_len sub bytes_len record.byte_start
+                        Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch record.symbol.identity
+                        if:
+                            not eq record.symbol.schema_version 1
+                            Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentitySchemaMismatch record.symbol.schema_version
+                            if:
+                                or not eq record.symbol.identity add idx 1 not eq record.byte_start expected_byte_start
+                                Result::Err SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch record.symbol.identity
+                                match selfhost_resource_ir_canonical_symbol_duplicate_before_loop table record 0 idx:
+                                    Result::Err e:
+                                        Result::Err e
+                                    Result::Ok _unique:
+                                        selfhost_resource_ir_canonical_symbol_table_validate_loop table add idx 1 count add expected_byte_start record.byte_len
+
+//: selfhost_resource_ir_canonical_symbol_table_validate_result: dense identity、byte range、spelling一意性を検査する
+pub fn selfhost_resource_ir_canonical_symbol_table_validate_result %fn &SelfhostResourceIrCanonicalSymbolTable Result unit SelfhostResourceIrCanonicalSymbolErrorKind \table:
+    selfhost_resource_ir_canonical_symbol_table_validate_loop table 0 v::len field::get_ref table "records" 0
+
+fn selfhost_resource_ir_canonical_symbol_error_code %fn SelfhostResourceIrCanonicalSymbolErrorKind i32 \error:
+    match error:
+        SelfhostResourceIrCanonicalSymbolErrorKind::IdentityPlaceholder: 1
+        SelfhostResourceIrCanonicalSymbolErrorKind::IdentitySchemaMismatch _: 2
+        SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange _: 3
+        SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch _: 4
+        SelfhostResourceIrCanonicalSymbolErrorKind::DuplicateSpelling _: 5
+        _: 0
+
+fn selfhost_resource_ir_canonical_symbol_result_error_code_eq %fn Result unit SelfhostResourceIrCanonicalSymbolErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok _:
+            false
+        Result::Err e:
+            eq selfhost_resource_ir_canonical_symbol_error_code e expected
+
+fn selfhost_resource_ir_canonical_symbol_membership_mismatch_stage0 %impure fn void bool \void:
+    match selfhost_resource_ir_canonical_symbol_table_new:
+        Result::Err _:
+            false
+        Result::Ok empty:
+            let records %Vec SelfhostResourceIrCanonicalSymbolRecord field::get empty "records"
+            let bytes %Vec i32 field::get empty "bytes"
+            let wrong_record %SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrVariantStableSymbol 1 2 0 0
+            match v::push records wrong_record:
+                Result::Err e:
+                    v::free bytes
+                    v::free v::vec_push_error_vec e
+                    false
+                Result::Ok wrong_records:
+                    let malformed %SelfhostResourceIrCanonicalSymbolTable SelfhostResourceIrCanonicalSymbolTable wrong_records bytes
+                    let rejected %bool selfhost_resource_ir_canonical_symbol_result_error_code_eq selfhost_resource_ir_canonical_symbol_table_contains_result &malformed SelfhostResourceIrVariantStableSymbol 1 1 4
+                    selfhost_resource_ir_canonical_symbol_table_free malformed
+                    rejected
+
+//: selfhost_resource_ir_canonical_symbol_table_stage0: intern canonicalizationとtyped rejectionのruntime smoke
+pub fn selfhost_resource_ir_canonical_symbol_table_stage0 %impure fn void bool \void:
+    match selfhost_resource_ir_canonical_symbol_table_new:
+        Result::Err _:
+            false
+        Result::Ok table0:
+            match selfhost_resource_ir_canonical_symbol_table_intern table0 "Ready":
+                Result::Err _:
+                    false
+                Result::Ok first:
+                    let table1 %SelfhostResourceIrCanonicalSymbolTable field::get first "table"
+                    let symbol_a %SelfhostResourceIrVariantStableSymbol field::get first "symbol"
+                    match selfhost_resource_ir_canonical_symbol_table_intern table1 "Ready":
+                        Result::Err _:
+                            false
+                        Result::Ok same:
+                            let table2 %SelfhostResourceIrCanonicalSymbolTable field::get same "table"
+                            let symbol_same %SelfhostResourceIrVariantStableSymbol field::get same "symbol"
+                            match selfhost_resource_ir_canonical_symbol_table_intern table2 "Failed":
+                                Result::Err _:
+                                    false
+                                Result::Ok distinct:
+                                    let table3 %SelfhostResourceIrCanonicalSymbolTable field::get distinct "table"
+                                    let symbol_b %SelfhostResourceIrVariantStableSymbol field::get distinct "symbol"
+                                    let canonical_same %bool selfhost_resource_ir_variant_stable_symbol_eq symbol_a symbol_same
+                                    let canonical_distinct %bool not selfhost_resource_ir_variant_stable_symbol_eq symbol_a symbol_b
+                                    let valid %bool match selfhost_resource_ir_canonical_symbol_table_validate_result &table3:
+                                        Result::Ok _:
+                                            true
+                                        Result::Err _:
+                                            false
+                                    let member %bool match selfhost_resource_ir_canonical_symbol_table_contains_result &table3 symbol_a:
+                                        Result::Ok _:
+                                            true
+                                        Result::Err _:
+                                            false
+                                    let placeholder_rejected %bool selfhost_resource_ir_canonical_symbol_result_error_code_eq selfhost_resource_ir_canonical_symbol_table_contains_result &table3 SelfhostResourceIrVariantStableSymbol 1 0 1
+                                    let schema_rejected %bool selfhost_resource_ir_canonical_symbol_result_error_code_eq selfhost_resource_ir_canonical_symbol_table_contains_result &table3 SelfhostResourceIrVariantStableSymbol 2 symbol_a.identity 2
+                                    let missing_rejected %bool selfhost_resource_ir_canonical_symbol_result_error_code_eq selfhost_resource_ir_canonical_symbol_table_contains_result &table3 SelfhostResourceIrVariantStableSymbol 1 99 3
+                                    let records %Vec SelfhostResourceIrCanonicalSymbolRecord field::get table3 "records"
+                                    let bytes %Vec i32 field::get table3 "bytes"
+                                    let duplicate %SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrVariantStableSymbol 1 3 0 5
+                                    match v::push records duplicate:
+                                        Result::Err e:
+                                            v::free bytes
+                                            v::free v::vec_push_error_vec e
+                                            false
+                                        Result::Ok malformed_records:
+                                            let malformed %SelfhostResourceIrCanonicalSymbolTable SelfhostResourceIrCanonicalSymbolTable malformed_records bytes
+                                            let duplicate_rejected %bool selfhost_resource_ir_canonical_symbol_result_error_code_eq selfhost_resource_ir_canonical_symbol_table_validate_result &malformed 5
+                                            selfhost_resource_ir_canonical_symbol_table_free malformed
+                                            and selfhost_resource_ir_canonical_symbol_membership_mismatch_stage0 and canonical_same and canonical_distinct and valid and member and placeholder_rejected and schema_rejected and missing_rejected duplicate_rejected
 
 fn selfhost_resource_ir_usize_narrow_result %fn i64 fn SelfhostResourceIrUsizeNarrowErrorKind fn SelfhostResourceIrUsizeNarrowErrorKind SelfhostResourceIrUsizeNarrowResult \value\negative_error\out_of_range_error:
     if:
@@ -249,7 +562,7 @@ fn selfhost_resource_ir_usize_narrowing_stage0 %fn void bool \void:
     let known_zero %SelfhostResourceIrOffsetNarrowResult selfhost_resource_ir_known_offset_from_usize_i64 zero
     let scaled_symbolic_max %SelfhostResourceIrOffsetNarrowResult selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 max
     let scaled_offset_max %SelfhostResourceIrOffsetNarrowResult selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 max
-    and selfhost_resource_ir_projection_narrow_result_is_valid field_zero and selfhost_resource_ir_projection_narrow_result_is_valid tuple_max and selfhost_resource_ir_offset_narrow_result_is_valid known_zero and selfhost_resource_ir_offset_narrow_result_is_valid scaled_symbolic_max and selfhost_resource_ir_offset_narrow_result_is_valid scaled_offset_max and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 negative zero 1 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 too_large zero 2 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 zero negative 3 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 zero too_large 4 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 negative zero 5 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 too_large zero 6 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 zero negative 7 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 zero too_large 8 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_known_offset_from_usize_i64 negative 9 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_known_offset_from_usize_i64 too_large 10 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 negative 11 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 too_large 12 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 negative 13 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 too_large 14
+    and selfhost_resource_ir_projection_narrow_result_is_valid field_zero and selfhost_resource_ir_projection_narrow_result_is_valid tuple_max and selfhost_resource_ir_offset_narrow_result_is_valid known_zero and selfhost_resource_ir_offset_narrow_result_is_valid scaled_symbolic_max and selfhost_resource_ir_offset_narrow_result_is_valid scaled_offset_max and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 negative zero 1 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 too_large zero 2 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 zero negative 3 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_field_projection_from_usize_i64 zero too_large 4 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 negative zero 5 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 too_large zero 6 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 zero negative 7 and selfhost_resource_ir_projection_narrow_result_error_code_eq selfhost_resource_ir_tuple_field_projection_from_usize_i64 zero too_large 8 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_known_offset_from_usize_i64 negative 9 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_known_offset_from_usize_i64 too_large 10 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 negative 11 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_symbolic_offset_from_usize_i64 1 too_large 12 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 negative 13 and selfhost_resource_ir_offset_narrow_result_error_code_eq selfhost_resource_ir_scaled_offset_from_usize_i64 1 extend_s 3 too_large 14 and true
 
 //: selfhost_resource_ir_resource_offset_is_structurally_valid: offset payloadのnonproduction構造制約を検査する
 pub fn selfhost_resource_ir_resource_offset_is_structurally_valid %fn SelfhostResourceIrResourceOffset bool \offset:

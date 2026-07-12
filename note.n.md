@@ -83787,7 +83787,6 @@ MERGE_APPROVED
 - take 5 mapping、retry 18 input authority／36 source-target mapping、各sourceのexact到達集合、attempt call graphのrooted/full固定点一致を検査する。callee bool定数でpath pruningしない保守的ReadFailed再発5 mappingを含む。二重takeは`OwnerUnavailable`のMoved／Readとして引き続き拒否する。
 - runtimeは相互排他的な別候補が実際にtransferableな場合だけnon-live候補をskipする。全候補unavailableではskipせずOwnerUnavailable診断へ進むnegative controlを固定した。
 - F5nxj registered face production runtimeはread retry、budget 0/negative、partial seal、8 writes、terminal、checked seal、cleanup-only push failureを含めて1 / 1通過した。フォントレンダリングエンジンとGUIライブラリの最終目標は未完了であり、このResource修正checkpointを全体完成とは扱わない。
-
 ## 2026-07-13 GUI font rendering F5nxk owner-bound source contour access（進行中）
 
 - F5nxj completed ownerを保持するF5nxk先行ownerを追加し、checked command readとO(1) indexed contour span lookupをowner-bound forwardingで接続した。commandのcontour / global edge / local edgeとspan start/end/countを再照合し、raw collection、nested source、legacy writerのsplit APIは公開しない。
@@ -83815,3 +83814,58 @@ MERGE_APPROVED
 - 最初のproduction実行は300秒compile timeoutとなった。runtime read数ではなく、compiler checkpointで追加した全source共通の適用済みtarget線形走査がdeep return列を増幅していたため、source別`BTreeMap`へ変更し、相互排他判定を同じcanonical sourceのtarget列だけに限定した。
 - source別index化後、trunk build後のfocused registered-face doctestは22 / 22通過した。synthetic production-depth回帰とconditional target unit controlsも維持している。blocker issueとtodoを完了扱いに同期する。
 - これはF5nxk production runtime gateのcheckpointであり、checked-span curve/event forwarding、stroke provenance chain、フォントレンダリングエンジン、native/GUI表示の最終目標は未完了である。`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource CollectionSlotDropTraversal payload
+
+- Rust `ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`をkind tag 18専用のprivate sparse ownerへ接続した。
+- recordはproof key / graph / dense operation ordinal、独立graph-bound storage / initialized-count Place、expected TypeIdを保持する。scopeはCollectionStorageRelocate後にmerge-cursorでownerを検査し、missing / unexpected、identity / ordinal、両Placeのgraph / membership、TypeIdのnegative index / borrowed TypeArena membershipをfield固有errorへ分類する。
+- positive fixtureは異なる両endpointとarena内typeを保持し、negative matrixは各拒否経路をexact variant / ordinalで固定する。このsliceは構造transportだけであり、drop traversal execution、initialized rangeのforall proof、slot element type照合、actual co-productionを主張しない。originは非productionの`ResourceIrInventoryValidated`を維持する。
+- Rust enum上の中間未実装variantを検査済みとは扱わず、当時の残る14 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource CollectionSlotTransformRange payload
+
+- Rust `ResourceOp::CollectionSlotTransformRange { source_storage, source_initialized_count, output_storage, output_initialized_count, expected_ty, span }`をkind tag 19専用のprivate sparse ownerへ接続した。
+- source storage / initialized count / output storage / initialized countを4個の独立graph-bound Placeとして保持し、同じborrowed TypeArenaに属するnonnegative expected TypeIdとともにscopeで照合する。
+- positive fixtureは4 endpointがすべて異なることを確認し、payload merge、identity / ordinal、各endpointのmissing / wrong graph、type invalid / missingを15個のfield固有negative modeでexact照合する。
+- transform semantics、source/output rangeの全称証明、rollback、要素型一致、actual co-productionは未完成であり、`ResourceIrInventoryValidated`をproduction authorityとして扱わない。
+
+## 2026-07-13 selfhost Resource RawAddressAlias payload
+
+- Rust `ResourceOp::RawAddressAlias { source, target, kind, span }`をkind tag 13専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはTransparent / InternalHelper / OwnerTokenConstructの全3 variantを保持する。
+- sparse mergeはpayload missing / unexpected、identity / ordinal、各Placeのmissing / wrong graphをexact errorへ分類する。runtime matrixは全kind transportとmode 0〜9を検査する。
+- このcheckpointは構造payloadのnonproduction inventoryであり、alias safety、provenance semantics、source capability、actual materializer co-productionを主張しない。Rust enum上の中間variantも実装済みとは数えず、payload ownerは12件未完成である。
+
+## 2026-07-13 selfhost Resource RawAddressView payload
+
+- Rust `ResourceOp::RawAddressView { source, target, kind, span }`をkind tag 14専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはOffset / MemPtrOffset / NonOwningProjection / InternalHelperの全4 variantを保持する。
+- sparse mergeはpayload missing / unexpected、identity / ordinal、各Placeのmissing / wrong graphをexact errorへ分類する。runtime matrixは全kind transportとmode 0〜9を検査する。
+- このcheckpointは構造payloadのnonproduction inventoryであり、view semantics、provenance、source capability、actual materializer co-productionを主張しない。payload ownerは11件未完成で、selfhost compilerの最終目標も未完了である。`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource StorageOrigin payload
+
+- Rust `ResourceOp::StorageOrigin { target, origin, span }`をkind tag 15専用のprivate sparse ownerへ接続した。targetはgraph-bound Placeで、originはOwned / Unmanaged / Internalの全3 variantを保持する。
+- sparse mergeはpayload missing / unexpected、identity / ordinal、targetのmissing / wrong graphをexact errorへ分類する。runtime matrixは全origin transportとnegative modeを検査する。
+- このcheckpointは構造payloadのnonproduction inventoryであり、storage ownership semantics、provenance、actual materializer co-productionを主張しない。payload ownerは10件未完成で、selfhost compilerの最終目標も未完了である。`plan.md`は変更していない。
+## 2026-07-13 selfhost Resource CollectionSlotLifecycle payload
+
+- Rust `ResourceOp::CollectionSlotLifecycle { target, event, span }`をkind tag 16専用のprivate sparse ownerへ接続した。6 eventとReplaceの2 replacementをvariant-nativeに保持し、dummy/optional payloadへ平坦化しない。
+
+- targetはgraph-bound Placeとして、event固有TypeIdはborrowしたTypeArenaのmembershipとして検査する。Replace old/new型を個別errorに分け、missing / unexpected、identity / ordinalを含むexact rejection matrixを固定する。
+- stage0 matrixは6 eventすべてとReplaceの`ReturnOldOwner` / `DropOldOwner`をlosslessに再読出しし、payload missing / unexpected、key / graph identity、ordinal、target membership / graph、Initialize / Borrow / Move / Replace old / Replace new / Drop / Storageの各TypeId membershipをtyped errorとordinal 16で照合する。
+- `git diff --check`と通常visibility/parser gateは通過した。`trunk build`はWSL環境でpre-build hookの`npm.cmd`を起動できず、実行環境要因で開始前に停止した。
+- このownerは非productionの`ResourceIrInventoryValidated`を強化するだけで、slot state遷移、owner transfer/drop proof、actual materializer co-productionを証明しない。残るResource operation payloadは9件。
+
+## 2026-07-13 selfhost Resource RawMemory payload
+
+- Rust `ResourceOp::RawMemory { operation, output, args, span }`をkind tag 12専用のprivate sparse headerとdense arg endpoint ownerへ投影した。`RawMemoryOp`全13種、output、checked args range、argsのoperation/arg ordinalとgraph-bound Placeをvariant-nativeに保持する。
+- argsはRust `Vec<Place>`と同じく0件・複数件・同一Placeの重複を許可する。header/endpointの欠落・混入、identity/ordinal、range overflow/gap/excess、output/argのmissing/wrong graphをtyped errorへ分離する。
+- このownerは非productionの`ResourceIrInventoryValidated`構造境界であり、raw memory semantics、capability、actual HIR-to-Resource co-productionを証明しない。残る8 operation payload、nested topology、walker operation table同時生成は未完成である。
+
+## 2026-07-13 selfhost Resource EnumPayload canonical symbol intern prerequisite
+
+- `SelfhostResourceIrVariantStableSymbol`のnonzero検査だけでRust String spellingを代替していた根本問題に対し、spellingのUTF-8 byte列をdense byte ownerへcopyするcanonical symbol tableを追加した。入力`str`のlifetimeに依存せず、record ownerとbyte ownerを共にfreeする。
+- schema version 1 / identity=ordinal+1をidentityとし、same spellingのre-internは同じsymbol、distinct spellingは別symbolを返す。table validatorはplaceholder、wrong schema、out-of-range、dense membership mismatch、duplicate spellingをtyped errorで拒否する。
+- EnumPayload専用のborrowed membership validatorを実projection inventory scopeへ接続した。lookupはtable全体のoverflow-free range / dense identity / duplicate spelling検証後だけ成功し、missing / malformed symbolはscope authority発行前にtyped rejectionとなる。非Enum projectionは空tableでも受理する。
+- 2つのstage0 lifecycleでtableを生成し、Enum fixtureでは必要spellingをinternしてborrowし、検査後にprojection / type ownerより先にcanonical tableを解放する。実projection fixtureのsymbol identityは同table recordと一致する。
+- reviewで検出した全table再走査を除去した。scope moduleのprivate wrapperがtable全体を一度検査し、同じimmutable borrowをprivate再帰へ渡す。EnumPayloadはprivate membership-only lookupだけを行い、外部構築可能なvalidation evidenceは公開しない。malformed table + 実Deref projection / Placeのnegative fixtureで非Enum時もowner検査を省略しないことを確認する。
+- enum type key membership、canonical type key、serialized cross-session symbol、actual Rust loweringとのtable co-productionは後続である。残るResource operation payload数8件は減らさない。
