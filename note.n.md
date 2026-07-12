@@ -83787,3 +83787,9 @@ MERGE_APPROVED
 - take 5 mapping、retry 18 input authority／36 source-target mapping、各sourceのexact到達集合、attempt call graphのrooted/full固定点一致を検査する。callee bool定数でpath pruningしない保守的ReadFailed再発5 mappingを含む。二重takeは`OwnerUnavailable`のMoved／Readとして引き続き拒否する。
 - runtimeは相互排他的な別候補が実際にtransferableな場合だけnon-live候補をskipする。全候補unavailableではskipせずOwnerUnavailable診断へ進むnegative controlを固定した。
 - F5nxj registered face production runtimeはread retry、budget 0/negative、partial seal、8 writes、terminal、checked seal、cleanup-only push failureを含めて1 / 1通過した。フォントレンダリングエンジンとGUIライブラリの最終目標は未完了であり、このResource修正checkpointを全体完成とは扱わない。
+## 2026-07-13 selfhost Resource CollectionSlotDropTraversal payload
+
+- Rust `ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`をkind tag 18専用のprivate sparse ownerへ接続した。
+- recordはproof key / graph / dense operation ordinal、独立graph-bound storage / initialized-count Place、expected TypeIdを保持する。scopeはCollectionStorageRelocate後にmerge-cursorでownerを検査し、missing / unexpected、identity / ordinal、両Placeのgraph / membership、TypeIdのnegative index / borrowed TypeArena membershipをfield固有errorへ分類する。
+- positive fixtureは異なる両endpointとarena内typeを保持し、negative matrixは各拒否経路をexact variant / ordinalで固定する。このsliceは構造transportだけであり、drop traversal execution、initialized rangeのforall proof、slot element type照合、actual co-productionを主張しない。originは非productionの`ResourceIrInventoryValidated`を維持する。
+- Rust enum上の中間未実装variantを検査済みとは扱わず、残る14 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。

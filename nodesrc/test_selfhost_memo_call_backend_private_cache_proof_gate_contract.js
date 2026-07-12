@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1709,6 +1709,32 @@ assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_ca
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_storage_relocate_payload_stage0_case"), /not eq stored.old_storage.place_id.index stored.new_storage.place_id.index/, "positive CollectionStorageRelocate fixture must retain distinct storage endpoints");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /end_scope_payload_inventory_validate_loop[\s\S]*collection_storage_relocate_payload_inventory_validate_loop/, "scope must validate CollectionStorageRelocate after EndScope");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_storage_relocate_payload_stage0/, "public runtime must execute CollectionStorageRelocate matrix");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory",
+    "CollectionSlotDropTraversalPayloadMissing", "CollectionSlotDropTraversalPayloadUnexpected", "CollectionSlotDropTraversalPayloadIdentityMismatch", "CollectionSlotDropTraversalPayloadOrdinalMismatch",
+    "CollectionSlotDropTraversalStorageMissing", "CollectionSlotDropTraversalStorageGraphMismatch", "CollectionSlotDropTraversalInitializedCountMissing", "CollectionSlotDropTraversalInitializedCountGraphMismatch",
+    "CollectionSlotDropTraversalExpectedTypeInvalid", "CollectionSlotDropTraversalExpectedTypeMissing",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `CollectionSlotDropTraversal payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_collection_slot_drop_traversal"), /operation_kind_tag kind 18/, "CollectionSlotDropTraversal owner must select kind tag 18");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_record_validate_result"), ["CollectionSlotDropTraversalPayloadIdentityMismatch", "CollectionSlotDropTraversalPayloadOrdinalMismatch", "record.storage", "record.initialized_count", "record.expected_ty"], "CollectionSlotDropTraversal payload must validate identity, both endpoints, and expected type deterministically");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_stage0_with_types"), /not eq stored.storage.place_id.index stored.initialized_count.place_id.index/, "positive CollectionSlotDropTraversal fixture must retain distinct endpoints");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_storage_relocate_payload_inventory_validate_loop[\s\S]*collection_slot_drop_traversal_payload_inventory_validate_loop/, "scope must validate CollectionSlotDropTraversal after CollectionStorageRelocate");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_slot_drop_traversal_payload_stage0/, "public runtime must execute CollectionSlotDropTraversal matrix");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_stage0_error_matches"),
+    ["CollectionSlotDropTraversalPayloadMissing", "CollectionSlotDropTraversalPayloadUnexpected", "CollectionSlotDropTraversalPayloadIdentityMismatch", "CollectionSlotDropTraversalPayloadOrdinalMismatch", "CollectionSlotDropTraversalStorageMissing", "CollectionSlotDropTraversalStorageGraphMismatch", "CollectionSlotDropTraversalInitializedCountMissing", "CollectionSlotDropTraversalInitializedCountGraphMismatch", "CollectionSlotDropTraversalExpectedTypeInvalid", "CollectionSlotDropTraversalExpectedTypeMissing"],
+    "CollectionSlotDropTraversal runtime must exact-match every typed rejection in diagnostic order",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_stage0"),
+    Array.from({ length: 12 }, (_, mode) => `collection_slot_drop_traversal_payload_stage0_case ${mode}`),
+    "CollectionSlotDropTraversal public matrix must execute the positive case and all eleven negative modes",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_drop_traversal_payload_record_validate_result"),
+    /selfhost_type_arena_get_record types record\.expected_ty/,
+    "CollectionSlotDropTraversal expected type must belong to the borrowed TypeArena",
+);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [

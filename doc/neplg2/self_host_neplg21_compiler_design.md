@@ -3644,6 +3644,12 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 この境界はstorage pairの構造transportだけを保証する。raw realloc relocation proof、canonical owner-cell、slot state rekey、proofの一回消費、actual co-productionはRust checkerと将来の後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは15件である。
 
+### 2026-07-13 Resource CollectionSlotDropTraversal payload
+
+`ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`はkind tag 18専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinal、独立したgraph-bound storage / initialized-count Placeとexpected TypeIdを持つ。scopeはCollectionStorageRelocateの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両Placeのgraph / membership、TypeIdの負index / 同じborrowed TypeArena内のmembershipをfield固有typed rejectionへ分類する。
+
+この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。この境界はpayloadのlosslessな構造transportだけを保証し、drop traversalの実行、initialized rangeの全称証明、expected typeとslot element typeの一致、actual co-productionは後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは14件である。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。
