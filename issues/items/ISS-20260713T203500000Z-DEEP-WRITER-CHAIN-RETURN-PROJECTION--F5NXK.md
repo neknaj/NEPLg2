@@ -30,8 +30,19 @@ F5nxj production writerを8回順次commitしてF5nxkへ渡すvalid callerが、
 
 `ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D`は同一parameter enumの別payloadが同一targetへ合流する代替mappingを保持した。本件はsuccessive Ok ownerを次のcallへ消費した後、boolを返すcallerで一時Result owner leafがReturnValue候補として残る。別variant retryだけでなく、連続success transferのsummary compositionまたはreturn target pruningを調べる必要がある。
 
+# 根本原因境界
+
+- match bindでResult payloadのpending owner effectsがbind localへ複製される。
+- `budget_step_owner step`が実ownerを次ownerへ移しても、bind local側の条件付きreturn alternativeが残る。
+- arm終端の`resolve_result`は元scrutineeを解決するが、bind local側の残存候補を全て消費しない。
+- apply側の`should_skip_unavailable_alternative`はenum projectionの相互排他だけを見て、generation側が保持した`source_condition`を判定しない。
+- このため既にMovedのTemporary Result leafが後段control outputを通ってbool returnまで残る。
+
+修正境界は`owner_control.rs`のmatch bind lifecycleと`owner_variant.rs`の`materialize_return_owner_for_target` / `retain_unmaterialized_sources` / availability判定である。target projectionが具体化・移送済みのとき、そのtargetに対応するpending return alternativeだけを`source_condition`込みでpruneする。Moved sourceの一般無視は禁止する。
+
 # 再開条件
 
 - genuine double move negative controlを維持する。
+- 同じBudgetStepからownerを2回take、既存double-take retry、非排他的同一target候補、Err cleanup欠落をnegative controlとして維持する。
 - F5nxj controlled 8-command fixtureがnormal Resource checkを通る。
 - F5nxkでcommand index 0と4のindexed span、index -1、typed span lookup failure、identity mismatch、single freeを実行して1 / 1通過する。

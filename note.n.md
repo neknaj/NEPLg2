@@ -83799,3 +83799,4 @@ MERGE_APPROVED
 - 既存2 contour / 4 edge registered-face fixtureをF5nxj plan/allocation/writer、8 command commit、F5nxk start/read/freeまで延長したところ、Resource checkerが各`writer_step_budget`の返却owner leafをcaller return時に`Moved`として誤報した。再帰drainを8個の非再帰helper、さらに単一関数の8段unrollへ変えても同じprojection群で再現し、制御構造固有ではなくdeep production owner return summaryの残存不具合と確認した。
 - 60秒、240秒ではcompile timeout、600秒では`resource.owner.use_after_move`を再現した。失敗fixtureは通常suiteへ残さず、`ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK`へ再現条件を分離した。
 - F5nxk source-policy、typed lookup error、test-only identity finalizerはfocused compile対象として維持するが、production runtime gate未達のためmain統合は行わない。再開条件はcompiler fix後にcontrolled fixtureが1 / 1通過することである。
+- subagentとのroot-cause監査で、match bind localへ複製されたpending Result owner effectがpayload take後も残り、apply側が`source_condition`を見ずTemporary leafをbool returnまで輸送する境界へ絞った。次はtarget具体化済みalternativeだけをpruneするResource regression/fixを独立checkpointで行い、Moved一般無視によるdouble-move隠蔽を避ける。
