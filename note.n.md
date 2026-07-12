@@ -83708,3 +83708,10 @@ MERGE_APPROVED
 - operation kind ownerとのmerge-cursorでRead payload欠落とnon-Read payload混入を拒否し、record identity / ordinal、source / outputそれぞれのgraph一致とPlace inventory membershipを検査する。sourceとoutputは同一Placeに縮退させず、異なるhandleを保持できるpositive fixtureを固定した。
 - runtimeはpositive、missing、unexpected、key / record graph / ordinal、source / outputのmissing / wrong graphをfield固有errorとordinalでexact検査する。scope authorityはExpr、DeclareLocal、Readの順にpayload ownerを検査した後だけ非productionの`ResourceIrInventoryValidated`を維持する。
 - 当初候補だったBranch / Loop / Match topologyは、block-aware nested ownerと再帰的ordinal設計を先に確定しないとflat operation ownerへ誤ったauthorityを固定するため、このsliceでは採用しなかった。actual HIR-to-Resource co-production、残る21 operation payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource Assign payload
+
+- Rust `ResourceOp::Assign { target, value, span }`のspan以外をprivate sparse payload ownerへ保持した。recordはproof key、graph id、dense operation ordinalと、graph identity付きtarget / value Place handleを持つ。
+- kind ownerとのmerge-cursorでAssign payloadのmissing / unexpectedを拒否し、identity / ordinal、target / valueそれぞれのwrong graph / missing membershipをfield固有errorへ分類する。異なるtarget / valueを保持するpositive fixtureも固定した。
+- scope authorityと全stage0 callerへownerのcreate / borrow / pass / freeを接続し、public inventory runtime facadeからpositiveと9 negative caseを実行する。Expr / DeclareLocal / Read / Assignの検査後もoriginは`ResourceIrInventoryValidated`のままである。
+- actual co-production、assignment semantics、残る20 payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。

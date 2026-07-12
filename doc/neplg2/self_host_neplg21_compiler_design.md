@@ -3606,6 +3606,12 @@ memo_call backend proof gate内のResource IR inventory model、owner、validato
 
 通常import用の独立support moduleはprivate authorityをpublic signatureへ露出するため採用しない。source-policyはneutralなmerge pathを固定し、partの公開宣言・公開importとanchor以外からのpart参照を拒否する。part自身のprivate dependency importは各source partを通常parseできるよう保持する。DeclareLocal payload案と同程度の159行sentinelをpartへ一時追加した状態でもfocused doctest全件が通ることを確認し、sentinelは恒久sourceから撤回した。これは型検査余裕の実証であり、DeclareLocal payload自体やactual Resource IR co-productionの完成ではない。
 
+### 2026-07-12 Resource Assign payload
+
+Rust `ResourceOp::Assign { target, value, span }`のspan以外をprivate sparse payload ownerへ保持する。targetとvalueはgraph identityを内包する独立Place handleであり、同じhandleへ縮退させない。operation kind ownerとのmerge-cursorはAssignごとのpayload欠落とnon-Assign ordinalへのpayload混入を拒否し、record identity、dense ordinal、target / valueそれぞれのgraph一致とPlace inventory membershipを検査する。
+
+scope authorityはExpr、DeclareLocal、Read、Assignの順でpayload ownerを検査した後も非productionの`ResourceIrInventoryValidated`だけを発行する。actual HIR-to-Resource co-production、assignment mutation / owner-transfer semantics、残る20 operation payload、nested Branch / Loop / Match topologyは未完成である。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。
