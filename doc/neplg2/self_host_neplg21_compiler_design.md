@@ -3630,6 +3630,12 @@ scope authorityはExpr、DeclareLocal、Read、Assign、Borrow、Moveの順でow
 
 scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpositive、missing / unexpected、key / graph identity、ordinal、Place membership / graph境界を網羅する。このsliceが保証するのはRust variantの構造transportだけであり、destructor execution、drop flag、no-escape proof、actual co-production、残る17 payloadは未完成である。originは非productionの`ResourceIrInventoryValidated`を維持する。
 
+### 2026-07-12 Resource EndScope payload
+
+`ResourceOp::EndScope { locals: Vec<Place>, result: Option<Place>, span }`はoperationごとのsparse header ownerとlocals専用dense endpoint ownerへ分ける。headerはkey、graph、operation ordinal、dense locals範囲、optional resultを持ち、endpointはoperation ordinal、Vec内ordinal、graph-bound Placeを持つ。scopeはDropの後にkind ownerとheaderをmergeし、locals範囲のoverflow、gap、excess、順序、各Placeとoptional resultのgraph / membershipを検査する。RustのVecが重複Placeを表現できるため、重複自体は拒否しない。
+
+この境界はEndScopeの構造transportだけを保証する。destructor実行順、drop elaboration、live-local closure、no-escape、actual co-productionは後段authorityであり、成功originは非productionの`ResourceIrInventoryValidated`を維持する。残るoperation payloadは16件である。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1541,7 +1541,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads/,
+    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
@@ -1676,6 +1676,29 @@ assertOrdered(
     "Drop runtime matrix must cover positive, sparse join, identity, ordinal, and Place boundaries",
 );
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_drop_payload_stage0/, "public runtime must execute Drop matrix");
+
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory",
+    "EndScopePayloadMissing", "EndScopePayloadUnexpected", "EndScopePayloadIdentityMismatch", "EndScopePayloadOrdinalMismatch",
+    "EndScopeLocalRangeInvalid", "EndScopeLocalMissing", "EndScopeLocalUnexpected", "EndScopeLocalOrdinalMismatch",
+    "EndScopeLocalPlaceMissing", "EndScopeLocalPlaceGraphMismatch", "EndScopeResultPlaceMissing", "EndScopeResultPlaceGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `EndScope structural payload contract must contain ${symbol}`);
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_end_scope_payload_record_validate_result"), ["EndScopePayloadIdentityMismatch", "EndScopePayloadOrdinalMismatch", "EndScopeLocalRangeInvalid", "EndScopeResultPlaceMissing", "EndScopeResultPlaceGraphMismatch"], "EndScope header must reject identity/range/result failures in deterministic order");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_end_scope_payload_inventory_validate_loop"), ["resource_ir_operation_kind_is_end_scope", "EndScopePayloadMissing", "end_scope_local_range_validate_loop", "EndScopePayloadUnexpected"], "EndScope sparse header and dense local endpoint owners must merge against operation kinds");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_end_scope_payload_stage0_error_matches"),
+    ["EndScopePayloadMissing", "EndScopePayloadUnexpected", "EndScopePayloadIdentityMismatch", "EndScopePayloadOrdinalMismatch", "EndScopeLocalRangeInvalid", "EndScopeLocalMissing", "EndScopeLocalUnexpected", "EndScopeLocalOrdinalMismatch", "EndScopeLocalPlaceMissing", "EndScopeLocalPlaceGraphMismatch", "EndScopeResultPlaceMissing", "EndScopeResultPlaceGraphMismatch"],
+    "EndScope runtime errors must retain exact typed variants and ordinals",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_end_scope_payload_stage0"),
+    Array.from({ length: 20 }, (_, mode) => `stage0_case ${mode}`),
+    "EndScope runtime matrix must cover three positives and every sparse header, dense endpoint, range, identity, ordinal, and Place rejection",
+);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_end_scope_local_inventory_stage0_case_result"), /if eq mode 2 0 1/, "EndScope positive matrix must accept duplicate local Place endpoints without inventing distinctness");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_end_scope_payload_stage0/, "public runtime must execute EndScope matrix");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /drop_payload_inventory_validate_loop[\s\S]*end_scope_payload_inventory_validate_loop/, "scope must validate EndScope after Drop");
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [

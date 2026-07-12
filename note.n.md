@@ -83734,3 +83734,9 @@ MERGE_APPROVED
 - Rust `ResourceOp::Drop { place, span }`に対応するprivate sparse ownerを追加し、proof key、graph id、dense ordinal、graph-bound Placeを保持した。
 - kind ownerとのmerge-cursorでmissing / unexpectedをfail-closedにし、identity、ordinal、Place graph / membershipをexact errorへ分類した。scopeは既存6 ownerの後にDropを検証し、stage0 producer/free lifecycleとpublic runtimeへ接続した。
 - このsliceはstructural payloadだけを保証し、destructor executionやno-escape proofを主張しない。actual co-production、残る17 payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。
+
+## 2026-07-12 selfhost Resource EndScope payload
+
+- Rust `ResourceOp::EndScope { locals, result, span }`をsparse headerとdense local endpointへ分け、localsのVec順と重複可能性を保持した。
+- checked range、gap / excess、identity / ordinal、各localとoptional resultのgraph / Place membershipをscope発行前に検査する。
+- destructor executionやdrop elaborationは主張せず、actual co-production、残る16 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。
