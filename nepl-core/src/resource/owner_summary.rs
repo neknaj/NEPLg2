@@ -502,3 +502,7 @@ fn function_owner_return_summary(
         storage_origin_markers,
     }
 }
+
+#[cfg(test)]
+#[path = "owner_summary_tests.rs"]
+mod tests;
