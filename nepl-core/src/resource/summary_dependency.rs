@@ -31,6 +31,7 @@ pub(super) struct ResourceSummaryDependencyGraph {
     raw_init_dependencies: Vec<Vec<usize>>,
     raw_init_dependents: Vec<Vec<usize>>,
     raw_init_initial_order: Vec<usize>,
+    #[cfg(test)]
     owner_dependencies: Vec<Vec<usize>>,
     owner_dependents: Vec<Vec<usize>>,
     owner_initial_order: Vec<usize>,
@@ -115,6 +116,7 @@ impl ResourceSummaryDependencyGraph {
             raw_init_dependencies,
             raw_init_dependents,
             raw_init_initial_order,
+            #[cfg(test)]
             owner_dependencies,
             owner_dependents,
             owner_initial_order,
@@ -191,6 +193,7 @@ impl ResourceSummaryDependencyGraph {
     }
 
     /// owner return summary が読む caller から callee への依存辺を返す。
+    #[cfg(test)]
     pub(super) fn owner_dependencies(&self) -> &[Vec<usize>] {
         &self.owner_dependencies
     }

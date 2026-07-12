@@ -25,7 +25,10 @@ fn deep_distinct_owner_variant_summary_preserves_path_conditioned_mapping() {
     let source = r#"
 #indent 4
 #target core
+#import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
 #import "core/result" as *
 
 enum LeafState:
@@ -54,8 +57,22 @@ struct NestedError:
 enum StepError:
     Direct <OwnerPair>
     Nested <NestedError>
+    SourceOnly <OuterOwner>
 
-fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+fn free_outer <(OuterOwner)*>()> (owner):
+    let inner <InnerOwner> field::get owner "inner"
+    let leaf <LeafOwner> field::get inner "leaf"
+    match field::get leaf "state":
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        LeafState::Empty:
+            ()
+
+fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error, source_only):
     if:
         ok_path
         then:
@@ -64,11 +81,30 @@ fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
             direct_error
             then:
                 Result<Step,StepError>::Err StepError::Direct owner
-            else:
-                Result<Step,StepError>::Err StepError::Nested NestedError owner
+            else if:
+                source_only
+                then:
+                    let source <OuterOwner> field::get owner "source"
+                    let writer <OuterOwner> field::get owner "writer"
+                    free_outer writer
+                    Result<Step,StepError>::Err StepError::SourceOnly source
+                else:
+                    Result<Step,StepError>::Err StepError::Nested NestedError owner
 
-fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
-    route owner ok_path direct_error
+fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+    budget owner completed exhausted lower_ok direct_error source_only
+
+fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+    if:
+        completed
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            exhausted
+            then:
+                Result<Step,StepError>::Ok Step owner
+            else:
+                route owner lower_ok direct_error source_only
 "#;
     let root = stdlib_root();
     let mut loader = Loader::new(root.clone());
@@ -98,23 +134,22 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
     let resource = lower_hir_module(&module, &checked.types);
     let (summaries, _) =
         compute_owner_return_summaries_with_recomputations(&resource, &checked.types, None);
-    let probe_index = resource
+    let budget_index = resource
         .functions
         .iter()
-        .position(|function| function.name.starts_with("probe__"))
-        .expect("probe function index");
+        .position(|function| function.name.starts_with("budget__"))
+        .expect("budget function index");
     let rooted_summaries =
-        compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, probe_index);
-    assert_eq!(
-        rooted_summaries.len(),
-        2,
-        "rooted fixture must exclude summaries outside probe -> route closure: {rooted_summaries:#?}"
-    );
+        compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, budget_index);
+    assert_eq!(rooted_summaries.len(), 4, "unexpected rooted closure");
     assert!(rooted_summaries.iter().all(|summary| {
-        summary.function.starts_with("route__") || summary.function.starts_with("probe__")
+        summary.function.starts_with("route__")
+            || summary.function.starts_with("budget__")
+            || summary.function.starts_with("free_outer__")
+            || summary.function.starts_with("dealloc_region__")
     }));
 
-    for prefix in ["route__", "probe__"] {
+    for prefix in ["route__", "budget__"] {
         let full = summaries
             .iter()
             .find(|summary| summary.function.starts_with(prefix))
@@ -125,16 +160,34 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
             .unwrap_or_else(|| panic!("missing rooted {prefix} summary"));
         assert_eq!(rooted, full, "rooted summary must equal full fixed point");
     }
+    let rooted_free = rooted_summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("free_outer__"))
+        .expect("rooted free_outer summary");
+    let full_free = summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("free_outer__"))
+        .expect("full free_outer summary");
+    assert_eq!(rooted_free, full_free);
+    let rooted_dealloc = rooted_summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("dealloc_region__"))
+        .expect("rooted dealloc_region summary");
+    let full_dealloc = summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("dealloc_region__"))
+        .expect("full dealloc_region summary");
+    assert_eq!(rooted_dealloc, full_dealloc);
 
-    for prefix in ["route__", "probe__"] {
+    for prefix in ["route__", "probe__", "budget__"] {
         let summary = summaries
             .iter()
             .find(|summary| summary.function.starts_with(prefix))
             .unwrap_or_else(|| panic!("missing {prefix} summary"));
         assert_eq!(
             summary.variant_projection_returns.len(),
-            6,
-            "{prefix} must contain only the six path-conditioned returns: {summary:#?}"
+            7,
+            "{prefix} must contain only the seven path-conditioned returns: {summary:#?}"
         );
         assert!(
             summary.projection_returns.is_empty(),
@@ -153,11 +206,7 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
                 owner => panic!("{prefix} must not degrade a return source to {owner:#?}"),
             })
             .collect::<Vec<_>>();
-        assert_eq!(
-            parameter_returns.len(),
-            6,
-            "{prefix} must retain two sources across three exclusive return paths: {summary:#?}"
-        );
+        assert_eq!(parameter_returns.len(), 7);
         let sources = parameter_returns
             .iter()
             .map(|(_, source)| (*source).clone())
@@ -197,20 +246,36 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
                         )
                     }) {
                         String::from("Nested")
+                    } else if entry.variant == "Err" && entry.suffix.iter().any(|projection| {
+                        matches!(
+                            projection,
+                            PlaceProjection::EnumPayload { variant } if variant.ends_with("SourceOnly")
+                        )
+                    }) {
+                        String::from("SourceOnly")
                     } else {
                         String::from("Unknown")
                     }
                 })
                 .collect::<BTreeSet<_>>();
-            assert_eq!(
-                paths,
+            let expected = if matches!(
+                source.suffix.first(),
+                Some(PlaceProjection::Field { index: 0, .. })
+            ) {
                 BTreeSet::from([
                     String::from("Direct"),
                     String::from("Nested"),
                     String::from("Ok"),
-                ]),
-                "{prefix} must map each source once to every exclusive path"
-            );
+                    String::from("SourceOnly"),
+                ])
+            } else {
+                BTreeSet::from([
+                    String::from("Direct"),
+                    String::from("Nested"),
+                    String::from("Ok"),
+                ])
+            };
+            assert_eq!(paths, expected, "{prefix} must preserve asymmetric paths");
         }
         let targets = parameter_returns
             .iter()
@@ -218,7 +283,7 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
             .collect::<BTreeSet<_>>();
         assert_eq!(
             targets.len(),
-            6,
+            7,
             "{prefix} must not collapse return targets"
         );
     }

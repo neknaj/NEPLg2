@@ -18203,7 +18203,10 @@ fn resource_ir_owner_check_routes_distinct_deep_owners_across_result_variants() 
     let source = r#"
 #indent 4
 #target core
+#import "core/field" as field
 #import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
 #import "core/result" as *
 
 enum LeafState:
@@ -18232,8 +18235,22 @@ struct NestedError:
 enum StepError:
     Direct <OwnerPair>
     Nested <NestedError>
+    SourceOnly <OuterOwner>
 
-fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+fn free_outer <(OuterOwner)*>()> (owner):
+    let inner <InnerOwner> field::get owner "inner"
+    let leaf <LeafOwner> field::get inner "leaf"
+    match field::get leaf "state":
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        LeafState::Empty:
+            ()
+
+fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error, source_only):
     if:
         ok_path
         then:
@@ -18242,11 +18259,30 @@ fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
             direct_error
             then:
                 Result<Step,StepError>::Err StepError::Direct owner
-            else:
-                Result<Step,StepError>::Err StepError::Nested NestedError owner
+            else if:
+                source_only
+                then:
+                    let source <OuterOwner> field::get owner "source"
+                    let writer <OuterOwner> field::get owner "writer"
+                    free_outer writer
+                    Result<Step,StepError>::Err StepError::SourceOnly source
+                else:
+                    Result<Step,StepError>::Err StepError::Nested NestedError owner
 
-fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
-    route owner ok_path direct_error
+fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+    if:
+        completed
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            exhausted
+            then:
+                Result<Step,StepError>::Ok Step owner
+            else:
+                route owner lower_ok direct_error source_only
+
+fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+    budget owner completed exhausted lower_ok direct_error source_only
 "#;
 
     let (module, types) = typecheck_resource_stdlib_source(
