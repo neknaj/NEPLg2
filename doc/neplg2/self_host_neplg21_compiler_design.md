@@ -3648,7 +3648,15 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 `ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`はkind tag 18専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinal、独立したgraph-bound storage / initialized-count Placeとexpected TypeIdを持つ。scopeはCollectionStorageRelocateの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両Placeのgraph / membership、TypeIdの負index / 同じborrowed TypeArena内のmembershipをfield固有typed rejectionへ分類する。
 
-この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。この境界はpayloadのlosslessな構造transportだけを保証し、drop traversalの実行、initialized rangeの全称証明、expected typeとslot element typeの一致、actual co-productionは後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは14件である。
+この境界はpayloadのlosslessな構造transportだけを保証し、drop traversalの実行、initialized rangeの全称証明、expected typeとslot element typeの一致、actual co-productionは後段authorityに残る。
+
+### 2026-07-13 Resource CollectionSlotTransformRange payload
+
+`ResourceOp::CollectionSlotTransformRange { source_storage, source_initialized_count, output_storage, output_initialized_count, expected_ty, span }`はkind tag 19専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinal、相互に独立した4個のgraph-bound Placeとexpected TypeIdを持つ。scopeはCollectionSlotDropTraversalの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、各Placeのgraph / membership、TypeIdの負index / 同じborrowed TypeArena内のmembershipをfield固有typed rejectionへ分類する。
+
+このauthorityが証明するのはRust Resource IR payloadの構造とowner整合だけである。transform実行、source range全域の初期化、output range全域の生成、failure時rollback、要素型一致、actual loweringとのco-productionはまだ証明せず、production originも発行しない。
+
+この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは13件である。
 
 ## 完了条件
 

@@ -83792,4 +83792,11 @@ MERGE_APPROVED
 - Rust `ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`をkind tag 18専用のprivate sparse ownerへ接続した。
 - recordはproof key / graph / dense operation ordinal、独立graph-bound storage / initialized-count Place、expected TypeIdを保持する。scopeはCollectionStorageRelocate後にmerge-cursorでownerを検査し、missing / unexpected、identity / ordinal、両Placeのgraph / membership、TypeIdのnegative index / borrowed TypeArena membershipをfield固有errorへ分類する。
 - positive fixtureは異なる両endpointとarena内typeを保持し、negative matrixは各拒否経路をexact variant / ordinalで固定する。このsliceは構造transportだけであり、drop traversal execution、initialized rangeのforall proof、slot element type照合、actual co-productionを主張しない。originは非productionの`ResourceIrInventoryValidated`を維持する。
-- Rust enum上の中間未実装variantを検査済みとは扱わず、残る14 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。
+- Rust enum上の中間未実装variantを検査済みとは扱わず、当時の残る14 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource CollectionSlotTransformRange payload
+
+- Rust `ResourceOp::CollectionSlotTransformRange { source_storage, source_initialized_count, output_storage, output_initialized_count, expected_ty, span }`をkind tag 19専用のprivate sparse ownerへ接続した。
+- source storage / initialized count / output storage / initialized countを4個の独立graph-bound Placeとして保持し、同じborrowed TypeArenaに属するnonnegative expected TypeIdとともにscopeで照合する。
+- positive fixtureは4 endpointがすべて異なることを確認し、payload merge、identity / ordinal、各endpointのmissing / wrong graph、type invalid / missingを15個のfield固有negative modeでexact照合する。
+- transform semantics、source/output rangeの全称証明、rollback、要素型一致、actual co-productionは未完成であり、`ResourceIrInventoryValidated`をproduction authorityとして扱わない。

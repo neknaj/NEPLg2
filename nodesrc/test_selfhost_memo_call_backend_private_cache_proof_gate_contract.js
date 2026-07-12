@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1735,6 +1735,25 @@ assert.match(
     /selfhost_type_arena_get_record types record\.expected_ty/,
     "CollectionSlotDropTraversal expected type must belong to the borrowed TypeArena",
 );
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory",
+    "CollectionSlotTransformRangePayloadMissing", "CollectionSlotTransformRangePayloadUnexpected", "CollectionSlotTransformRangePayloadIdentityMismatch", "CollectionSlotTransformRangePayloadOrdinalMismatch",
+    "CollectionSlotTransformRangeSourceStorageMissing", "CollectionSlotTransformRangeSourceStorageGraphMismatch", "CollectionSlotTransformRangeSourceInitializedCountMissing", "CollectionSlotTransformRangeSourceInitializedCountGraphMismatch",
+    "CollectionSlotTransformRangeOutputStorageMissing", "CollectionSlotTransformRangeOutputStorageGraphMismatch", "CollectionSlotTransformRangeOutputInitializedCountMissing", "CollectionSlotTransformRangeOutputInitializedCountGraphMismatch",
+    "CollectionSlotTransformRangeExpectedTypeInvalid", "CollectionSlotTransformRangeExpectedTypeMissing",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `CollectionSlotTransformRange payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_collection_slot_transform_range"), /operation_kind_tag kind 19/, "CollectionSlotTransformRange owner must select kind tag 19");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_record_validate_result"), ["CollectionSlotTransformRangePayloadIdentityMismatch", "CollectionSlotTransformRangePayloadOrdinalMismatch", "record.source_storage", "record.source_initialized_count", "record.output_storage", "record.output_initialized_count", "record.expected_ty"], "CollectionSlotTransformRange payload must validate identity, all four endpoints, and expected type deterministically");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0_with_types"), /stored\.source_storage[\s\S]*stored\.source_initialized_count[\s\S]*stored\.output_storage[\s\S]*stored\.output_initialized_count/, "positive CollectionSlotTransformRange fixture must retain four distinct endpoints");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_slot_drop_traversal_payload_inventory_validate_loop[\s\S]*collection_slot_transform_range_payload_inventory_validate_loop/, "scope must validate CollectionSlotTransformRange after CollectionSlotDropTraversal");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_slot_transform_range_payload_stage0/, "public runtime must execute CollectionSlotTransformRange matrix");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0_error_matches"),
+    ["CollectionSlotTransformRangePayloadMissing", "CollectionSlotTransformRangePayloadUnexpected", "CollectionSlotTransformRangePayloadIdentityMismatch", "CollectionSlotTransformRangePayloadOrdinalMismatch", "CollectionSlotTransformRangeSourceStorageMissing", "CollectionSlotTransformRangeSourceStorageGraphMismatch", "CollectionSlotTransformRangeSourceInitializedCountMissing", "CollectionSlotTransformRangeSourceInitializedCountGraphMismatch", "CollectionSlotTransformRangeOutputStorageMissing", "CollectionSlotTransformRangeOutputStorageGraphMismatch", "CollectionSlotTransformRangeOutputInitializedCountMissing", "CollectionSlotTransformRangeOutputInitializedCountGraphMismatch", "CollectionSlotTransformRangeExpectedTypeInvalid", "CollectionSlotTransformRangeExpectedTypeMissing"],
+    "CollectionSlotTransformRange runtime must exact-match every typed rejection in diagnostic order",
+);
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0"), Array.from({ length: 16 }, (_, mode) => `collection_slot_transform_range_payload_stage0_case ${mode}`), "CollectionSlotTransformRange public matrix must execute the positive case and all fifteen negative modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_record_validate_result"), /selfhost_type_arena_get_record types record\.expected_ty/, "CollectionSlotTransformRange expected type must belong to the borrowed TypeArena");
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [
