@@ -83581,3 +83581,11 @@ MERGE_APPROVED
 - `lower_push`を同一writerへ2回の`lower_scalar` Resultを順次適用する形へ拡張し、first failure、first成功後のsecond failure、全成功でpartial writer authorityを同じerror／success payloadへ返すcall graphを固定した。outer cleanupと18個のexact mappingは維持され、`lower_scalar`もrooted closureでfull固定点と一致した。この2段multi-scalar partial writer pathでも再現しないため、次はproduction同様に単一lower error aggregateへowner-free kind／rejected value／capacity／scalar／storage metadataを併置し、3／5段の連続scalar callへ拡張する。
 - lower errorをwriterとkind／rejected value／capacity error／rejected scalar／storage errorを持つ単一aggregateへ拡張し、metadataをborrowで読むまでwriterを保持してからouterで解放する順序を固定した。`lower_push_three`を5段`lower_push`へ接続し、各途中failureと全成功を同じwriter authority chainで表現した。3 helperそれぞれのwriter 2 authority×Ok/Err exact mapping、outer 18 mapping、rooted/full一致は通過し、このowner-free metadata＋3/5段partial writerでも再現しない。次はproduction source read Resultをborrowed sourceの前段へ追加し、read Errでwriter未消費のretained outer errorへ分岐する。
 - borrowed `read_source` Resultをwriter push前へ追加し、read Errではwriterをlower helperへ渡さずsource＋writerを`ReadRetainedError`へ保持した。read Okだけがdirect／nested／5段lower pushへ進む。route／budget／probe summaryはsource 3 leaf×5 pathとwriter 2 leaf×4 pathの23 exact mappingを保持し、read helperはowner-freeのためrooted closureから除外された。このretryable read error pathでも再現しないため、次はread Errからownerをtakeして再試行するcaller call graphを追加する。
+
+## 2026-07-12 deep Result retry owner mapping修正
+
+- read errorからretained ownerをtakeして再試行するcallerで、元のDirect／Nested／SourceOnly passthroughとReadFailed再試行が同じ出力targetへ合流すると、入力enum payloadが相互排他的でもvariant returnが`UnknownSource`へ潰れることを根本原因と特定した。
+- 同じparameterと共通projection prefixを持ち、最初の相違点が異なるenum payloadであるParameter sourceだけを代替mappingとして保持する。入力enum payloadまでの条件キーをmappingへ残すため、同一variant内をUnknownへmergeする順序が先でも別variant alternativeを失わない。別parameter／別field／同一variant内の曖昧性は排他扱いしない。
+- take 5 mapping、retry 18 input authority／36 source-target mapping、各sourceのexact到達集合、attempt call graphのrooted/full固定点一致を検査する。callee bool定数でpath pruningしない保守的ReadFailed再発5 mappingを含む。二重takeは`OwnerUnavailable`のMoved／Readとして引き続き拒否する。
+- runtimeは相互排他的な別候補が実際にtransferableな場合だけnon-live候補をskipする。全候補unavailableではskipせずOwnerUnavailable診断へ進むnegative controlを固定した。
+- F5nxj registered face production runtimeはread retry、budget 0/negative、partial seal、8 writes、terminal、checked seal、cleanup-only push failureを含めて1 / 1通過した。フォントレンダリングエンジンとGUIライブラリの最終目標は未完了であり、このResource修正checkpointを全体完成とは扱わない。

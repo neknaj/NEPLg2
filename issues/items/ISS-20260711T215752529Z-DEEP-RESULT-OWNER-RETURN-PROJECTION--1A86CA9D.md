@@ -2,24 +2,27 @@
 id: ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D
 title: "Deep Result owner return projection reuses moved payload"
 area: RESOURCE
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-07-11
 updated: 2026-07-12
-target: nepl-core/src/resource/owner_return_apply_projection.rs
+target: nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_variant.rs
 ---
 
 # ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D: Deep Result owner return projection reuses moved payload
 
 ## 概要
 
-A caller that consumes a deeply nested move-only registered owner through Result<BudgetStep, StepError> is rejected at the call expression with resource.owner.use_after_move on ReturnValue projections even though every branch consumes or frees the owner exactly once. F5nxj registered path command sink runtime reproduction fails first at writer_step_budget(recovered_writer, 0).
+A caller that consumed a deeply nested move-only registered owner through Result<BudgetStep, StepError> was rejected at the call expression with resource.owner.use_after_move on ReturnValue projections even though every branch consumed or freed the owner exactly once. The F5nxj reproduction failed first at writer_step_budget(recovered_writer, 0).
 
 ## 対象
 
-- `nepl-core/src/resource/owner_return_apply_projection.rs`
+- `nepl-core/src/resource/owner_summary_variant_return.rs`
+- `nepl-core/src/resource/owner_variant_utils.rs`
+- `nepl-core/src/resource/owner_variant_apply.rs`
+- `nepl-core/src/resource/owner_variant.rs`
 
 ## 根拠
 
@@ -46,18 +49,25 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - `lower_push`を同一writerへ2回の`lower_scalar` Resultを順次適用する形へ拡張し、first failure、first成功後のsecond failure、全成功でpartial writer authorityを同じerror／success payloadへ返すcall graphを固定した。outer cleanupと18個のexact mappingは維持され、`lower_scalar`もrooted closureでfull固定点と一致した。この2段multi-scalar partial writer pathでも再現しないため、次はproduction同様に単一lower error aggregateへowner-free kind／rejected value／capacity／scalar／storage metadataを併置し、3／5段の連続scalar callへ拡張する。
 - lower errorをwriterとkind／rejected value／capacity error／rejected scalar／storage errorを持つ単一aggregateへ拡張し、metadataをborrowで読むまでwriterを保持してからouterで解放する順序を固定した。`lower_push_three`を5段`lower_push`へ接続し、各途中failureと全成功を同じwriter authority chainで表現した。3 helperそれぞれのwriter 2 authority×Ok/Err exact mapping、outer 18 mapping、rooted/full一致は通過し、このowner-free metadata＋3/5段partial writerでも再現しない。次はproduction source read Resultをborrowed sourceの前段へ追加し、read Errでwriter未消費のretained outer errorへ分岐する。
 - borrowed `read_source` Resultをwriter push前へ追加し、read Errではwriterをlower helperへ渡さずsource＋writerを`ReadRetainedError`へ保持した。read Okだけがdirect／nested／5段lower pushへ進む。route／budget／probe summaryはsource 3 leaf×5 pathとwriter 2 leaf×4 pathの23 exact mappingを保持し、read helperはowner-freeのためrooted closureから除外された。このretryable read error pathでも再現しないため、次はread Errからownerをtakeして再試行するcaller call graphを追加する。
+- read error payloadから5 authorityをtakeして再試行するcallerを追加すると、再試行結果のDirect／Nested／SourceOnly targetへ、元variant passthrough sourceとReadFailed sourceが合流する境界で再現した。両sourceは同じparameter enumの異なるpayloadなので同時にliveにならないが、variant return canonicalizationがtargetだけで一意化し、13 targetを`UnknownSource`へ劣化させて36 source-target対応を23 targetへ潰していた。
+- 同じparameterと同じprojection prefixを共有し、最初に異なるprojectionが別enum payloadであるParameter returnだけを相互排他的な代替mappingとして保持するよう修正した。別parameter、別field、同一variant内の複数sourceは従来どおり曖昧性として劣化する。takeの5 exact mapping、retryの18 input authority／36 source-target mapping、source/writer別到達集合、attempt rooted closureとfull fixed point一致、同一error二重takeの`OwnerUnavailable(Moved, Read)`を固定した。callee bool定数によるpath pruningは行わないため、再試行calleeの保守的なReadFailed再発5 mappingも含む。
+- F5nxj registered face production fixtureはread retry、budget 0/negative、partial seal、8 writes、terminal、checked seal、cleanup-only push failureを含めて1 / 1通過し、`writer_step_budget(recovered_writer, 0)`のReturnValue誤報が消えた。
 
-## 問題
+## 解決した問題
 
-A caller that consumes a deeply nested move-only registered owner through Result<BudgetStep, StepError> is rejected at the call expression with resource.owner.use_after_move on ReturnValue projections even though every branch consumes or frees the owner exactly once. F5nxj registered path command sink runtime reproduction fails first at writer_step_budget(recovered_writer, 0).
+A caller that consumed a deeply nested move-only registered owner through Result<BudgetStep, StepError> was rejected at the call expression with resource.owner.use_after_move on ReturnValue projections even though every branch consumed or freed the owner exactly once. The F5nxj reproduction previously failed first at writer_step_budget(recovered_writer, 0).
 
-## 影響
+## 解消した影響
 
-Valid production owner chains cannot be exercised by runtime fixtures; F5nxj integration is blocked despite normal compile and source-policy gates passing.
+Valid production owner chains can now pass the registered runtime fixture. The Resource blocker no longer prevents F5nxj integration.
 
 ## 修正方針
 
 GUI owner chainから型を段階的に削り、どのowner leafまたはprojection expansionで最初に誤報するかを二分する。独立allocationをflat group化せず、owner summary内のsource suffixとreturn projectionの対応を直接検査する。適用側変更は、最小再現、distinct-authority control、owner-bearing Err path control、genuine use-after-move診断を同時に満たす場合だけ採用する。
+
+## 解決
+
+同じparameterの同じprojection prefixから分岐する異なるenum payload sourceを、同一targetの相互排他的な代替mappingとして保持する。mappingは入力enum payloadまでの条件キーを保持するため、同一条件内を`UnknownSource`へmergeした後も別条件との分割を失わない。target全候補からexact重複を除外し、非排他的な候補がある場合は従来どおりそのgroupへmergeする。runtime適用時は同一targetの相互排他的な別候補が実際にtransferableな場合だけ、現在liveでない候補を診断なしでskipする。全候補がunavailableなら通常適用へ進み、OwnerUnavailableを黙殺しない。
 
 ## 検証
 

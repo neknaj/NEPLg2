@@ -1,11 +1,15 @@
-use alloc::collections::BTreeSet;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
+use alloc::vec;
 use alloc::vec::Vec;
 use std::path::PathBuf;
 
 use crate::diagnostic::Severity;
 use crate::loader::Loader;
-use crate::resource::{lower_hir_module, PlaceProjection};
+use crate::resource::{
+    check_resource_owner_obligations, lower_hir_module, OwnerState, PlaceProjection,
+    ResourceOwnerDiagnostic, ResourceOwnerOperation,
+};
 use crate::{BuildProfile, CompileTarget};
 
 use super::super::summary::OwnerProjectionReturnOwner;
@@ -161,6 +165,32 @@ fn route <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepE
                             free_writer failed_writer
                             Result<Step,StepError>::Err StepError::SourceOnly source
 
+fn take_read_owner <(ReadRetainedError)->OwnerPair> (error):
+    field::get error "retained"
+
+fn double_take_read_owner <(ReadRetainedError)*>OwnerPair> (error):
+    let _first <OwnerPair> take_read_owner error
+    take_read_owner error
+
+fn retry_read <(StepError,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (error, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
+    match error:
+        StepError::ReadFailed read_error:
+            let owner <OwnerPair> take_read_owner read_error
+            route owner true first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
+        StepError::Direct owner:
+            Result<Step,StepError>::Err StepError::Direct owner
+        StepError::Nested nested:
+            Result<Step,StepError>::Err StepError::Nested nested
+        StepError::SourceOnly source:
+            Result<Step,StepError>::Err StepError::SourceOnly source
+
+fn attempt <(OwnerPair,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
+    match route owner false first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error:
+        Result::Ok step:
+            Result<Step,StepError>::Ok step
+        Result::Err error:
+            retry_read error first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
+
 fn probe <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, read_ok, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
     budget owner completed exhausted read_ok first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
 
@@ -202,6 +232,20 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result
     );
     let module = checked.module.expect("typechecked owner summary fixture");
     let resource = lower_hir_module(&module, &checked.types);
+    let owner_report = check_resource_owner_obligations(&resource, &checked.types);
+    assert!(
+        owner_report.diagnostics.iter().any(|diagnostic| matches!(
+            diagnostic,
+            ResourceOwnerDiagnostic::OwnerUnavailable {
+                function,
+                operation: ResourceOwnerOperation::Read,
+                state: OwnerState::Moved,
+                ..
+            } if function.starts_with("double_take_read_owner__")
+        )),
+        "double take must remain a genuine use-after-move: {:#?}",
+        owner_report.diagnostics
+    );
     let (summaries, _) =
         compute_owner_return_summaries_with_recomputations(&resource, &checked.types, None);
     let budget_index = resource
@@ -284,6 +328,216 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result
         .find(|summary| summary.function.starts_with("dealloc_region__"))
         .expect("full dealloc_region summary");
     assert_eq!(rooted_dealloc, full_dealloc);
+
+    let take_read = summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("take_read_owner__"))
+        .expect("missing take_read_owner summary");
+    assert_eq!(take_read.projection_returns.len(), 5, "{take_read:#?}");
+    assert!(take_read.variant_projection_returns.is_empty());
+    assert!(take_read.parameter_indices.is_empty());
+    assert!(take_read.parameter_sources.is_empty());
+    assert!(!take_read.returns_fresh_owner);
+    assert!(!take_read.returns_maybe_owner);
+    let take_returns = take_read
+        .projection_returns
+        .iter()
+        .map(|entry| match entry.parameter_sources.as_slice() {
+            [source] => (source, entry),
+            sources => panic!("take_read_owner must have one exact source: {sources:#?}"),
+        })
+        .collect::<Vec<_>>();
+    assert!(take_returns
+        .iter()
+        .all(|(source, _)| source.parameter_index == 0));
+    assert_eq!(
+        take_returns
+            .iter()
+            .map(|(source, _)| (*source).clone())
+            .collect::<BTreeSet<_>>()
+            .len(),
+        5
+    );
+    assert_eq!(
+        take_returns
+            .iter()
+            .map(|(_, entry)| (entry.suffix.clone(), entry.ty))
+            .collect::<BTreeSet<_>>()
+            .len(),
+        5
+    );
+    assert!(take_returns.iter().all(|(source, entry)| {
+        matches!(
+            source.suffix.first(),
+            Some(PlaceProjection::Field { index: 0, .. })
+        ) && source.suffix[1..] == entry.suffix
+            && source.ty == entry.ty
+    }));
+    let retry_read = summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("retry_read__"))
+        .expect("missing retry_read summary");
+    assert_eq!(
+        retry_read.variant_projection_returns.len(),
+        36,
+        "{retry_read:#?}"
+    );
+    assert_eq!(retry_read.projection_returns.len(), 5);
+    assert!(retry_read.projection_returns.iter().all(|projection| {
+        projection.returns_fresh_owner
+            && projection.parameter_indices.is_empty()
+            && projection.parameter_sources.is_empty()
+            && matches!(
+                projection.suffix.as_slice(),
+                [PlaceProjection::EnumPayload { variant }, PlaceProjection::EnumPayload { variant: error_variant }, ..]
+                    if variant == "Err" && error_variant == "Direct"
+            )
+    }));
+    assert!(retry_read.parameter_indices.is_empty());
+    assert!(retry_read.parameter_sources.is_empty());
+    assert!(!retry_read.returns_fresh_owner);
+    assert!(!retry_read.returns_maybe_owner);
+    let retry_returns = retry_read
+        .variant_projection_returns
+        .iter()
+        .map(|entry| match &entry.owner {
+            OwnerProjectionReturnOwner::Parameter { source, .. } => (source, entry),
+            owner => panic!("retry_read must preserve an exact parameter source: {owner:#?}"),
+        })
+        .collect::<Vec<_>>();
+    assert!(retry_returns
+        .iter()
+        .all(|(source, _)| source.parameter_index == 0));
+    assert_eq!(
+        retry_returns
+            .iter()
+            .map(|(source, _)| (*source).clone())
+            .collect::<BTreeSet<_>>()
+            .len(),
+        18
+    );
+    assert_eq!(
+        retry_returns
+            .iter()
+            .map(|(source, entry)| ((*source).clone(), entry.suffix.clone(), entry.ty))
+            .collect::<BTreeSet<_>>()
+            .len(),
+        36
+    );
+    let mut retry_targets_by_source = BTreeMap::<_, BTreeSet<_>>::new();
+    for (source, entry) in &retry_returns {
+        let source_variant = source
+            .suffix
+            .iter()
+            .find_map(|projection| match projection {
+                PlaceProjection::EnumPayload { variant } => Some(variant.as_str()),
+                _ => None,
+            });
+        let target_variants = entry
+            .suffix
+            .iter()
+            .filter_map(|projection| match projection {
+                PlaceProjection::EnumPayload { variant } => Some(variant.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        retry_targets_by_source
+            .entry((*source).clone())
+            .or_default()
+            .insert(
+                target_variants
+                    .iter()
+                    .map(|variant| (*variant).to_string())
+                    .collect(),
+            );
+        match source_variant {
+            Some("Direct") => assert_eq!(target_variants, ["Err", "Direct", "Ready"]),
+            Some("Nested") => assert_eq!(target_variants, ["Err", "Nested", "Ready"]),
+            Some("SourceOnly") => {
+                assert_eq!(target_variants, ["Err", "SourceOnly", "Ready"])
+            }
+            Some("ReadFailed") => assert!(matches!(
+                target_variants.as_slice(),
+                ["Ok", "Ready"]
+                    | ["Err", "Direct", "Ready"]
+                    | ["Err", "Nested", "Ready"]
+                    | ["Err", "ReadFailed", "Ready"]
+                    | ["Err", "SourceOnly", "Ready"]
+            )),
+            variant => panic!("unexpected retry source variant {variant:?}"),
+        }
+    }
+    for (source, targets) in retry_targets_by_source {
+        let source_variant = source
+            .suffix
+            .iter()
+            .find_map(|projection| match projection {
+                PlaceProjection::EnumPayload { variant } => Some(variant.as_str()),
+                _ => None,
+            });
+        let expected = match source_variant {
+            Some("Direct") => BTreeSet::from([vec!["Err", "Direct", "Ready"]]),
+            Some("Nested") => BTreeSet::from([vec!["Err", "Nested", "Ready"]]),
+            Some("SourceOnly") => BTreeSet::from([vec!["Err", "SourceOnly", "Ready"]]),
+            Some("ReadFailed") => {
+                let owner_pair_field = source
+                    .suffix
+                    .iter()
+                    .filter_map(|projection| match projection {
+                        PlaceProjection::Field { index, .. } => Some(*index),
+                        _ => None,
+                    })
+                    .nth(1)
+                    .expect("ReadFailed retained OwnerPair field");
+                if owner_pair_field == 0 {
+                    BTreeSet::from([
+                        vec!["Ok", "Ready"],
+                        vec!["Err", "Direct", "Ready"],
+                        vec!["Err", "Nested", "Ready"],
+                        vec!["Err", "ReadFailed", "Ready"],
+                        vec!["Err", "SourceOnly", "Ready"],
+                    ])
+                } else {
+                    assert_eq!(owner_pair_field, 1);
+                    BTreeSet::from([
+                        vec!["Ok", "Ready"],
+                        vec!["Err", "Direct", "Ready"],
+                        vec!["Err", "Nested", "Ready"],
+                        vec!["Err", "ReadFailed", "Ready"],
+                    ])
+                }
+            }
+            variant => panic!("unexpected retry source variant {variant:?}"),
+        }
+        .into_iter()
+        .map(|variants| variants.into_iter().map(String::from).collect::<Vec<_>>())
+        .collect::<BTreeSet<_>>();
+        assert_eq!(
+            targets, expected,
+            "incomplete retry targets for {source:#?}"
+        );
+    }
+
+    let attempt_index = resource
+        .functions
+        .iter()
+        .position(|function| function.name.starts_with("attempt__"))
+        .expect("attempt function index");
+    let rooted_attempt =
+        compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, attempt_index);
+    assert!(rooted_attempt
+        .iter()
+        .any(|summary| summary.function.starts_with("retry_read__")));
+    assert!(rooted_attempt
+        .iter()
+        .any(|summary| summary.function.starts_with("take_read_owner__")));
+    for rooted in &rooted_attempt {
+        let full = summaries
+            .iter()
+            .find(|summary| summary.function == rooted.function)
+            .unwrap_or_else(|| panic!("missing full {} summary", rooted.function));
+        assert_eq!(rooted, full, "attempt closure must equal full fixed point");
+    }
 
     for prefix in ["lower_scalar__", "lower_push_three__", "lower_push__"] {
         let summary = summaries
