@@ -83818,3 +83818,10 @@ MERGE_APPROVED
 - Rust `ResourceOp::StorageOrigin { target, origin, span }`をkind tag 15専用のprivate sparse ownerへ接続した。targetはgraph-bound Placeで、originはOwned / Unmanaged / Internalの全3 variantを保持する。
 - sparse mergeはpayload missing / unexpected、identity / ordinal、targetのmissing / wrong graphをexact errorへ分類する。runtime matrixは全origin transportとnegative modeを検査する。
 - このcheckpointは構造payloadのnonproduction inventoryであり、storage ownership semantics、provenance、actual materializer co-productionを主張しない。payload ownerは10件未完成で、selfhost compilerの最終目標も未完了である。`plan.md`は変更していない。
+## 2026-07-13 selfhost Resource CollectionSlotLifecycle payload
+
+- Rust `ResourceOp::CollectionSlotLifecycle { target, event, span }`をkind tag 16専用のprivate sparse ownerへ接続した。6 eventとReplaceの2 replacementをvariant-nativeに保持し、dummy/optional payloadへ平坦化しない。
+- targetはgraph-bound Placeとして、event固有TypeIdはborrowしたTypeArenaのmembershipとして検査する。Replace old/new型を個別errorに分け、missing / unexpected、identity / ordinalを含むexact rejection matrixを固定する。
+- stage0 matrixは6 eventすべてとReplaceの`ReturnOldOwner` / `DropOldOwner`をlosslessに再読出しし、payload missing / unexpected、key / graph identity、ordinal、target membership / graph、Initialize / Borrow / Move / Replace old / Replace new / Drop / Storageの各TypeId membershipをtyped errorとordinal 16で照合する。
+- `git diff --check`と通常visibility/parser gateは通過した。`trunk build`はWSL環境でpre-build hookの`npm.cmd`を起動できず、実行環境要因で開始前に停止した。
+- このownerは非productionの`ResourceIrInventoryValidated`を強化するだけで、slot state遷移、owner transfer/drop proof、actual materializer co-productionを証明しない。残るResource operation payloadは9件。

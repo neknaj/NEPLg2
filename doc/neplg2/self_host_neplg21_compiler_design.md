@@ -3672,7 +3672,13 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 `ResourceOp::StorageOrigin { target, origin, span }`はkind tag 15専用のprivate sparse ownerで保持する。targetはgraph-bound Placeとして照合し、originはRustと同じ`Owned` / `Unmanaged` / `Internal`をfallbackなしで運ぶ。scope上はRawAddressView ownerの後に検査し、missing / unexpected、identity / ordinal、targetのgraph / membershipをfield固有typed rejectionへ分類する。
 
-このownerは構造payloadのlossless transportだけを担い、storage ownership semantics、provenance、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは10件である。
+このownerは構造payloadのlossless transportだけを担い、storage ownership semantics、provenance、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、この時点で残るoperation payloadは10件である。
+
+### 2026-07-13 Resource CollectionSlotLifecycle payload
+
+`ResourceOp::CollectionSlotLifecycle { target, event, span }`はkind tag 16専用のprivate sparse ownerで保持する。eventはRustと同じ6 variantをvariant-native enumで表し、`InitializeEmpty` / `BorrowRead` / `MoveOut` / `DropInitialized` / `StorageDealloc`は各1個のTypeId、`ReplaceInitialized`はold/new TypeIdと`ReturnOldOwner` / `DropOldOwner`を直接所有する。dummy値やoptional fieldへ平坦化せず、すべてのTypeIdをborrowしたTypeArenaのmembershipで検査する。Replaceのold/new型は別々のtyped rejectionに分類する。
+
+scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、dense operation ordinal、graph-bound target、event固有型を照合するが、slot state遷移、owner transfer/drop proof、actual materializer co-productionはまだ証明しない。残る9 operation payload / endpoint ownerとwalker operation tableのactual co-productionは後続sliceで接続する。
 
 ## 完了条件
 

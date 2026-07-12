@@ -1152,3 +1152,5 @@ Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独
 2026-07-13: `ResourceOp::RawAddressView { source, target, kind, span }`をkind tag 14専用のprivate sparse ownerへ接続した。2個の独立graph-bound Placeと`Offset` / `MemPtrOffset` / `NonOwningProjection` / `InternalHelper`をlosslessに保持し、missing / unexpected、identity / ordinal、各endpointのmembership / graph mismatchをexact typed rejectionする。view semantics / provenance / source capability / actual co-productionと残る11 payloadは未完成である。
 
 2026-07-13: `ResourceOp::StorageOrigin { target, origin, span }`をkind tag 15専用のprivate sparse ownerへ接続した。graph-bound target Placeと`Owned` / `Unmanaged` / `Internal`をlosslessに保持し、missing / unexpected、identity / ordinal、target membership / graph mismatchをexact typed rejectionする。storage ownership semantics / provenance / actual co-productionと残る10 payloadは未完成である。
+
+2026-07-13: `ResourceOp::CollectionSlotLifecycle { target, event, span }`をkind tag 16専用のprivate sparse ownerへ接続した。6 eventとReplaceの2 replacementをvariant-nativeに保持し、graph-bound targetとevent固有TypeId arena membershipをexact typed rejectionする。slot semantics / owner proof / actual co-productionと残る9 payloadは未完成である。
