@@ -442,6 +442,7 @@ const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl = withoutComme
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream);
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
@@ -3878,6 +3879,9 @@ for (const helper of ["test_force_source_read_failure", "test_force_push_failure
 }
 assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink, /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_path_command_sink_(?:take_source|take_sink|take_writer|storage_ref|take_storage|collection_ref|take_collection)/, "F5nxj must not expose source/storage/writer split APIs");
 assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, /(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|full_scan|fullscan|raw_collection|callback|\bfallback\b|\bpanic\b|\bunreachable\b|\bStroke\b|\bRaster\b|RenderTarget|render2d|\bplatform\b)/, "F5nxj must reuse owner-bound source and stop before stroke/raster/render/platform phases");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/stroke_source_contour"\s+as\s+\*/, "facade must export the F5nxk owner-bound source contour adapter");
+assertOrderedFragments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, ["sink %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner", "completed_owner_read_at sink command_index", "completed_owner_contour_span_lookup sink contour", "eq local sub edge start", "eq span_count add sub end start 1"], "F5nxk adapter must retain F5nxj authority and bind checked commands to indexed spans");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /(?:take_source|take_sink|take_writer|source_ref|writer_ref|collection_ref|take_collection|raw_collection|curve_segment\s+collection|full_scan|fullscan|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|callback|\bfallback\b|\bpanic\b|\bunreachable\b|\bRaster\b|RenderTarget|render2d|\bplatform\b)/, "F5nxk adapter must not split authority, invoke the legacy full scan, or cross later phase boundaries");
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,
     "registered_face_simple_glyph_summary_completed_close_ok",

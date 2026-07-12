@@ -40,3 +40,4 @@ pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/edge" as *
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_tag" as *
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
 pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
+pub #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *

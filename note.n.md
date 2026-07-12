@@ -83787,3 +83787,9 @@ MERGE_APPROVED
 - take 5 mapping、retry 18 input authority／36 source-target mapping、各sourceのexact到達集合、attempt call graphのrooted/full固定点一致を検査する。callee bool定数でpath pruningしない保守的ReadFailed再発5 mappingを含む。二重takeは`OwnerUnavailable`のMoved／Readとして引き続き拒否する。
 - runtimeは相互排他的な別候補が実際にtransferableな場合だけnon-live候補をskipする。全候補unavailableではskipせずOwnerUnavailable診断へ進むnegative controlを固定した。
 - F5nxj registered face production runtimeはread retry、budget 0/negative、partial seal、8 writes、terminal、checked seal、cleanup-only push failureを含めて1 / 1通過した。フォントレンダリングエンジンとGUIライブラリの最終目標は未完了であり、このResource修正checkpointを全体完成とは扱わない。
+
+## 2026-07-13 GUI font rendering F5nxk owner-bound source contour access（進行中）
+
+- F5nxj completed ownerを保持するF5nxk先行ownerを追加し、checked command readとO(1) indexed contour span lookupをowner-bound forwardingで接続した。commandのcontour / global edge / local edgeとspan start/end/countを再照合し、raw collection、nested source、legacy writerのsplit APIは公開しない。
+- legacy F5kwは外部collection/tag再注入と旧curve full scanを行うため再利用しない。独立したchecked-span curve forwarding、metric join、line/quadratic座標guard、stroke provenance drain/sealは未実装で、`todo.md`のF5nxkは残す。
+- フォント解析からnative / GUI表示までの最終目標は未完了であり、この先行checkpointをF5nxkまたは全体の完成とは扱わない。`plan.md`は変更していない。

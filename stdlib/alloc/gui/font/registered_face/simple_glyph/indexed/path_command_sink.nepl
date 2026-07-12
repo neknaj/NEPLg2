@@ -427,6 +427,20 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed
     gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get owner "source"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get owner "writer"
 
+//: completed_owner_read_at: downstream phaseへowner-bound checked command readを転送します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_read_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner field::get_ref owner "source"
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at source index
+
+//: completed_owner_contour_span_lookup: downstream phaseへO(1) indexed span lookupを転送します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_contour_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner field::get_ref owner "source"
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_contour_span_lookup source contour_index
+
 //: writing_owner_free: 未完了writerとregistered sourceを解放します
 //:
 //: neplg2:test[skip]

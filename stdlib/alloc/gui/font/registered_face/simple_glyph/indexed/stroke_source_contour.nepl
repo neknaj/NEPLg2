@@ -1,0 +1,96 @@
+//: # registered-face simple glyph indexed stroke source contour
+//: F5nxj completed authorityを保持し、commandごとのcontour provenanceをindexed spanから再構築します。
+//:
+//: full command stream scanやprovenance Vecを作らず、checked commandとindexed spanを照合します。checked-span curve再照合は後続sliceで追加します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
+//: fn main %fn void i32 \void:
+//:|      let value %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
+//:|      match value:
+//:|          GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch: 0
+//:|          _: 1
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+
+//: Owner: sink completionとregistered indexed sourceの対応を保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner:
+    sink %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner
+
+//: Command: checked command valueと、そのcommandが属するindexed spanです
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand:
+    value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue
+    span %GuiSfntSimpleGlyphContourSpan
+
+//: ReadErrorKind: command再構築とspan identity検査の失敗理由です
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind:
+    CommandReadFailed %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind
+    SpanLookupFailed %GuiSfntSimpleGlyphContourSpanIndexLookupError
+    SpanIdentityMismatch
+
+//: start: F5nxj completionを次phase authorityへ移します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner \sink:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner sink
+
+//: read_at: checked-span event由来commandとO(1) indexed spanのidentityを照合します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind \owner\command_index:
+    let sink %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner field::get_ref owner "sink"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_read_at sink command_index:
+        Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::CommandReadFailed kind
+        Result::Ok value:
+            let contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_contour_span_lookup sink contour:
+                Result::Err error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanLookupFailed error
+                Result::Ok span:
+                    let edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value
+                    let local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value
+                    let start gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                    let end gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                    let span_count gui_sfnt_simple_glyph_contour_span_point_count &span
+                    let contour_ok eq contour gui_sfnt_simple_glyph_contour_span_index &span
+                    let local_ok eq local sub edge start
+                    let edge_ok and ge edge start le edge end
+                    let count_ok eq span_count add sub end start 1
+                    let identity_ok and contour_ok and local_ok and edge_ok count_ok
+                    if not identity_ok:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
+                        else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand value span
+
+//: command_value: command provenance valueを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue \command:
+    *field::get_ref command "value"
+
+//: command_span: identity検査済みcontour spanを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand GuiSfntSimpleGlyphContourSpan \command:
+    *field::get_ref command "span"
+
+//: owner_free: sourceとlegacy sink storageをexactly once解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_free field::get owner "sink"

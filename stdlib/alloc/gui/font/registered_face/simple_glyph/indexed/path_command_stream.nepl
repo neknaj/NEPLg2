@@ -594,6 +594,14 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_complet
                                                         else:
                                                             let command gui_sfnt_simple_glyph_path_sink_event_command &event
                                                             Result::Ok gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value index edge_index contour local slot stored_tag source_tag command
+
+//: completed_owner_contour_span_lookup: sealed authorityからcontour spanをO(1)で取得します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_contour_span_lookup %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpanIndexLookupError \owner\contour_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner field::get_ref owner "running"
+    let tag %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref running "tag"
+    gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_span_lookup tag contour_index
 //: owner_free: stream owner以下の線形資源を解放します
 //:
 //: neplg2:test[skip]
