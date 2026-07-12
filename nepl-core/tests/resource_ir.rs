@@ -18199,6 +18199,76 @@ fn main <()*>()> ():
 }
 
 #[test]
+fn resource_ir_owner_check_routes_distinct_deep_owners_across_result_variants() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LeafOwner:
+    region <RegionToken<u8>>
+
+struct InnerOwner:
+    leaf <LeafOwner>
+
+struct OuterOwner:
+    inner <InnerOwner>
+
+struct OwnerPair:
+    source <OuterOwner>
+    writer <OuterOwner>
+
+struct Step:
+    owner <OwnerPair>
+
+struct NestedError:
+    owner <OwnerPair>
+
+enum StepError:
+    Direct <OwnerPair>
+    Nested <NestedError>
+
+fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    if:
+        ok_path
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            direct_error
+            then:
+                Result<Step,StepError>::Err StepError::Direct owner
+            else:
+                Result<Step,StepError>::Err StepError::Nested NestedError owner
+
+fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    route owner ok_path direct_error
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_variant_route.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "distinct deep owners may each appear in several mutually exclusive Result return paths without being transferred twice: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_variant_route.nepl",
+        ),
+    )
+    .expect("the deep distinct-owner variant route must pass the normal compile pipeline");
+}
+
+#[test]
 fn resource_ir_compiler_rejects_non_copy_move_from_live_shared_reference() {
     let source = r#"
 #entry main
