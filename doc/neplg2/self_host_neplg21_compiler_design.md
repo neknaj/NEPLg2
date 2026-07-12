@@ -3636,6 +3636,14 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 この境界はEndScopeの構造transportだけを保証する。destructor実行順、drop elaboration、live-local closure、no-escape、actual co-productionは後段authorityであり、成功originは非productionの`ResourceIrInventoryValidated`を維持する。残るoperation payloadは16件である。
 
+### 2026-07-12 Resource CollectionStorageRelocate payload
+
+`ResourceOp::CollectionStorageRelocate { old_storage, new_storage, span }`はkind tag 17専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinalと、独立したgraph-bound old/new storage Placeを持つ。scopeはEndScopeの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、両endpointのgraph / membershipをtyped rejectionする。positive fixtureではold/newが異なるPlaceであることも固定する。
+
+このEndScope後という順序は実装済みsparse ownerの検査順である。Rust enumのvariant順ではEndScopeとCollectionStorageRelocateの間にCallEffect、FunctionValue、Call、IndirectCall、RawMemory、RawAddressAlias、RawAddressView、StorageOrigin、CollectionSlotLifecycleがあるが、これらの未実装payloadを飛ばして検査済みと主張しない。
+
+この境界はstorage pairの構造transportだけを保証する。raw realloc relocation proof、canonical owner-cell、slot state rekey、proofの一回消費、actual co-productionはRust checkerと将来の後段authorityに残る。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは15件である。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

@@ -83740,3 +83740,10 @@ MERGE_APPROVED
 - Rust `ResourceOp::EndScope { locals, result, span }`をsparse headerとdense local endpointへ分け、localsのVec順と重複可能性を保持した。
 - checked range、gap / excess、identity / ordinal、各localとoptional resultのgraph / Place membershipをscope発行前に検査する。
 - destructor executionやdrop elaborationは主張せず、actual co-production、残る16 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。
+
+## 2026-07-12 selfhost Resource CollectionStorageRelocate payload
+
+- Rust `ResourceOp::CollectionStorageRelocate { old_storage, new_storage, span }`をkind tag 17専用のprivate sparse ownerへ接続した。
+- proof key / graph / operation ordinalと独立したold/new storage Placeを検査し、missing / unexpected、identity / ordinal、membership / wrong graphをexact typed errorとして保持した。
+- scope検証順をEndScopeの後まで拡張した。raw realloc proof、canonical owner-cell、slot state rekey、proof consumption、actual co-productionは未完成である。
+- owner検査順は実装済みsparse ownerの順であり、Rust enum上でEndScopeとCollectionStorageRelocateの間にある未実装variantを検査済みとは扱わない。残る15 payload、nested topology、sealed backend、artifact keyは未完成である。`plan.md`は変更していない。

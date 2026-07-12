@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1541,7 +1541,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals/,
+    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
@@ -1699,6 +1699,16 @@ assertOrdered(
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_end_scope_local_inventory_stage0_case_result"), /if eq mode 2 0 1/, "EndScope positive matrix must accept duplicate local Place endpoints without inventing distinctness");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_end_scope_payload_stage0/, "public runtime must execute EndScope matrix");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /drop_payload_inventory_validate_loop[\s\S]*end_scope_payload_inventory_validate_loop/, "scope must validate EndScope after Drop");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory",
+    "CollectionStorageRelocatePayloadMissing", "CollectionStorageRelocatePayloadUnexpected", "CollectionStorageRelocatePayloadIdentityMismatch", "CollectionStorageRelocatePayloadOrdinalMismatch",
+    "CollectionStorageRelocateOldStorageMissing", "CollectionStorageRelocateOldStorageGraphMismatch", "CollectionStorageRelocateNewStorageMissing", "CollectionStorageRelocateNewStorageGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `CollectionStorageRelocate payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_collection_storage_relocate"), /operation_kind_tag kind 17/, "CollectionStorageRelocate owner must select kind tag 17");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_storage_relocate_payload_record_validate_result"), ["CollectionStorageRelocatePayloadIdentityMismatch", "CollectionStorageRelocatePayloadOrdinalMismatch", "record.old_storage", "record.new_storage"], "CollectionStorageRelocate payload must validate identity and both endpoints deterministically");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_storage_relocate_payload_stage0_case"), /not eq stored.old_storage.place_id.index stored.new_storage.place_id.index/, "positive CollectionStorageRelocate fixture must retain distinct storage endpoints");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /end_scope_payload_inventory_validate_loop[\s\S]*collection_storage_relocate_payload_inventory_validate_loop/, "scope must validate CollectionStorageRelocate after EndScope");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_collection_storage_relocate_payload_stage0/, "public runtime must execute CollectionStorageRelocate matrix");
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [
