@@ -30,6 +30,7 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - callee `StorageId`ごとのabstract group schemaも試作したが、production parameter seedはdeep owner leafごとに新しいStorageIdを割り当てるため、StorageId partitionはaggregate authority relationを表さなかった。人工的に同じStorageIdを与えるunitだけではproduction契約を証明できない。
 - `resource_ir_owner_check_returns_deep_multi_owner_aggregate_through_result`はdistinct-authority topologyの通過基準を固定した。`resource_ir_owner_check_routes_distinct_deep_owners_across_result_variants`は2個の独立deep ownerをOkと2種類のowner-bearing Errへ返す排他的path対照をowner checkとnormal compileで固定した。この限定的な深度・3 return variantだけでは再現せず、次候補は実owner chain固有のprojection形状またはsummary適用規模である。
 - 同じreturn topologyでowner-token直上に内部enumを置いても通過した。`resource_ir_owner_check_scales_distinct_deep_result_projection_leaves`は独立deep owner leafを1、2、4、8、16、32個へ増やして全件通過し、このtopologyでは32 leaf以下の単純な数閾値を除外した。次はproductionのVec/OwnedBuffer storage enum、相関する複数metadata field、追加のsummary extent mappingを段階的に加える。
+- 探索fixtureでは実stdlib `Vec<i32>`型の2 owner parameter fieldを同じ3 return variantへ通し、owner checkとnormal compileを通過した。この限定topologyではVec/OwnedBuffer storage enumと通常metadataだけで再現しなかった。この環境のfocused実行は約166秒だったため恒久suiteには残さず、結果だけを境界証拠として記録した。
 
 ## 問題
 
