@@ -44,9 +44,18 @@ struct InnerOwner:
 struct OuterOwner:
     inner <InnerOwner>
 
+struct SourceOwner:
+    items <OuterOwner>
+    spans <OuterOwner>
+    scalar_slots <OuterOwner>
+
+struct WriterOwner:
+    path_sink_scalars <OuterOwner>
+    raster_mask_scalars <OuterOwner>
+
 struct OwnerPair:
-    source <OuterOwner>
-    writer <OuterOwner>
+    source <SourceOwner>
+    writer <WriterOwner>
 
 struct Step:
     owner <OwnerPair>
@@ -57,7 +66,7 @@ struct NestedError:
 enum StepError:
     Direct <OwnerPair>
     Nested <NestedError>
-    SourceOnly <OuterOwner>
+    SourceOnly <SourceOwner>
 
 fn free_outer <(OuterOwner)*>()> (owner):
     let inner <InnerOwner> field::get owner "inner"
@@ -72,6 +81,10 @@ fn free_outer <(OuterOwner)*>()> (owner):
         LeafState::Empty:
             ()
 
+fn free_writer <(WriterOwner)*>()> (owner):
+    free_outer field::get owner "path_sink_scalars"
+    free_outer field::get owner "raster_mask_scalars"
+
 fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error, source_only):
     if:
         ok_path
@@ -84,9 +97,9 @@ fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, ok_path, d
             else if:
                 source_only
                 then:
-                    let source <OuterOwner> field::get owner "source"
-                    let writer <OuterOwner> field::get owner "writer"
-                    free_outer writer
+                    let source <SourceOwner> field::get owner "source"
+                    let writer <WriterOwner> field::get owner "writer"
+                    free_writer writer
                     Result<Step,StepError>::Err StepError::SourceOnly source
                 else:
                     Result<Step,StepError>::Err StepError::Nested NestedError owner
@@ -141,13 +154,21 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
         .expect("budget function index");
     let rooted_summaries =
         compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, budget_index);
-    assert_eq!(rooted_summaries.len(), 4, "unexpected rooted closure");
+    assert_eq!(rooted_summaries.len(), 5, "unexpected rooted closure");
     assert!(rooted_summaries.iter().all(|summary| {
         summary.function.starts_with("route__")
             || summary.function.starts_with("budget__")
+            || summary.function.starts_with("free_writer__")
             || summary.function.starts_with("free_outer__")
             || summary.function.starts_with("dealloc_region__")
     }));
+    for rooted in &rooted_summaries {
+        let full = summaries
+            .iter()
+            .find(|summary| summary.function == rooted.function)
+            .unwrap_or_else(|| panic!("missing full {} summary", rooted.function));
+        assert_eq!(rooted, full, "rooted summary must equal full fixed point");
+    }
 
     for prefix in ["route__", "budget__"] {
         let full = summaries
@@ -186,8 +207,8 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
             .unwrap_or_else(|| panic!("missing {prefix} summary"));
         assert_eq!(
             summary.variant_projection_returns.len(),
-            7,
-            "{prefix} must contain only the seven path-conditioned returns: {summary:#?}"
+            18,
+            "{prefix} must contain only the eighteen path-conditioned returns: {summary:#?}"
         );
         assert!(
             summary.projection_returns.is_empty(),
@@ -206,14 +227,14 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
                 owner => panic!("{prefix} must not degrade a return source to {owner:#?}"),
             })
             .collect::<Vec<_>>();
-        assert_eq!(parameter_returns.len(), 7);
+        assert_eq!(parameter_returns.len(), 18);
         let sources = parameter_returns
             .iter()
             .map(|(_, source)| (*source).clone())
             .collect::<BTreeSet<_>>();
         assert_eq!(
             sources.len(),
-            2,
+            5,
             "{prefix} must retain distinct authorities"
         );
         assert!(sources.iter().all(|source| source.parameter_index == 0));
@@ -225,7 +246,33 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
             })
             .collect::<BTreeSet<_>>();
         assert_eq!(source_fields, BTreeSet::from([0, 1]));
+        assert_eq!(
+            sources
+                .iter()
+                .filter(|source| matches!(
+                    source.suffix.first(),
+                    Some(PlaceProjection::Field { index: 0, .. })
+                ))
+                .count(),
+            3,
+            "{prefix} must retain three source authorities"
+        );
+        assert_eq!(
+            sources
+                .iter()
+                .filter(|source| matches!(
+                    source.suffix.first(),
+                    Some(PlaceProjection::Field { index: 1, .. })
+                ))
+                .count(),
+            2,
+            "{prefix} must retain two writer authorities"
+        );
         for source in &sources {
+            let returns_for_source = parameter_returns
+                .iter()
+                .filter(|(_, found)| *found == source)
+                .collect::<Vec<_>>();
             let paths = parameter_returns
                 .iter()
                 .filter(|(_, found)| *found == source)
@@ -276,6 +323,36 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
                 ])
             };
             assert_eq!(paths, expected, "{prefix} must preserve asymmetric paths");
+            assert_eq!(
+                returns_for_source.len(),
+                if matches!(
+                    source.suffix.first(),
+                    Some(PlaceProjection::Field { index: 0, .. })
+                ) {
+                    4
+                } else {
+                    3
+                },
+                "{prefix} must preserve the mapping count for each authority"
+            );
+            for (entry, _) in returns_for_source {
+                let source_only = entry.suffix.iter().any(|projection| {
+                    matches!(
+                        projection,
+                        PlaceProjection::EnumPayload { variant }
+                            if variant.ends_with("SourceOnly")
+                    )
+                });
+                let expected_suffix = if source_only {
+                    &source.suffix[1..]
+                } else {
+                    source.suffix.as_slice()
+                };
+                assert!(
+                    entry.suffix.ends_with(expected_suffix),
+                    "{prefix} must map each source authority to its matching return leaf: source={source:#?}, entry={entry:#?}"
+                );
+            }
         }
         let targets = parameter_returns
             .iter()
@@ -283,7 +360,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
             .collect::<BTreeSet<_>>();
         assert_eq!(
             targets.len(),
-            7,
+            18,
             "{prefix} must not collapse return targets"
         );
     }
