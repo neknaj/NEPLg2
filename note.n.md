@@ -83800,3 +83800,9 @@ MERGE_APPROVED
 - source storage / initialized count / output storage / initialized countを4個の独立graph-bound Placeとして保持し、同じborrowed TypeArenaに属するnonnegative expected TypeIdとともにscopeで照合する。
 - positive fixtureは4 endpointがすべて異なることを確認し、payload merge、identity / ordinal、各endpointのmissing / wrong graph、type invalid / missingを15個のfield固有negative modeでexact照合する。
 - transform semantics、source/output rangeの全称証明、rollback、要素型一致、actual co-productionは未完成であり、`ResourceIrInventoryValidated`をproduction authorityとして扱わない。
+
+## 2026-07-13 selfhost Resource RawAddressAlias payload
+
+- Rust `ResourceOp::RawAddressAlias { source, target, kind, span }`をkind tag 13専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはTransparent / InternalHelper / OwnerTokenConstructの全3 variantを保持する。
+- sparse mergeはpayload missing / unexpected、identity / ordinal、各Placeのmissing / wrong graphをexact errorへ分類する。runtime matrixは全kind transportとmode 0〜9を検査する。
+- このcheckpointは構造payloadのnonproduction inventoryであり、alias safety、provenance semantics、source capability、actual materializer co-productionを主張しない。Rust enum上の中間variantも実装済みとは数えず、payload ownerは12件未完成である。

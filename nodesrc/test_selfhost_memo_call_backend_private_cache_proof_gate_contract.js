@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1754,6 +1754,18 @@ assertOrdered(
 );
 assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_stage0"), Array.from({ length: 16 }, (_, mode) => `collection_slot_transform_range_payload_stage0_case ${mode}`), "CollectionSlotTransformRange public matrix must execute the positive case and all fifteen negative modes");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_collection_slot_transform_range_payload_record_validate_result"), /selfhost_type_arena_get_record types record\.expected_ty/, "CollectionSlotTransformRange expected type must belong to the borrowed TypeArena");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasKind", "Transparent", "InternalHelper", "OwnerTokenConstruct",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory",
+    "RawAddressAliasPayloadMissing", "RawAddressAliasPayloadUnexpected", "RawAddressAliasPayloadIdentityMismatch", "RawAddressAliasPayloadOrdinalMismatch",
+    "RawAddressAliasSourceMissing", "RawAddressAliasSourceGraphMismatch", "RawAddressAliasTargetMissing", "RawAddressAliasTargetGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `RawAddressAlias payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_raw_address_alias"), /operation_kind_tag kind 13/, "RawAddressAlias owner must select kind tag 13");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_record_validate_result"), ["RawAddressAliasPayloadIdentityMismatch", "RawAddressAliasPayloadOrdinalMismatch", "record.source", "record.target"], "RawAddressAlias payload must validate identity and both endpoints deterministically");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_stage0_error_matches"), ["RawAddressAliasPayloadMissing", "RawAddressAliasPayloadUnexpected", "RawAddressAliasPayloadIdentityMismatch", "RawAddressAliasPayloadOrdinalMismatch", "RawAddressAliasSourceMissing", "RawAddressAliasSourceGraphMismatch", "RawAddressAliasTargetMissing", "RawAddressAliasTargetGraphMismatch"], "RawAddressAlias runtime must exact-match every typed rejection in diagnostic order");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_stage0"), ["Transparent", "raw_address_alias_payload_stage0_case 0 transparent", "InternalHelper", "OwnerTokenConstruct", ...Array.from({ length: 9 }, (_, index) => `raw_address_alias_payload_stage0_case ${index + 1}`)], "RawAddressAlias runtime must transport all three kinds and execute all exact modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_slot_transform_range_payload_inventory_validate_loop[\s\S]*raw_address_alias_payload_inventory_validate_loop/, "scope must validate RawAddressAlias after the previously implemented TransformRange chain without claiming intermediate Rust variants");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_raw_address_alias_payload_stage0/, "public runtime must execute RawAddressAlias matrix");
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [

@@ -3654,9 +3654,13 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 `ResourceOp::CollectionSlotTransformRange { source_storage, source_initialized_count, output_storage, output_initialized_count, expected_ty, span }`はkind tag 19専用のprivate sparse ownerで保持する。recordはproof key、graph、operation ordinal、相互に独立した4個のgraph-bound Placeとexpected TypeIdを持つ。scopeはCollectionSlotDropTraversalの後にkind ownerとmergeし、missing / unexpected、identity / ordinal、各Placeのgraph / membership、TypeIdの負index / 同じborrowed TypeArena内のmembershipをfield固有typed rejectionへ分類する。
 
-このauthorityが証明するのはRust Resource IR payloadの構造とowner整合だけである。transform実行、source range全域の初期化、output range全域の生成、failure時rollback、要素型一致、actual loweringとのco-productionはまだ証明せず、production originも発行しない。
+このauthorityが証明するのはRust Resource IR payloadの構造とowner整合だけである。transform実行、source range全域の初期化、output range全域の生成、failure時rollback、要素型一致、actual loweringとのco-productionはまだ証明しない。
 
-この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは13件である。
+### 2026-07-13 Resource RawAddressAlias payload
+
+`ResourceOp::RawAddressAlias { source, target, kind, span }`はkind tag 13専用のprivate sparse ownerで保持する。sourceとtargetは独立したgraph-bound Placeとして照合し、kindはRustと同じ`Transparent` / `InternalHelper` / `OwnerTokenConstruct`をfallbackなしで運ぶ。scope上の検証順は既存のTransformRange chainの後へ置くが、Rust enum上で両者の間にある未実装variantを検証済みとは扱わない。このownerは構造payloadのlossless transportだけを担い、alias safety、provenance semantics、source capability、actual co-productionは証明しないためnonproduction originを維持する。
+
+この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは12件である。
 
 ## 完了条件
 
