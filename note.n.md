@@ -83806,3 +83806,9 @@ MERGE_APPROVED
 - Rust `ResourceOp::RawAddressAlias { source, target, kind, span }`をkind tag 13専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはTransparent / InternalHelper / OwnerTokenConstructの全3 variantを保持する。
 - sparse mergeはpayload missing / unexpected、identity / ordinal、各Placeのmissing / wrong graphをexact errorへ分類する。runtime matrixは全kind transportとmode 0〜9を検査する。
 - このcheckpointは構造payloadのnonproduction inventoryであり、alias safety、provenance semantics、source capability、actual materializer co-productionを主張しない。Rust enum上の中間variantも実装済みとは数えず、payload ownerは12件未完成である。
+
+## 2026-07-13 selfhost Resource RawAddressView payload
+
+- Rust `ResourceOp::RawAddressView { source, target, kind, span }`をkind tag 14専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはOffset / MemPtrOffset / NonOwningProjection / InternalHelperの全4 variantを保持する。
+- sparse mergeはpayload missing / unexpected、identity / ordinal、各Placeのmissing / wrong graphをexact errorへ分類する。runtime matrixは全kind transportとmode 0〜9を検査する。
+- このcheckpointは構造payloadのnonproduction inventoryであり、view semantics、provenance、source capability、actual materializer co-productionを主張しない。payload ownerは11件未完成で、selfhost compilerの最終目標も未完了である。`plan.md`は変更していない。

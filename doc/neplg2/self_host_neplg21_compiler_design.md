@@ -3662,6 +3662,12 @@ scope authorityはMove検証後にDrop ownerを検証する。stage0 matrixはpo
 
 この順序は実装済みownerの検査順であり、Rust enum上の中間未実装variantを検査済みとは扱わない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは12件である。
 
+### 2026-07-13 Resource RawAddressView payload
+
+`ResourceOp::RawAddressView { source, target, kind, span }`はkind tag 14専用のprivate sparse ownerで保持する。sourceとtargetは独立したgraph-bound Placeとして照合し、kindはRustと同じ`Offset` / `MemPtrOffset` / `NonOwningProjection` / `InternalHelper`をfallbackなしで運ぶ。scopeはRawAddressAlias ownerの後に検査し、missing / unexpected、identity / ordinal、各endpointのgraph / membershipをfield固有typed rejectionへ分類する。
+
+このownerは構造payloadのlossless transportだけを担い、raw view semantics、provenance、source capability、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは11件である。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

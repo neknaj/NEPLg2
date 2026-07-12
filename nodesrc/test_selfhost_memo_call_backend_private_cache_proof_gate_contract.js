@@ -1416,7 +1416,7 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
 );
@@ -1766,6 +1766,30 @@ assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_ca
 assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_alias_payload_stage0"), ["Transparent", "raw_address_alias_payload_stage0_case 0 transparent", "InternalHelper", "OwnerTokenConstruct", ...Array.from({ length: 9 }, (_, index) => `raw_address_alias_payload_stage0_case ${index + 1}`)], "RawAddressAlias runtime must transport all three kinds and execute all exact modes");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /collection_slot_transform_range_payload_inventory_validate_loop[\s\S]*raw_address_alias_payload_inventory_validate_loop/, "scope must validate RawAddressAlias after the previously implemented TransformRange chain without claiming intermediate Rust variants");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_raw_address_alias_payload_stage0/, "public runtime must execute RawAddressAlias matrix");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewKind", "Offset", "MemPtrOffset", "NonOwningProjection", "InternalHelper",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadRecord", "SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory",
+    "RawAddressViewPayloadTableAllocFailed", "RawAddressViewPayloadPushFailed",
+    "RawAddressViewPayloadMissing", "RawAddressViewPayloadUnexpected", "RawAddressViewPayloadIdentityMismatch", "RawAddressViewPayloadOrdinalMismatch",
+    "RawAddressViewSourceMissing", "RawAddressViewSourceGraphMismatch", "RawAddressViewTargetMissing", "RawAddressViewTargetGraphMismatch",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `RawAddressView payload contract must contain ${symbol}`);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_raw_address_view"), /operation_kind_tag kind 14/, "RawAddressView owner must select kind tag 14");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_record_validate_result"), ["RawAddressViewPayloadIdentityMismatch", "RawAddressViewPayloadOrdinalMismatch", "record.source", "record.target"], "RawAddressView payload must validate identity and both endpoints deterministically");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_stage0_error_matches"), ["RawAddressViewPayloadMissing", "RawAddressViewPayloadUnexpected", "RawAddressViewPayloadIdentityMismatch", "RawAddressViewPayloadOrdinalMismatch", "RawAddressViewSourceMissing", "RawAddressViewSourceGraphMismatch", "RawAddressViewTargetMissing", "RawAddressViewTargetGraphMismatch"], "RawAddressView runtime must exact-match every typed rejection in diagnostic order");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_inventory_new"), ["v::new", "Result::Ok records", "RawAddressViewPayloadTableAllocFailed"], "RawAddressView allocation failure must retain its typed error mapping");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_inventory_push"), ["v::push", "Result::Err e", "field::get e \"error\"", "v::free v::vec_push_error_vec e", "RawAddressViewPayloadPushFailed error"], "RawAddressView push failure must close the recovered Vec before returning its typed error");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_inventory_stage0_fill_result"), ["resource_ir_raw_address_view_payload_inventory_push payloads record", "Result::Ok next", "Result::Err e: Result::Err e"], "RawAddressView fill must transfer the inventory owner through push success and preserve push failure ownership handling");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_raw_address_view_payload_stage0"), ["Offset", "raw_address_view_payload_stage0_case 0 offset", "MemPtrOffset", "NonOwningProjection", "InternalHelper", ...Array.from({ length: 9 }, (_, index) => `raw_address_view_payload_stage0_case ${index + 1}`)], "RawAddressView runtime must transport all four kinds and execute all exact modes");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"), /raw_address_alias_payload_inventory_validate_loop[\s\S]*raw_address_view_payload_inventory_validate_loop/, "scope must validate RawAddressView after RawAddressAlias");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_raw_address_view_payload_stage0/, "public runtime must execute RawAddressView matrix");
+for (const caller of [
+    "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result",
+]) assert.match(topLevelBlock(source, "fn", caller), /raw_address_alias_payloads raw_address_view_payloads/, `${caller} must propagate the RawAddressView owner after RawAddressAlias`);
+for (const caller of [
+    "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case",
+]) assertOrdered(topLevelBlock(source, "fn", caller), ["Result::Ok raw_address_view_payloads", "&raw_address_alias_payloads &raw_address_view_payloads", "resource_ir_raw_address_view_payload_inventory_free raw_address_view_payloads"], `${caller} must borrow then close the generated RawAddressView owner`);
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
     [
