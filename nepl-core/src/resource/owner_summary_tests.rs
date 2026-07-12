@@ -72,7 +72,12 @@ struct LowerStep:
     writer <WriterOwner>
 
 struct LowerError:
+    kind <i32>
     writer <WriterOwner>
+    rejected_value <i32>
+    capacity_error <i32>
+    rejected_scalar <i32>
+    storage_error <i32>
 
 fn free_outer <(OuterOwner)*>()> (owner):
     let inner <InnerOwner> field::get owner "inner"
@@ -94,20 +99,35 @@ fn free_writer <(WriterOwner)*>()> (owner):
 fn observe_source <(&SourceOwner)->i32> (source):
     0
 
-fn lower_scalar <(WriterOwner,bool)*>Result<LowerStep,LowerError>> (writer, ok_path):
+fn lower_scalar <(WriterOwner,bool,i32)*>Result<LowerStep,LowerError>> (writer, ok_path, scalar):
     if:
         ok_path
         then Result<LowerStep,LowerError>::Ok LowerStep writer
-        else Result<LowerStep,LowerError>::Err LowerError writer
+        else Result<LowerStep,LowerError>::Err LowerError 1 writer scalar 0 scalar 0
 
-fn lower_push <(WriterOwner,bool,bool)*>Result<LowerStep,LowerError>> (writer, first_ok, second_ok):
-    match lower_scalar writer first_ok:
+fn lower_push_three <(WriterOwner,bool,bool,bool)*>Result<LowerStep,LowerError>> (writer, first_ok, second_ok, third_ok):
+    match lower_scalar writer first_ok 0:
         Result::Err lower: Result::Err lower
         Result::Ok first:
             let first_writer <WriterOwner> field::get first "writer"
-            lower_scalar first_writer second_ok
+            match lower_scalar first_writer second_ok 1:
+                Result::Err lower: Result::Err lower
+                Result::Ok second:
+                    let second_writer <WriterOwner> field::get second "writer"
+                    lower_scalar second_writer third_ok 2
 
-fn route <(OwnerPair,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, first_ok, second_ok, direct_error, nested_error):
+fn lower_push <(WriterOwner,bool,bool,bool,bool,bool)*>Result<LowerStep,LowerError>> (writer, first_ok, second_ok, third_ok, fourth_ok, fifth_ok):
+    match lower_push_three writer first_ok second_ok third_ok:
+        Result::Err lower: Result::Err lower
+        Result::Ok third:
+            let third_writer <WriterOwner> field::get third "writer"
+            match lower_scalar third_writer fourth_ok 3:
+                Result::Err lower: Result::Err lower
+                Result::Ok fourth:
+                    let fourth_writer <WriterOwner> field::get fourth "writer"
+                    lower_scalar fourth_writer fifth_ok 4
+
+fn route <(OwnerPair,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
     let source <SourceOwner> field::get owner "source"
     let writer <WriterOwner> field::get owner "writer"
     let observed <i32> observe_source &source
@@ -119,19 +139,24 @@ fn route <(OwnerPair,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, first
             nested_error
             then:
                 Result<Step,StepError>::Err StepError::Nested NestedError OwnerPair source writer
-            else match lower_push writer first_ok second_ok:
+            else match lower_push writer first_ok second_ok third_ok fourth_ok fifth_ok:
                 Result::Ok lower:
                     let next_writer <WriterOwner> field::get lower "writer"
                     Result<Step,StepError>::Ok Step OwnerPair source next_writer
                 Result::Err lower:
+                    let lower_kind <i32> *field::get_ref &lower "kind"
+                    let rejected_value <i32> *field::get_ref &lower "rejected_value"
+                    let capacity_error <i32> *field::get_ref &lower "capacity_error"
+                    let rejected_scalar <i32> *field::get_ref &lower "rejected_scalar"
+                    let storage_error <i32> *field::get_ref &lower "storage_error"
                     let failed_writer <WriterOwner> field::get lower "writer"
                     free_writer failed_writer
                     Result<Step,StepError>::Err StepError::SourceOnly source
 
-fn probe <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, direct_error, nested_error):
-    budget owner completed exhausted first_ok second_ok direct_error nested_error
+fn probe <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
+    budget owner completed exhausted first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
 
-fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, direct_error, nested_error):
+fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
     if:
         completed
         then:
@@ -141,7 +166,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (o
             then:
                 Result<Step,StepError>::Ok Step owner
             else:
-                route owner first_ok second_ok direct_error nested_error
+                route owner first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
 "#;
     let root = stdlib_root();
     let mut loader = Loader::new(root.clone());
@@ -178,11 +203,12 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (o
         .expect("budget function index");
     let rooted_summaries =
         compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, budget_index);
-    assert_eq!(rooted_summaries.len(), 7, "unexpected rooted closure");
+    assert_eq!(rooted_summaries.len(), 8, "unexpected rooted closure");
     assert!(rooted_summaries.iter().all(|summary| {
         summary.function.starts_with("route__")
             || summary.function.starts_with("budget__")
             || summary.function.starts_with("lower_push__")
+            || summary.function.starts_with("lower_push_three__")
             || summary.function.starts_with("lower_scalar__")
             || summary.function.starts_with("observe_source__")
             || summary.function.starts_with("free_writer__")
@@ -194,6 +220,12 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (o
             .iter()
             .any(|summary| summary.function.starts_with("lower_push__")),
         "writer-only lower Result helper must belong to the rooted owner-summary closure"
+    );
+    assert!(
+        rooted_summaries
+            .iter()
+            .any(|summary| summary.function.starts_with("lower_push_three__")),
+        "three-scalar helper must belong to the rooted owner-summary closure"
     );
     assert!(
         rooted_summaries
@@ -245,7 +277,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (o
         .expect("full dealloc_region summary");
     assert_eq!(rooted_dealloc, full_dealloc);
 
-    for prefix in ["lower_scalar__", "lower_push__"] {
+    for prefix in ["lower_scalar__", "lower_push_three__", "lower_push__"] {
         let summary = summaries
             .iter()
             .find(|summary| summary.function.starts_with(prefix))
