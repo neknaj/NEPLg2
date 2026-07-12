@@ -3596,6 +3596,12 @@ Rust `ResourceFunction.params` は宣言順の独立ownerとして保持し、�
 
 新規 issue は、この文書の phase を基準に小さく分割する。特に parser、type resolver、Resource IR、memo_call、incremental cache は一つの巨大 issue にまとめない。
 
+### 2026-07-12 Resource IR inventory logical-module split
+
+memo_call backend proof gate内のResource IR inventory model、owner、validator、非production scope authorityは、`memo_call_backend_scope_inventory_part.nepl`へ分離した。anchorはこのpartを`as @merge`で同じlogical moduleへ取り込むため、private型とconstructorはpublic APIにならず、外部callerがvalidated inventoryやproduction provenanceを合成する入口も増えない。public runtime smoke、event emitter、production gateはanchorに残す。
+
+通常import用の独立support moduleはprivate authorityをpublic signatureへ露出するため採用しない。source-policyはneutralなmerge pathを固定し、partの公開宣言・公開importとanchor以外からのpart参照を拒否する。part自身のprivate dependency importは各source partを通常parseできるよう保持する。DeclareLocal payload案と同程度の159行sentinelをpartへ一時追加した状態でもfocused doctest全件が通ることを確認し、sentinelは恒久sourceから撤回した。これは型検査余裕の実証であり、DeclareLocal payload自体やactual Resource IR co-productionの完成ではない。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

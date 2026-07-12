@@ -7,8 +7,15 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl";
+const inventoryPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_inventory_part.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
-const source = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
+const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
+const inventoryPartSource = fs.readFileSync(path.join(repoRoot, inventoryPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
+const source = anchorSource.replace(
+    inventoryPartMergeDirective,
+    `${inventoryPartMergeDirective}\n${inventoryPartSource}`,
+);
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustResourceLower = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/lower.rs"), "utf8").replace(/\r\n/g, "\n");
@@ -97,6 +104,49 @@ function enumVariantNames(src, enumName) {
 
 const code = stripDocComments(source);
 
+function listNeplFiles(root) {
+    const files = [];
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+        const entryPath = path.join(root, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...listNeplFiles(entryPath));
+        } else if (entry.isFile() && entry.name.endsWith(".nepl")) {
+            files.push(entryPath);
+        }
+    }
+    return files;
+}
+
+const inventoryPartReferences = listNeplFiles(path.join(repoRoot, "stdlib/neplg2"))
+    .flatMap((filePath) => {
+        const fileSource = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+        return fileSource.split("\n")
+            .filter((line) => line.includes("memo_call_backend_scope_inventory_part"))
+            .map((line) => ({ filePath: path.relative(repoRoot, filePath), line }));
+    });
+
+assert.deepEqual(
+    inventoryPartReferences,
+    [{ filePath: relPath, line: inventoryPartMergeDirective }],
+    "private inventory source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
+);
+
+assert.match(
+    anchorSource,
+    /#import "\.\/memo_call_backend_scope_inventory_part" as @merge/,
+    "proof-gate anchor must merge the private inventory source part into the same logical module",
+);
+assert.doesNotMatch(
+    inventoryPartSource,
+    /^pub\s/m,
+    "private inventory source part must not expose any public declaration or import",
+);
+assert.doesNotMatch(
+    anchorSource,
+    /^pub\s+#import\s+"\.\/memo_call_backend_scope_inventory_part"/m,
+    "proof-gate anchor must not publicly re-export the private inventory source part",
+);
+
 assertOrdered(
     source,
     [
@@ -148,6 +198,10 @@ assert.doesNotMatch(
 assert.ok(
     runner.includes('"nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js"'),
     "private-cache proof gate source policy test must be registered in run_source_policy_regressions.js",
+);
+assert.ok(
+    runner.includes('"nodesrc/test_selfhost_memo_call_backend_scope_inventory_visibility.js"'),
+    "merged inventory private visibility regression must be registered in run_source_policy_regressions.js",
 );
 assertOrdered(
     source,

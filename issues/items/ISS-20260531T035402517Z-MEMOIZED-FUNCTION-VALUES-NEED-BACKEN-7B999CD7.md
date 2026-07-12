@@ -1055,6 +1055,12 @@ production resource-loweringのwalker-shaped split outputからbody / place / ed
 
 検証はtarget contract、selfhost doctest 18 / 18、trunk build、playground editor CLI 13 / 13で行った。
 
+## 2026-07-12 Resource IR inventory logical-module split checkpoint
+
+巨大なproof-gate sourceへ次のoperation payload ownerを直接追加するとResource typecheck複雑度上限を超える根本原因に対し、Resource IR inventory model、owner、validator、非production scope authorityをneutralな`memo_call_backend_scope_inventory_part.nepl`へ移した。anchorは`as @merge`で同一logical moduleとして構成されるため、private constructor、inventory owner、`ResourceIrInventoryValidated` authorityは外部へ公開されない。public runtime smoke、event emitter、production gate、`ResourceIrEnumerated` originの発行境界はanchorに残した。
+
+source-policyはanchorとmerged partを別sourceとして読み、merge path、partの公開宣言・公開import禁止、stdlib全体でanchor以外からのpart参照禁止を検査する。partのprivate dependency importは通常parseに必要なため許可する。DeclareLocal schema追加と同程度の159行sentinelをpartへ一時投入してfocused compileが通ることを実証後、sentinelは撤回した。次はこのprivate partへDeclareLocal payload ownerを実装する。actual HIR-to-Resource co-production、残るpayload、nested topology、sealed backend、artifact keyは未完成である。
+
 2026-07-11: operation projection直後・event emit前にexpected event countを固定し、unified event push由来emitted countとsplit後に照合するcompletion markerをproduction resource-lowering adapterへ追加した。missing、under-emit、over-emitはowner cleanup付きtyped errorで拒否する。現expected scopeはresolver-bound HIR reader source projectionでありactual Resource IR enumeratorではないため、full traversal producer、sealed backend、artifact keyは未完了である。
 
 検証はtarget contract、selfhost doctest 19 / 19、production completion rejection smoke、stdlib documentation contract、issues check、trunk build後のplayground CLI JSONをgateとする。

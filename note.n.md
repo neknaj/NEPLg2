@@ -83687,3 +83687,12 @@ MERGE_APPROVED
 - operation kind ownerとのmerge-cursorでExpr payloadの欠落とnon-Expr payload混入を拒否し、identity / dense ordinal、Place membership、TypeArena membership、output型一致を検査する。
 - scopeへ直接matchを追加すると巨大関数のresource typecheckが診断なしで失敗した。Expr検査とauthority生成をprivate helperへ抽出して型推論量を局所化し、focused compileを復旧した。
 - 残る23 operation payload、nested Branch / Loop / Match topology、actual HIR-to-Resource co-productionは未完了で、originは`ResourceIrInventoryValidated`を維持する。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource IR inventory logical-module split
+
+- proof-gate巨大moduleの型検査複雑度を根本から減らすため、private Resource IR inventory model / owner / validator / nonproduction scope authorityを`memo_call_backend_scope_inventory_part.nepl`へ移した。
+- anchorはneutral pathを`as @merge`で同一logical moduleへ取り込み、private constructorやauthorityをpublic APIへ変えない。public runtime smoke、event emitter、production gateはanchorに維持した。
+- contractはanchorとpartを別に読み、merge path、part側の全公開宣言・公開import禁止、stdlib全体でanchor以外からのpart参照禁止を固定した。通常parseに必要なprivate dependency importはpart自身にも保持する。
+- DeclareLocal schema案と同程度の159行sentinelをpartへ一時追加した状態でfocused doctestが通ることを確認し、sentinelは撤回した。これはheadroomの実証でありDeclareLocal payload完成ではない。
+- 最終恒久差分のfocused doctestは22/22。通常compile isolation regressionも追加し、anchorを通常importした外部sourceからmerged partのprivate helperをqualified参照しても`resolve.identifier.undefined`になることを固定した。
+- `plan.md`は変更していない。次はDeclareLocal payload owner、その後残るpayload、nested topology、actual co-productionへ進む。
