@@ -83829,6 +83829,12 @@ MERGE_APPROVED
 - positive fixtureは4 endpointがすべて異なることを確認し、payload merge、identity / ordinal、各endpointのmissing / wrong graph、type invalid / missingを15個のfield固有negative modeでexact照合する。
 - transform semantics、source/output rangeの全称証明、rollback、要素型一致、actual co-productionは未完成であり、`ResourceIrInventoryValidated`をproduction authorityとして扱わない。
 
+## 2026-07-13 selfhost Resource CallEffect payload
+
+- Rust `EffectOp`全10 variantをkind tag 8専用private sparse ownerへ接続した。UserCallは専用function-name symbol roleとsurface Pure / Impureを保持し、canonical spelling ownerの対象recordへscope-private membership照合する。
+- PrivateEffectRegionIdはi64でu32全域を保持し、0と4294967295を受理、負値と4294967296を拒否する。nested operation / reasonはRustと対応するclosed enumで保持する。
+- stage0はRawMemory 13種をInternalAlloc / UnsafeMemoryの双方へ、PrivateState 4種、PrivateCache 4種、ExternalIo 43種、Nondet 3種、Unknown 5種をnamed variantで輸送し、sparse ownerのmissing / unexpected / key / graph / ordinalとregion境界、unknown canonical nameをexact照合する。これは構造輸送だけで、effect subtype、fresh region、masking、no-escape、actual co-productionを証明しない。残るpayloadは7件である。
+
 ## 2026-07-13 selfhost Resource RawAddressAlias payload
 
 - Rust `ResourceOp::RawAddressAlias { source, target, kind, span }`をkind tag 13専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはTransparent / InternalHelper / OwnerTokenConstructの全3 variantを保持する。

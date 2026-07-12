@@ -76,6 +76,87 @@ for (const variant of ["Expr", "DeclareLocal", "Read", "Assign", "Borrow", "Move
     assert.match(rustResourceOp, new RegExp(`\\n    ${variant}(?: \\{|\\()`), `Rust ResourceOp must retain ${variant}`);
     assert.match(source, new RegExp(`\\n    ${variant}\\n`), `selfhost operation kind must retain ${variant}`);
 }
+const rustEffectOp = rustResourceModel.slice(
+    rustResourceModel.indexOf("pub enum EffectOp {"),
+    rustResourceModel.indexOf("\nimpl EffectOp", rustResourceModel.indexOf("pub enum EffectOp {") + 1),
+);
+const callEffectNestedEnums = [
+    ["PrivateStateOp", "SelfhostMemoCallBackendPrivateCacheResourceIrPrivateStateOperation", ["Allocate", "Read", "Write", "Drop"]],
+    ["PrivateCacheOp", "SelfhostMemoCallBackendPrivateCacheResourceIrPrivateCacheOperation", ["Create", "Lookup", "Insert", "Drop"]],
+    ["ExternalIoOp", "SelfhostMemoCallBackendPrivateCacheResourceIrExternalIoOperation", ["FdRead", "FdWrite", "PathOpen", "PathCreateDirectory", "PathFilestatGet", "PathFilestatSetTimes", "PathLink", "PathReadlink", "PathRemoveDirectory", "PathRename", "PathSymlink", "PathUnlinkFile", "FdAdvise", "FdAllocate", "FdClose", "FdDatasync", "FdFdstatGet", "FdFdstatSetFlags", "FdFdstatSetRights", "FdFilestatGet", "FdFilestatSetSize", "FdFilestatSetTimes", "FdPread", "FdPrestatGet", "FdPrestatDirName", "FdPwrite", "FdReaddir", "FdRenumber", "FdSeek", "FdSync", "FdTell", "PollOneoff", "ProcExit", "ProcRaise", "SchedYield", "SockAccept", "SockRecv", "SockSend", "SockShutdown", "ArgsGet", "ArgsSizesGet", "EnvironGet", "EnvironSizesGet"]],
+    ["NondetOp", "SelfhostMemoCallBackendPrivateCacheResourceIrNondetOperation", ["RandomGet", "ClockTimeGet", "ClockResGet"]],
+];
+for (const [rustName, selfhostName, variants] of callEffectNestedEnums) {
+    const rustStart = rustEffects.indexOf("pub enum " + rustName + " {");
+    const rustBlock = rustEffects.slice(rustStart, rustEffects.indexOf("\n}", rustStart) + 2);
+    const selfhostBlock = topLevelBlock(source, "enum", selfhostName);
+    const rustVariants = [...rustBlock.matchAll(/^    ([A-Za-z][A-Za-z0-9_]*),$/gm)].map((match) => match[1]);
+    const selfhostVariants = [...selfhostBlock.matchAll(/^    ([A-Za-z][A-Za-z0-9_]*)$/gm)].map((match) => match[1]);
+    assert.deepEqual(rustVariants, variants, `Rust ${rustName} variant list must remain exact`);
+    assert.deepEqual(selfhostVariants, variants, `selfhost ${selfhostName} variant list must match Rust exactly`);
+    for (const variant of variants) {
+        assert.match(rustBlock, new RegExp("\\n    " + variant + ","), "Rust " + rustName + " must retain " + variant);
+        assert.match(selfhostBlock, new RegExp("\\n    " + variant + "\\n"), "selfhost " + selfhostName + " must retain " + variant);
+    }
+}
+const unknownEffectReasons = ["FunctionValueWithoutKnownEffect", "AssignedCallbackWithoutKnownEffect", "FunctionParameterWithoutKnownEffect", "CallbackParameterWithoutKnownEffect", "SyntheticTestFixture"];
+const rustUnknownEffectReasonStart = rustResourceModel.indexOf("pub enum UnknownEffectReason {");
+const rustUnknownEffectReason = rustResourceModel.slice(rustUnknownEffectReasonStart, rustResourceModel.indexOf("\n}", rustUnknownEffectReasonStart) + 2);
+const selfhostUnknownEffectReason = topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceIrUnknownEffectReason");
+assert.deepEqual([...rustUnknownEffectReason.matchAll(/^    ([A-Za-z][A-Za-z0-9_]*),$/gm)].map((match) => match[1]), unknownEffectReasons, "Rust UnknownEffectReason variant list must remain exact");
+assert.deepEqual([...selfhostUnknownEffectReason.matchAll(/^    ([A-Za-z][A-Za-z0-9_]*)$/gm)].map((match) => match[1]), unknownEffectReasons, "selfhost UnknownEffectReason variant list must match Rust exactly");
+for (const reason of unknownEffectReasons) {
+    assert.match(rustUnknownEffectReason, new RegExp("\\n    " + reason + ","), "Rust UnknownEffectReason must retain " + reason);
+    assert.match(selfhostUnknownEffectReason, new RegExp("\\n    " + reason + "\\n"), "selfhost UnknownEffectReason must retain " + reason);
+}
+for (const variant of ["Pure", "UserCall", "IndirectCall", "InternalAlloc", "UnsafeMemory", "PrivateState", "PrivateCache", "ExternalIo", "Nondet", "Unknown"]) {
+    assert.match(rustEffectOp, new RegExp(`\\n    ${variant}(?:,| \\{)`), `Rust EffectOp must retain ${variant}`);
+    assert.match(source, new RegExp(`\\n    ${variant}(?:$| %)` , "m"), `selfhost CallEffect payload must retain ${variant}`);
+}
+for (const required of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionNameSymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallSurfaceEffect",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrPrivateEffectRegion",
+    "UnsealedIntrinsic",
+    "SealedCompilerPrivateCache",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectPayloadInventory",
+    "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_payload_inventory_validate_loop",
+    "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_payload_stage0",
+    "4294967295",
+    "4294967296",
+]) {
+    assert.match(source, new RegExp(required), `CallEffect contract must retain ${required}`);
+}
+assert.match(source, /resource_ir_inventory_scope_authority_result[\s\S]*&SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectPayloadInventory/);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_payload_stage0"),
+    ["call_effect_payload_transport_stage0 unit", ...Array.from({ length: 7 }, (_, mode) => `call_effect_payload_stage0_case ${mode}`)],
+    "CallEffect runtime must execute nested transport and every exact sparse-owner mode",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_payload_stage0_error_matches"),
+    ["CallEffectPayloadMissing ordinal", "eq ordinal 8", "CallEffectPayloadUnexpected ordinal", "eq mode 2", "eq ordinal 0", "eq mode 6", "eq ordinal 1", "CallEffectPayloadIdentityMismatch ordinal", "eq ordinal 8", "CallEffectPayloadOrdinalMismatch ordinal", "eq ordinal 9"],
+    "CallEffect sparse-owner runtime must exact-match error variants and ordinals",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_payload_stage0_case"),
+    ["if eq mode 2 1 9", "if eq mode 3", "if eq mode 4", "if eq mode 5 9", "if eq mode 1 Result::Ok payloads0", "if eq mode 6", "call_effect_payload_inventory_validate_loop"],
+    "CallEffect sparse-owner fixture must exercise unexpected, key, graph, ordinal, and missing paths through validation",
+);
+const callEffectTransport = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_payload_transport_stage0");
+for (const operation of ["Alloc", "Dealloc", "Realloc", "Load", "Store", "LoadU8", "StoreU8", "BulkCopy", "BulkMove", "MemorySize", "MemoryGrow", "FillBytes", "Fill"]) {
+    assert.match(callEffectTransport, new RegExp(`call_effect_raw_memory_transport_stage0 SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryOperation::${operation}\\b`), `CallEffect transport must cover InternalAlloc and UnsafeMemory ${operation}`);
+}
+for (const operation of ["Allocate", "Read", "Write", "Drop"]) assert.match(callEffectTransport, new RegExp(`PrivateStateOperation::${operation}\\b`), `CallEffect transport must cover PrivateState ${operation}`);
+for (const operation of ["Create", "Lookup", "Insert", "Drop"]) assert.match(callEffectTransport, new RegExp(`PrivateCacheOperation::${operation}\\b`), `CallEffect transport must cover PrivateCache ${operation}`);
+for (const operation of ["FdRead", "FdWrite", "PathOpen", "PathCreateDirectory", "PathFilestatGet", "PathFilestatSetTimes", "PathLink", "PathReadlink", "PathRemoveDirectory", "PathRename", "PathSymlink", "PathUnlinkFile", "FdAdvise", "FdAllocate", "FdClose", "FdDatasync", "FdFdstatGet", "FdFdstatSetFlags", "FdFdstatSetRights", "FdFilestatGet", "FdFilestatSetSize", "FdFilestatSetTimes", "FdPread", "FdPrestatGet", "FdPrestatDirName", "FdPwrite", "FdReaddir", "FdRenumber", "FdSeek", "FdSync", "FdTell", "PollOneoff", "ProcExit", "ProcRaise", "SchedYield", "SockAccept", "SockRecv", "SockSend", "SockShutdown", "ArgsGet", "ArgsSizesGet", "EnvironGet", "EnvironSizesGet"]) assert.match(callEffectTransport, new RegExp(`ExternalIoOperation::${operation}\\b`), `CallEffect transport must cover ExternalIo ${operation}`);
+for (const operation of ["RandomGet", "ClockTimeGet", "ClockResGet"]) assert.match(callEffectTransport, new RegExp(`NondetOperation::${operation}\\b`), `CallEffect transport must cover Nondet ${operation}`);
+for (const reason of ["FunctionValueWithoutKnownEffect", "AssignedCallbackWithoutKnownEffect", "FunctionParameterWithoutKnownEffect", "CallbackParameterWithoutKnownEffect", "SyntheticTestFixture"]) assert.match(callEffectTransport, new RegExp(`UnknownEffectReason::${reason}\\b`), `CallEffect transport must cover Unknown ${reason}`);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_effect_raw_memory_transport_stage0"),
+    ["CallEffectKind::InternalAlloc operation", "CallEffectKind::UnsafeMemory operation"],
+    "each RawMemory operation must be transported through both EffectOp variants",
+);
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -1584,7 +1665,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols0 &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols0/,
+    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols0 &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols0/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
@@ -8448,6 +8529,8 @@ assert.doesNotMatch(
 );
 const backendPolicyCode = code
     .replace(topLevelBlock(code, "enum", "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind"), "")
+    .replaceAll("UnsealedIntrinsic", "IntrinsicRegion")
+    .replaceAll("SealedCompilerPrivateCache", "CompilerPrivateRegion")
     .replaceAll(
         "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind::Wasm",
         "SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind::BinaryBody",
