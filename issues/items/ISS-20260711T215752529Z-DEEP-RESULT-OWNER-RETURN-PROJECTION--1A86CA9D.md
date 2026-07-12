@@ -34,6 +34,8 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - `deep_distinct_owner_variant_summary_preserves_path_conditioned_mapping`はsummaryを直接検査し、2個のexact parameter sourceが共通のOk/direct Err/nested Err 3-path subsetを保ち、root/projection unconditional return、Maybe/Fresh/Unknown、target collapseへ劣化しないことを固定した。後続拡張ではsourceだけにSourceOnly Errを追加した非対称7対応も同じ不変条件で検査する。
 - root関数のowner-summary callee closureだけを固定点計算するtest-only入口を追加し、cheap fixtureでfull固定点と同一summaryになることを固定した。production `writer_step_budget`へ適用しても64MiB stackで5分超となり、closure filteringだけでは不十分だった。高コストprobeは残さず、次はdirect-call構成要素をsynthetic wrapperへ段階移植する。
 - cheap fixtureをproduction budget形状へ拡張し、2本のdirect Ok、下位Result委譲、writer authorityの明示dealloc後にsourceだけを返すSourceOnly Errを同時に検査した。summaryはsource 4 path／writer 3 pathの7 path-conditioned mappingを保持し、call-site owner checkとnormal compileも通過した。direct return mergeと非対称cleanupだけでは再現せず、次はlower source/writer内部projectionを段階移植する。
+- 一回限りの実stdlib `Vec<i32>`探索でも、source/writer Vec、budget direct Ok、lower委譲、writer `free`、SourceOnly Errを組み合わせてowner checkが約68秒で通過した。高コストな非再現fixtureは残さず、次はproduction同様のsource 3 Vec／writer 2 Vec wrapperをsyntheticに検査する。
+- 一回限りのsource 3 Vec／writer 2 Vec探索も同じbudget／cleanup形状で約52秒で通過した。高コストfixtureは残さず、production同数のVec allocationだけでは再現せず単独原因ではないことを確認した。`owner_summary_raw_i32_leaf`も再確認し、owner tokenを含むaggregateは`OwnerTokenOnly`となり通常のi32 metadataをleafへ加えないため、この仮説も棄却した。次はproduction型のenum alternativeとreturn projection graphを列挙し、同じ投影形状だけをcheap synthetic fixtureへ移植する。
 
 ## 問題
 
