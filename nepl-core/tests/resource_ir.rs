@@ -18206,8 +18206,12 @@ fn resource_ir_owner_check_routes_distinct_deep_owners_across_result_variants() 
 #import "core/mem" as *
 #import "core/result" as *
 
+enum LeafState:
+    Ready <RegionToken<u8>>
+    Empty
+
 struct LeafOwner:
-    region <RegionToken<u8>>
+    state <LeafState>
 
 struct InnerOwner:
     leaf <LeafOwner>
@@ -18266,6 +18270,83 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
         ),
     )
     .expect("the deep distinct-owner variant route must pass the normal compile pipeline");
+}
+
+#[test]
+fn resource_ir_owner_check_scales_distinct_deep_result_projection_leaves() {
+    for leaf_count in [1usize, 2, 4, 8, 16, 32] {
+        let mut fields = String::new();
+        for index in 0..leaf_count {
+            fields.push_str(&format!("    owner_{index} <OuterOwner>\n"));
+        }
+        let source = format!(
+            r#"
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LeafOwner:
+    region <RegionToken<u8>>
+
+struct InnerOwner:
+    leaf <LeafOwner>
+
+struct OuterOwner:
+    inner <InnerOwner>
+
+struct OwnerBag:
+{fields}
+struct Step:
+    owner <OwnerBag>
+
+struct NestedError:
+    owner <OwnerBag>
+
+enum StepError:
+    Direct <OwnerBag>
+    Nested <NestedError>
+
+fn route <(OwnerBag,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    if:
+        ok_path
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            direct_error
+            then:
+                Result<Step,StepError>::Err StepError::Direct owner
+            else:
+                Result<Step,StepError>::Err StepError::Nested NestedError owner
+
+fn probe <(OwnerBag,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    route owner ok_path direct_error
+"#
+        );
+        let (module, types) = typecheck_resource_stdlib_source(
+            &source,
+            "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_leaf_scale.nepl",
+            CompileTarget::Wasm,
+        );
+        let resource = lower_hir_module(&module, &types);
+        let report = check_resource_owner_obligations(&resource, &types);
+        assert!(
+            report.diagnostics.is_empty(),
+            "{leaf_count} distinct deep owner leaves must each route through exclusive Result projections: {:#?}\nresource:\n{}",
+            report.diagnostics,
+            resource.dump_text()
+        );
+        if leaf_count == 32 {
+            compile_resource_source_with_path(
+                &source,
+                CompileTarget::Wasm,
+                stdlib_root().join(
+                    "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_leaf_scale.nepl",
+                ),
+            )
+            .expect("the largest deep owner leaf scale control must pass normal compile");
+        }
+    }
 }
 
 #[test]
