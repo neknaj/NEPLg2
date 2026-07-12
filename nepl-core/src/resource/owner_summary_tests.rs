@@ -94,13 +94,20 @@ fn free_writer <(WriterOwner)*>()> (owner):
 fn observe_source <(&SourceOwner)->i32> (source):
     0
 
-fn lower_push <(WriterOwner,bool)*>Result<LowerStep,LowerError>> (writer, ok_path):
+fn lower_scalar <(WriterOwner,bool)*>Result<LowerStep,LowerError>> (writer, ok_path):
     if:
         ok_path
         then Result<LowerStep,LowerError>::Ok LowerStep writer
         else Result<LowerStep,LowerError>::Err LowerError writer
 
-fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, lower_ok, direct_error, nested_error):
+fn lower_push <(WriterOwner,bool,bool)*>Result<LowerStep,LowerError>> (writer, first_ok, second_ok):
+    match lower_scalar writer first_ok:
+        Result::Err lower: Result::Err lower
+        Result::Ok first:
+            let first_writer <WriterOwner> field::get first "writer"
+            lower_scalar first_writer second_ok
+
+fn route <(OwnerPair,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, first_ok, second_ok, direct_error, nested_error):
     let source <SourceOwner> field::get owner "source"
     let writer <WriterOwner> field::get owner "writer"
     let observed <i32> observe_source &source
@@ -112,7 +119,7 @@ fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, lower_ok, 
             nested_error
             then:
                 Result<Step,StepError>::Err StepError::Nested NestedError OwnerPair source writer
-            else match lower_push writer lower_ok:
+            else match lower_push writer first_ok second_ok:
                 Result::Ok lower:
                     let next_writer <WriterOwner> field::get lower "writer"
                     Result<Step,StepError>::Ok Step OwnerPair source next_writer
@@ -121,10 +128,10 @@ fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, lower_ok, 
                     free_writer failed_writer
                     Result<Step,StepError>::Err StepError::SourceOnly source
 
-fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, nested_error):
-    budget owner completed exhausted lower_ok direct_error nested_error
+fn probe <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, direct_error, nested_error):
+    budget owner completed exhausted first_ok second_ok direct_error nested_error
 
-fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, nested_error):
+fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, direct_error, nested_error):
     if:
         completed
         then:
@@ -134,7 +141,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
             then:
                 Result<Step,StepError>::Ok Step owner
             else:
-                route owner lower_ok direct_error nested_error
+                route owner first_ok second_ok direct_error nested_error
 "#;
     let root = stdlib_root();
     let mut loader = Loader::new(root.clone());
@@ -171,11 +178,12 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
         .expect("budget function index");
     let rooted_summaries =
         compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, budget_index);
-    assert_eq!(rooted_summaries.len(), 6, "unexpected rooted closure");
+    assert_eq!(rooted_summaries.len(), 7, "unexpected rooted closure");
     assert!(rooted_summaries.iter().all(|summary| {
         summary.function.starts_with("route__")
             || summary.function.starts_with("budget__")
             || summary.function.starts_with("lower_push__")
+            || summary.function.starts_with("lower_scalar__")
             || summary.function.starts_with("observe_source__")
             || summary.function.starts_with("free_writer__")
             || summary.function.starts_with("free_outer__")
@@ -186,6 +194,12 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
             .iter()
             .any(|summary| summary.function.starts_with("lower_push__")),
         "writer-only lower Result helper must belong to the rooted owner-summary closure"
+    );
+    assert!(
+        rooted_summaries
+            .iter()
+            .any(|summary| summary.function.starts_with("lower_scalar__")),
+        "sequential scalar Result helper must belong to the rooted owner-summary closure"
     );
     assert!(
         rooted_summaries
@@ -230,6 +244,63 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner,
         .find(|summary| summary.function.starts_with("dealloc_region__"))
         .expect("full dealloc_region summary");
     assert_eq!(rooted_dealloc, full_dealloc);
+
+    for prefix in ["lower_scalar__", "lower_push__"] {
+        let summary = summaries
+            .iter()
+            .find(|summary| summary.function.starts_with(prefix))
+            .unwrap_or_else(|| panic!("missing {prefix} summary"));
+        assert_eq!(
+            summary.variant_projection_returns.len(),
+            4,
+            "{prefix} must return two writer authorities through Ok and Err: {summary:#?}"
+        );
+        assert!(summary.projection_returns.is_empty());
+        assert!(summary.parameter_indices.is_empty());
+        assert!(summary.parameter_sources.is_empty());
+        assert!(summary.parameter_return_extents.is_empty());
+        assert!(!summary.returns_fresh_owner);
+        assert!(!summary.returns_maybe_owner);
+        let parameter_returns = summary
+            .variant_projection_returns
+            .iter()
+            .map(|entry| match &entry.owner {
+                OwnerProjectionReturnOwner::Parameter { source, .. } => (entry, source),
+                owner => panic!("{prefix} must not degrade a writer source to {owner:#?}"),
+            })
+            .collect::<Vec<_>>();
+        let sources = parameter_returns
+            .iter()
+            .map(|(_, source)| (*source).clone())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(sources.len(), 2, "{prefix} must retain both writer leaves");
+        for source in &sources {
+            let returns = parameter_returns
+                .iter()
+                .filter(|(_, found)| *found == source)
+                .collect::<Vec<_>>();
+            assert_eq!(returns.len(), 2);
+            assert_eq!(
+                returns
+                    .iter()
+                    .map(|(entry, _)| entry.variant.clone())
+                    .collect::<BTreeSet<_>>(),
+                BTreeSet::from([String::from("Err"), String::from("Ok")])
+            );
+            assert!(returns
+                .iter()
+                .all(|(entry, _)| entry.suffix.ends_with(&source.suffix)));
+        }
+        assert_eq!(
+            parameter_returns
+                .iter()
+                .map(|(entry, _)| (entry.variant.clone(), entry.suffix.clone(), entry.ty))
+                .collect::<BTreeSet<_>>()
+                .len(),
+            4,
+            "{prefix} must not collapse writer return targets"
+        );
+    }
 
     for prefix in ["route__", "probe__", "budget__"] {
         let summary = summaries
