@@ -83799,4 +83799,12 @@ MERGE_APPROVED
 - 既存2 contour / 4 edge registered-face fixtureをF5nxj plan/allocation/writer、8 command commit、F5nxk start/read/freeまで延長したところ、Resource checkerが各`writer_step_budget`の返却owner leafをcaller return時に`Moved`として誤報した。再帰drainを8個の非再帰helper、さらに単一関数の8段unrollへ変えても同じprojection群で再現し、制御構造固有ではなくdeep production owner return summaryの残存不具合と確認した。
 - 60秒、240秒ではcompile timeout、600秒では`resource.owner.use_after_move`を再現した。失敗fixtureは通常suiteへ残さず、`ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK`へ再現条件を分離した。
 - F5nxk source-policy、typed lookup error、test-only identity finalizerはfocused compile対象として維持するが、production runtime gate未達のためmain統合は行わない。再開条件はcompiler fix後にcontrolled fixtureが1 / 1通過することである。
-- subagentとのroot-cause監査で、match bind localへ複製されたpending Result owner effectがpayload take後も残り、apply側が`source_condition`を見ずTemporary leafをbool returnまで輸送する境界へ絞った。次はtarget具体化済みalternativeだけをpruneするResource regression/fixを独立checkpointで行い、Moved一般無視によるdouble-move隠蔽を避ける。
+
+## 2026-07-13 deep writer chain compiler checkpoint
+
+- production suffix depthの5 owner leafを持つbudget Resultを再帰的に連結するResource回帰を追加し、修正前に`drain_eight`の全leafで`ReturnValue / Moved`を再現した。
+- 原因はouter Result armでnested error variantsの相互排他的targetを一括materializeし、同じsource storageを通常transferで繰り返したことだった。同じsourceかつenum payloadが排他的なtargetだけ、最初のtargetからowner state/storage、raw alias/view、storage originを条件付き複製する。既存target state、非transferable source、非排他的targetは従来経路に残す。
+- focused production-depth Resource回帰、deep owner-summary回帰、same/different source、same/exclusive target、pre-owned Live/Moved target、cargo checkは通過した。subagent差分レビューのtarget overwrite blockerを修正し、再レビューでblocking findingなしとなった。
+- controlled F5nxj 8-command runtime fixtureからF5nxk indexed read/freeまでのgateは未復帰であり、issue、F5nxk、フォントレンダリングエンジンとGUIライブラリ全体はいずれも未完了である。`plan.md`は変更していない。
+- compiler checkpoint gates: production-depth recursive Resource回帰、deep owner-summary回帰、conditional target unit 3件、`cargo check -p nepl-core`、GUI font source-policy、F5nxj/F5nxk normal compile isolation、issues index/check、`git diff --check`、`NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`、trunk後playground editor CLI JSON 13 / 13が通過した。
+- 次はcontrolled F5nxj 8-command fixtureを復帰し、F5nxk indexed read/freeまでのruntime gateでcompiler fixをproduction確認する。通過後もF5nxkのchecked-span curve forwarding以降が残るため、個別runtime checkpointを全体完成とは扱わない。

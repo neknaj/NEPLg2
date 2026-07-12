@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-12T20:15:21.223Z",
+  "generated_at": "2026-07-12T22:23:31.810Z",
   "counts": {
     "total": 1373,
     "open": 60,
@@ -529,7 +529,7 @@
       "type": "bug",
       "created": "2026-07-13",
       "updated": "2026-07-13",
-      "target": "nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_apply.rs",
+      "target": "nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK.md"

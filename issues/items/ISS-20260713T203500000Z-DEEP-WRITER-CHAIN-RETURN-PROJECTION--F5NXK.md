@@ -8,7 +8,7 @@ priority: P1
 type: bug
 created: 2026-07-13
 updated: 2026-07-13
-target: nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_apply.rs
+target: nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs
 ---
 
 # 概要
@@ -46,3 +46,11 @@ F5nxj production writerを8回順次commitしてF5nxkへ渡すvalid callerが、
 - 同じBudgetStepからownerを2回take、既存double-take retry、非排他的同一target候補、Err cleanup欠落をnegative controlとして維持する。
 - F5nxj controlled 8-command fixtureがnormal Resource checkを通る。
 - F5nxkでcommand index 0と4のindexed span、index -1、typed span lookup failure、identity mismatch、single freeを実行して1 / 1通過する。
+
+# Compiler checkpoint
+
+production suffix depthと同じ5 owner leafを持つbudget Resultを再帰的に連結する回帰を追加した。outer Result variantを選択した時点では、nested error variantsのtarget projectionは相互排他的だが同じsource storageを返す。従来は各targetへ通常transferして2件目以降をMovedとした。
+
+match arm内で最初にmaterializeしたtargetのowner state、raw alias/view、storage originを記録し、同じsourceかつtarget suffixが異なるenum payloadで排他的な場合だけ、同じstorage identityを条件付きtargetへ複製する。targetに既存stateがある場合やsourceがtransferableでない場合はshortcutせず従来の診断経路へ戻す。一般的なMoved無視や非排他的targetの抑制は行わない。
+
+synthetic production-depth回帰、既存deep owner-summary回帰、same/different source、same/exclusive target、pre-owned Live/Moved targetのfocused testsは通過した。F5nxj controlled 8-command fixtureからF5nxk read/freeまでのruntime gateは未復帰のため、issueはopenのままとする。

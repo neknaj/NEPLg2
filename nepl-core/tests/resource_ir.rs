@@ -18781,6 +18781,7 @@ fn resource_ir_owner_check_routes_production_suffix_depths_across_budget_variant
 #import "core/mem" as *
 #import "core/mem/internal" as *
 #import "core/mem/allocator" as *
+#import "core/math" as *
 #import "core/result" as *
 
 enum LeafState<.T>:
@@ -18851,6 +18852,38 @@ fn budget <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>
 
 fn probe <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
     budget owner completed exhausted lower_ok source_read writer_push
+
+fn free_source <(SourceOwner)*>()> (owner):
+    free_depth_{items_depth} field::get owner "items"
+    free_depth_{spans_depth} field::get owner "spans"
+    free_depth_{scalar_slots_depth} field::get owner "scalar_slots"
+
+fn free_writing_owner <(WritingOwner)*>()> (owner):
+    free_source field::get owner "source"
+    free_writer field::get owner "writer"
+
+fn free_step_error <(StepError)*>()> (error):
+    match error:
+        StepError::AlreadyCompleted owner:
+            free_writing_owner owner
+        StepError::SourceReadFailed error:
+            free_writing_owner field::get error "retained"
+        StepError::WriterPushFailed source:
+            free_source source
+
+fn drain_eight <(WritingOwner,i32,bool,bool,bool)*>bool> \owner\remaining\lower_ok\source_read\writer_push:
+    if le remaining 0:
+        then:
+            free_writing_owner owner
+            true
+        else:
+            match budget owner false false lower_ok source_read writer_push:
+                Result::Err error:
+                    free_step_error error
+                    false
+                Result::Ok step:
+                    let next <WritingOwner> field::get step "owner"
+                    drain_eight next sub remaining 1 lower_ok source_read writer_push
 "#
     );
     let (module, types) = typecheck_resource_stdlib_source(
