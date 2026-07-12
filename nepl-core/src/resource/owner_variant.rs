@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -147,7 +148,7 @@ impl PendingVariantOwnerEffects {
             .collect::<Vec<_>>();
         let available =
             snapshot_return_availability(&matching_returns, engine, owners, raw_aliases);
-        let mut applied_targets = Vec::<(Place, Place)>::new();
+        let mut applied_targets = BTreeMap::<Place, Vec<Place>>::new();
         for (index, entry) in matching_returns.iter().enumerate() {
             if should_skip_unavailable_alternative(&matching_returns, &available, index) {
                 continue;
@@ -168,7 +169,10 @@ impl PendingVariantOwnerEffects {
                         applied_target,
                         &target,
                     ) {
-                        applied_targets.push((source.clone(), target));
+                        applied_targets
+                            .entry(source.clone())
+                            .or_default()
+                            .push(target);
                         continue;
                     }
                 }
@@ -184,7 +188,7 @@ impl PendingVariantOwnerEffects {
                 span,
             );
             if let Some(source) = applied_source {
-                applied_targets.push((source, target));
+                applied_targets.entry(source).or_default().push(target);
             }
         }
     }
@@ -954,17 +958,14 @@ fn places_are_mutually_exclusive(left: Option<&Place>, right: Option<&Place>) ->
 }
 
 fn mutually_exclusive_applied_target<'a>(
-    applied_targets: &'a [(Place, Place)],
+    applied_targets: &'a BTreeMap<Place, Vec<Place>>,
     source: &Place,
     target: &Place,
 ) -> Option<&'a Place> {
     applied_targets
+        .get(source)?
         .iter()
-        .find(|(applied_source, applied_target)| {
-            applied_source == source
-                && places_are_mutually_exclusive(Some(applied_target), Some(target))
-        })
-        .map(|(_, target)| target)
+        .find(|applied_target| places_are_mutually_exclusive(Some(applied_target), Some(target)))
 }
 
 fn copy_exclusive_applied_target(
@@ -1076,7 +1077,7 @@ mod alternative_tests {
             }],
             TypeId(1),
         );
-        let applied = vec![(source.clone(), left.clone())];
+        let applied = BTreeMap::from([(source.clone(), vec![left.clone()])]);
         assert_eq!(
             mutually_exclusive_applied_target(&applied, &source, &right),
             Some(&left)

@@ -2,13 +2,13 @@
 id: ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK
 title: "Deep registered writer chain return projection reuses moved payload"
 area: RESOURCE
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: bug
 created: 2026-07-13
 updated: 2026-07-13
-target: nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs
+target: nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs, tests/stdlib/gui_font_registered_face.n.md
 ---
 
 # 概要
@@ -32,13 +32,11 @@ F5nxj production writerを8回順次commitしてF5nxkへ渡すvalid callerが、
 
 # 根本原因境界
 
-- match bindでResult payloadのpending owner effectsがbind localへ複製される。
-- `budget_step_owner step`が実ownerを次ownerへ移しても、bind local側の条件付きreturn alternativeが残る。
-- arm終端の`resolve_result`は元scrutineeを解決するが、bind local側の残存候補を全て消費しない。
-- apply側の`should_skip_unavailable_alternative`はenum projectionの相互排他だけを見て、generation側が保持した`source_condition`を判定しない。
-- このため既にMovedのTemporary Result leafが後段control outputを通ってbool returnまで残る。
+- outer Result armを適用するとき、nested error variantsのreturn targetは異なるenum payload projectionとして同時に列挙される。
+- それらのtargetは実行時には相互排他的だが、同じcanonical source storageを返すmappingを持つ。
+- `apply_match_arm_returns`が各targetへ通常transferしたため、最初のtargetでsourceをMovedにし、2件目以降を正当な条件付きreturnではなく二重moveとして診断した。
 
-修正境界は`owner_control.rs`のmatch bind lifecycleと`owner_variant.rs`の`materialize_return_owner_for_target` / `retain_unmaterialized_sources` / availability判定である。target projectionが具体化・移送済みのとき、そのtargetに対応するpending return alternativeだけを`source_condition`込みでpruneする。Moved sourceの一般無視は禁止する。
+修正境界は`owner_variant.rs`のmatch-arm return適用である。同じcanonical sourceかつ最初に異なるtarget projectionが別enum payloadである場合だけ、最初にmaterializeしたtargetのowner state/storage、raw alias/view、storage originを相互排他的targetへ条件付き複製する。既存target state、非transferable source、同一または非排他的targetは従来のtransferと診断経路へ戻し、Moved sourceの一般無視は行わない。
 
 # 再開条件
 
@@ -53,4 +51,10 @@ production suffix depthと同じ5 owner leafを持つbudget Resultを再帰的�
 
 match arm内で最初にmaterializeしたtargetのowner state、raw alias/view、storage originを記録し、同じsourceかつtarget suffixが異なるenum payloadで排他的な場合だけ、同じstorage identityを条件付きtargetへ複製する。targetに既存stateがある場合やsourceがtransferableでない場合はshortcutせず従来の診断経路へ戻す。一般的なMoved無視や非排他的targetの抑制は行わない。
 
-synthetic production-depth回帰、既存deep owner-summary回帰、same/different source、same/exclusive target、pre-owned Live/Moved targetのfocused testsは通過した。F5nxj controlled 8-command fixtureからF5nxk read/freeまでのruntime gateは未復帰のため、issueはopenのままとする。
+synthetic production-depth回帰、既存deep owner-summary回帰、same/different source、same/exclusive target、pre-owned Live/Moved targetのfocused testsは通過した。
+
+# Production runtime confirmation
+
+最初のtargetを探す適用履歴を全source共通の線形列として保持すると、巨大なregistered-face callerでresource static checkが300秒を超えた。履歴をsource別`BTreeMap<Place, Vec<Place>>`へ変更し、異なるsourceのtargetを相互排他候補として走査しないようにした。
+
+controlled fixtureはF5nxj plan/allocation、8回のwriter commit、budget 0 terminal、checked sealを通り、F5nxk ownerへ移してcommand index 0 / 4のchecked commandとindexed span identity、index -1、typed span lookup failure、identity mismatchを借用で検査した後、sourceとwriter storageをexactly once解放する。trunk後のfocused doctest通過を最終gateとする。compiler correctnessとproduction runtime再現の両方が復帰したため、このblocker issueをresolvedとする。

@@ -83808,3 +83808,10 @@ MERGE_APPROVED
 - controlled F5nxj 8-command runtime fixtureからF5nxk indexed read/freeまでのgateは未復帰であり、issue、F5nxk、フォントレンダリングエンジンとGUIライブラリ全体はいずれも未完了である。`plan.md`は変更していない。
 - compiler checkpoint gates: production-depth recursive Resource回帰、deep owner-summary回帰、conditional target unit 3件、`cargo check -p nepl-core`、GUI font source-policy、F5nxj/F5nxk normal compile isolation、issues index/check、`git diff --check`、`NO_COLOR=true PATH="$PWD/.agent-bin:$PATH" trunk build`、trunk後playground editor CLI JSON 13 / 13が通過した。
 - 次はcontrolled F5nxj 8-command fixtureを復帰し、F5nxk indexed read/freeまでのruntime gateでcompiler fixをproduction確認する。通過後もF5nxkのchecked-span curve forwarding以降が残るため、個別runtime checkpointを全体完成とは扱わない。
+
+## 2026-07-13 F5nxk production runtime gate復帰
+
+- registered-face fixtureをF5nxj plan/allocation、8 command commit、budget 0 terminal、checked sealからF5nxk owner-bound indexed read/freeまで接続した。command index 0 / 4のchecked commandとspan identity、index -1、typed span lookup failure、identity mismatchを借用で検査し、sourceとwriter storageはowner freeでexactly once解放する。
+- 最初のproduction実行は300秒compile timeoutとなった。runtime read数ではなく、compiler checkpointで追加した全source共通の適用済みtarget線形走査がdeep return列を増幅していたため、source別`BTreeMap`へ変更し、相互排他判定を同じcanonical sourceのtarget列だけに限定した。
+- source別index化後、trunk build後のfocused registered-face doctestは22 / 22通過した。synthetic production-depth回帰とconditional target unit controlsも維持している。blocker issueとtodoを完了扱いに同期する。
+- これはF5nxk production runtime gateのcheckpointであり、checked-span curve/event forwarding、stroke provenance chain、フォントレンダリングエンジン、native/GUI表示の最終目標は未完了である。`plan.md`は変更していない。
