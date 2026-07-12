@@ -63,9 +63,14 @@ struct Step:
 struct NestedError:
     owner <OwnerPair>
 
+struct ReadRetainedError:
+    retained <OwnerPair>
+    read_kind <i32>
+
 enum StepError:
     Direct <OwnerPair>
     Nested <NestedError>
+    ReadFailed <ReadRetainedError>
     SourceOnly <SourceOwner>
 
 struct LowerStep:
@@ -96,8 +101,8 @@ fn free_writer <(WriterOwner)*>()> (owner):
     free_outer field::get owner "path_sink_scalars"
     free_outer field::get owner "raster_mask_scalars"
 
-fn observe_source <(&SourceOwner)->i32> (source):
-    0
+fn read_source <(&SourceOwner,bool)->Result<i32,i32>> (source, ok_path):
+    if ok_path then Result<i32,i32>::Ok 0 else Result<i32,i32>::Err 1
 
 fn lower_scalar <(WriterOwner,bool,i32)*>Result<LowerStep,LowerError>> (writer, ok_path, scalar):
     if:
@@ -127,36 +132,39 @@ fn lower_push <(WriterOwner,bool,bool,bool,bool,bool)*>Result<LowerStep,LowerErr
                     let fourth_writer <WriterOwner> field::get fourth "writer"
                     lower_scalar fourth_writer fifth_ok 4
 
-fn route <(OwnerPair,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
+fn route <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, read_ok, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
     let source <SourceOwner> field::get owner "source"
     let writer <WriterOwner> field::get owner "writer"
-    let observed <i32> observe_source &source
-    if:
-        direct_error
-        then:
-            Result<Step,StepError>::Err StepError::Direct OwnerPair source writer
-        else if:
-            nested_error
-            then:
-                Result<Step,StepError>::Err StepError::Nested NestedError OwnerPair source writer
-            else match lower_push writer first_ok second_ok third_ok fourth_ok fifth_ok:
-                Result::Ok lower:
-                    let next_writer <WriterOwner> field::get lower "writer"
-                    Result<Step,StepError>::Ok Step OwnerPair source next_writer
-                Result::Err lower:
-                    let lower_kind <i32> *field::get_ref &lower "kind"
-                    let rejected_value <i32> *field::get_ref &lower "rejected_value"
-                    let capacity_error <i32> *field::get_ref &lower "capacity_error"
-                    let rejected_scalar <i32> *field::get_ref &lower "rejected_scalar"
-                    let storage_error <i32> *field::get_ref &lower "storage_error"
-                    let failed_writer <WriterOwner> field::get lower "writer"
-                    free_writer failed_writer
-                    Result<Step,StepError>::Err StepError::SourceOnly source
+    match read_source &source read_ok:
+        Result::Err read_kind:
+            Result<Step,StepError>::Err StepError::ReadFailed ReadRetainedError OwnerPair source writer read_kind
+        Result::Ok observed:
+            if:
+                direct_error
+                then:
+                    Result<Step,StepError>::Err StepError::Direct OwnerPair source writer
+                else if:
+                    nested_error
+                    then:
+                        Result<Step,StepError>::Err StepError::Nested NestedError OwnerPair source writer
+                    else match lower_push writer first_ok second_ok third_ok fourth_ok fifth_ok:
+                        Result::Ok lower:
+                            let next_writer <WriterOwner> field::get lower "writer"
+                            Result<Step,StepError>::Ok Step OwnerPair source next_writer
+                        Result::Err lower:
+                            let lower_kind <i32> *field::get_ref &lower "kind"
+                            let rejected_value <i32> *field::get_ref &lower "rejected_value"
+                            let capacity_error <i32> *field::get_ref &lower "capacity_error"
+                            let rejected_scalar <i32> *field::get_ref &lower "rejected_scalar"
+                            let storage_error <i32> *field::get_ref &lower "storage_error"
+                            let failed_writer <WriterOwner> field::get lower "writer"
+                            free_writer failed_writer
+                            Result<Step,StepError>::Err StepError::SourceOnly source
 
-fn probe <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
-    budget owner completed exhausted first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
+fn probe <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, read_ok, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
+    budget owner completed exhausted read_ok first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
 
-fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
+fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, read_ok, first_ok, second_ok, third_ok, fourth_ok, fifth_ok, direct_error, nested_error):
     if:
         completed
         then:
@@ -166,7 +174,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
             then:
                 Result<Step,StepError>::Ok Step owner
             else:
-                route owner first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
+                route owner read_ok first_ok second_ok third_ok fourth_ok fifth_ok direct_error nested_error
 "#;
     let root = stdlib_root();
     let mut loader = Loader::new(root.clone());
@@ -210,7 +218,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
             || summary.function.starts_with("lower_push__")
             || summary.function.starts_with("lower_push_three__")
             || summary.function.starts_with("lower_scalar__")
-            || summary.function.starts_with("observe_source__")
+            || summary.function.starts_with("read_source__")
             || summary.function.starts_with("free_writer__")
             || summary.function.starts_with("free_outer__")
             || summary.function.starts_with("dealloc_region__")
@@ -236,8 +244,8 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
     assert!(
         rooted_summaries
             .iter()
-            .all(|summary| !summary.function.starts_with("observe_source__")),
-        "owner-free source observation must not enter the owner-summary closure"
+            .all(|summary| !summary.function.starts_with("read_source__")),
+        "owner-free source read must not enter the owner-summary closure"
     );
     for rooted in &rooted_summaries {
         let full = summaries
@@ -341,8 +349,8 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
             .unwrap_or_else(|| panic!("missing {prefix} summary"));
         assert_eq!(
             summary.variant_projection_returns.len(),
-            18,
-            "{prefix} must contain only the eighteen path-conditioned returns: {summary:#?}"
+            23,
+            "{prefix} must contain only the twenty-three path-conditioned returns: {summary:#?}"
         );
         assert!(
             summary.projection_returns.is_empty(),
@@ -361,7 +369,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
                 owner => panic!("{prefix} must not degrade a return source to {owner:#?}"),
             })
             .collect::<Vec<_>>();
-        assert_eq!(parameter_returns.len(), 18);
+        assert_eq!(parameter_returns.len(), 23);
         let sources = parameter_returns
             .iter()
             .map(|(_, source)| (*source).clone())
@@ -430,6 +438,13 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
                     } else if entry.variant == "Err" && entry.suffix.iter().any(|projection| {
                         matches!(
                             projection,
+                            PlaceProjection::EnumPayload { variant } if variant.ends_with("ReadFailed")
+                        )
+                    }) {
+                        String::from("ReadFailed")
+                    } else if entry.variant == "Err" && entry.suffix.iter().any(|projection| {
+                        matches!(
+                            projection,
                             PlaceProjection::EnumPayload { variant } if variant.ends_with("SourceOnly")
                         )
                     }) {
@@ -447,6 +462,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
                     String::from("Direct"),
                     String::from("Nested"),
                     String::from("Ok"),
+                    String::from("ReadFailed"),
                     String::from("SourceOnly"),
                 ])
             } else {
@@ -454,6 +470,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
                     String::from("Direct"),
                     String::from("Nested"),
                     String::from("Ok"),
+                    String::from("ReadFailed"),
                 ])
             };
             assert_eq!(paths, expected, "{prefix} must preserve asymmetric paths");
@@ -463,9 +480,9 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
                     source.suffix.first(),
                     Some(PlaceProjection::Field { index: 0, .. })
                 ) {
-                    4
+                    5
                 } else {
-                    3
+                    4
                 },
                 "{prefix} must preserve the mapping count for each authority"
             );
@@ -494,7 +511,7 @@ fn budget <(OwnerPair,bool,bool,bool,bool,bool,bool,bool,bool,bool)*>Result<Step
             .collect::<BTreeSet<_>>();
         assert_eq!(
             targets.len(),
-            18,
+            23,
             "{prefix} must not collapse return targets"
         );
     }
