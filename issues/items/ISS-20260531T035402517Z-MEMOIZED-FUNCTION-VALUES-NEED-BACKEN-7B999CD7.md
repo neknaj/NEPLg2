@@ -1125,6 +1125,10 @@ source-policyはanchorとmerged partを別sourceとして読み、merge path、p
 
 2026-07-13: `EnumPayload` stable symbolの前提として、Rust String spellingを入力`str`へborrowしたまま残さず、UTF-8 byte列をdense `Vec<i32>` ownerへcopyするcanonical intern tableを追加した。schema version 1 / identity=ordinal+1のrecordを使い、same spellingはsame identity、distinct spellingはdistinct identityを返す。table validatorはoverflow-freeなbyte range、placeholder / wrong schema / out-of-range / record membership mismatch / duplicate spellingをtyped errorで拒否し、borrowed lookupもtable全体の検証後だけ成功する。実projection inventoryへのtable引き回し、enum type key membership、serialized symbol authority、actual Rust loweringとのtable co-productionは未完了で、残るoperation payload数8件はこのstandalone前提sliceで減らさない。
 
+2026-07-13: canonical symbol tableを実projection inventory scopeへborrowで引き回した。各projectionの構造検査後、`EnumPayload`だけをtable membershipへ結び、missing / malformed identityを`ProjectionCanonicalSymbolInvalid`で拒否する。非Enum projectionは空tableでも受理し、stage0 owner lifecycleは必要なspellingのintern後にscopeへ渡して逆順に解放する。enum type key membership、canonical type key、serialized authority、actual loweringとのco-productionは未完了で、残るoperation payload数8件は据え置く。
+
+同日reviewで、EnumPayloadごとにtable全体を再検査する実装を修正した。scope入口でtableを一度だけ検査し、検査後のprivate再帰走査は同じimmutable borrowを引き回して各EnumPayloadの対象recordだけをmembership検査する。外部から偽造可能なevidence APIは公開せず、malformed tableがempty projectionで偶然拒否されるだけではないことを実Deref projection + Place fixtureで固定した。
+
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
 Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。

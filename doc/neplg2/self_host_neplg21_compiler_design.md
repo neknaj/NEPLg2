@@ -3690,7 +3690,9 @@ scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、d
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。
 
-table validationはidentityのnon-placeholder / schema / range / dense ordinal membership、overflow-freeなbyte rangeの連続性、duplicate spellingの不在を検査する。borrowed lookupもtable全体の検証後だけ成功する。このcanonical tableはstandaloneなspelling identity ownerであり、実projection inventoryへの引き回し、enum type key membership、Unicode normalization、serialized cross-session identity、actual lowering provenanceは証明しない。それらはactual Resource function materializerがtype authorityと同時にco-produceする後続sliceで接続する。この前提sliceはResource operation payloadの残数8件を減らさない。
+table validationはidentityのnon-placeholder / schema / range / dense ordinal membership、overflow-freeなbyte rangeの連続性、duplicate spellingの不在を検査する。projection inventory scopeは入口でtable全体を一度だけ検査し、検査後のprivate再帰走査へ同じimmutable borrowを引き回す。再帰走査は各`EnumPayload`の対象recordだけをmembership検査するため、table全体を繰り返し走査せず、外部から偽造できるevidenceも公開しない。projection固有の構造検査後に`EnumPayload`だけをcanonical recordへ解決し、missing / malformed symbolなら`ProjectionCanonicalSymbolInvalid`でscope発行を拒否する。非Enum projectionもcanonical owner全体の検査を省略せず、正しい空tableなら受理し、malformed tableなら実Deref recordがあっても拒否する。stage0 lifecycleは必要なspellingをinternしてからownerを渡し、scope検査後にtableを解放する。
+
+ただしenum type key membership、Unicode normalization、serialized cross-session identity、actual loweringとのtable co-productionはまだ証明しない。それらはactual Resource function materializerがtype authorityと同時に生成する後続sliceで接続する。この接続sliceはResource operation payloadの残数8件を減らさない。
 
 ## 完了条件
 

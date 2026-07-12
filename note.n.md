@@ -83837,5 +83837,7 @@ MERGE_APPROVED
 
 - `SelfhostResourceIrVariantStableSymbol`のnonzero検査だけでRust String spellingを代替していた根本問題に対し、spellingのUTF-8 byte列をdense byte ownerへcopyするcanonical symbol tableを追加した。入力`str`のlifetimeに依存せず、record ownerとbyte ownerを共にfreeする。
 - schema version 1 / identity=ordinal+1をidentityとし、same spellingのre-internは同じsymbol、distinct spellingは別symbolを返す。table validatorはplaceholder、wrong schema、out-of-range、dense membership mismatch、duplicate spellingをtyped errorで拒否する。
-- EnumPayload専用のborrowed membership validatorをstandalone stage0として追加した。lookupはtable全体のoverflow-free range / dense identity / duplicate spelling検証後だけ成功する。実projection inventoryへのtable引き回しは未接続で、従来のprojection public APIは変更しない。
-- enum type key membership、serialized cross-session symbol、actual Rust loweringとのtable co-productionは後続である。これはString-bearing payloadの前提sliceなので、残るResource operation payload数8件は減らさない。
+- EnumPayload専用のborrowed membership validatorを実projection inventory scopeへ接続した。lookupはtable全体のoverflow-free range / dense identity / duplicate spelling検証後だけ成功し、missing / malformed symbolはscope authority発行前にtyped rejectionとなる。非Enum projectionは空tableでも受理する。
+- 2つのstage0 lifecycleでtableを生成し、Enum fixtureでは必要spellingをinternしてborrowし、検査後にprojection / type ownerより先にcanonical tableを解放する。実projection fixtureのsymbol identityは同table recordと一致する。
+- reviewで検出した全table再走査を除去した。scope moduleのprivate wrapperがtable全体を一度検査し、同じimmutable borrowをprivate再帰へ渡す。EnumPayloadはprivate membership-only lookupだけを行い、外部構築可能なvalidation evidenceは公開しない。malformed table + 実Deref projection / Placeのnegative fixtureで非Enum時もowner検査を省略しないことを確認する。
+- enum type key membership、canonical type key、serialized cross-session symbol、actual Rust loweringとのtable co-productionは後続である。残るResource operation payload数8件は減らさない。

@@ -2361,11 +2361,20 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_projection_place_link %f
 fn selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result %fn SelfhostResourceIrPlaceProjection fn &SelfhostResourceIrCanonicalSymbolTable Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projection\symbols:
     match projection:
         SelfhostResourceIrPlaceProjection::EnumPayload symbol:
-            match selfhost_resource_ir_canonical_symbol_table_contains_result symbols symbol:
-                Result::Ok _member:
-                    Result::Ok unit
-                Result::Err e:
-                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid e
+            if:
+                or eq symbol.identity 0 not eq symbol.schema_version 1
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch symbol.identity
+                block:
+                    let index %i32 sub symbol.identity 1
+                    let count %i32 v::len field::get_ref symbols "records"
+                    if:
+                        or lt index 0 ge index count
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange symbol.identity
+                        match v::get field::get_ref symbols "records" index:
+                            Option::None:
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid SelfhostResourceIrCanonicalSymbolErrorKind::RecordReadFailed index
+                            Option::Some record:
+                                if selfhost_resource_ir_variant_stable_symbol_eq record.symbol symbol Result::Ok unit Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch symbol.identity
         _:
             Result::Ok unit
 
@@ -2383,33 +2392,38 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_s
                     Result::Ok interned:
                         let table %SelfhostResourceIrCanonicalSymbolTable field::get interned "table"
                         let symbol %SelfhostResourceIrVariantStableSymbol field::get interned "symbol"
-                        let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::EnumPayload symbol &table:
-                            Result::Ok _:
-                                true
+                        let checked %bool match selfhost_resource_ir_canonical_symbol_table_validate_result &table:
                             Result::Err _:
                                 false
-                        let missing_rejected %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::EnumPayload SelfhostResourceIrVariantStableSymbol 1 99 &table:
-                            Result::Ok _:
-                                false
-                            Result::Err e:
-                                match e:
-                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid symbol_error:
-                                        match symbol_error:
-                                            SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange identity:
-                                                eq identity 99
+                            Result::Ok _valid:
+                                let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::EnumPayload symbol &table:
+                                    Result::Ok _:
+                                        true
+                                    Result::Err _:
+                                        false
+                                let missing_rejected %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::EnumPayload SelfhostResourceIrVariantStableSymbol 1 99 &table:
+                                    Result::Ok _:
+                                        false
+                                    Result::Err e:
+                                        match e:
+                                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid symbol_error:
+                                                match symbol_error:
+                                                    SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange identity:
+                                                        eq identity 99
+                                                    _:
+                                                        false
                                             _:
                                                 false
-                                    _:
+                                let non_enum_accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::Deref &table:
+                                    Result::Ok _:
+                                        true
+                                    Result::Err _:
                                         false
-                        let non_enum_accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::Deref &table:
-                            Result::Ok _:
-                                true
-                            Result::Err _:
-                                false
+                                and accepted and missing_rejected non_enum_accepted
                         selfhost_resource_ir_canonical_symbol_table_free table
-                        and accepted and missing_rejected non_enum_accepted
+                        checked
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projections\places\key\graph_id\place_id\ordinal\projection_count\cursor\place_count:
+fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projections\places\symbols\key\graph_id\place_id\ordinal\projection_count\cursor\place_count:
     if:
         ge ordinal projection_count
         Result::Ok cursor
@@ -2430,22 +2444,26 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_val
                                 if:
                                     not selfhost_resource_ir_place_projection_is_inventory_supported record.projection
                                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionUnsupported cursor
-                                    match selfhost_memo_call_backend_private_cache_resource_ir_projection_place_link record.projection:
-                                        Option::Some link_index:
-                                            if:
-                                                or lt link_index 0 ge link_index place_count
-                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionPlaceLinkMissing link_index
-                                                match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_get places link_index:
-                                                    Option::Some _linked_place:
-                                                        selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop projections places key graph_id place_id add ordinal 1 projection_count add cursor 1 place_count
-                                                    Option::None:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result record.projection symbols:
+                                        Result::Err e:
+                                            Result::Err e
+                                        Result::Ok _canonical_symbol_valid:
+                                            match selfhost_memo_call_backend_private_cache_resource_ir_projection_place_link record.projection:
+                                                Option::Some link_index:
+                                                    if:
+                                                        or lt link_index 0 ge link_index place_count
                                                         Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionPlaceLinkMissing link_index
-                                        Option::None:
-                                            selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop projections places key graph_id place_id add ordinal 1 projection_count add cursor 1 place_count
+                                                        match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_get places link_index:
+                                                            Option::Some _linked_place:
+                                                                selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop projections places symbols key graph_id place_id add ordinal 1 projection_count add cursor 1 place_count
+                                                            Option::None:
+                                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionPlaceLinkMissing link_index
+                                                Option::None:
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop projections places symbols key graph_id place_id add ordinal 1 projection_count add cursor 1 place_count
             Option::None:
                 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionReadFailed cursor
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projections\places\key\graph_id\place_idx\place_count\cursor:
+fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_validated_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projections\places\symbols\key\graph_id\place_idx\place_count\cursor:
     if:
         ge place_idx place_count
         Result::Ok cursor
@@ -2454,13 +2472,69 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_val
                 if:
                     lt place.projection_count 0
                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCountInvalid place.projection_count
-                    match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop projections places key graph_id place.place_id 0 place.projection_count cursor place_count:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop projections places symbols key graph_id place.place_id 0 place.projection_count cursor place_count:
                         Result::Ok next_cursor:
-                            selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop projections places key graph_id add place_idx 1 place_count next_cursor
+                            selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_validated_loop projections places symbols key graph_id add place_idx 1 place_count next_cursor
                         Result::Err e:
                             Result::Err e
             Option::None:
                 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::PlaceReadFailed place_idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projections\places\symbols\key\graph_id\place_idx\place_count\cursor:
+    match selfhost_resource_ir_canonical_symbol_table_validate_result symbols:
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid e
+        Result::Ok _symbols_valid:
+            selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_validated_loop projections places symbols key graph_id place_idx place_count cursor
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_projection_malformed_symbols_non_enum_rejected_stage0 %impure fn void bool \void:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_effect SelfhostEffectKind::Pure
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+    match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_stage0_result key graph_id place_id 0 SelfhostResourceIrPlaceProjection::Deref:
+        Result::Err _:
+            false
+        Result::Ok projections:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_with_projection_count_stage0_result 0 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary 1 selfhost_type_id_new 1 1:
+                Result::Err _:
+                    selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
+                    false
+                Result::Ok places:
+                    match selfhost_resource_ir_canonical_symbol_table_new:
+                        Result::Err _:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
+                            false
+                        Result::Ok empty:
+                            let records %Vec SelfhostResourceIrCanonicalSymbolRecord field::get empty "records"
+                            let bytes %Vec i32 field::get empty "bytes"
+                            let wrong %SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrVariantStableSymbol 1 2 0 0
+                            let rejected %bool match v::push records wrong:
+                                Result::Err e:
+                                    v::free bytes
+                                    v::free v::vec_push_error_vec e
+                                    false
+                                Result::Ok wrong_records:
+                                    let malformed %SelfhostResourceIrCanonicalSymbolTable SelfhostResourceIrCanonicalSymbolTable wrong_records bytes
+                                    let result %Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop &projections &places &malformed key graph_id 0 1 0
+                                    let denied %bool match result:
+                                        Result::Err error:
+                                            match error:
+                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid symbol_error:
+                                                    match symbol_error:
+                                                        SelfhostResourceIrCanonicalSymbolErrorKind::IdentityMembershipMismatch identity:
+                                                            eq identity 2
+                                                        _:
+                                                            false
+                                                _:
+                                                    false
+                                        Result::Ok _:
+                                            false
+                                    selfhost_resource_ir_canonical_symbol_table_free malformed
+                                    denied
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
+                            rejected
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_terminator_payload_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \record\places:
     match record.terminator_kind:
@@ -5243,7 +5317,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_op
 //: - Rust `ResourceFunction.blocks`順でblock、各`ops` range、各blockのterminator 1件を全検査します。
 //: - operation tableも同じkey / graphとdense ordinalを持ち、inventoryのoperation総数と一致する場合だけ`ResourceIrInventoryValidated`を発行します。
 //: - inventoryとoperation ownerはまだactual lowering materializerによるco-production authorityを持たないため、`ResourceIrEnumerated`を発行しません。
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrAssignPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMovePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads\read_payloads\assign_payloads\borrow_payloads\move_payloads\drop_payloads\end_scope_payloads\end_scope_locals\collection_storage_relocate_payloads\collection_slot_drop_traversal_payloads\collection_slot_transform_range_payloads\raw_address_alias_payloads\raw_address_view_payloads\storage_origin_payloads\collection_slot_lifecycle_payloads\raw_memory_payloads\raw_memory_args:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrAssignPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMovePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\symbols\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads\read_payloads\assign_payloads\borrow_payloads\move_payloads\drop_payloads\end_scope_payloads\end_scope_locals\collection_storage_relocate_payloads\collection_slot_drop_traversal_payloads\collection_slot_transform_range_payloads\raw_address_alias_payloads\raw_address_view_payloads\storage_origin_payloads\collection_slot_lifecycle_payloads\raw_memory_payloads\raw_memory_args:
     let entry_block_id %i32 *field::get_ref inventory "entry_block_id"
     let result_ty %SelfhostTypeId *field::get_ref inventory "result_ty"
     let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect *field::get_ref inventory "effect"
@@ -5289,7 +5363,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authorit
                                                             let parameter_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_parameter_len inventory
                                                             match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_validate_parameters_loop inventory places types 0 parameter_count:
                                                                 Result::Ok _parameters_valid:
-                                                                    match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0:
+                                                                    match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop projections places symbols key graph_id 0 place_count 0:
                                                                         Result::Ok projection_count:
                                                                             let actual_projection_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_len projections
                                                                             if:
@@ -5413,7 +5487,18 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_a
                                                                                                                                                                     selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_inventory_free raw_memory_payloads
                                                                                                                                                                     Result::Err e
                                                                                                                                                                 Result::Ok raw_memory_args:
-                                                                                                                                                                    let authority %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads &borrow_payloads &move_payloads &drop_payloads &end_scope_payloads &end_scope_locals &collection_storage_relocate_payloads &collection_slot_drop_traversal_payloads &collection_slot_transform_range_payloads &raw_address_alias_payloads &raw_address_view_payloads &storage_origin_payloads &collection_slot_lifecycle_payloads &raw_memory_payloads &raw_memory_args
+                                                                                                                                                                    let authority %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_resource_ir_canonical_symbol_table_new:
+                                                                                                                                                                        Result::Err e:
+                                                                                                                                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid e
+                                                                                                                                                                        Result::Ok symbols0:
+                                                                                                                                                                            match selfhost_resource_ir_canonical_symbol_table_intern symbols0 "Variant":
+                                                                                                                                                                                Result::Err e:
+                                                                                                                                                                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid e
+                                                                                                                                                                                Result::Ok interned_symbols:
+                                                                                                                                                                                    let symbols %SelfhostResourceIrCanonicalSymbolTable field::get interned_symbols "table"
+                                                                                                                                                                                    let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections &symbols types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads &borrow_payloads &move_payloads &drop_payloads &end_scope_payloads &end_scope_locals &collection_storage_relocate_payloads &collection_slot_drop_traversal_payloads &collection_slot_transform_range_payloads &raw_address_alias_payloads &raw_address_view_payloads &storage_origin_payloads &collection_slot_lifecycle_payloads &raw_memory_payloads &raw_memory_args
+                                                                                                                                                                                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                                                                                                                                                                                    checked
                                                                                                                                                                     selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_arg_inventory_free raw_memory_args
                                                                                                                                                                     selfhost_memo_call_backend_private_cache_resource_ir_raw_memory_payload_inventory_free raw_memory_payloads
                                                                                                                                                                     authority
@@ -5487,7 +5572,13 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_ope
                             match selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32:
                                 Result::Ok allocated1:
                                     let types2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated1
-                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_resource_ir_canonical_symbol_table_new:
+                                        Result::Err e:
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid e
+                                        Result::Ok symbols0:
+                                            let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols0 &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                                            selfhost_resource_ir_canonical_symbol_table_free symbols0
+                                            checked
                                     selfhost_type_arena_free types2
                                     selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
                                     result
@@ -6316,11 +6407,22 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_err
                                                                 eq cursor 0
                                                             _:
                                                                 false
-                                                        match error:
-                                                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionPlaceLinkMissing linked_place_index:
-                                                                eq linked_place_index 2
-                                                            _:
-                                                                false
+                                                        if:
+                                                            eq expected_error_kind 7
+                                                            match error:
+                                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid symbol_error:
+                                                                    match symbol_error:
+                                                                        SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange identity:
+                                                                            eq identity 41
+                                                                        _:
+                                                                            false
+                                                                _:
+                                                                    false
+                                                            match error:
+                                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionPlaceLinkMissing linked_place_index:
+                                                                    eq linked_place_index 2
+                                                                _:
+                                                                    false
                                 Result::Ok _scope:
                                     eq expected_error_kind sub 0 1
                         Result::Err _e:

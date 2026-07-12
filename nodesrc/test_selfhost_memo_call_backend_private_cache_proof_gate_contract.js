@@ -1149,6 +1149,7 @@ assertOrdered(
         "ProjectionPayloadInvalid cursor",
         "selfhost_resource_ir_place_projection_is_inventory_supported record.projection",
         "ProjectionUnsupported cursor",
+        "resource_ir_enum_projection_symbol_scope_validate_result record.projection symbols",
         "resource_ir_projection_place_link record.projection",
         "link_index 0",
         "link_index place_count",
@@ -1158,20 +1159,34 @@ assertOrdered(
     "each projection range must validate identity, owner, ordinal, payload, and recursive Place membership before advancing",
 );
 assertOrdered(
-    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop"),
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_validated_loop"),
     [
         "resource_ir_place_inventory_get places place_idx",
         "place.projection_count 0",
         "ProjectionCountInvalid place.projection_count",
-        "resource_ir_projection_inventory_validate_place_loop projections places key graph_id place.place_id 0 place.projection_count cursor place_count",
-        "resource_ir_projection_inventory_validate_places_loop projections places key graph_id add place_idx 1 place_count next_cursor",
+        "resource_ir_projection_inventory_validate_place_loop projections places symbols key graph_id place.place_id 0 place.projection_count cursor place_count",
+        "resource_ir_projection_inventory_validate_places_validated_loop projections places symbols key graph_id add place_idx 1 place_count next_cursor",
     ],
     "Place-order prefix validation must reject negative counts and carry the projection cursor across every Place",
 );
 assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_malformed_symbols_non_enum_rejected_stage0"),
+    ["projection_inventory_stage0_result key graph_id place_id 0 SelfhostResourceIrPlaceProjection::Deref", "place_inventory_with_projection_count_stage0_result", "SelfhostResourceIrCanonicalSymbolRecord SelfhostResourceIrVariantStableSymbol 1 2 0 0", "projection_inventory_validate_places_loop &projections &places &malformed key graph_id 0 1 0", "ProjectionCanonicalSymbolInvalid symbol_error", "IdentityMembershipMismatch identity"],
+    "actual non-Enum projection traversal must still reject a malformed canonical owner before membership traversal",
+);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /projection_malformed_symbols_non_enum_rejected_stage0|resource_ir_enum_projection_symbol_scope_stage0/, "public inventory smoke must retain canonical projection coverage");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_places_loop"),
+    ["canonical_symbol_table_validate_result symbols", "ProjectionCanonicalSymbolInvalid e", "projection_inventory_validate_places_validated_loop projections places symbols"],
+    "projection scope must validate the complete canonical owner once before traversing any projection, including non-Enum inventories",
+);
+assert.doesNotMatch(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result"), /canonical_symbol_table_contains_result/, "per-Enum membership must not rescan the complete canonical table");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result"), /field::get_ref symbols "records"[\s\S]*variant_stable_symbol_eq record.symbol symbol/, "private per-Enum membership must read only the validated table's identity record");
+assert.doesNotMatch(inventoryPartSource, /^pub\s+(?:struct|fn)\s+SelfhostMemoCallBackendPrivateCacheResourceIrCanonical/m, "validated canonical scope authority must remain private to the merged inventory module");
+assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
     [
-        "SelfhostResourceIrVariantStableSymbol 1 41",
+        "SelfhostResourceIrVariantStableSymbol 1 1",
         "SelfhostResourceIrVariantStableSymbol 1 43",
         "SelfhostResourceIrVariantStableSymbol 1 0",
         "SelfhostResourceIrVariantStableSymbol 2 41",
@@ -1181,9 +1196,11 @@ assertOrdered(
         "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_placeholder 3",
         "projection_enum_unknown_schema_rejected",
         "SelfhostResourceIrPlaceProjection::EnumPayload variant_symbol_unknown_schema 3",
+        "projection_enum_missing_canonical_rejected",
+        "SelfhostResourceIrVariantStableSymbol 1 41 7",
         "projection_enum_symbols_distinct",
     ],
-    "public inventory smoke must accept valid EnumPayload evidence and reject placeholder and unknown-schema evidence as ProjectionPayloadInvalid at cursor 0",
+    "public inventory smoke must accept an interned EnumPayload and reject malformed or missing canonical symbols",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_place_root_validate_result"),
@@ -1426,7 +1443,7 @@ assertOrdered(
         "resource_ir_place_inventory_validate_loop places types key graph_id 0 place_count",
         "resource_ir_function_inventory_parameter_len inventory",
         "resource_ir_function_inventory_validate_parameters_loop inventory places types 0 parameter_count",
-        "resource_ir_projection_inventory_validate_places_loop projections places key graph_id 0 place_count 0",
+        "resource_ir_projection_inventory_validate_places_loop projections places symbols key graph_id 0 place_count 0",
         "resource_ir_projection_inventory_len projections",
         "ProjectionCountMismatch actual_projection_count",
         "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
@@ -1551,7 +1568,10 @@ assertOrdered(
         "Result::Ok read_payloads",
         "resource_ir_assign_payload_inventory_stage0_result &operation_kinds key graph_id assign_target assign_value",
         "Result::Ok assign_payloads",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
+        "resource_ir_canonical_symbol_table_new",
+        'resource_ir_canonical_symbol_table_intern symbols0 "Variant"',
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections &symbols types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
+        "resource_ir_canonical_symbol_table_free symbols",
         "resource_ir_assign_payload_inventory_free assign_payloads",
         "resource_ir_read_payload_inventory_free read_payloads",
         "resource_ir_declare_local_payload_inventory_free declare_local_payloads",
@@ -1564,7 +1584,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads/,
+    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols0 &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols0/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
