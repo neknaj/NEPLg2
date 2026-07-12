@@ -83793,3 +83793,9 @@ MERGE_APPROVED
 - F5nxj completed ownerを保持するF5nxk先行ownerを追加し、checked command readとO(1) indexed contour span lookupをowner-bound forwardingで接続した。commandのcontour / global edge / local edgeとspan start/end/countを再照合し、raw collection、nested source、legacy writerのsplit APIは公開しない。
 - legacy F5kwは外部collection/tag再注入と旧curve full scanを行うため再利用しない。独立したchecked-span curve forwarding、metric join、line/quadratic座標guard、stroke provenance drain/sealは未実装で、`todo.md`のF5nxkは残す。
 - フォント解析からnative / GUI表示までの最終目標は未完了であり、この先行checkpointをF5nxkまたは全体の完成とは扱わない。`plan.md`は変更していない。
+
+## 2026-07-13 F5nxk production runtime gate blocker
+
+- 既存2 contour / 4 edge registered-face fixtureをF5nxj plan/allocation/writer、8 command commit、F5nxk start/read/freeまで延長したところ、Resource checkerが各`writer_step_budget`の返却owner leafをcaller return時に`Moved`として誤報した。再帰drainを8個の非再帰helper、さらに単一関数の8段unrollへ変えても同じprojection群で再現し、制御構造固有ではなくdeep production owner return summaryの残存不具合と確認した。
+- 60秒、240秒ではcompile timeout、600秒では`resource.owner.use_after_move`を再現した。失敗fixtureは通常suiteへ残さず、`ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK`へ再現条件を分離した。
+- F5nxk source-policy、typed lookup error、test-only identity finalizerはfocused compile対象として維持するが、production runtime gate未達のためmain統合は行わない。再開条件はcompiler fix後にcontrolled fixtureが1 / 1通過することである。

@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-11T21:57:59.242Z",
+  "generated_at": "2026-07-12T20:15:21.223Z",
   "counts": {
-    "total": 1372,
+    "total": 1373,
     "open": 60,
-    "resolved": 1312,
+    "resolved": 1313,
     "by_area": {
       "stdlib": {
         "total": 358,
@@ -17,9 +17,9 @@
         "resolved": 637
       },
       "RESOURCE": {
-        "total": 3,
+        "total": 4,
         "open": 1,
-        "resolved": 2
+        "resolved": 3
       },
       "selfhost": {
         "total": 119,
@@ -520,19 +520,19 @@
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
     },
     {
-      "id": "ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D",
-      "title": "Deep Result owner return projection reuses moved payload",
+      "id": "ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK",
+      "title": "Deep registered writer chain return projection reuses moved payload",
       "area": "RESOURCE",
       "status": "open",
       "resolved": false,
       "priority": "P1",
       "type": "bug",
-      "created": "2026-07-11",
-      "updated": "2026-07-11",
-      "target": "nepl-core/src/resource/owner_return_apply_projection.rs",
+      "created": "2026-07-13",
+      "updated": "2026-07-13",
+      "target": "nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_apply.rs",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D.md"
+      "file": "items/ISS-20260713T203500000Z-DEEP-WRITER-CHAIN-RETURN-PROJECTION--F5NXK.md"
     },
     {
       "id": "ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941",
@@ -11393,6 +11393,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260513T153534522Z-RESOURCE-BRANCH-RESULT-REGRESSIONS-S-63F812E4.md"
+    },
+    {
+      "id": "ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D",
+      "title": "Deep Result owner return projection reuses moved payload",
+      "area": "RESOURCE",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-07-11",
+      "updated": "2026-07-12",
+      "target": "nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_variant.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D.md"
     },
     {
       "id": "ISS-20260429T083822053Z-SELF-HOST-DIAGNOSTICS-USE-STRING-COD-1040C21E",

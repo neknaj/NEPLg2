@@ -10,6 +10,8 @@ const privateNames = [
     "gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_force_source_read_failure",
     "gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_force_push_failure",
     "gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_completed_force_push_failure_ok",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_force_span_lookup_failure",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_force_identity_mismatch",
 ];
 
 function probeSource(name) {
@@ -17,6 +19,7 @@ function probeSource(name) {
 #indent 4
 #target std
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/stroke_source_contour" as *
 
 fn main %fn void i32 \\void:
     ${name}
@@ -37,7 +40,7 @@ async function main() {
         }
         throw new Error(`F5nxj private helper unexpectedly compiled in normal mode: ${name}`);
     }
-    console.log("F5nxj normal compile excludes private plan/writer helpers");
+    console.log("F5nxj/F5nxk normal compile excludes private fault helpers");
 }
 
 main().catch((error) => {

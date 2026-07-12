@@ -1,0 +1,22 @@
+#indent 4
+#target std
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
+#import "core/result" as *
+
+fn reproduce_deep_writer_chain_return_projection %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner impure fn i32 bool \owner\remaining:
+    if le remaining 0:
+        then:
+            gui_font_registered_face_simple_glyph_indexed_path_command_sink_writing_owner_free owner
+            true
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step_budget owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_free error
+                    false
+                Result::Ok step:
+                    let status_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_status &step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::Written: true
+                        _: false
+                    let next gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_owner step
+                    and status_ok reproduce_deep_writer_chain_return_projection next sub remaining 1

@@ -19,6 +19,7 @@
 #indent 4
 
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
 #import "alloc/gui/font/sfnt" as *
 #import "core/field" as field
 #import "core/math" as *
@@ -45,6 +46,25 @@ pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind
     SpanLookupFailed %GuiSfntSimpleGlyphContourSpanIndexLookupError
     SpanIdentityMismatch
 
+//: command_from_span: commandとindexed spanのidentityを一か所で検査します
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_from_span %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn GuiSfntSimpleGlyphContourSpan Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind \value\span:
+    let contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value
+    let edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value
+    let local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value
+    let start gui_sfnt_simple_glyph_contour_span_start_point_index &span
+    let end gui_sfnt_simple_glyph_contour_span_end_point_index &span
+    let span_count gui_sfnt_simple_glyph_contour_span_point_count &span
+    let contour_ok eq contour gui_sfnt_simple_glyph_contour_span_index &span
+    let local_ok eq local sub edge start
+    let edge_ok and ge edge start le edge end
+    let count_ok eq span_count add sub end start 1
+    let identity_ok and contour_ok and local_ok and edge_ok count_ok
+    if not identity_ok:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
+        else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand value span
+
 //: start: F5nxj completionを次phase authorityへ移します
 //:
 //: neplg2:test[skip]
@@ -62,20 +82,7 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_
             let contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value
             match gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_contour_span_lookup sink contour:
                 Result::Err error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanLookupFailed error
-                Result::Ok span:
-                    let edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value
-                    let local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value
-                    let start gui_sfnt_simple_glyph_contour_span_start_point_index &span
-                    let end gui_sfnt_simple_glyph_contour_span_end_point_index &span
-                    let span_count gui_sfnt_simple_glyph_contour_span_point_count &span
-                    let contour_ok eq contour gui_sfnt_simple_glyph_contour_span_index &span
-                    let local_ok eq local sub edge start
-                    let edge_ok and ge edge start le edge end
-                    let count_ok eq span_count add sub end start 1
-                    let identity_ok and contour_ok and local_ok and edge_ok count_ok
-                    if not identity_ok:
-                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
-                        else Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand value span
+                Result::Ok span: gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_from_span value span
 
 //: command_value: command provenance valueを返します
 //:
@@ -94,3 +101,35 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_comma
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner unit \owner:
     gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_free field::get owner "sink"
+
+#test
+//: test_force_span_lookup_failure: same ownerを借用したtyped indexed lookup failureを生成します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_force_span_lookup_failure %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind \owner:
+    let sink %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner field::get_ref owner "sink"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_contour_span_lookup sink sub 0 1:
+        Result::Err error: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanLookupFailed error
+        Result::Ok _span: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
+
+#test
+//: test_force_identity_mismatch: production identity finalizerへ不整合spanを渡します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_force_identity_mismatch %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind \owner:
+    let sink %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner field::get_ref owner "sink"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_read_at sink 0:
+        Result::Err kind: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::CommandReadFailed kind
+        Result::Ok value:
+            let contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_contour_span_lookup sink contour:
+                Result::Err error: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanLookupFailed error
+                Result::Ok span:
+                    let glyph gui_sfnt_simple_glyph_contour_span_glyph &span
+                    let start gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                    let end gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                    let span_count gui_sfnt_simple_glyph_contour_span_point_count &span
+                    let invalid gui_sfnt_simple_glyph_contour_span glyph contour add start 1 end span_count
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_from_span value invalid:
+                        Result::Err kind: kind
+                        Result::Ok _command: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::CommandReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SourceTagMismatch
