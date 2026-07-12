@@ -3612,6 +3612,12 @@ Rust `ResourceOp::Assign { target, value, span }`のspan以外をprivate sparse 
 
 scope authorityはExpr、DeclareLocal、Read、Assignの順でpayload ownerを検査した後も非productionの`ResourceIrInventoryValidated`だけを発行する。actual HIR-to-Resource co-production、assignment mutation / owner-transfer semantics、残る20 operation payload、nested Branch / Loop / Match topologyは未完成である。
 
+### 2026-07-12 Resource Borrow payload
+
+Rust `ResourceOp::Borrow { source, output, kind, synthetic, span }`のspan以外をprivate sparse payload ownerへ保持する。source / outputはgraph identity付きPlace handleとして独立に検査し、kindはShared / Uniqueの専用enum、syntheticはboolのまま運ぶ。merge-cursorはBorrow ordinalごとの欠落と他kind ordinalへの混入をfail-closedに拒否する。
+
+scope authorityはExpr、DeclareLocal、Read、Assign、Borrowの順でownerを検査する。stage0 matrixはidentity / ordinal / 両Place境界のnegative caseに加えてkind二値とsynthetic二値の全組合せをtransportし、originは非productionの`ResourceIrInventoryValidated`を維持する。borrow semantics、actual co-production、残る19 payloadは未完成である。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

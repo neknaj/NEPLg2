@@ -83714,4 +83714,10 @@ MERGE_APPROVED
 - Rust `ResourceOp::Assign { target, value, span }`のspan以外をprivate sparse payload ownerへ保持した。recordはproof key、graph id、dense operation ordinalと、graph identity付きtarget / value Place handleを持つ。
 - kind ownerとのmerge-cursorでAssign payloadのmissing / unexpectedを拒否し、identity / ordinal、target / valueそれぞれのwrong graph / missing membershipをfield固有errorへ分類する。異なるtarget / valueを保持するpositive fixtureも固定した。
 - scope authorityと全stage0 callerへownerのcreate / borrow / pass / freeを接続し、public inventory runtime facadeからpositiveと9 negative caseを実行する。Expr / DeclareLocal / Read / Assignの検査後もoriginは`ResourceIrInventoryValidated`のままである。
-- actual co-production、assignment semantics、残る20 payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。
+
+# 2026-07-12 selfhost Resource Borrow payload
+
+- Rust `ResourceOp::Borrow { source, output, kind, synthetic, span }`のspan以外をprivate sparse ownerへ保持した。source / outputは独立graph-bound Place handle、kindはShared / Unique専用enum、syntheticはboolである。
+- kind ownerとのmerge-cursorでmissing / unexpectedを拒否し、identity / ordinalと両Placeのwrong graph / missing membershipをfield固有errorへ分類する。stage0はkindとsyntheticの全4組合せをtransportする。
+- scope authorityと全stage0 lifecycleへownerを接続し、Expr / DeclareLocal / Read / Assign / Borrow検査後も非production originを維持する。
+- actual co-production、borrow semantics、残る19 payload、nested topology、sealed backend、artifact keyは未完了である。`plan.md`は変更していない。
