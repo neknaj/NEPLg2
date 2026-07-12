@@ -83696,3 +83696,4 @@ MERGE_APPROVED
 - DeclareLocal schema案と同程度の159行sentinelをpartへ一時追加した状態でfocused doctestが通ることを確認し、sentinelは撤回した。これはheadroomの実証でありDeclareLocal payload完成ではない。
 - 最終恒久差分のfocused doctestは22/22。通常compile isolation regressionも追加し、anchorを通常importした外部sourceからmerged partのprivate helperをqualified参照しても`resolve.identifier.undefined`になることを固定した。
 - `plan.md`は変更していない。次はDeclareLocal payload owner、その後残るpayload、nested topology、actual co-productionへ進む。
+2026-07-12: Selfhost Resource IR inventoryへ`ResourceOp::DeclareLocal`のprivate sparse payload ownerを追加した。Rustの`source_name: String`は未保持で、bare `PlaceRoot::Local`と同値の非zero opaque function-local identityだけを投影するため、lossless payloadやcanonical name authorityの完成は主張しない。mutableとoptional initializerを保持し、operation-kind merge-cursor、same-graph Place membership、projectionなしLocal root、opaque identity一致、initializer membershipをtyped rejectionで検査する。Stringとの結合、actual materializer、production `ResourceIrEnumerated`発行は未接続である。

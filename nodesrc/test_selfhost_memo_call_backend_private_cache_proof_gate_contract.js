@@ -1362,9 +1362,102 @@ assertOrdered(
         "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
-        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads places types",
+        "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
+);
+
+assert.doesNotMatch(inventoryPartSource, /^pub\s+/m, "DeclareLocal payload authority must remain private");
+for (const token of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord",
+    "source_name_identity %i32",
+    "mutable %bool",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory",
+    "DeclareLocalPayloadMissing",
+    "DeclareLocalPayloadUnexpected",
+    "DeclareLocalPlaceNotBareLocal",
+    "DeclareLocalSourceNameIdentityMismatch",
+    "DeclareLocalInitializerMissing",
+    "DeclareLocalInitializerGraphMismatch",
+]) assert.match(inventoryPartSource, new RegExp(token), `DeclareLocal payload contract must retain ${token}`);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_record_validate_result"),
+    [
+        "DeclareLocalPayloadIdentityMismatch",
+        "DeclareLocalPayloadOrdinalMismatch",
+        "DeclareLocalSourceNameIdentityInvalid",
+        "resource_ir_place_inventory_get places record.place.index",
+        "place.projection_count 0",
+        "ResourceIrPlaceRoot::Local identity",
+        "identity record.source_name_identity",
+        "resource_ir_declare_local_initializer_validate_result",
+    ],
+    "DeclareLocal must bind its opaque source-name identity to a bare graph-local Local Place before validating the initializer",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),
+    [
+        "resource_ir_expr_payload_inventory_validate_loop",
+        "Result::Ok _expr_payloads_valid",
+        "resource_ir_declare_local_payload_inventory_len declare_local_payloads",
+        "resource_ir_declare_local_payload_inventory_validate_loop",
+        "Result::Ok _declare_local_payloads_valid",
+        "ResourceIrInventoryValidated",
+    ],
+    "scope authority must validate Expr then DeclareLocal sparse payloads before retaining the non-production origin",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord"),
+    /%String/,
+    "DeclareLocal inventory must not claim to retain Rust source_name String",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_declare_local_initializer_validate_result"),
+    /handle\.graph_id graph_id[\s\S]*DeclareLocalInitializerGraphMismatch[\s\S]*resource_ir_place_inventory_contains_loop/,
+    "initializer graph identity must be rejected before Place membership",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0"),
+    [
+        "stage0_case 0 true",
+        "stage0_case 0 false",
+        "stage0_case 1 false",
+        "stage0_case 2 false",
+        "stage0_case 3 false",
+        "stage0_case 4 false",
+        "stage0_case 5 false",
+        "stage0_case 6 false",
+        "stage0_case 7 false",
+        "stage0_case 8 false",
+        "stage0_case 9 false",
+        "stage0_case 10 false",
+        "stage0_case 11 true",
+        "stage0_case 12 false",
+        "stage0_case 13 false",
+    ],
+    "runtime facade must cover DeclareLocal transport and every structural rejection boundary",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case"),
+    /let ordinal %i32 if eq mode 4 2 1/,
+    "the ordinal-negative fixture must reach the DeclareLocal operation with a mismatched payload ordinal",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"),
+    /resource_ir_declare_local_payload_stage0/,
+    "the existing public inventory runtime facade must execute the private DeclareLocal matrix",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop"),
+    [
+        "operation_kind_inventory_get kinds operation_idx",
+        "resource_ir_operation_kind_is_declare_local kind_record.kind",
+        "DeclareLocalPayloadMissing operation_idx",
+        "declare_local_payload_record_validate_result",
+        "DeclareLocalPayloadUnexpected operation_idx",
+    ],
+    "DeclareLocal sparse payloads must be joined to operation kinds with a fail-closed merge cursor",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result"),
@@ -1372,13 +1465,21 @@ assertOrdered(
         "resource_ir_operation_span_inventory_stage0_result key graph_id operation_count",
         "resource_ir_operation_kind_inventory_stage0_result key graph_id operation_count",
         "resource_ir_expr_payload_inventory_stage0_result &operation_kinds key graph_id output ty",
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads",
+        "resource_ir_declare_local_payload_inventory_stage0_result &operation_kinds key graph_id 0 9 false no_initializer",
+        "Result::Ok declare_local_payloads",
+        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads",
+        "resource_ir_declare_local_payload_inventory_free declare_local_payloads",
         "resource_ir_expr_payload_inventory_free expr_payloads",
         "resource_ir_operation_kind_inventory_free operation_kinds",
         "resource_ir_operation_span_inventory_free operation_spans",
         "result",
     ],
-    "stage0 scope fixture must borrow its separately owned operation spans and close them after validation",
+    "stage0 scope fixture must construct, borrow, pass, and close the DeclareLocal owner with the other operation owners",
+);
+assert.match(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
+    /resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads/,
+    "the explicit-owner stage0 caller must pass its borrowed DeclareLocal owner to scope authority",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result"),

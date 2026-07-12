@@ -145,6 +145,43 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadRecord:
 struct SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory:
     records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadRecord
 
+//: DeclareLocal initializerのgraph-local Place handle
+enum SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer:
+    None
+    Place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer \self:
+        self
+
+//: DeclareLocal operationの排他的payload
+//:
+//: source_name_identityはsource textではなく、PlaceRoot::Localと同じmaterializer発行のopaque stable symbol identityです。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId
+    source_name_identity %i32
+    mutable %bool
+    initializer %SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord \self:
+        self
+
+//: DeclareLocalだけを持つsparse owner
+struct SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord
+
 //: SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind: Rust RawBodyKindの排他的payload
 enum SelfhostMemoCallBackendPrivateCacheResourceIrRawBodyKind:
     Wasm
@@ -473,6 +510,18 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     ExprPayloadOutputTypeMismatch %i32
     ExprPayloadLayoutTypeInvalid %i32
     ExprPayloadLayoutTypeMissing %i32
+    DeclareLocalPayloadTableAllocFailed %StdErrorKind
+    DeclareLocalPayloadPushFailed %StdErrorKind
+    DeclareLocalPayloadIdentityMismatch %i32
+    DeclareLocalPayloadOrdinalMismatch %i32
+    DeclareLocalPayloadMissing %i32
+    DeclareLocalPayloadUnexpected %i32
+    DeclareLocalPlaceMissing %i32
+    DeclareLocalPlaceNotBareLocal %i32
+    DeclareLocalSourceNameIdentityInvalid %i32
+    DeclareLocalSourceNameIdentityMismatch %i32
+    DeclareLocalInitializerMissing %i32
+    DeclareLocalInitializerGraphMismatch %i32
     OperationScopeRejected %SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind
 
 //: SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority: event emit前に閉じたtraversal scope
@@ -1034,6 +1083,287 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_expr_kind_ordinal %fn Se
         SelfhostMemoCallBackendPrivateCacheResourceIrExprKind::Deref: 16
         SelfhostMemoCallBackendPrivateCacheResourceIrExprKind::Drop: 17
 
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory records
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadTableAllocFailed e
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory unit \inventory:
+    v::free field::get inventory "records"
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadPushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_initializer_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \initializer\places\key\graph_id\ordinal:
+    match initializer:
+        SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::None:
+            Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::Place handle:
+            if:
+                not selfhost_memo_call_backend_private_cache_resource_graph_id_eq handle.graph_id graph_id
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalInitializerGraphMismatch ordinal
+                match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key handle 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+                    Result::Ok present:
+                        if present Result::Ok unit Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalInitializerMissing ordinal
+                    Result::Err e:
+                        Result::Err e
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \record\places\key\graph_id\ordinal:
+    if:
+        or not selfhost_memo_call_backend_private_cache_proof_key_eq record.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq record.graph_id graph_id
+        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadIdentityMismatch ordinal
+        if:
+            not eq record.operation_ordinal ordinal
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadOrdinalMismatch record.operation_ordinal
+            if:
+                eq record.source_name_identity 0
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalSourceNameIdentityInvalid ordinal
+                match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_get places record.place.index:
+                    Option::None:
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceMissing ordinal
+                    Option::Some place:
+                        if:
+                            or not selfhost_memo_call_backend_private_cache_proof_key_eq place.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceMissing ordinal
+                            if:
+                                not eq place.projection_count 0
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal
+                                match place.root:
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local identity:
+                                        if:
+                                            not eq identity record.source_name_identity
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalSourceNameIdentityMismatch ordinal
+                                            selfhost_memo_call_backend_private_cache_resource_ir_declare_local_initializer_validate_result record.initializer places key graph_id ordinal
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary _identity:
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::I32Constant _value:
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Return:
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Storage _identity:
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Unknown:
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_declare_local %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind bool \kind:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::DeclareLocal: true
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Read: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Assign: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Borrow: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Move: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Drop: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::EndScope: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::CallEffect: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::FunctionValue: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Call: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::IndirectCall: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::RawMemory: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::RawAddressAlias: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::RawAddressView: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::StorageOrigin: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::CollectionSlotLifecycle: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::CollectionStorageRelocate: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::CollectionSlotDropTraversal: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::CollectionSlotTransformRange: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Construct: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match: false
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\kinds\places\key\graph_id\operation_idx\operation_count\payload_idx\payload_count:
+    if:
+        ge operation_idx operation_count
+        if eq payload_idx payload_count Result::Ok unit Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadUnexpected payload_idx
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds operation_idx:
+            Option::None:
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed operation_idx
+            Option::Some kind_record:
+                if:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_declare_local kind_record.kind
+                    then:
+                        match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_get payloads payload_idx:
+                            Option::None:
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadMissing operation_idx
+                            Option::Some payload:
+                                match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_record_validate_result payload places key graph_id operation_idx:
+                                    Result::Ok _valid:
+                                        selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop payloads kinds places key graph_id add operation_idx 1 operation_count add payload_idx 1 payload_count
+                                    Result::Err e:
+                                        Result::Err e
+                    else:
+                        match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_get payloads payload_idx:
+                            Option::Some payload:
+                                if eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadUnexpected operation_idx selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop payloads kinds places key graph_id add operation_idx 1 operation_count payload_idx payload_count
+                            Option::None:
+                                selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop payloads kinds places key graph_id add operation_idx 1 operation_count payload_idx payload_count
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 impure fn bool impure fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer Result SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\kinds\key\graph_id\place_index\source_name_identity\idx\mutable\initializer:
+    let n %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_len kinds
+    if:
+        ge idx n
+        Result::Ok payloads
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds idx:
+            Option::None:
+                selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_free payloads
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed idx
+            Option::Some kind_record:
+                if:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_is_declare_local kind_record.kind
+                    then:
+                        let record %SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord key graph_id idx selfhost_memo_call_backend_private_cache_resource_place_id_new place_index source_name_identity mutable initializer
+                        match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_push payloads record:
+                            Result::Ok next:
+                                selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_fill_result next kinds key graph_id place_index source_name_identity add idx 1 mutable initializer
+                            Result::Err e:
+                                Result::Err e
+                    else:
+                        selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_fill_result payloads kinds key graph_id place_index source_name_identity add idx 1 mutable initializer
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn bool impure fn SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer Result SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \kinds\key\graph_id\place_index\source_name_identity\mutable\initializer:
+    match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_new:
+        Result::Ok payloads:
+            selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_fill_result payloads kinds key graph_id place_index source_name_identity 0 mutable initializer
+        Result::Err e:
+            Result::Err e
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_error_matches %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind bool \mode\error:
+    if:
+        eq mode 1
+        match error:
+            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadMissing ordinal: eq ordinal 1
+            _: false
+        if:
+            eq mode 2
+            match error:
+                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadUnexpected ordinal: eq ordinal 0
+                _: false
+            if:
+                or eq mode 3 eq mode 6
+                match error:
+                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadIdentityMismatch ordinal: eq ordinal 1
+                    _: false
+                if:
+                    eq mode 4
+                    match error:
+                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPayloadOrdinalMismatch ordinal: eq ordinal 2
+                        _: false
+                    if:
+                        eq mode 5
+                        match error:
+                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalSourceNameIdentityInvalid ordinal: eq ordinal 1
+                            _: false
+                        if:
+                            or eq mode 7 eq mode 12
+                            match error:
+                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceNotBareLocal ordinal: eq ordinal 1
+                                _: false
+                            if:
+                                eq mode 8
+                                match error:
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalSourceNameIdentityMismatch ordinal: eq ordinal 1
+                                    _: false
+                                if:
+                                    eq mode 9
+                                    match error:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalPlaceMissing ordinal: eq ordinal 1
+                                        _: false
+                                    if:
+                                        eq mode 10
+                                        match error:
+                                            SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalInitializerMissing ordinal: eq ordinal 1
+                                            _: false
+                                        if:
+                                            eq mode 13
+                                            match error:
+                                                SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::DeclareLocalInitializerGraphMismatch ordinal: eq ordinal 1
+                                                _: false
+                                            false
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case %impure fn i32 impure fn bool bool \mode\mutable:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_effect SelfhostEffectKind::Pure
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let kind_count %i32 if eq mode 2 1 2
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_stage0_result key graph_id kind_count:
+        Result::Err _e:
+            false
+        Result::Ok kinds:
+            let place_root %SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot if eq mode 7 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary 1 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 9
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true place_root selfhost_type_id_new 1:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                    false
+                Result::Ok places:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_new:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            false
+                        Result::Ok payloads0:
+                            let initializer_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 13 selfhost_memo_call_backend_private_cache_resource_graph_id_new 1 graph_id
+                            let initializer %SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer if or eq mode 11 eq mode 13 SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::Place SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace initializer_graph selfhost_memo_call_backend_private_cache_resource_place_id_new 1 if eq mode 10 SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::Place SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 9 SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::None
+                            let record_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 3 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_effect SelfhostEffectKind::PrivateCache key
+                            let record_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 6 selfhost_memo_call_backend_private_cache_resource_graph_id_new 1 graph_id
+                            let ordinal %i32 if eq mode 4 2 1
+                            let place_index %i32 if eq mode 9 9 if eq mode 12 1 0
+                            let source_identity %i32 if eq mode 5 0 if eq mode 8 8 9
+                            let record %SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadRecord record_key record_graph ordinal selfhost_memo_call_backend_private_cache_resource_place_id_new place_index source_identity mutable initializer
+                            let payloads_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 1 Result::Ok payloads0 selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_push payloads0 record
+                            let accepted %bool match payloads_result:
+                                Result::Err _e:
+                                    false
+                                Result::Ok payloads:
+                                    let result %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop &payloads &kinds &places key graph_id 0 kind_count 0 selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_len &payloads
+                                    let transported %bool match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_get &payloads 0:
+                                        Option::Some stored:
+                                            eq stored.mutable mutable
+                                        Option::None:
+                                            false
+                                    selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_free payloads
+                                    if or eq mode 0 eq mode 11 and transported match result:
+                                        Result::Ok _unit: true
+                                        Result::Err _e: false
+                                    else:
+                                        match result:
+                                            Result::Ok _unit: false
+                                            Result::Err error: selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_error_matches mode error
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0 %impure fn void bool \void:
+    let positive_mutable %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 0 true
+    let positive_immutable %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 0 false
+    let missing %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 1 false
+    let unexpected %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 2 false
+    let identity %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 3 false
+    let ordinal %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 4 false
+    let zero_name %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 5 false
+    let graph_identity %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 6 false
+    let non_local %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 7 false
+    let name_mismatch %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 8 false
+    let place_missing %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 9 false
+    let initializer_missing %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 10 false
+    let initializer_some %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 11 true
+    let projected_local %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 12 false
+    let initializer_graph %bool selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_stage0_case 13 false
+    and positive_mutable and positive_immutable and missing and unexpected and identity and ordinal and zero_name and graph_identity and non_local and name_mismatch and place_missing and initializer_missing and initializer_some and projected_local initializer_graph
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_expr_kind_roundtrip_loop %fn i32 bool \idx:
     if ge idx 18 true and eq selfhost_memo_call_backend_private_cache_resource_ir_expr_kind_ordinal selfhost_memo_call_backend_private_cache_resource_ir_expr_kind_from_ordinal idx idx selfhost_memo_call_backend_private_cache_resource_ir_expr_kind_roundtrip_loop add idx 1
 
@@ -1594,13 +1924,18 @@ fn selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_au
 fn selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheActualTraversalBodyReaderRequestContext fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheActualWalkerEventProducerBridgeErrorKind \context\operations:
     selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scope_authority_from_identity_result context.key context.graph_id operations
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\operation_count\operation_kinds\expr_payloads\places\types:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\operation_count\operation_kinds\expr_payloads\declare_local_payloads\places\types:
     let expr_payload_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_len expr_payloads
     match selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_validate_loop expr_payloads operation_kinds places types key graph_id 0 operation_count 0 expr_payload_count:
         Result::Err e:
             Result::Err e
         Result::Ok _expr_payloads_valid:
-            Result::Ok SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated key graph_id operation_count add operation_count 1
+            let declare_local_payload_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_len declare_local_payloads
+            match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_validate_loop declare_local_payloads operation_kinds places key graph_id 0 operation_count 0 declare_local_payload_count:
+                Result::Err e:
+                    Result::Err e
+                Result::Ok _declare_local_payloads_valid:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheTraversalScopeOrigin::ResourceIrInventoryValidated key graph_id operation_count add operation_count 1
 
 //: selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result: ResourceFunction-shaped inventoryから非production scopeを[発行/はっこう]する
 //:
@@ -1608,7 +1943,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_op
 //: - Rust `ResourceFunction.blocks`順でblock、各`ops` range、各blockのterminator 1件を全検査します。
 //: - operation tableも同じkey / graphとdense ordinalを持ち、inventoryのoperation総数と一致する場合だけ`ResourceIrInventoryValidated`を発行します。
 //: - inventoryとoperation ownerはまだactual lowering materializerによるco-production authorityを持たないため、`ResourceIrEnumerated`を発行しません。
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\types\operations\operation_spans\operation_kinds\expr_payloads:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads:
     let entry_block_id %i32 *field::get_ref inventory "entry_block_id"
     let result_ty %SelfhostTypeId *field::get_ref inventory "result_ty"
     let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect *field::get_ref inventory "effect"
@@ -1691,7 +2026,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authorit
                                                                                                                                     Result::Err e:
                                                                                                                                         Result::Err e
                                                                                                                                     Result::Ok _kinds_valid:
-                                                                                                                                        selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads places types
+                                                                                                                                        selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads places types
                                                                                     Result::Err e:
                                                                                         Result::Err e
                                                                         Result::Err e:
@@ -1711,11 +2046,20 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_a
                     let ty %SelfhostTypeId selfhost_type_id_new 1
                     match selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_stage0_result &operation_kinds key graph_id output ty:
                         Result::Ok expr_payloads:
-                            let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads
-                            selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_free expr_payloads
-                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free operation_kinds
-                            selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free operation_spans
-                            result
+                            let no_initializer %SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::None
+                            match selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_result &operation_kinds key graph_id 0 9 false no_initializer:
+                                Result::Ok declare_local_payloads:
+                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads
+                                    selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_free declare_local_payloads
+                                    selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_free expr_payloads
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free operation_kinds
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free operation_spans
+                                    result
+                                Result::Err e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_free expr_payloads
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free operation_kinds
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free operation_spans
+                                    Result::Err e
                         Result::Err e:
                             selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free operation_kinds
                             selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free operation_spans
@@ -1726,7 +2070,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_a
         Result::Err e:
             Result::Err e
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\operations\operation_spans\operation_kinds\expr_payloads:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads:
     let projection_place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 1
     match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_stage0_result key graph_id projection_place_id 0 SelfhostResourceIrPlaceProjection::Deref:
         Result::Ok projections:
@@ -1738,7 +2082,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_ope
                             match selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32:
                                 Result::Ok allocated1:
                                     let types2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated1
-                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads
+                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads
                                     selfhost_type_arena_free types2
                                     selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
                                     result
@@ -1955,7 +2299,15 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_sta
                                             let expr_payloads_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_stage0_result &operation_kinds key graph_id output selfhost_type_id_new 1
                                             let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match expr_payloads_result:
                                                 Result::Ok expr_payloads:
-                                                    let scoped %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result key graph_id &inventory &places &operations &operation_spans &operation_kinds &expr_payloads
+                                                    let no_initializer %SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalInitializer::None
+                                                    let declare_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_stage0_result &operation_kinds key graph_id 0 9 false no_initializer
+                                                    let scoped %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match declare_result:
+                                                        Result::Ok declare_local_payloads:
+                                                            let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result key graph_id &inventory &places &operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_declare_local_payload_inventory_free declare_local_payloads
+                                                            value
+                                                        Result::Err e:
+                                                            Result::Err e
                                                     selfhost_memo_call_backend_private_cache_resource_ir_expr_payload_inventory_free expr_payloads
                                                     scoped
                                                 Result::Err e:

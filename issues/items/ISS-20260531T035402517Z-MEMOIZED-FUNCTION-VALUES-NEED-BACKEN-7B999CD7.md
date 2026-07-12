@@ -1119,6 +1119,8 @@ source-policyはanchorとmerged partを別sourceとして読み、merge path、p
 
 2026-07-12: `ResourceOp::Expr`専用のsparse payload ownerを追加し、Rust `ResourceExprKind`全18 variant、output Place、expression TypeId、`LayoutSizeOf`対象TypeIdを保持する。operation kind ownerとのmerge-cursor検査でExpr payloadの欠落とnon-Expr payload混入を拒否し、identity / ordinal、Place membership、TypeArena membership、output型一致を検査する。残る23 operation payload、nested topology、actual lowering co-productionは未実装で、originは`ResourceIrInventoryValidated`を維持する。
 
+2026-07-12: `ResourceOp::DeclareLocal`専用private sparse payload ownerを追加し、bare Local Place、source textではないopaque function-local identity、mutable、optional initializer Placeを保持する。Rustの`source_name: String`自体は未保持であり、lossless payloadやcanonical name authorityの完成は主張しない。kind ownerとのmerge-cursorで欠落・異種混入を拒否し、same-graph Place membership、projectionなしLocal root、opaque identity一致、initializer membershipを検査する。Stringとの結合、serialized canonical local-name key、actual HIR-to-Resource co-productionは未実装で、production originは発行しない。
+
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
 Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。
