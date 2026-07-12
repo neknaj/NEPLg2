@@ -3686,6 +3686,12 @@ scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、d
 
 検査はheader/endpointのmissing/unexpected、identity/ordinal、range overflow/gap/excess、output/argのPlace membershipとgraph mismatchをtyped errorで区別する。このinventoryはraw memoryの意味、source capability、actual Resource IRとのco-productionを証明せず、`ResourceIrInventoryValidated`をproduction originへ昇格させない。残るoperation payloadは8件である。
 
+### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
+
+`PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。
+
+table validationはidentityのnon-placeholder / schema / range / dense ordinal membership、overflow-freeなbyte rangeの連続性、duplicate spellingの不在を検査する。borrowed lookupもtable全体の検証後だけ成功する。このcanonical tableはstandaloneなspelling identity ownerであり、実projection inventoryへの引き回し、enum type key membership、Unicode normalization、serialized cross-session identity、actual lowering provenanceは証明しない。それらはactual Resource function materializerがtype authorityと同時にco-produceする後続sliceで接続する。この前提sliceはResource operation payloadの残数8件を減らさない。
+
 ## 完了条件
 
 セルフホスト設計としての完了条件は次である。

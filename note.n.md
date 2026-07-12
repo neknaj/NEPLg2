@@ -83832,3 +83832,10 @@ MERGE_APPROVED
 - Rust `ResourceOp::RawMemory { operation, output, args, span }`をkind tag 12専用のprivate sparse headerとdense arg endpoint ownerへ投影した。`RawMemoryOp`全13種、output、checked args range、argsのoperation/arg ordinalとgraph-bound Placeをvariant-nativeに保持する。
 - argsはRust `Vec<Place>`と同じく0件・複数件・同一Placeの重複を許可する。header/endpointの欠落・混入、identity/ordinal、range overflow/gap/excess、output/argのmissing/wrong graphをtyped errorへ分離する。
 - このownerは非productionの`ResourceIrInventoryValidated`構造境界であり、raw memory semantics、capability、actual HIR-to-Resource co-productionを証明しない。残る8 operation payload、nested topology、walker operation table同時生成は未完成である。
+
+## 2026-07-13 selfhost Resource EnumPayload canonical symbol intern prerequisite
+
+- `SelfhostResourceIrVariantStableSymbol`のnonzero検査だけでRust String spellingを代替していた根本問題に対し、spellingのUTF-8 byte列をdense byte ownerへcopyするcanonical symbol tableを追加した。入力`str`のlifetimeに依存せず、record ownerとbyte ownerを共にfreeする。
+- schema version 1 / identity=ordinal+1をidentityとし、same spellingのre-internは同じsymbol、distinct spellingは別symbolを返す。table validatorはplaceholder、wrong schema、out-of-range、dense membership mismatch、duplicate spellingをtyped errorで拒否する。
+- EnumPayload専用のborrowed membership validatorをstandalone stage0として追加した。lookupはtable全体のoverflow-free range / dense identity / duplicate spelling検証後だけ成功する。実projection inventoryへのtable引き回しは未接続で、従来のprojection public APIは変更しない。
+- enum type key membership、serialized cross-session symbol、actual Rust loweringとのtable co-productionは後続である。これはString-bearing payloadの前提sliceなので、残るResource operation payload数8件は減らさない。

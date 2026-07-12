@@ -950,6 +950,7 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     ProjectionCountInvalid %i32
     ProjectionCountMismatch %i32
     ProjectionPayloadInvalid %i32
+    ProjectionCanonicalSymbolInvalid %SelfhostResourceIrCanonicalSymbolErrorKind
     ProjectionUnsupported %i32
     ProjectionPlaceLinkMissing %i32
     OperationTableMismatch %i32
@@ -2351,6 +2352,62 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_projection_place_link %f
                     Option::None
         _:
             Option::None
+
+//: selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result: EnumPayloadをborrowed canonical spelling ownerへ結ぶ
+//:
+//: [契約/けいやく]:
+//: - EnumPayloadはnonzeroだけでacceptedにせず、借用中のtableの同schema / dense identity recordまで検査します。
+//: - EnumPayload以外にcanonical symbol membershipを要求しません。enum type key membershipはactual materializerの後続sliceです。
+fn selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result %fn SelfhostResourceIrPlaceProjection fn &SelfhostResourceIrCanonicalSymbolTable Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projection\symbols:
+    match projection:
+        SelfhostResourceIrPlaceProjection::EnumPayload symbol:
+            match selfhost_resource_ir_canonical_symbol_table_contains_result symbols symbol:
+                Result::Ok _member:
+                    Result::Ok unit
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid e
+        _:
+            Result::Ok unit
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_stage0 %impure fn void bool \void:
+    if:
+        not selfhost_resource_ir_canonical_symbol_table_stage0
+        false
+        match selfhost_resource_ir_canonical_symbol_table_new:
+            Result::Err _:
+                false
+            Result::Ok table0:
+                match selfhost_resource_ir_canonical_symbol_table_intern table0 "Variant":
+                    Result::Err _:
+                        false
+                    Result::Ok interned:
+                        let table %SelfhostResourceIrCanonicalSymbolTable field::get interned "table"
+                        let symbol %SelfhostResourceIrVariantStableSymbol field::get interned "symbol"
+                        let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::EnumPayload symbol &table:
+                            Result::Ok _:
+                                true
+                            Result::Err _:
+                                false
+                        let missing_rejected %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::EnumPayload SelfhostResourceIrVariantStableSymbol 1 99 &table:
+                            Result::Ok _:
+                                false
+                            Result::Err e:
+                                match e:
+                                    SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ProjectionCanonicalSymbolInvalid symbol_error:
+                                        match symbol_error:
+                                            SelfhostResourceIrCanonicalSymbolErrorKind::IdentityOutOfRange identity:
+                                                eq identity 99
+                                            _:
+                                                false
+                                    _:
+                                        false
+                        let non_enum_accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_enum_projection_symbol_scope_validate_result SelfhostResourceIrPlaceProjection::Deref &table:
+                            Result::Ok _:
+                                true
+                            Result::Err _:
+                                false
+                        selfhost_resource_ir_canonical_symbol_table_free table
+                        and accepted and missing_rejected non_enum_accepted
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_validate_place_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourcePlaceId fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \projections\places\key\graph_id\place_id\ordinal\projection_count\cursor\place_count:
     if:

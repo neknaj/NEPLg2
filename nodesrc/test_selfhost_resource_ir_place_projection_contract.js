@@ -122,6 +122,49 @@ ordered(
 
 ordered(
     [
+        "struct SelfhostResourceIrCanonicalSymbolRecord:",
+        "symbol %SelfhostResourceIrVariantStableSymbol",
+        "byte_start %i32",
+        "byte_len %i32",
+        "struct SelfhostResourceIrCanonicalSymbolTable:",
+        "records %Vec SelfhostResourceIrCanonicalSymbolRecord",
+        "bytes %Vec i32",
+        "selfhost_resource_ir_canonical_symbol_append_bytes_loop",
+        "string::byte_at spelling idx",
+        "selfhost_resource_ir_canonical_symbol_table_intern",
+        "SelfhostResourceIrVariantStableSymbol 1 add record_count 1",
+        "selfhost_resource_ir_canonical_symbol_table_contains_result",
+        "IdentityPlaceholder",
+        "IdentitySchemaMismatch",
+        "IdentityOutOfRange",
+        "IdentityMembershipMismatch",
+        "DuplicateSpelling",
+        "selfhost_resource_ir_canonical_symbol_table_validate_result",
+    ],
+    "canonical symbol owner must copy spelling bytes and validate schema-bound dense membership",
+);
+assert.match(topLevelBlock(source, "pub fn", "selfhost_resource_ir_canonical_symbol_table_contains_result"), /canonical_symbol_table_validate_result table[\s\S]*canonical_symbol_table_contains_validated_result table symbol/, "borrowed lookup must validate the complete table before membership");
+assert.match(topLevelBlock(source, "pub fn", "selfhost_resource_ir_canonical_symbol_table_intern"), /canonical_symbol_table_validate_result &table[\s\S]*canonical_symbol_table_free table[\s\S]*canonical_symbol_table_intern_validated table spelling/, "intern must reject and close malformed caller-constructed tables before lookup or append");
+ordered(["or lt record.byte_start 0 gt record.byte_start bytes_len", "or lt record.byte_len 0 gt record.byte_len sub bytes_len record.byte_start"], "canonical byte ranges must reject invalid starts before evaluating the subtraction bound");
+assert.match(source, /selfhost_resource_ir_canonical_symbol_table_free[\s\S]*v::free field::get table "bytes"[\s\S]*v::free field::get table "records"/, "canonical symbol owner must release both allocations");
+const canonicalStage = topLevelBlock(source, "pub fn", "selfhost_resource_ir_canonical_symbol_table_stage0");
+for (const token of [
+    'intern table0 "Ready"',
+    'intern table1 "Ready"',
+    'intern table2 "Failed"',
+    "canonical_same",
+    "canonical_distinct",
+    "placeholder_rejected",
+    "schema_rejected",
+    "missing_rejected",
+    "duplicate_rejected",
+    "selfhost_resource_ir_canonical_symbol_membership_mismatch_stage0",
+]) {
+    assert.match(canonicalStage, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `canonical symbol stage0 missing ${token}`);
+}
+
+ordered(
+    [
         "SelfhostResourceIrVariantStableSymbol 1 41",
         "SelfhostResourceIrVariantStableSymbol 1 43",
         "SelfhostResourceIrVariantStableSymbol 1 0",

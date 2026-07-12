@@ -1123,6 +1123,8 @@ source-policyはanchorとmerged partを別sourceとして読み、merge path、p
 
 2026-07-12: `PlaceProjection::EnumPayload { variant: String }`のselfhost payloadをraw i32から`SelfhostResourceIrVariantStableSymbol`へ移し、0 placeholderをprojection payload validationで拒否した。異なる非zero symbolは専用typed equality authorityで区別する。ただしRust Stringのcanonical intern、enum type key membership、serialized symbol authorityは未接続で、lossless Stringやactual lowering provenanceは主張せずproduction originも発行しない。
 
+2026-07-13: `EnumPayload` stable symbolの前提として、Rust String spellingを入力`str`へborrowしたまま残さず、UTF-8 byte列をdense `Vec<i32>` ownerへcopyするcanonical intern tableを追加した。schema version 1 / identity=ordinal+1のrecordを使い、same spellingはsame identity、distinct spellingはdistinct identityを返す。table validatorはoverflow-freeなbyte range、placeholder / wrong schema / out-of-range / record membership mismatch / duplicate spellingをtyped errorで拒否し、borrowed lookupもtable全体の検証後だけ成功する。実projection inventoryへのtable引き回し、enum type key membership、serialized symbol authority、actual Rust loweringとのtable co-productionは未完了で、残るoperation payload数8件はこのstandalone前提sliceで減らさない。
+
 ## 2026-07-12 ResourceFunction parameter inventory checkpoint
 
 Selfhost Resource function inventoryへ、opaqueなfunction-local identity、独立TypeId、mutable flag、graph-local Place linkを持つordered parameter recordを追加した。scopeは同じTypeArenaと検証済みbare Local Place inventoryへ接続し、type / root / identity / projection不一致とidentity / Place alias重複を拒否する。originは非productionの`ResourceIrInventoryValidated`に留める。actual HIR-to-Resource co-production、canonical local-name authority、function name / origin authority、actual span producerとu32→selfhost i32 narrowing、ResourceOp topology、sealed backend representation、artifact identityはこのissueの残件である。
