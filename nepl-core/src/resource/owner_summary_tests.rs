@@ -9,7 +9,10 @@ use crate::resource::{lower_hir_module, PlaceProjection};
 use crate::{BuildProfile, CompileTarget};
 
 use super::super::summary::OwnerProjectionReturnOwner;
-use super::compute_owner_return_summaries_with_recomputations;
+use super::{
+    compute_owner_return_summaries_for_root_for_test,
+    compute_owner_return_summaries_with_recomputations,
+};
 
 fn stdlib_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -95,6 +98,33 @@ fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct
     let resource = lower_hir_module(&module, &checked.types);
     let (summaries, _) =
         compute_owner_return_summaries_with_recomputations(&resource, &checked.types, None);
+    let probe_index = resource
+        .functions
+        .iter()
+        .position(|function| function.name.starts_with("probe__"))
+        .expect("probe function index");
+    let rooted_summaries =
+        compute_owner_return_summaries_for_root_for_test(&resource, &checked.types, probe_index);
+    assert_eq!(
+        rooted_summaries.len(),
+        2,
+        "rooted fixture must exclude summaries outside probe -> route closure: {rooted_summaries:#?}"
+    );
+    assert!(rooted_summaries.iter().all(|summary| {
+        summary.function.starts_with("route__") || summary.function.starts_with("probe__")
+    }));
+
+    for prefix in ["route__", "probe__"] {
+        let full = summaries
+            .iter()
+            .find(|summary| summary.function.starts_with(prefix))
+            .unwrap_or_else(|| panic!("missing full {prefix} summary"));
+        let rooted = rooted_summaries
+            .iter()
+            .find(|summary| summary.function.starts_with(prefix))
+            .unwrap_or_else(|| panic!("missing rooted {prefix} summary"));
+        assert_eq!(rooted, full, "rooted summary must equal full fixed point");
+    }
 
     for prefix in ["route__", "probe__"] {
         let summary = summaries

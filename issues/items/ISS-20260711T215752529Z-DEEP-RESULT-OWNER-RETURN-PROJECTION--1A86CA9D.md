@@ -32,6 +32,7 @@ A caller that consumes a deeply nested move-only registered owner through Result
 - 同じreturn topologyでowner-token直上に内部enumを置いても通過した。`resource_ir_owner_check_scales_distinct_deep_result_projection_leaves`は独立deep owner leafを1、2、4、8、16、32個へ増やして全件通過し、このtopologyでは32 leaf以下の単純な数閾値を除外した。次はproductionのVec/OwnedBuffer storage enum、相関する複数metadata field、追加のsummary extent mappingを段階的に加える。
 - 探索fixtureでは実stdlib `Vec<i32>`型の2 owner parameter fieldを同じ3 return variantへ通し、owner checkとnormal compileを通過した。この限定topologyではVec/OwnedBuffer storage enumと通常metadataだけで再現しなかった。この環境のfocused実行は約166秒だったため恒久suiteには残さず、結果だけを境界証拠として記録した。
 - `deep_distinct_owner_variant_summary_preserves_path_conditioned_mapping`はsummaryを直接検査し、routeとprobeの双方で2個のexact parameter source × Ok/direct Err/nested Errのpath-conditioned 6対応だけが保持され、root/projection unconditional return、Maybe/Fresh/Unknown、target collapseへ劣化しないことを固定した。cheap synthetic topologyではsummary生成が正しいため、次はproduction縮約summaryで同じ不変条件が最初に崩れる点、または適用時に同時activeと扱われるprojectionを特定する。
+- root関数のowner-summary callee closureだけを固定点計算するtest-only入口を追加し、cheap fixtureでfull固定点と同一summaryになることを固定した。production `writer_step_budget`へ適用しても64MiB stackで5分超となり、closure filteringだけでは不十分だった。高コストprobeは残さず、次はdirect-call構成要素をsynthetic wrapperへ段階移植する。
 
 ## 問題
 
