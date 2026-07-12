@@ -31,6 +31,8 @@ pub(super) struct ResourceSummaryDependencyGraph {
     raw_init_dependencies: Vec<Vec<usize>>,
     raw_init_dependents: Vec<Vec<usize>>,
     raw_init_initial_order: Vec<usize>,
+    #[cfg(test)]
+    owner_dependencies: Vec<Vec<usize>>,
     owner_dependents: Vec<Vec<usize>>,
     owner_initial_order: Vec<usize>,
     direct_raw_initialization_summary_ops: Vec<bool>,
@@ -114,6 +116,8 @@ impl ResourceSummaryDependencyGraph {
             raw_init_dependencies,
             raw_init_dependents,
             raw_init_initial_order,
+            #[cfg(test)]
+            owner_dependencies,
             owner_dependents,
             owner_initial_order,
             direct_raw_initialization_summary_ops,
@@ -186,6 +190,12 @@ impl ResourceSummaryDependencyGraph {
     /// dependency closure hash の両方を小さく保つ。
     pub(super) fn raw_init_dependencies(&self) -> &[Vec<usize>] {
         &self.raw_init_dependencies
+    }
+
+    /// owner return summary が読む caller から callee への依存辺を返す。
+    #[cfg(test)]
+    pub(super) fn owner_dependencies(&self) -> &[Vec<usize>] {
+        &self.owner_dependencies
     }
 
     /// raw initialization summary 専用依存辺の逆辺を返す。

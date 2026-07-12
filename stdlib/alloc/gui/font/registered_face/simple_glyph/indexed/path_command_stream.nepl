@@ -531,6 +531,69 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_e
 pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary \owner:
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner field::get_ref owner "running"
     *field::get_ref running "summary"
+
+//: CompletedReadErrorKind: completed authorityからcommandを再読込できなかった理由です
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind:
+    IndexOutOfRange
+    StoredTagReadFailed
+    EdgeOwnerReadFailed
+    SpanLookupFailed
+    EdgeOwnerIdentityMismatch
+    EventReadFailed
+    SourceTagMismatch
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \value: value
+
+//: completed_owner_read_at: sealed registered authorityを借用してcommand valueを再構築します
+//:
+//: [契約/けいやく]:
+//: - source ownerやstorage ownerを分離せず、edge markerからcontourとlocal indexを再検証します。
+//: - 読込だけを行い、cursor、summary、storageを変更しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner field::get_ref owner "running"
+    let tag %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref running "tag"
+    let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity tag
+    let command_count gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count &capacity
+    if or lt index 0 ge index command_count:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::IndexOutOfRange
+        else:
+            let edge_index div_s index 2
+            let ordinal rem_s index 2
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_path_command_tag tag index:
+                Result::Err _error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::StoredTagReadFailed
+                Result::Ok stored_tag:
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_read_edge_owner tag edge_index:
+                        Result::Err _error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::EdgeOwnerReadFailed
+                        Result::Ok marker:
+                            let contour gui_sfnt_simple_glyph_outline_edge_owner_marker_contour_index &marker
+                            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_span_lookup tag contour:
+                                Result::Err _error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SpanLookupFailed
+                                Result::Ok span:
+                                    let expected_start gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                                    let local sub edge_index expected_start
+                                    let capacity_glyph gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                                    let marker_glyph gui_sfnt_simple_glyph_outline_edge_owner_marker_glyph &marker
+                                    let marker_ok and eq gui_glyph_id_raw &capacity_glyph gui_glyph_id_raw &marker_glyph and eq gui_sfnt_simple_glyph_outline_edge_owner_marker_edge_index &marker edge_index eq gui_sfnt_simple_glyph_outline_edge_owner_marker_contour_index &marker contour
+                                    if not marker_ok:
+                                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::EdgeOwnerIdentityMismatch
+                                        else:
+                                            let slot %GuiSfntSimpleGlyphPathSinkEventSlot if eq ordinal 0 then GuiSfntSimpleGlyphPathSinkEventSlot::First else GuiSfntSimpleGlyphPathSinkEventSlot::Second
+                                            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_event_checked_span tag span local slot:
+                                                Result::Err _error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::EventReadFailed
+                                                Result::Ok event:
+                                                    let source_kind gui_sfnt_simple_glyph_path_sink_event_kind &event
+                                                    let source_tag gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind &source_kind
+                                                    if not gui_sfnt_simple_glyph_path_command_tag_eq &stored_tag &source_tag:
+                                                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SourceTagMismatch
+                                                        else:
+                                                            let command gui_sfnt_simple_glyph_path_sink_event_command &event
+                                                            Result::Ok gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value index edge_index contour local slot stored_tag source_tag command
 //: owner_free: stream owner以下の線形資源を解放します
 //:
 //: neplg2:test[skip]

@@ -154,6 +154,7 @@ pub(super) struct OwnerVariantProjectionReturn {
     pub(super) variant: String,
     pub(super) suffix: Vec<PlaceProjection>,
     pub(super) ty: TypeId,
+    pub(super) source_condition: Option<OwnerProjectionSource>,
     pub(super) owner: OwnerProjectionReturnOwner,
 }
 

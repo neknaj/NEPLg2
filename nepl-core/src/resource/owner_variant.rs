@@ -29,9 +29,9 @@ use super::place_utils::{place_with_suffix, places_overlap};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
-    OwnerExtentSummary, OwnerProjectionReturnOwner, OwnerResolvedParameterVariant,
-    OwnerVariantCondition, OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
-    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
+    OwnerExtentSummary, OwnerProjectionReturnOwner, OwnerProjectionSource,
+    OwnerResolvedParameterVariant, OwnerVariantCondition, OwnerVariantConsumedExtentRequirement,
+    OwnerVariantParameterIndex, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 use super::variant_name::{match_pattern_variant_name, normalize_variant_name};
 
@@ -51,6 +51,7 @@ pub(super) struct PendingVariantOwnerReturn {
     pub(super) variant: String,
     pub(super) target_suffix: Vec<super::model::PlaceProjection>,
     pub(super) target_ty: TypeId,
+    pub(super) source_condition: Option<OwnerProjectionSource>,
     pub(super) source: PendingVariantOwnerReturnSource,
 }
 
@@ -138,8 +139,16 @@ impl PendingVariantOwnerEffects {
         if self.variant_is_unreachable(scrutinee, &variant) {
             return;
         }
-        for entry in &self.returns {
-            if entry.result != *scrutinee || entry.variant != variant {
+        let matching_returns = self
+            .returns
+            .iter()
+            .filter(|entry| entry.result == *scrutinee && entry.variant == variant)
+            .cloned()
+            .collect::<Vec<_>>();
+        let available =
+            snapshot_return_availability(&matching_returns, engine, owners, raw_aliases);
+        for (index, entry) in matching_returns.iter().enumerate() {
+            if should_skip_unavailable_alternative(&matching_returns, &available, index) {
                 continue;
             }
             apply_pending_variant_owner_return(
@@ -472,14 +481,19 @@ impl PendingVariantOwnerEffects {
 
         let mut materialized_sources = Vec::new();
         let mut materialized = false;
-        for entry in matching_returns {
+        let available =
+            snapshot_return_availability(&matching_returns, engine, owners, raw_aliases);
+        for (index, entry) in matching_returns.iter().enumerate() {
+            if should_skip_unavailable_alternative(&matching_returns, &available, index) {
+                continue;
+            }
             if let Some(source) = apply_pending_variant_owner_return(
                 engine,
                 owners,
                 raw_aliases,
                 raw_views,
                 storage_origins,
-                &entry,
+                entry,
                 &entry.result,
                 span,
             ) {
@@ -563,6 +577,10 @@ impl PendingVariantOwnerEffects {
                         &source,
                         parameter_storage_sources,
                     ) {
+                        let source_condition =
+                            super::owner_variant_utils::source_condition_for_projection_source(
+                                &parameter_source,
+                            );
                         if let PendingVariantOwnerReturnSource::Parameter {
                             extent_requirement: Some(requirement),
                             ..
@@ -589,6 +607,7 @@ impl PendingVariantOwnerEffects {
                                 variant: normalize_variant_name(&entry.variant),
                                 suffix: entry.target_suffix.clone(),
                                 ty: entry.target_ty,
+                                source_condition,
                                 owner: OwnerProjectionReturnOwner::Parameter {
                                     returned_extent: match &entry.source {
                                         PendingVariantOwnerReturnSource::Parameter {
@@ -623,6 +642,7 @@ impl PendingVariantOwnerEffects {
                             variant: normalize_variant_name(&entry.variant),
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
+                            source_condition: entry.source_condition.clone(),
                             owner: OwnerProjectionReturnOwner::Fresh {
                                 extent: summarize_owner_storage_extent_for_owner(
                                     raw_aliases,
@@ -643,6 +663,7 @@ impl PendingVariantOwnerEffects {
                             variant: normalize_variant_name(&entry.variant),
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
+                            source_condition: entry.source_condition.clone(),
                             owner: OwnerProjectionReturnOwner::UnknownSource {
                                 extent: summarize_owner_storage_extent_for_owner(
                                     raw_aliases,
@@ -661,6 +682,7 @@ impl PendingVariantOwnerEffects {
                             variant: normalize_variant_name(&entry.variant),
                             suffix: entry.target_suffix.clone(),
                             ty: entry.target_ty,
+                            source_condition: entry.source_condition.clone(),
                             owner: OwnerProjectionReturnOwner::Maybe,
                         },
                     );
@@ -820,5 +842,158 @@ impl PendingVariantOwnerEffects {
             let ty = source.ty;
             !source_list_overlaps(materialized_sources, &source, &[], ty)
         });
+    }
+}
+
+fn snapshot_return_availability(
+    returns: &[PendingVariantOwnerReturn],
+    engine: &ResourceOwnerCheckEngine<'_>,
+    owners: &OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+) -> Vec<PendingReturnAvailability> {
+    returns
+        .iter()
+        .map(|entry| {
+            let source = pending_return_source(entry, raw_aliases);
+            let transferable = source
+                .as_ref()
+                .map(|source| engine.has_transferable_owner(owners, raw_aliases, source))
+                .unwrap_or(true);
+            PendingReturnAvailability {
+                source,
+                transferable,
+            }
+        })
+        .collect()
+}
+
+struct PendingReturnAvailability {
+    source: Option<Place>,
+    transferable: bool,
+}
+
+fn should_skip_unavailable_alternative(
+    returns: &[PendingVariantOwnerReturn],
+    available: &[PendingReturnAvailability],
+    index: usize,
+) -> bool {
+    let Some(entry_availability) = available.get(index) else {
+        return false;
+    };
+    if entry_availability.transferable {
+        return false;
+    }
+    let Some(entry) = returns.get(index) else {
+        return false;
+    };
+    returns
+        .iter()
+        .enumerate()
+        .any(|(candidate_index, candidate)| {
+            available
+                .get(candidate_index)
+                .is_some_and(|candidate| candidate.transferable)
+                && candidate.result == entry.result
+                && candidate.variant == entry.variant
+                && candidate.target_suffix == entry.target_suffix
+                && candidate.target_ty == entry.target_ty
+                && places_are_mutually_exclusive(
+                    entry_availability.source.as_ref(),
+                    available
+                        .get(candidate_index)
+                        .and_then(|candidate| candidate.source.as_ref()),
+                )
+        })
+}
+
+fn places_are_mutually_exclusive(left: Option<&Place>, right: Option<&Place>) -> bool {
+    let (Some(left), Some(right)) = (left, right) else {
+        return false;
+    };
+    if left.root != right.root {
+        return false;
+    }
+    for (left, right) in left.projections.iter().zip(&right.projections) {
+        if left == right {
+            continue;
+        }
+        return match (left, right) {
+            (
+                super::model::PlaceProjection::EnumPayload { variant: left },
+                super::model::PlaceProjection::EnumPayload { variant: right },
+            ) => normalize_variant_name(left) != normalize_variant_name(right),
+            _ => false,
+        };
+    }
+    false
+}
+
+#[cfg(test)]
+mod alternative_tests {
+    use super::*;
+    use alloc::string::String;
+    use alloc::vec;
+
+    fn condition(variant: &str) -> OwnerProjectionSource {
+        OwnerProjectionSource {
+            parameter_index: 0,
+            suffix: vec![super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from(variant),
+            }],
+            ty: TypeId(1),
+        }
+    }
+
+    fn pending(variant: &str) -> PendingVariantOwnerReturn {
+        PendingVariantOwnerReturn {
+            result: Place::unknown(TypeId(2)),
+            variant: String::from("Ok"),
+            target_suffix: vec![super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from("Ok"),
+            }],
+            target_ty: TypeId(1),
+            source_condition: Some(condition(variant)),
+            source: PendingVariantOwnerReturnSource::Maybe,
+        }
+    }
+
+    fn availability(variant: &str, transferable: bool) -> PendingReturnAvailability {
+        PendingReturnAvailability {
+            source: Some(place_with_suffix(
+                &Place::unknown(TypeId(2)),
+                &[super::super::model::PlaceProjection::EnumPayload {
+                    variant: String::from(variant),
+                }],
+                TypeId(1),
+            )),
+            transferable,
+        }
+    }
+
+    #[test]
+    fn unavailable_alternatives_do_not_suppress_owner_diagnostics() {
+        let a = pending("A");
+        let b = pending("B");
+        let returns = vec![a.clone(), b.clone()];
+        assert!(!should_skip_unavailable_alternative(
+            &returns,
+            &[availability("A", false), availability("B", false)],
+            0
+        ));
+        assert!(should_skip_unavailable_alternative(
+            &returns,
+            &[availability("A", false), availability("B", true)],
+            0
+        ));
+        assert!(!should_skip_unavailable_alternative(
+            &returns,
+            &[availability("A", true), availability("B", false)],
+            0
+        ));
+        assert!(should_skip_unavailable_alternative(
+            &returns,
+            &[availability("A", true), availability("B", false)],
+            1
+        ));
     }
 }

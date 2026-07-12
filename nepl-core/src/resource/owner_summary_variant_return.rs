@@ -41,6 +41,8 @@ pub(super) fn record_variant_projection_returns(
                     variant: variant.clone(),
                     suffix: projection.suffix.clone(),
                     ty: projection.ty,
+                    source_condition:
+                        super::owner_variant_utils::source_condition_for_projection_source(&source),
                     owner: OwnerProjectionReturnOwner::Parameter {
                         returned_extent: parameter_return_extent_for_source(
                             &projection.parameter_return_extents,
@@ -61,6 +63,8 @@ pub(super) fn record_variant_projection_returns(
                     variant: variant.clone(),
                     suffix: projection.suffix.clone(),
                     ty: projection.ty,
+                    source_condition:
+                        super::owner_variant_utils::source_condition_for_projection_source(source),
                     owner: OwnerProjectionReturnOwner::Parameter {
                         returned_extent: parameter_return_extent_for_source(
                             &projection.parameter_return_extents,
@@ -81,6 +85,7 @@ pub(super) fn record_variant_projection_returns(
                     variant: variant.clone(),
                     suffix: projection.suffix.clone(),
                     ty: projection.ty,
+                    source_condition: None,
                     owner: OwnerProjectionReturnOwner::Fresh {
                         extent: projection.returns_fresh_owner_extent.clone(),
                     },
@@ -95,6 +100,7 @@ pub(super) fn record_variant_projection_returns(
                     variant: variant.clone(),
                     suffix: projection.suffix.clone(),
                     ty: projection.ty,
+                    source_condition: None,
                     owner: OwnerProjectionReturnOwner::Maybe,
                 },
                 &mut ambiguous_parameter_sources,
@@ -142,16 +148,28 @@ fn push_unique_variant_projection_return(
     entry: OwnerVariantProjectionReturn,
     ambiguous_parameter_sources: &mut Vec<OwnerProjectionSource>,
 ) {
+    if out.iter().any(|existing| {
+        existing.variant == entry.variant
+            && existing.suffix == entry.suffix
+            && existing.ty == entry.ty
+            && existing.owner == entry.owner
+    }) {
+        return;
+    }
     let Some(existing) = out.iter_mut().find(|existing| {
         existing.variant == entry.variant
             && existing.suffix == entry.suffix
             && existing.ty == entry.ty
+            && !super::owner_variant_utils::return_conditions_are_mutually_exclusive(
+                existing.source_condition.as_ref(),
+                entry.source_condition.as_ref(),
+            )
     }) else {
         out.push(entry);
         return;
     };
-    if existing.owner == entry.owner {
-        return;
+    if existing.source_condition != entry.source_condition {
+        existing.source_condition = None;
     }
     let entry_owner_extent = projection_return_owner_extent(&entry.owner);
     let existing_parameter_source = projection_return_owner_parameter_source(&existing.owner);

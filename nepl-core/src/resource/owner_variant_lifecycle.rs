@@ -39,6 +39,7 @@ impl PendingVariantOwnerEffects {
                 variant: entry.variant.clone(),
                 target_suffix: entry.target_suffix.clone(),
                 target_ty: entry.target_ty,
+                source_condition: entry.source_condition.clone(),
                 source: entry.source.clone(),
             })
             .collect::<Vec<_>>();

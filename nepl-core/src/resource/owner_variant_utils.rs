@@ -84,16 +84,28 @@ pub(super) fn push_unique_variant_projection_return(
     out: &mut Vec<OwnerVariantProjectionReturn>,
     entry: OwnerVariantProjectionReturn,
 ) {
+    if out.iter().any(|existing| {
+        existing.variant == entry.variant
+            && existing.suffix == entry.suffix
+            && existing.ty == entry.ty
+            && existing.owner == entry.owner
+    }) {
+        return;
+    }
     let Some(existing) = out.iter_mut().find(|existing| {
         existing.variant == entry.variant
             && existing.suffix == entry.suffix
             && existing.ty == entry.ty
+            && !return_conditions_are_mutually_exclusive(
+                existing.source_condition.as_ref(),
+                entry.source_condition.as_ref(),
+            )
     }) else {
         out.push(entry);
         return;
     };
-    if existing.owner == entry.owner {
-        return;
+    if existing.source_condition != entry.source_condition {
+        existing.source_condition = None;
     }
     let entry_owner_extent = projection_return_owner_extent(&entry.owner);
     match (&mut existing.owner, entry.owner) {
@@ -145,6 +157,74 @@ pub(super) fn push_unique_variant_projection_return(
     }
 }
 
+pub(super) fn return_conditions_are_mutually_exclusive(
+    left: Option<&OwnerProjectionSource>,
+    right: Option<&OwnerProjectionSource>,
+) -> bool {
+    let (Some(left), Some(right)) = (left, right) else {
+        return false;
+    };
+    mutually_exclusive_parameter_sources(
+        &super::summary::OwnerProjectionReturnOwner::Parameter {
+            source: left.clone(),
+            returned_extent: super::summary::OwnerExtentSummary::Unknown,
+        },
+        &super::summary::OwnerProjectionReturnOwner::Parameter {
+            source: right.clone(),
+            returned_extent: super::summary::OwnerExtentSummary::Unknown,
+        },
+    )
+}
+
+pub(super) fn mutually_exclusive_parameter_sources(
+    left: &super::summary::OwnerProjectionReturnOwner,
+    right: &super::summary::OwnerProjectionReturnOwner,
+) -> bool {
+    let (
+        super::summary::OwnerProjectionReturnOwner::Parameter {
+            source: left_source,
+            ..
+        },
+        super::summary::OwnerProjectionReturnOwner::Parameter {
+            source: right_source,
+            ..
+        },
+    ) = (left, right)
+    else {
+        return false;
+    };
+    if left_source.parameter_index != right_source.parameter_index {
+        return false;
+    }
+    for (left, right) in left_source.suffix.iter().zip(&right_source.suffix) {
+        if left == right {
+            continue;
+        }
+        return match (left, right) {
+            (
+                PlaceProjection::EnumPayload { variant: left },
+                PlaceProjection::EnumPayload { variant: right },
+            ) => normalize_variant_name(left) != normalize_variant_name(right),
+            _ => false,
+        };
+    }
+    false
+}
+
+pub(super) fn source_condition_for_projection_source(
+    source: &OwnerProjectionSource,
+) -> Option<OwnerProjectionSource> {
+    let end = source
+        .suffix
+        .iter()
+        .rposition(|projection| matches!(projection, PlaceProjection::EnumPayload { .. }))?;
+    Some(OwnerProjectionSource {
+        parameter_index: source.parameter_index,
+        suffix: source.suffix[..=end].to_vec(),
+        ty: source.ty,
+    })
+}
+
 fn projection_return_owner_extent(
     owner: &super::summary::OwnerProjectionReturnOwner,
 ) -> super::summary::OwnerExtentSummary {
@@ -156,6 +236,109 @@ fn projection_return_owner_extent(
         | super::summary::OwnerProjectionReturnOwner::UnknownSource { extent } => extent.clone(),
         super::summary::OwnerProjectionReturnOwner::Maybe => {
             super::summary::OwnerExtentSummary::Unknown
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::TypeId;
+    use alloc::vec;
+
+    use super::super::summary::{
+        OwnerExtentSummary, OwnerProjectionReturnOwner, OwnerProjectionSource,
+        OwnerVariantProjectionReturn,
+    };
+
+    fn parameter_owner(
+        parameter_index: usize,
+        suffix: Vec<PlaceProjection>,
+    ) -> OwnerProjectionReturnOwner {
+        OwnerProjectionReturnOwner::Parameter {
+            source: OwnerProjectionSource {
+                parameter_index,
+                suffix,
+                ty: TypeId(1),
+            },
+            returned_extent: OwnerExtentSummary::Unknown,
+        }
+    }
+
+    fn variant(name: &str) -> PlaceProjection {
+        PlaceProjection::EnumPayload {
+            variant: String::from(name),
+        }
+    }
+
+    fn field(index: usize) -> PlaceProjection {
+        PlaceProjection::Field {
+            index,
+            offset_bytes: index * 4,
+        }
+    }
+
+    #[test]
+    fn parameter_sources_are_exclusive_only_at_a_shared_enum_projection() {
+        assert!(mutually_exclusive_parameter_sources(
+            &parameter_owner(0, vec![field(0), variant("A")]),
+            &parameter_owner(0, vec![field(0), variant("B")]),
+        ));
+        assert!(!mutually_exclusive_parameter_sources(
+            &parameter_owner(0, vec![variant("A")]),
+            &parameter_owner(1, vec![variant("B")]),
+        ));
+        assert!(!mutually_exclusive_parameter_sources(
+            &parameter_owner(0, vec![field(0), variant("A")]),
+            &parameter_owner(0, vec![field(1), variant("B")]),
+        ));
+        assert!(!mutually_exclusive_parameter_sources(
+            &parameter_owner(0, vec![variant("B"), field(0)]),
+            &parameter_owner(0, vec![variant("B"), field(1)]),
+        ));
+        assert!(!mutually_exclusive_parameter_sources(
+            &parameter_owner(0, vec![variant("Result::A")]),
+            &parameter_owner(0, vec![variant("A")]),
+        ));
+    }
+
+    #[test]
+    fn same_variant_ambiguity_merges_after_an_exclusive_alternative() {
+        let a = parameter_owner(0, vec![variant("A")]);
+        let b0 = parameter_owner(0, vec![variant("B"), field(0)]);
+        let b1 = parameter_owner(0, vec![variant("B"), field(1)]);
+        for owners in [[a.clone(), b0.clone(), b1.clone()], [b0, b1, a]] {
+            let mut returns = Vec::new();
+            for owner in owners {
+                let source_condition = match &owner {
+                    OwnerProjectionReturnOwner::Parameter { source, .. } => {
+                        source_condition_for_projection_source(source)
+                    }
+                    _ => None,
+                };
+                push_unique_variant_projection_return(
+                    &mut returns,
+                    OwnerVariantProjectionReturn {
+                        variant: String::from("Ok"),
+                        suffix: vec![variant("Ok"), field(0)],
+                        ty: TypeId(1),
+                        source_condition,
+                        owner,
+                    },
+                );
+            }
+            assert_eq!(returns.len(), 2, "{returns:#?}");
+            assert_eq!(
+                returns
+                    .iter()
+                    .filter(|entry| matches!(
+                        entry.owner,
+                        OwnerProjectionReturnOwner::UnknownSource { .. }
+                    ))
+                    .count(),
+                1,
+                "{returns:#?}"
+            );
         }
     }
 }

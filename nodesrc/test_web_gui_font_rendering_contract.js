@@ -441,6 +441,8 @@ const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag = read("stdlib/all
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTagImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandTag);
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream.nepl");
 const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream);
+const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink = read("stdlib/alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink.nepl");
+const allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl = withoutComments(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink);
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
@@ -3857,6 +3859,25 @@ for (const accessor of ["error_path_command_index", "error_edge_index", "error_s
     assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream, new RegExp(`gui_font_registered_face_simple_glyph_indexed_path_command_stream_${accessor}\\b`), `F5nxi must expose borrowed typed metadata accessor ${accessor}`);
 }
 assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandStream, /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_path_command_stream_(?:completed_owner_take_tag|owner_take_tag|take_storage|storage_ref|take_collection|collection_ref)/, "F5nxi must not expose lower authority or raw storage splits");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/registered_face\/simple_glyph\/indexed\/path_command_sink"\s+as\s+\*/, "facade must export F5nxj registered command sink owner");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink, /source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner[\s\S]*sink %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner[\s\S]*writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner/, "F5nxj phases must retain registered source through allocation and writing");
+const registeredPathCommandSinkPlan = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_start");
+assertOrderedFragments(registeredPathCommandSinkPlan, ["completed_owner_summary &source", "checked_add move line", "checked_add move_line quadratic", "checked_add path_segments skip", "ne prepared total", "ne last expected_last", "checked_add line quadratic", "path_command_stream_sink_plan total total draw"], "F5nxj plan must derive checked legacy capacities directly from registered summary");
+assertNoMatch(registeredPathCommandSinkPlan, /PrepareDrainTerminal|prepare_drain_terminal/, "F5nxj must not forge a legacy prepare terminal as source authority");
+const registeredPathCommandSinkStep = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step");
+assertOrderedFragments(registeredPathCommandSinkStep, ["ge next_index command_count", "completed_owner_read_at &source next_index", "sink_writer_owner_push_value_continue writer value", "push_error_free lower", "WriterPushStepError source lower_kind", "Result::Ok next_writer", "add next_index 1"], "F5nxj writer must read from registered authority, clean partial push failures immediately, and advance only after a successful legacy append");
+const registeredPathCommandSinkBudget = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step_budget");
+assertOrderedFragments(registeredPathCommandSinkBudget, ["ge next_index command_count", "Completed", "le remaining 0", "StepBudgetExhausted", "writer_step owner"], "F5nxj budget must prefer terminal and do no work for non-positive budget");
+const registeredPathCommandSinkSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_seal");
+assertOrderedFragments(registeredPathCommandSinkSeal, ["writer_owner_written_count writer", "writer_owner_storage_capacity writer", "writer_owner_path_sink_scalars_len writer", "writer_owner_raster_mask_scalars_cap writer", "counts_ok", "capacity_ok", "storage_ok", "eq next_index command_count", "eq written command_count"], "F5nxj seal must bind cursor, summary counts, plan capacity, and both scalar Vec shapes");
+const registeredPathCommandSinkRetry = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_retry");
+assertOrderedFragments(registeredPathCommandSinkRetry, ["SourceReadFailed", "some GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner", "AlreadyCompleted", "writer_owner_free", "none", "WriterPushFailed", "completed_owner_free", "none"], "F5nxj must only recover source-read failures and consume terminal and already-cleaned partial writer failures through cleanup");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink, /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_take_owner\b/, "F5nxj must not turn a partial multi-scalar push failure back into a retryable writer");
+for (const helper of ["test_force_source_read_failure", "test_force_push_failure", "test_completed_force_push_failure_ok"]) {
+    assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink, new RegExp(`#test[\\s\\S]*pub\\s+fn\\s+gui_font_registered_face_simple_glyph_indexed_path_command_sink_${helper}\\b`), `F5nxj ${helper} must remain test-only`);
+}
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSink, /pub\s+fn\s+gui_font_registered_face_simple_glyph_indexed_path_command_sink_(?:take_source|take_sink|take_writer|storage_ref|take_storage|collection_ref|take_collection)/, "F5nxj must not expose source/storage/writer split APIs");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, /(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|full_scan|fullscan|raw_collection|callback|\bfallback\b|\bpanic\b|\bunreachable\b|\bStroke\b|\bRaster\b|RenderTarget|render2d|\bplatform\b)/, "F5nxj must reuse owner-bound source and stop before stroke/raster/render/platform phases");
 const registeredIndexedOutlineStorageBehaviorStart = functionSlice(
     guiFontRegisteredFaceTests,
     "registered_face_simple_glyph_summary_completed_close_ok",
@@ -16610,7 +16631,6 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_path_move_to_x2 &command",
         "gui_sfnt_simple_glyph_path_move_to_y2 &command",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_y path_command_index 3 1 0 0 0",
-        "WrittenMoveTo",
     ],
     "alloc/gui/font/sfnt/glyf F5ba MoveTo writer must push tag/x/y and update progress once",
 );
@@ -16625,7 +16645,6 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_path_line_to_x2 &command",
         "gui_sfnt_simple_glyph_path_line_to_y2 &command",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_y path_command_index 3 0 1 0 0",
-        "WrittenLineTo",
     ],
     "alloc/gui/font/sfnt/glyf F5ba LineTo writer must push tag/x/y and update progress once",
 );
@@ -16642,7 +16661,6 @@ assertOrderedFragments(
         "gui_sfnt_simple_glyph_path_quadratic_to_end_x2 &command",
         "gui_sfnt_simple_glyph_path_quadratic_to_end_y2 &command",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_end_y path_command_index 5 0 0 1 0",
-        "WrittenQuadraticTo",
     ],
     "alloc/gui/font/sfnt/glyf F5ba QuadraticTo writer must push tag/control/end and update progress once",
 );
@@ -16652,11 +16670,14 @@ assertOrderedFragments(
     [
         "SkipNoSegmentCountExceeded",
         "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance writer path_command_index 0 0 0 0 1",
-        "SkippedNoSegment",
     ],
     "alloc/gui/font/sfnt/glyf F5ba SkipNoSegment writer must advance progress without scalar push",
 );
 assertNoMatch(pathCommandStreamSinkWriterPushSkip, /\bvec::push\b|gui_sfnt_simple_glyph_path_command_tag_scalar_value/, "alloc/gui/font/sfnt/glyf F5ba SkipNoSegment must not push or write tag scalar");
+const pathCommandStreamSinkWriterPushValue = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value");
+assertOrderedFragments(pathCommandStreamSinkWriterPushValue, ["WrittenMoveTo", "WrittenLineTo", "WrittenQuadraticTo", "SkippedNoSegment"], "alloc/gui/font/sfnt/glyf F5ba public push adapter must preserve every legacy step variant");
+const pathCommandStreamSinkWriterPushValueContinue = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value_continue");
+assertNoMatch(pathCommandStreamSinkWriterPushValueContinue, /WrittenMoveTo|WrittenLineTo|WrittenQuadraticTo|SkippedNoSegment/, "alloc/gui/font/sfnt/glyf F5nxj continuation must return the writer owner without legacy step wrapping");
 for (const [slice, name] of [
     [pathCommandStreamSinkWriterStart, "writer start"],
     [pathCommandStreamSinkWriterValidateForPush, "writer push validation"],

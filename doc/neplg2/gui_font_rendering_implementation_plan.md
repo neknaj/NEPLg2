@@ -6591,6 +6591,29 @@ owner / state契約:
 - lookup failureでtyped metadata、same-owner retry、cursor/summary不変を検査する。
 - source policyでcompleted PathCommandTag唯一input、owner-bound lookup、summary更新、budget precedence、F5nxj-only handoff、raw split/sink/stroke/raster/render/platform禁止を固定する。
 
+### Phase F5nxj: registered indexed command sink plan / allocation / writer owner
+
+目的:
+
+- F5nxi checked completed prepare ownerを唯一のauthorityとしてsink plan、allocation、writer completionへ輸送する。
+- F5ay/F5az/F5baのstorage-only算術、Vec allocation、writer appendを再利用し、registered source ownerを脱落させない。
+- checked completed registered writerだけをF5nxk stroke source contourへ渡す。
+
+owner / state契約:
+
+- private stateは`PlanReady | Allocated | Writing | Completed`とし、全stateがF5nxi completed authorityを保持する。
+- planはsummaryからchecked derivationし、legacy terminalやcaller supplied countをauthorityにしない。plan/storage/writerのpublic split takeとforeign pairingを禁止する。
+- writingはCompleted、budget 0以下、owner-bound read-at、legacy push、cursor commitの順で高々1command進める。push成功前にcursorを進めない。
+- allocation/start/read failureはmetadata-before-takeとsame registered authority recoveryを守る。partial scalar push failureはlegacy owner-bearing errorからmetadataを保存してwriterを直ちにsingle freeし、outer cleanup-only errorにはregistered authority、保存済みlegacy分類、failure cursorだけを保持して通常retry ownerへ戻さない。
+- checked sealはcursor、writer counts、last index、plan/capacity、scalar len/capを再検査する。stroke/raster/render/platformへ進まない。
+
+検証:
+
+- controlled 8 Skip fixtureでzero scalar capacity、8 skip commit、budget 0/negative、partial/exact/terminal、checked seal/freeを検査する。
+- Move/Lineの3 scalar、Quadraticの5 scalar順序、plan overflow、allocation/start failureは変更しないF5ay/F5az/F5ba focused regressionを継続gateとする。registered wrapper固有runtimeは8 Skip chainに加え、owner-bound read failureのsame-owner retryとout-of-order push failureのtyped metadata / cleanup-only消費を検査する。
+- source policyでregistered authority保持、owner-bound read、legacy algorithm exactly once、success後cursor commit、raw split/foreign pairing/full scan/F5nxk以降禁止を固定する。
+- normal compileでtest-only failure injectionとprivate constructorがproduction surfaceへ露出しないことを確認する。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

@@ -1,5 +1,8 @@
 use alloc::vec::Vec;
 
+#[cfg(test)]
+use alloc::vec;
+
 use crate::types::TypeCtx;
 
 use super::function_alias::FunctionAliasTable;
@@ -93,6 +96,52 @@ pub(super) fn compute_owner_return_summaries_with_recomputations(
     }
     let recomputations = worklist.recomputations();
     (summaries, recomputations)
+}
+
+#[cfg(test)]
+pub(super) fn compute_owner_return_summaries_for_root_for_test(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    root_function_index: usize,
+) -> Vec<OwnerReturnSummary> {
+    let dependency_graph = ResourceSummaryDependencyGraph::build(module);
+    let mut closure = vec![false; module.functions.len()];
+    let mut pending = vec![root_function_index];
+    while let Some(function_index) = pending.pop() {
+        if function_index >= closure.len() || closure[function_index] {
+            continue;
+        }
+        closure[function_index] = true;
+        pending.extend(
+            dependency_graph.owner_dependencies()[function_index]
+                .iter()
+                .copied(),
+        );
+    }
+    let relevant = owner_summary_relevant_functions(module, types, &dependency_graph)
+        .into_iter()
+        .zip(closure)
+        .map(|(is_relevant, is_in_closure)| is_relevant && is_in_closure)
+        .collect();
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_edges(
+        module,
+        relevant,
+        dependency_graph.owner_dependents(),
+        dependency_graph.owner_initial_order(),
+    );
+    let mut summaries = Vec::new();
+    let mut summary_name_index = SummaryNameIndex::from_entries(&summaries);
+    while let Some(function_index) = worklist.pop() {
+        let summary = {
+            let summary_index = summary_name_index.as_summary_index(&summaries);
+            function_owner_return_summary(&module.functions[function_index], types, &summary_index)
+        };
+        if update_owner_return_summary_with_index(&mut summaries, &mut summary_name_index, summary)
+        {
+            worklist.notify_changed(function_index);
+        }
+    }
+    summaries
 }
 
 fn function_owner_return_summary(
@@ -502,3 +551,7 @@ fn function_owner_return_summary(
         storage_origin_markers,
     }
 }
+
+#[cfg(test)]
+#[path = "owner_summary_tests.rs"]
+mod tests;

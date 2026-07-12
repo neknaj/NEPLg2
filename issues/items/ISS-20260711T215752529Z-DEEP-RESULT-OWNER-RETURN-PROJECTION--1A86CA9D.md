@@ -1,0 +1,74 @@
+---
+id: ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D
+title: "Deep Result owner return projection reuses moved payload"
+area: RESOURCE
+status: verified
+resolved: true
+priority: P1
+type: bug
+created: 2026-07-11
+updated: 2026-07-12
+target: nepl-core/src/resource/owner_summary_variant_return.rs, nepl-core/src/resource/owner_variant_utils.rs, nepl-core/src/resource/owner_variant.rs
+---
+
+# ISS-20260711T215752529Z-DEEP-RESULT-OWNER-RETURN-PROJECTION--1A86CA9D: Deep Result owner return projection reuses moved payload
+
+## 概要
+
+A caller that consumed a deeply nested move-only registered owner through Result<BudgetStep, StepError> was rejected at the call expression with resource.owner.use_after_move on ReturnValue projections even though every branch consumed or freed the owner exactly once. The F5nxj reproduction failed first at writer_step_budget(recovered_writer, 0).
+
+## 対象
+
+- `nepl-core/src/resource/owner_summary_variant_return.rs`
+- `nepl-core/src/resource/owner_variant_utils.rs`
+- `nepl-core/src/resource/owner_variant_apply.rs`
+- `nepl-core/src/resource/owner_variant.rs`
+
+## 根拠
+
+- GUI production chainでは`writer_step_budget(owner, 1)`の`Result<BudgetStep, StepError>`適用時に、複数の独立deep owner leafが順番に`ReturnValue` transferされ、2件目以降がchecker内部で`Moved`として拒否される。
+- outer/inner enum pathをpayload bindへ遅延する試作は単純な`Result<Step, E>`では元の誤報を消したが、GUIのstruct fieldと複数内部owner enumを含む大きなprojection graphでは誤報が残った。
+- moved sourceを単にskipする方法は、別variantが選択された場合にownerを返せなくなる。outer variant名だけの平坦化や最初のleaf採用では正当なowner transferを証明できない。
+- 同一`OwnerProjectionSource`だけを排他的deep targetの共通prefixへaggregate化する試作はunit対照を通過したがproduction誤報は残った。その後のsource追跡では、異なるleaf同士を同一owning authorityへ収束させる明示的raw alias contractは存在せず、sourceとwriterおよび内部Vecは独立allocationだった。raw viewはnon-owningでありauthority group根拠にできない。
+- callee `StorageId`ごとのabstract group schemaも試作したが、production parameter seedはdeep owner leafごとに新しいStorageIdを割り当てるため、StorageId partitionはaggregate authority relationを表さなかった。人工的に同じStorageIdを与えるunitだけではproduction契約を証明できない。
+- `resource_ir_owner_check_returns_deep_multi_owner_aggregate_through_result`はdistinct-authority topologyの通過基準を固定した。`resource_ir_owner_check_routes_distinct_deep_owners_across_result_variants`は2個の独立deep ownerをOkと2種類のowner-bearing Errへ返す排他的path対照をowner checkとnormal compileで固定した。この限定的な深度・3 return variantだけでは再現せず、次候補は実owner chain固有のprojection形状またはsummary適用規模である。
+- 同じreturn topologyでowner-token直上に内部enumを置いても通過した。`resource_ir_owner_check_scales_distinct_deep_result_projection_leaves`は独立deep owner leafを1、2、4、8、16、32個へ増やして全件通過し、このtopologyでは32 leaf以下の単純な数閾値を除外した。次はproductionのVec/OwnedBuffer storage enum、相関する複数metadata field、追加のsummary extent mappingを段階的に加える。
+- 探索fixtureでは実stdlib `Vec<i32>`型の2 owner parameter fieldを同じ3 return variantへ通し、owner checkとnormal compileを通過した。この限定topologyではVec/OwnedBuffer storage enumと通常metadataだけで再現しなかった。この環境のfocused実行は約166秒だったため恒久suiteには残さず、結果だけを境界証拠として記録した。
+- `deep_distinct_owner_variant_summary_preserves_path_conditioned_mapping`はsummaryを直接検査し、2個のexact parameter sourceが共通のOk/direct Err/nested Err 3-path subsetを保ち、root/projection unconditional return、Maybe/Fresh/Unknown、target collapseへ劣化しないことを固定した。後続拡張ではsourceだけにSourceOnly Errを追加した非対称7対応も同じ不変条件で検査する。
+- root関数のowner-summary callee closureだけを固定点計算するtest-only入口を追加し、cheap fixtureでfull固定点と同一summaryになることを固定した。production `writer_step_budget`へ適用しても64MiB stackで5分超となり、closure filteringだけでは不十分だった。高コストprobeは残さず、次はdirect-call構成要素をsynthetic wrapperへ段階移植する。
+- cheap fixtureをproduction budget形状へ拡張し、2本のdirect Ok、下位Result委譲、writer authorityの明示dealloc後にsourceだけを返すSourceOnly Errを同時に検査した。summaryはsource 4 path／writer 3 pathの7 path-conditioned mappingを保持し、call-site owner checkとnormal compileも通過した。direct return mergeと非対称cleanupだけでは再現せず、次はlower source/writer内部projectionを段階移植する。
+- 一回限りの実stdlib `Vec<i32>`探索でも、source/writer Vec、budget direct Ok、lower委譲、writer `free`、SourceOnly Errを組み合わせてowner checkが約68秒で通過した。高コストな非再現fixtureは残さず、次はproduction同様のsource 3 Vec／writer 2 Vec wrapperをsyntheticに検査する。
+- 一回限りのsource 3 Vec／writer 2 Vec探索も同じbudget／cleanup形状で約52秒で通過した。高コストfixtureは残さず、production同数のVec allocationだけでは再現せず単独原因ではないことを確認した。`owner_summary_raw_i32_leaf`も再確認し、owner tokenを含むaggregateは`OwnerTokenOnly`となり通常のi32 metadataをleafへ加えないため、この仮説も棄却した。次はproduction型のenum alternativeとreturn projection graphを列挙し、同じ投影形状だけをcheap synthetic fixtureへ移植する。
+- production moduleだけをimportして型投影を列挙するprobeは通常stackでoverflowし、64 MiBでもtypecheck完了前に90秒を超えたため撤去した。代わりにsource 3／writer 2の独立deep authority、direct Ok、下位Result委譲、AlreadyCompleted、nested SourceReadFailed、writer cleanup後のWriterPushFailed source-only returnを同時に持つcheap retained回帰を追加し、Resource owner checkとnormal compileが通過した。5 fieldそれぞれの二重moveが`OwnerUnavailable`になるnegative controlも固定した。production同数leafと外側variant topologyの組合せだけでも再現しないため、次はsource/writer内部enum projectionの宣言差を一段ずつ移植する。
+- 5-owner回帰のleaf直上を非generic enumからproduction `VecStorage<T>`同型の`Apply<LeafState<T>> -> Ready payload -> Apply<RegionToken<T>>`へ変更した。positive全return pathと5 fieldのnegative controlは引き続き通過し、generic enumの型引数置換も単独原因ではないと確認した。次はsource側2 Vecのowner wrapperにauthorityとは別fieldのsibling phase enumを一段だけ追加する。
+- source側2 authorityを同じwrapperへまとめ、owner-free siblingとしてPendingContour scalar／ActiveContour aggregate payload／Completedのphase enumを追加した。`OwnerTokenOnly`ではこのsibling自体はowner leaf投影から除外されるため、positive全return pathと5 leaf negative controlの通過が固定するのはsource authority suffixへ追加されたwrapper prefix一段であり、phase enumの影響ではない。次はowner-bearing suffixのwrapper深度を段階的に増やしてproduction chain深度との境界を検査する。
+- owner-bearing suffix wrapper深度を1／2／4／8／16／32層へ増やすretained回帰を追加した。各深度でOk／direct Err／nested Errの正当なreturnが通り、同じdeep projected sourceの二重moveは`OwnerUnavailable`になり、32層はnormal compileも通過した。単一leaf suffix深度32以下では再現しないため、次はproduction同様の5 leaf非対称return topologyへ深度を組み合わせる。
+- production宣言を手動追跡し、WritingOwner rootからsource items／spans／scalar_slotsのraw owner leaf suffixを25／24／19、writer path／raster leafを7／7 projectionと確定した。この非対称5 leaf深度をbudget direct Ok／lower Result／AlreadyCompleted／nested SourceReadFailed／writer cleanup後のsource-only WriterPushFailedへ同時適用したretained回帰は、5 leaf個別negative controlとnormal compileを含めて通過した。leaf数、実suffix深度、外側return topologyの組合せでも再現しないため、次はcallee summaryのsource suffixとreturn target suffixの対応規模を直接検査する。
+- owner-summary直接対照をsource 3／writer 2 authorityへ拡張し、route／budget／probeそれぞれがsource leafごとにOk／direct Err／nested Err／source-only Errの4 path、writer leafごとにOk／direct Err／nested Errの3 path、合計18個のexact variant projection mappingを保持することを固定した。unconditional return、Maybe／Fresh／Unknown、source collapse、target collapseは禁止し、rooted closureとfull fixed pointの一致も維持した。このsummary対応規模でも再現しないため、次はproduction call graph固有のlower helper summaryを一段ずつ合成する。
+- 同じ18-mapping対照でouter ownerをsource/writerへpartial splitし、source borrow観測後にwriterだけを`lower_push` Resultへ消費するproduction同型call graphを追加した。lower Okはwriterを回収してsourceと再構成し、lower Errはwriterを解放してsource-only errorへ返す。rooted summaryへlower helperが加わっても18個のexact mappingとfull固定点一致を保持したため、この一段のpartial split／writer-only Result適用だけでも再現しない。次はlower push内部のmulti-scalar partial writer error projectionを合成する。
+- `lower_push`を同一writerへ2回の`lower_scalar` Resultを順次適用する形へ拡張し、first failure、first成功後のsecond failure、全成功でpartial writer authorityを同じerror／success payloadへ返すcall graphを固定した。outer cleanupと18個のexact mappingは維持され、`lower_scalar`もrooted closureでfull固定点と一致した。この2段multi-scalar partial writer pathでも再現しないため、次はproduction同様に単一lower error aggregateへowner-free kind／rejected value／capacity／scalar／storage metadataを併置し、3／5段の連続scalar callへ拡張する。
+- lower errorをwriterとkind／rejected value／capacity error／rejected scalar／storage errorを持つ単一aggregateへ拡張し、metadataをborrowで読むまでwriterを保持してからouterで解放する順序を固定した。`lower_push_three`を5段`lower_push`へ接続し、各途中failureと全成功を同じwriter authority chainで表現した。3 helperそれぞれのwriter 2 authority×Ok/Err exact mapping、outer 18 mapping、rooted/full一致は通過し、このowner-free metadata＋3/5段partial writerでも再現しない。次はproduction source read Resultをborrowed sourceの前段へ追加し、read Errでwriter未消費のretained outer errorへ分岐する。
+- borrowed `read_source` Resultをwriter push前へ追加し、read Errではwriterをlower helperへ渡さずsource＋writerを`ReadRetainedError`へ保持した。read Okだけがdirect／nested／5段lower pushへ進む。route／budget／probe summaryはsource 3 leaf×5 pathとwriter 2 leaf×4 pathの23 exact mappingを保持し、read helperはowner-freeのためrooted closureから除外された。このretryable read error pathでも再現しないため、次はread Errからownerをtakeして再試行するcaller call graphを追加する。
+- read error payloadから5 authorityをtakeして再試行するcallerを追加すると、再試行結果のDirect／Nested／SourceOnly targetへ、元variant passthrough sourceとReadFailed sourceが合流する境界で再現した。両sourceは同じparameter enumの異なるpayloadなので同時にliveにならないが、variant return canonicalizationがtargetだけで一意化し、13 targetを`UnknownSource`へ劣化させて36 source-target対応を23 targetへ潰していた。
+- 同じparameterと同じprojection prefixを共有し、最初に異なるprojectionが別enum payloadであるParameter returnだけを相互排他的な代替mappingとして保持するよう修正した。別parameter、別field、同一variant内の複数sourceは従来どおり曖昧性として劣化する。takeの5 exact mapping、retryの18 input authority／36 source-target mapping、source/writer別到達集合、attempt rooted closureとfull fixed point一致、同一error二重takeの`OwnerUnavailable(Moved, Read)`を固定した。callee bool定数によるpath pruningは行わないため、再試行calleeの保守的なReadFailed再発5 mappingも含む。
+- F5nxj registered face production fixtureはread retry、budget 0/negative、partial seal、8 writes、terminal、checked seal、cleanup-only push failureを含めて1 / 1通過し、`writer_step_budget(recovered_writer, 0)`のReturnValue誤報が消えた。
+
+## 解決した問題
+
+A caller that consumed a deeply nested move-only registered owner through Result<BudgetStep, StepError> was rejected at the call expression with resource.owner.use_after_move on ReturnValue projections even though every branch consumed or freed the owner exactly once. The F5nxj reproduction previously failed first at writer_step_budget(recovered_writer, 0).
+
+## 解消した影響
+
+Valid production owner chains can now pass the registered runtime fixture. The Resource blocker no longer prevents F5nxj integration.
+
+## 修正方針
+
+GUI owner chainから型を段階的に削り、どのowner leafまたはprojection expansionで最初に誤報するかを二分する。独立allocationをflat group化せず、owner summary内のsource suffixとreturn projectionの対応を直接検査する。適用側変更は、最小再現、distinct-authority control、owner-bearing Err path control、genuine use-after-move診断を同時に満たす場合だけ採用する。
+
+## 解決
+
+同じparameterの同じprojection prefixから分岐する異なるenum payload sourceを、同一targetの相互排他的な代替mappingとして保持する。mappingは入力enum payloadまでの条件キーを保持するため、同一条件内を`UnknownSource`へmergeした後も別条件との分割を失わない。target全候補からexact重複を除外し、非排他的な候補がある場合は従来どおりそのgroupへmergeする。runtime適用時は同一targetの相互排他的な別候補が実際にtransferableな場合だけ、現在liveでない候補を診断なしでskipする。全候補がunavailableなら通常適用へ進み、OwnerUnavailableを黙殺しない。
+
+## 検証
+
+Run the minimized Resource IR regression and tests/stdlib/gui_font_registered_face.n.md with the F5nxj controlled 8-command runtime contract: read retry, zero/negative budget, partial seal, eight writes, terminal completion, checked seal, and cleanup-only push failure.

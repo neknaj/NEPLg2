@@ -36,6 +36,7 @@ use nepl_core::source_map::CompilerMemoryType;
 use nepl_core::span::{FileId, Span};
 use nepl_core::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
 use nepl_core::{BuildProfile, CompileOptions, CompileTarget};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 fn stdlib_root() -> PathBuf {
@@ -18077,6 +18078,864 @@ fn main <()*>()> ():
         diagnostics,
         resource.dump_text()
     );
+}
+
+#[test]
+fn resource_ir_owner_check_returns_deep_multi_owner_aggregate_through_result() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum SourceState:
+    Ready <RegionToken<u8>>
+    Closed
+
+enum WriterState:
+    Ready <RegionToken<i32>>
+    Closed
+
+struct SourceOwner:
+    state <SourceState>
+
+struct WriterOwner:
+    state <WriterState>
+
+struct WritingOwner:
+    source <SourceOwner>
+    writer <WriterOwner>
+    next <i32>
+
+struct Step:
+    owner <WritingOwner>
+    exhausted <bool>
+
+struct RetainedError:
+    source <SourceOwner>
+    writer <WriterOwner>
+
+struct SourceOnlyError:
+    source <SourceOwner>
+
+enum StepError:
+    Retained <RetainedError>
+    SourceOnly <SourceOnlyError>
+
+fn step_budget <(WritingOwner,i32)*>Result<Step,StepError>> (owner, remaining):
+    Result<Step,StepError>::Ok Step owner true
+
+fn free_source <(SourceOwner)*>()> (owner):
+    match field::get owner "state":
+        SourceState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        SourceState::Closed:
+            ()
+
+fn free_writer <(WriterOwner)*>()> (owner):
+    match field::get owner "state":
+        WriterState::Ready region:
+            match dealloc_region<i32> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        WriterState::Closed:
+            ()
+
+fn main <()*>()> ():
+    match alloc_region_bytes<u8> 1:
+        Result::Err _:
+            ()
+        Result::Ok source_region:
+            match alloc_region_bytes<i32> 4:
+                Result::Err _:
+                    match dealloc_region<u8> source_region:
+                        Result::Ok _:
+                            ()
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
+                Result::Ok writer_region:
+                    let owner <WritingOwner> WritingOwner (SourceOwner SourceState::Ready source_region) (WriterOwner WriterState::Ready writer_region) 0
+                    match step_budget owner 0:
+                        Result::Ok step:
+                            let returned <WritingOwner> field::get step "owner"
+                            let returned_source <SourceOwner> field::get returned "source"
+                            let returned_writer <WriterOwner> field::get returned "writer"
+                            free_source returned_source
+                            free_writer returned_writer
+                        Result::Err _:
+                            #intrinsic "unreachable" <> ()
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_return_regression.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "both distinct owner authorities behind inner enums must each transfer exactly once through the selected Result payload: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_return_regression.nepl",
+        ),
+    )
+    .expect("the distinct-authority control must pass the normal compile pipeline");
+}
+
+#[test]
+fn resource_ir_owner_check_routes_distinct_deep_owners_across_result_variants() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum LeafState:
+    Ready <RegionToken<u8>>
+    Empty
+
+struct LeafOwner:
+    state <LeafState>
+
+struct InnerOwner:
+    leaf <LeafOwner>
+
+struct OuterOwner:
+    inner <InnerOwner>
+
+struct OwnerPair:
+    source <OuterOwner>
+    writer <OuterOwner>
+
+struct Step:
+    owner <OwnerPair>
+
+struct NestedError:
+    owner <OwnerPair>
+
+enum StepError:
+    Direct <OwnerPair>
+    Nested <NestedError>
+    SourceOnly <OuterOwner>
+
+fn free_outer <(OuterOwner)*>()> (owner):
+    let inner <InnerOwner> field::get owner "inner"
+    let leaf <LeafOwner> field::get inner "leaf"
+    match field::get leaf "state":
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        LeafState::Empty:
+            ()
+
+fn route <(OwnerPair,bool,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error, source_only):
+    if:
+        ok_path
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            direct_error
+            then:
+                Result<Step,StepError>::Err StepError::Direct owner
+            else if:
+                source_only
+                then:
+                    let source <OuterOwner> field::get owner "source"
+                    let writer <OuterOwner> field::get owner "writer"
+                    free_outer writer
+                    Result<Step,StepError>::Err StepError::SourceOnly source
+                else:
+                    Result<Step,StepError>::Err StepError::Nested NestedError owner
+
+fn budget <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+    if:
+        completed
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            exhausted
+            then:
+                Result<Step,StepError>::Ok Step owner
+            else:
+                route owner lower_ok direct_error source_only
+
+fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, completed, exhausted, lower_ok, direct_error, source_only):
+    budget owner completed exhausted lower_ok direct_error source_only
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_variant_route.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "distinct deep owners may each appear in several mutually exclusive Result return paths without being transferred twice: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_variant_route.nepl",
+        ),
+    )
+    .expect("the deep distinct-owner variant route must pass the normal compile pipeline");
+}
+
+#[test]
+fn resource_ir_owner_check_routes_production_shaped_five_owner_budget_variants() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum LeafState<.T>:
+    Empty
+    Ready <RegionToken .T>
+
+struct LeafOwner:
+    state <LeafState u8>
+
+struct InnerOwner:
+    leaf <LeafOwner>
+
+struct OuterOwner:
+    inner <InnerOwner>
+
+struct SourceIndexActive:
+    cursor <i32>
+
+enum SourceIndexState:
+    PendingContour <i32>
+    ActiveContour <SourceIndexActive>
+    Completed
+
+struct SourceIndexOwner:
+    first <OuterOwner>
+    second <OuterOwner>
+    state <SourceIndexState>
+
+struct SourceOwner:
+    index <SourceIndexOwner>
+    third <OuterOwner>
+
+struct WriterOwner:
+    first <OuterOwner>
+    second <OuterOwner>
+
+struct WritingOwner:
+    source <SourceOwner>
+    writer <WriterOwner>
+
+struct BudgetStep:
+    owner <WritingOwner>
+
+struct SourceReadError:
+    retained <WritingOwner>
+
+enum StepError:
+    AlreadyCompleted <WritingOwner>
+    SourceReadFailed <SourceReadError>
+    WriterPushFailed <SourceOwner>
+
+fn free_outer <(OuterOwner)*>()> (owner):
+    let inner <InnerOwner> field::get owner "inner"
+    let leaf <LeafOwner> field::get inner "leaf"
+    match field::get leaf "state":
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        LeafState::Empty:
+            ()
+
+fn free_writer <(WriterOwner)*>()> (owner):
+    let first <OuterOwner> field::get owner "first"
+    let second <OuterOwner> field::get owner "second"
+    free_outer first
+    free_outer second
+
+fn route <(WritingOwner,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, ok_path, source_read, writer_push):
+    if:
+        ok_path
+        then:
+            Result<BudgetStep,StepError>::Ok BudgetStep owner
+        else if:
+            source_read
+            then:
+                Result<BudgetStep,StepError>::Err StepError::SourceReadFailed SourceReadError owner
+            else if:
+                writer_push
+                then:
+                    let source <SourceOwner> field::get owner "source"
+                    let writer <WriterOwner> field::get owner "writer"
+                    free_writer writer
+                    Result<BudgetStep,StepError>::Err StepError::WriterPushFailed source
+                else:
+                    Result<BudgetStep,StepError>::Err StepError::AlreadyCompleted owner
+
+fn budget <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
+    if:
+        completed
+        then:
+            Result<BudgetStep,StepError>::Ok BudgetStep owner
+        else if:
+            exhausted
+            then:
+                Result<BudgetStep,StepError>::Ok BudgetStep owner
+            else:
+                route owner lower_ok source_read writer_push
+
+fn probe <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
+    budget owner completed exhausted lower_ok source_read writer_push
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/five_owner_budget_variants.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "five distinct authorities must retain production-shaped exclusive Result paths: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/five_owner_budget_variants.nepl",
+        ),
+    )
+    .expect("the production-shaped five-owner budget control must pass normal compile");
+
+    let negative_source = [
+        source,
+        r#"
+fn double_move_source_first <(SourceOwner)*>()> (owner):
+    let index <SourceIndexOwner> field::get owner "index"
+    free_outer field::get index "first"
+    free_outer field::get index "first"
+
+fn double_move_source_second <(SourceOwner)*>()> (owner):
+    let index <SourceIndexOwner> field::get owner "index"
+    free_outer field::get index "second"
+    free_outer field::get index "second"
+
+fn double_move_source_third <(SourceOwner)*>()> (owner):
+    free_outer field::get owner "third"
+    free_outer field::get owner "third"
+
+fn double_move_writer_first <(WriterOwner)*>()> (owner):
+    free_outer field::get owner "first"
+    free_outer field::get owner "first"
+
+fn double_move_writer_second <(WriterOwner)*>()> (owner):
+    free_outer field::get owner "second"
+    free_outer field::get owner "second"
+"#,
+    ]
+    .concat();
+    let (negative_module, negative_types) = typecheck_resource_stdlib_source(
+        &negative_source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/five_owner_budget_negative.nepl",
+        CompileTarget::Wasm,
+    );
+    let negative_resource = lower_hir_module(&negative_module, &negative_types);
+    let negative_report = check_resource_owner_obligations(&negative_resource, &negative_types);
+    let unavailable_functions = negative_report
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| match diagnostic {
+            ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                if function.starts_with("double_move_") =>
+            {
+                Some(
+                    function
+                        .split("__")
+                        .next()
+                        .expect("double-move function prefix")
+                        .to_string(),
+                )
+            }
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        unavailable_functions,
+        BTreeSet::from([
+            "double_move_source_first".to_string(),
+            "double_move_source_second".to_string(),
+            "double_move_source_third".to_string(),
+            "double_move_writer_first".to_string(),
+            "double_move_writer_second".to_string(),
+        ]),
+        "all five owner leaves must reject a repeated projected move: {:#?}",
+        negative_report.diagnostics
+    );
+}
+
+#[test]
+fn resource_ir_owner_check_scales_distinct_deep_result_projection_leaves() {
+    for leaf_count in [1usize, 2, 4, 8, 16, 32] {
+        let mut fields = String::new();
+        for index in 0..leaf_count {
+            fields.push_str(&format!("    owner_{index} <OuterOwner>\n"));
+        }
+        let source = format!(
+            r#"
+#indent 4
+#target core
+#import "core/mem" as *
+#import "core/result" as *
+
+struct LeafOwner:
+    region <RegionToken<u8>>
+
+struct InnerOwner:
+    leaf <LeafOwner>
+
+struct OuterOwner:
+    inner <InnerOwner>
+
+struct OwnerBag:
+{fields}
+struct Step:
+    owner <OwnerBag>
+
+struct NestedError:
+    owner <OwnerBag>
+
+enum StepError:
+    Direct <OwnerBag>
+    Nested <NestedError>
+
+fn route <(OwnerBag,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    if:
+        ok_path
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            direct_error
+            then:
+                Result<Step,StepError>::Err StepError::Direct owner
+            else:
+                Result<Step,StepError>::Err StepError::Nested NestedError owner
+
+fn probe <(OwnerBag,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    route owner ok_path direct_error
+"#
+        );
+        let (module, types) = typecheck_resource_stdlib_source(
+            &source,
+            "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_leaf_scale.nepl",
+            CompileTarget::Wasm,
+        );
+        let resource = lower_hir_module(&module, &types);
+        let report = check_resource_owner_obligations(&resource, &types);
+        assert!(
+            report.diagnostics.is_empty(),
+            "{leaf_count} distinct deep owner leaves must each route through exclusive Result projections: {:#?}\nresource:\n{}",
+            report.diagnostics,
+            resource.dump_text()
+        );
+        if leaf_count == 32 {
+            compile_resource_source_with_path(
+                &source,
+                CompileTarget::Wasm,
+                stdlib_root().join(
+                    "alloc/gui/font/registered_face/simple_glyph/indexed/deep_owner_leaf_scale.nepl",
+                ),
+            )
+            .expect("the largest deep owner leaf scale control must pass normal compile");
+        }
+    }
+}
+
+#[test]
+fn resource_ir_owner_check_scales_owner_return_projection_depth() {
+    for depth in [1usize, 2, 4, 8, 16, 32] {
+        let mut wrappers = String::from("struct Depth0:\n    leaf <LeafOwner>\n\n");
+        for level in 1..=depth {
+            wrappers.push_str(&format!(
+                "struct Depth{level}:\n    inner <Depth{}>\n\n",
+                level - 1
+            ));
+        }
+        let mut unwrap = String::new();
+        let mut current = format!("depth_{depth}");
+        for level in (1..=depth).rev() {
+            let next = format!("depth_{}", level - 1);
+            unwrap.push_str(&format!(
+                "    let {next} <Depth{}> field::get {current} \"inner\"\n",
+                level - 1
+            ));
+            current = next;
+        }
+        let source = format!(
+            r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum LeafState<.T>:
+    Empty
+    Ready <RegionToken .T>
+
+struct LeafOwner:
+    state <LeafState u8>
+
+{wrappers}struct OwnerPair:
+    source <Depth{depth}>
+    writer <Depth{depth}>
+
+struct Step:
+    owner <OwnerPair>
+
+struct NestedError:
+    owner <OwnerPair>
+
+enum StepError:
+    Direct <OwnerPair>
+    Nested <NestedError>
+
+fn free_deep <(Depth{depth})*>()> (depth_{depth}):
+{unwrap}    let leaf <LeafOwner> field::get {current} "leaf"
+    match field::get leaf "state":
+        LeafState::Empty:
+            ()
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+
+fn route <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    if:
+        ok_path
+        then:
+            Result<Step,StepError>::Ok Step owner
+        else if:
+            direct_error
+            then:
+                Result<Step,StepError>::Err StepError::Direct owner
+            else:
+                Result<Step,StepError>::Err StepError::Nested NestedError owner
+
+fn probe <(OwnerPair,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_error):
+    route owner ok_path direct_error
+"#
+        );
+        let (module, types) = typecheck_resource_stdlib_source(
+            &source,
+            "alloc/gui/font/registered_face/simple_glyph/indexed/owner_projection_depth.nepl",
+            CompileTarget::Wasm,
+        );
+        let resource = lower_hir_module(&module, &types);
+        let report = check_resource_owner_obligations(&resource, &types);
+        assert!(
+            report.diagnostics.is_empty(),
+            "depth {depth} owner suffix must retain exclusive Result returns: {:#?}\nresource:\n{}",
+            report.diagnostics,
+            resource.dump_text()
+        );
+
+        let negative_source = [
+            source.as_str(),
+            &format!(
+                "\nfn double_move_deep <(OwnerPair)*>()> (owner):\n    free_deep field::get owner \"source\"\n    free_deep field::get owner \"source\"\n"
+            ),
+        ]
+        .concat();
+        let (negative_module, negative_types) = typecheck_resource_stdlib_source(
+            &negative_source,
+            "alloc/gui/font/registered_face/simple_glyph/indexed/owner_projection_depth_negative.nepl",
+            CompileTarget::Wasm,
+        );
+        let negative_resource = lower_hir_module(&negative_module, &negative_types);
+        let negative_report = check_resource_owner_obligations(&negative_resource, &negative_types);
+        assert!(
+            negative_report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(
+                    diagnostic,
+                    ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                        if function.starts_with("double_move_deep__")
+                )),
+            "depth {depth} repeated projected move must be rejected: {:#?}",
+            negative_report.diagnostics
+        );
+
+        if depth == 32 {
+            compile_resource_source_with_path(
+                &source,
+                CompileTarget::Wasm,
+                stdlib_root().join(
+                    "alloc/gui/font/registered_face/simple_glyph/indexed/owner_projection_depth.nepl",
+                ),
+            )
+            .expect("the deepest owner return projection control must pass normal compile");
+        }
+    }
+}
+
+#[test]
+fn resource_ir_owner_check_routes_production_suffix_depths_across_budget_variants() {
+    const OWNER_SUFFIX_ENVELOPE: usize = 6;
+    let items_depth = 25 - OWNER_SUFFIX_ENVELOPE;
+    let spans_depth = 24 - OWNER_SUFFIX_ENVELOPE;
+    let scalar_slots_depth = 19 - OWNER_SUFFIX_ENVELOPE;
+    let writer_depth = 7 - OWNER_SUFFIX_ENVELOPE;
+    assert_eq!(
+        [
+            items_depth + OWNER_SUFFIX_ENVELOPE,
+            spans_depth + OWNER_SUFFIX_ENVELOPE,
+            scalar_slots_depth + OWNER_SUFFIX_ENVELOPE,
+            writer_depth + OWNER_SUFFIX_ENVELOPE,
+            writer_depth + OWNER_SUFFIX_ENVELOPE,
+        ],
+        [25, 24, 19, 7, 7]
+    );
+    let mut wrappers = String::from("struct Depth0:\n    leaf <LeafOwner>\n\n");
+    for level in 1..=items_depth {
+        wrappers.push_str(&format!(
+            "struct Depth{level}:\n    inner <Depth{}>\n\n",
+            level - 1
+        ));
+    }
+    let mut free_functions = String::new();
+    for depth in [writer_depth, scalar_slots_depth, spans_depth, items_depth] {
+        let mut unwrap = String::new();
+        let mut current = format!("depth_{depth}");
+        for level in (1..=depth).rev() {
+            let next = format!("depth_{}", level - 1);
+            unwrap.push_str(&format!(
+                "    let {next} <Depth{}> field::get {current} \"inner\"\n",
+                level - 1
+            ));
+            current = next;
+        }
+        free_functions.push_str(&format!(
+            r#"fn free_depth_{depth} <(Depth{depth})*>()> (depth_{depth}):
+{unwrap}    let leaf <LeafOwner> field::get {current} "leaf"
+    match field::get leaf "state":
+        LeafState::Empty:
+            ()
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+
+"#
+        ));
+    }
+    let source = format!(
+        r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/result" as *
+
+enum LeafState<.T>:
+    Empty
+    Ready <RegionToken .T>
+
+struct LeafOwner:
+    state <LeafState u8>
+
+{wrappers}struct SourceOwner:
+    items <Depth{items_depth}>
+    spans <Depth{spans_depth}>
+    scalar_slots <Depth{scalar_slots_depth}>
+
+struct WriterOwner:
+    path_sink_scalars <Depth{writer_depth}>
+    raster_mask_scalars <Depth{writer_depth}>
+
+struct WritingOwner:
+    source <SourceOwner>
+    writer <WriterOwner>
+
+struct BudgetStep:
+    owner <WritingOwner>
+
+struct SourceReadError:
+    retained <WritingOwner>
+
+enum StepError:
+    AlreadyCompleted <WritingOwner>
+    SourceReadFailed <SourceReadError>
+    WriterPushFailed <SourceOwner>
+
+{free_functions}fn free_writer <(WriterOwner)*>()> (owner):
+    free_depth_{writer_depth} field::get owner "path_sink_scalars"
+    free_depth_{writer_depth} field::get owner "raster_mask_scalars"
+
+fn route <(WritingOwner,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, ok_path, source_read, writer_push):
+    if:
+        ok_path
+        then:
+            Result<BudgetStep,StepError>::Ok BudgetStep owner
+        else if:
+            source_read
+            then:
+                Result<BudgetStep,StepError>::Err StepError::SourceReadFailed SourceReadError owner
+            else if:
+                writer_push
+                then:
+                    let source <SourceOwner> field::get owner "source"
+                    let writer <WriterOwner> field::get owner "writer"
+                    free_writer writer
+                    Result<BudgetStep,StepError>::Err StepError::WriterPushFailed source
+                else:
+                    Result<BudgetStep,StepError>::Err StepError::AlreadyCompleted owner
+
+fn budget <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
+    if:
+        completed
+        then:
+            Result<BudgetStep,StepError>::Ok BudgetStep owner
+        else if:
+            exhausted
+            then:
+                Result<BudgetStep,StepError>::Ok BudgetStep owner
+            else:
+                route owner lower_ok source_read writer_push
+
+fn probe <(WritingOwner,bool,bool,bool,bool,bool)*>Result<BudgetStep,StepError>> (owner, completed, exhausted, lower_ok, source_read, writer_push):
+    budget owner completed exhausted lower_ok source_read writer_push
+"#
+    );
+    let (module, types) = typecheck_resource_stdlib_source(
+        &source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/production_suffix_budget.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "production suffix depths must retain exclusive budget returns: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+
+    let negative_tail = format!(
+        r#"
+fn double_move_items <(SourceOwner)*>()> (owner):
+    free_depth_{items_depth} field::get owner "items"
+    free_depth_{items_depth} field::get owner "items"
+
+fn double_move_spans <(SourceOwner)*>()> (owner):
+    free_depth_{spans_depth} field::get owner "spans"
+    free_depth_{spans_depth} field::get owner "spans"
+
+fn double_move_scalar_slots <(SourceOwner)*>()> (owner):
+    free_depth_{scalar_slots_depth} field::get owner "scalar_slots"
+    free_depth_{scalar_slots_depth} field::get owner "scalar_slots"
+
+fn double_move_path_sink_scalars <(WriterOwner)*>()> (owner):
+    free_depth_{writer_depth} field::get owner "path_sink_scalars"
+    free_depth_{writer_depth} field::get owner "path_sink_scalars"
+
+fn double_move_raster_mask_scalars <(WriterOwner)*>()> (owner):
+    free_depth_{writer_depth} field::get owner "raster_mask_scalars"
+    free_depth_{writer_depth} field::get owner "raster_mask_scalars"
+"#
+    );
+    let negative_source = [source.as_str(), negative_tail.as_str()].concat();
+    let (negative_module, negative_types) = typecheck_resource_stdlib_source(
+        &negative_source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/production_suffix_budget_negative.nepl",
+        CompileTarget::Wasm,
+    );
+    let negative_resource = lower_hir_module(&negative_module, &negative_types);
+    let negative_report = check_resource_owner_obligations(&negative_resource, &negative_types);
+    let unavailable_functions = negative_report
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| match diagnostic {
+            ResourceOwnerDiagnostic::OwnerUnavailable { function, .. }
+                if function.starts_with("double_move_") =>
+            {
+                Some(
+                    function
+                        .split("__")
+                        .next()
+                        .expect("double-move function prefix")
+                        .to_string(),
+                )
+            }
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        unavailable_functions,
+        BTreeSet::from([
+            "double_move_items".to_string(),
+            "double_move_spans".to_string(),
+            "double_move_scalar_slots".to_string(),
+            "double_move_path_sink_scalars".to_string(),
+            "double_move_raster_mask_scalars".to_string(),
+        ]),
+        "all production-depth owner leaves must reject repeated projected moves: {:#?}",
+        negative_report.diagnostics
+    );
+    compile_resource_source_with_path(
+        &source,
+        CompileTarget::Wasm,
+        stdlib_root().join(
+            "alloc/gui/font/registered_face/simple_glyph/indexed/production_suffix_budget.nepl",
+        ),
+    )
+    .expect("the production-depth five-owner budget control must pass normal compile");
 }
 
 #[test]

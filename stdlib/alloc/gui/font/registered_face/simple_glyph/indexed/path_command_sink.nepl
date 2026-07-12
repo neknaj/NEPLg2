@@ -1,0 +1,509 @@
+//: # registered-face simple glyph indexed path command sink
+//: F5nxi completed authorityをsink plan、allocation、writer completionまで保持します。
+//:
+//: legacy sink algorithmはstorageだけを担当し、このmoduleのphase ownerがregistered sourceとの対応を所有します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
+//: fn main %fn void i32 \void:
+//:|      let value %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::StepBudgetExhausted
+//:|      match value:
+//:|          GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::StepBudgetExhausted: 0
+//:|          _: 1
+//: ```
+
+#indent 4
+
+#import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
+#import "alloc/gui/font/sfnt" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: PlanReadyOwner: registered sourceと検査済みsink planを一体所有します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanReadyOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan
+
+//: AllocatedOwner: registered sourceと確保済みsink storageを一体所有します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocatedOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    sink %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner
+
+//: WritingOwner: registered source、sink writer、次のcommand indexを所有します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    next_index %i32
+    command_count %i32
+
+//: CompletedOwner: 全commandを書き終えたregistered writer authorityです
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+
+//: PlanError: plan導出失敗時もsource authorityを返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind
+
+//: PlanErrorKind: summaryからplanを導出できなかった理由です
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind:
+    NegativeCount
+    CountOverflow
+    SummaryCountMismatch
+    LastIndexMismatch
+
+//: AllocError: allocation失敗時もplan-ready authorityを返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanReadyOwner
+    lower %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
+
+//: StartError: writer start失敗時もallocated authorityを返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStartError:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    lower %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError
+
+//: StepErrorKind: registered readとlegacy appendの失敗を区別します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind:
+    AlreadyCompleted
+    SourceReadFailed %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind
+    WriterPushFailed
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind \value: value
+
+//: RetainedWriterStepError: push前に失敗したregistered sourceとwriterを保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    next_index %i32
+    command_count %i32
+
+//: SourceReadStepError: owner-bound read失敗とretry可能writerを保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkSourceReadStepError:
+    retained %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError
+    read_kind %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind
+
+//: WriterPushStepError: cleanup済みpartial writerのlegacy分類を保持します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWriterPushStepError:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    lower_kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind
+    next_index %i32
+
+//: StepError: owner形状をfailure phaseごとの排他的variantで表します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError:
+    AlreadyCompleted %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError
+    SourceReadFailed %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkSourceReadStepError
+    WriterPushFailed %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWriterPushStepError
+
+//: BudgetStatus: 1 command commit、完了、budget枯渇を表します
+//:
+//: neplg2:test[skip]
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus:
+    Written
+    Completed
+    StepBudgetExhausted
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus \value: value
+
+//: BudgetStep: 継続ownerとCopy statusを同時に返します
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus
+
+
+//: checked_add: non-negative countをi32 overflowなしで加算します
+//:
+//: neplg2:test[skip]
+fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_checked_add %fn i32 fn i32 Result i32 GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind \left\right:
+    if or lt left 0 lt right 0:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind::NegativeCount
+        else:
+            let remaining sub 2147483647 left
+            if gt right remaining:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind::CountOverflow
+                else Result::Ok add left right
+
+//: plan_start: F5nxi summaryからlegacy planを検査付きで導出します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanReadyOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError \source:
+    let summary gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary &source
+    let total gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
+    let move gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
+    let line gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
+    let quadratic gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary
+    let skip gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
+    let last gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_checked_add move line:
+        Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError source kind
+        Result::Ok move_line:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_checked_add move_line quadratic:
+                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError source kind
+                Result::Ok path_segments:
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_checked_add path_segments skip:
+                        Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError source kind
+                        Result::Ok prepared:
+                            if ne prepared total:
+                                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError source GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind::SummaryCountMismatch
+                                else:
+                                    let expected_last if eq total 0 then -1 else sub total 1
+                                    if ne last expected_last:
+                                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError source GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind::LastIndexMismatch
+                                        else:
+                                            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_checked_add line quadratic:
+                                                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError source kind
+                                                Result::Ok draw:
+                                                    let plan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan total total draw move line quadratic skip path_segments draw last
+                                                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanReadyOwner source plan
+
+//: allocate: plan-ready authorityを消費して2本のlegacy storageを確保します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_allocate %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanReadyOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocatedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocError \owner:
+    let plan *field::get_ref &owner "plan"
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc &plan:
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocError owner lower
+        Result::Ok sink: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocatedOwner (field::get owner "source") sink
+
+//: writer_start: empty legacy storageをregistered writing authorityへ変換します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_start %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocatedOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStartError \owner:
+    let source field::get owner "source"
+    let sink field::get owner "sink"
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_start sink:
+        Result::Err lower: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStartError source lower
+        Result::Ok writer:
+            let summary gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary &source
+            let count gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner source writer 0 count
+
+//: writer_step: registered read成功とlegacy append成功の後だけcursorを進めます
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError \owner:
+    let source field::get owner "source"
+    let writer field::get owner "writer"
+    let next_index *field::get_ref &owner "next_index"
+    let command_count *field::get_ref &owner "command_count"
+    if ge next_index command_count:
+        then:
+            let retained GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError source writer next_index command_count
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::AlreadyCompleted retained
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at &source next_index:
+                Result::Err kind:
+                    let retained GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError source writer next_index command_count
+                    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkSourceReadStepError retained kind
+                Result::Ok value:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value_continue writer value:
+                        Result::Err lower:
+                            let lower_kind gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_kind &lower
+                            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_free lower
+                            let push_error GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWriterPushStepError source lower_kind next_index
+                            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed push_error
+                        Result::Ok next_writer:
+                            let next_owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner source next_writer (add next_index 1) command_count
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep next_owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::Written
+
+//: writer_step_budget: terminal、budget 0、1 writeの順で処理します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError \owner\remaining:
+    let next_index *field::get_ref &owner "next_index"
+    let command_count *field::get_ref &owner "command_count"
+    if ge next_index command_count:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::Completed
+        else if le remaining 0:
+            then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::StepBudgetExhausted
+            else gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step owner
+
+//: writer_seal: cursor endに達したwriterだけをcompleted authorityへ封印します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_seal %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner \owner:
+    let next_index *field::get_ref &owner "next_index"
+    let command_count *field::get_ref &owner "command_count"
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref &owner "writer"
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner field::get_ref &owner "source"
+    let summary gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary source
+    let written gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count writer
+    let scalar_count gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count writer
+    let scalar_capacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_capacity writer
+    let storage_capacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_storage_capacity writer
+    let path_len gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalars_len writer
+    let path_cap gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalars_cap writer
+    let raster_len gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_raster_mask_scalars_len writer
+    let raster_cap gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_raster_mask_scalars_cap writer
+    let move gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
+    let line gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
+    let quadratic gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary
+    let skip gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
+    let last gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+    let counts_ok and eq move gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count writer and eq line gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count writer and eq quadratic gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count writer and eq skip gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count writer eq last gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_last_path_command_index writer
+    let path_segments add add move line quadratic
+    let raster_edges add line quadratic
+    let capacity_ok and eq path_segments gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_segment_capacity &storage_capacity eq raster_edges gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &storage_capacity
+    let storage_ok and eq path_len scalar_count and eq path_cap scalar_capacity and eq raster_len 0 eq raster_cap gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &storage_capacity
+    if and eq next_index command_count and eq written command_count and eq scalar_count scalar_capacity and counts_ok and capacity_ok storage_ok:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner (field::get owner "source") (field::get owner "writer")
+        else Result::Err owner
+
+//: budget_step_owner: budget結果から継続ownerを取り出します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner \step:
+    field::get step "owner"
+
+//: budget_step_status: budget結果のCopy statusを返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus \step:
+    *field::get_ref step "status"
+
+//: plan_error_kind: plan失敗分類を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanErrorKind \error: *field::get_ref error "kind"
+
+//: plan_error_take_source: plan失敗からregistered authorityを回収します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_error_take_source %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner \error: field::get error "source"
+
+//: plan_error_free: plan失敗のregistered authorityを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanError unit \error: gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get error "source"
+
+//: alloc_error_lower_kind: allocation失敗のlegacy分類を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_alloc_error_lower_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind \error:
+    let lower %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_kind lower
+
+//: alloc_error_take_owner: allocation失敗からplan-ready authorityを回収します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_alloc_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkPlanReadyOwner \error: field::get error "owner"
+
+//: alloc_error_free: allocation失敗のregistered authorityを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_alloc_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocError unit \error:
+    let owner field::get error "owner"
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get owner "source"
+
+//: start_error_lower_kind: writer start失敗のlegacy分類を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_start_error_lower_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind \error:
+    let lower %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_kind lower
+
+//: start_error_take_owner: start失敗を分割せずallocated authorityへ戻します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_start_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStartError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocatedOwner \error:
+    let source field::get error "source"
+    let lower field::get error "lower"
+    let sink gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_owner lower
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkAllocatedOwner source sink
+
+//: start_error_free: start失敗のsourceとsink storageを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get error "source"
+    let lower field::get error "lower"
+    let sink gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_owner lower
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_free sink
+
+//: step_error_push_kind: push失敗時に回収前保存したlegacy分類を返します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_push_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed push_error: some *field::get_ref push_error "lower_kind"
+        _: none
+
+//: step_error_kind: registered readまたはwriter failureのtyped分類を返す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::AlreadyCompleted _retained: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind::AlreadyCompleted
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed read_error: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind::SourceReadFailed *field::get_ref read_error "read_kind"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed _push_error: GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind::WriterPushFailed
+
+//: step_error_next_index: failure前cursorを返す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_next_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError i32 \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::AlreadyCompleted retained: *field::get_ref retained "next_index"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed read_error:
+            let retained %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError field::get_ref read_error "retained"
+            *field::get_ref retained "next_index"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed push_error: *field::get_ref push_error "next_index"
+
+//: step_error_retry: source read失敗だけを継続ownerへ戻します
+//:
+//: WriterPushFailedはmulti-scalar partial appendの可能性があるため、cleanup-only errorのまま返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_retry %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError Option GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed read_error:
+            let retained field::get read_error "retained"
+            some GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner (field::get retained "source") (field::get retained "writer") (field::get retained "next_index") (field::get retained "command_count")
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::AlreadyCompleted retained:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get retained "source"
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get retained "writer"
+            none
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed push_error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get push_error "source"
+            none
+
+//: step_error_free: retryしないstep失敗のsourceとwriter storageを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError unit \error:
+    match error:
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::AlreadyCompleted retained:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get retained "source"
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get retained "writer"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed read_error:
+            let retained field::get read_error "retained"
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get retained "source"
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get retained "writer"
+        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed push_error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get push_error "source"
+
+//: completed_owner_free: registered sourceとlegacy writer storageを1回ずつ解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get owner "source"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get owner "writer"
+
+//: writing_owner_free: 未完了writerとregistered sourceを解放します
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_writing_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get owner "source"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get owner "writer"
+
+#test
+//: test_force_source_read_failure: cursorを変えずout-of-range read metadataを作る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_force_source_read_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError \owner:
+    let next_index *field::get_ref &owner "next_index"
+    let command_count *field::get_ref &owner "command_count"
+    let source field::get owner "source"
+    let writer field::get owner "writer"
+    let retained GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError source writer next_index command_count
+    let read_error GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkSourceReadStepError retained GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::IndexOutOfRange
+    GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed read_error
+
+#test
+//: test_force_push_failure: out-of-order cursorでlegacy push cleanup-only errorを通す
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_force_push_failure %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError \owner:
+    let command_count *field::get_ref &owner "command_count"
+    let source field::get owner "source"
+    let writer field::get owner "writer"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at &source 1:
+        Result::Err kind:
+            let retained GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError source writer 1 command_count
+            GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::SourceReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkSourceReadStepError retained kind
+        Result::Ok value:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value_continue writer value:
+                Result::Err lower:
+                    let lower_kind gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_kind &lower
+                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_free lower
+                    GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::WriterPushFailed GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWriterPushStepError source lower_kind 1
+                Result::Ok returned_writer:
+                    let retained GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkRetainedWriterStepError source returned_writer 1 command_count
+                    GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepError::AlreadyCompleted retained
+
+#test
+//: test_completed_force_push_failure_ok: completed registered sourceを保持してcleanup-only push failureを検査する
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_completed_force_push_failure_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner bool \completed:
+    let source field::get completed "source"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get completed "writer"
+    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_start source:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_error_free error
+            false
+        Result::Ok planned:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_allocate planned:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_sink_alloc_error_free error
+                    false
+                Result::Ok allocated:
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_start allocated:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_sink_start_error_free error
+                            false
+                        Result::Ok writer:
+                            let error gui_font_registered_face_simple_glyph_indexed_path_command_sink_test_force_push_failure writer
+                            let kind_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_kind &error:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkStepErrorKind::WriterPushFailed: true
+                                _: false
+                            let push_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_push_kind &error:
+                                Option::Some kind:
+                                    match kind:
+                                        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::CommandIndexOutOfOrder: true
+                                        _: false
+                                Option::None: false
+                            let index_ok eq 1 gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_next_index &error
+                            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_retry error:
+                                Option::Some retry:
+                                    gui_font_registered_face_simple_glyph_indexed_path_command_sink_writing_owner_free retry
+                                    false
+                                Option::None: and kind_ok and push_ok index_ok

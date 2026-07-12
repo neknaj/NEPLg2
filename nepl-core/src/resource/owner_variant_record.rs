@@ -169,6 +169,7 @@ impl PendingVariantOwnerEffects {
                 variant: normalize_variant_name(&entry.variant),
                 target_suffix: entry.suffix.clone(),
                 target_ty: target.ty,
+                source_condition: entry.source_condition.clone(),
                 source,
             });
         }
