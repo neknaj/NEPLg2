@@ -84008,5 +84008,6 @@ MERGE_APPROVED
 ## 2026-07-14 selfhost parser由来 ResolvedEnumMemberId producer
 
 - one-shot enum module sessionへ`SelfhostResolvedEnumMemberId { nominal_id, variant_ordinal }`を追加した。public producerはdefinition indexとdefinition-local ordinalを受け、同じsessionのdefinition rangeとordered variant tableの実entryを両方確認した場合だけidentityを返す。
-- identity生成はsource spelling、qualified / alias name、global variant index、canonical symbolを参照しない。これにより別enumの同名variantや別sessionで偶然同じ数値になったnominal IDを、後段がdeclaration member identityとして再構成する入口を作らない。
+- identity生成はsource spelling、qualified / alias name、global variant index、canonical symbolを参照しない。ただしpublic Copy record自体は偽造不能capabilityではなく別sessionで同じ数値になり得るため、consumerは発行元sessionと同じoriginへの再結合なしにsemantic authorityとして受理してはいけない。
 - Rust実装はparser宣言順variant列をTypeKind / EnumInfoへ写し、Match checkerで文字列検索した後もHIR / ResourceへStringを運び、backendで再び宣言順positionを検索する。今回のidentityはその意味論上のowner+tag ordinalをtypedに固定するが、checker spelling解決、TypeArena / checked tree / HIR / Resource輸送、Deref、cross-session stable keyは未接続である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
+- enum surface contract、focused doctest 1/1、source-policy回帰、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。stdlib documentation `2790 > 2756`とselfhost documentation `moduleNoDoc 67 > 59`は直前mainと同じ既存baseline debtで、このsliceの対象fileに新規gapはない。

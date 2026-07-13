@@ -12,6 +12,7 @@
 //: - constructor kind は arity を表すだけです。struct / enum の discriminator は `SelfhostResolvedNominalDeclarationKind` が保持します。
 //: - caller は成功 owner を `selfhost_resolved_enum_session_free` で解放してください。
 //: - variant record は source span だけを保持し、spelling owner を複製しません。
+//: - resolved member ID は table-local key です。consumer は発行元sessionと同じoriginへ再結合してから受理し、Copy値だけをsession provenanceとして扱ってはいけません。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
@@ -140,10 +141,24 @@
 //:                                                         and and eq definition.declaration_span.file_id item.span.file_id eq definition.declaration_span.start item.span.start eq definition.declaration_span.end item.span.end
 //:                                                     Option::None:
 //:                                                         false
+//:                                             let member_ids_ok %bool:
+//:                                                 match selfhost_resolved_enum_session_member_id &enum_session 0 0:
+//:                                                     Option::Some first_member:
+//:                                                         match selfhost_resolved_enum_session_member_id &enum_session 0 2:
+//:                                                             Option::Some last_member:
+//:                                                                 match selfhost_resolved_enum_session_member_id &enum_session 1 0:
+//:                                                                     Option::Some other_member:
+//:                                                                         and and and and and and eq selfhost_named_type_id_index first_member.nominal_id 0 eq first_member.variant_ordinal 0 eq last_member.variant_ordinal 2 eq selfhost_named_type_id_index other_member.nominal_id 1 eq other_member.variant_ordinal 0 match selfhost_resolved_enum_session_member_id &enum_session 0 sub 0 1: Option::None: true Option::Some _member: false match selfhost_resolved_enum_session_member_id &enum_session 0 3: Option::None: true Option::Some _member: false match selfhost_resolved_enum_session_member_id &enum_session 2 0: Option::None: true Option::Some _member: false
+//:                                                                     Option::None:
+//:                                                                         false
+//:                                                             Option::None:
+//:                                                                 false
+//:                                                     Option::None:
+//:                                                         false
 //:                                             selfhost_resolved_enum_session_free enum_session
 //:                                             selfhost_module_ast_free ast
 //:                                             v::free tokens
-//:                                             if and and and and and and eq nominal_index 0 eq variant_count 4 eq definition_count 2 constructor_ok variants_ok definition_ranges_ok second_definition_ok declaration_span_ok Result::Ok unit Result::Err "resolved enum surface mismatch"
+//:                                             if and and and and and and and eq nominal_index 0 eq variant_count 4 eq definition_count 2 constructor_ok variants_ok definition_ranges_ok second_definition_ok declaration_span_ok member_ids_ok Result::Ok unit Result::Err "resolved enum surface mismatch"
 //:                                         Result::Err _e:
 //:                                             selfhost_module_ast_free ast
 //:                                             v::free tokens
@@ -419,7 +434,7 @@ impl Copy for SelfhostResolvedEnumVariantHeader:
 //: SelfhostResolvedEnumMemberId: 解決済み enum member の session-local identity
 //:
 //: [目的/もくてき]: source spelling ではなく、nominal enum identity と declaration-local variant ordinal の組で member を識別します。
-//: [契約/けいやく]: 値は `selfhost_resolved_enum_session_member_id` だけから作り、別 session の nominal ID や global variant index と組み替えてはいけません。
+//: [契約/けいやく]: public recordはCopy payloadであり偽造不能capabilityではありません。semantic consumerは`selfhost_resolved_enum_session_member_id`の結果だけを、発行元sessionと同じoriginへ再結合して受理します。
 //: [計算量/けいさんりょう]: copy は O(1) です。
 //: [authority boundary]: same-session definition range と ordered variant table membership が authority です。
 //: [owner boundary]: Copy record であり、source、token、variant buffer は session が所有します。
@@ -1278,22 +1293,21 @@ pub fn selfhost_resolved_enum_session_variant_get %fn &SelfhostResolvedEnumSessi
 //: [authority boundary]: definitionのnominal ID、variant_start、variant_countとsession-owned ordered variant tableだけを参照します。
 //: [owner boundary]: sessionをborrowし、Copy identityを返します。
 //: [type boundary]: ordinalはdefinition-localです。global index、source span、canonical spellingをpayloadへ混ぜません。
-//: [error boundary]: 範囲外definition、負または範囲外ordinal、破損したdefinition rangeはNoneとしてfail closedに扱います。
+//: [error boundary]: production session invariantの下で、範囲外definition、負または範囲外ordinal、負start、加算overflow、variant table外参照はNoneとしてfail closedに扱います。任意に偽造したdefinition table全般の整合証明ではありません。
 pub fn selfhost_resolved_enum_session_member_id %fn &SelfhostResolvedEnumSession fn i32 fn i32 Option SelfhostResolvedEnumMemberId \session\definition_idx\variant_ordinal:
     match selfhost_resolved_enum_session_definition_get session definition_idx:
         Option::Some definition:
             if:
-                or lt variant_ordinal 0 ge variant_ordinal definition.variant_count
+                or or lt variant_ordinal 0 ge variant_ordinal definition.variant_count lt definition.variant_start 0
                 then:
                     none
                 else:
-                    let global_idx %i32 add definition.variant_start variant_ordinal
                     if:
-                        or lt global_idx definition.variant_start lt global_idx 0
+                        gt definition.variant_start sub 2147483647 variant_ordinal
                         then:
                             none
                         else:
-                            match selfhost_resolved_enum_session_variant_get session global_idx:
+                            match selfhost_resolved_enum_session_variant_get session add definition.variant_start variant_ordinal:
                                 Option::Some _variant:
                                     some SelfhostResolvedEnumMemberId definition.nominal_id variant_ordinal
                                 Option::None:
