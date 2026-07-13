@@ -1,0 +1,218 @@
+//: # memo_call backend private-cache Resource Match payload source part
+//:
+//: Match固有headerとsource順のarm metadataを保持し、各armのoperation列はrecursive topologyのMatchArm scopeへ一元化します。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol:
+    canonical %SelfhostResourceIrVariantStableSymbol
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol:
+    canonical %SelfhostResourceIrVariantStableSymbol
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol \self: self
+
+enum SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern:
+    Variant %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol
+    IntLiteral %i32
+    BoolLiteral %bool
+    Wildcard
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern \self: self
+
+enum SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode:
+    Owned
+    Borrowed %bool
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    scrutinee %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    scrutinee_is_borrow_target %bool
+    arm_start %i32
+    arm_count %i32
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    arm_ordinal %i32
+    pattern %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern
+    bind_local %Option SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    bind_source_name %Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol
+    bind_mode %Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode
+    value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory unit \inventory: v::free inventory.records
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory i32 \inventory: v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord \inventory\idx: v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push inventory.records record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory unit \inventory: v::free inventory.records
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory i32 \inventory: v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord \inventory\idx: v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push inventory.records record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\place\ordinal\role:
+    if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id:
+        if eq role 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchOutputGraphMismatch ordinal
+        else if eq role 1 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeGraphMismatch ordinal
+        else if eq role 2 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmBindLocalGraphMismatch ordinal
+        else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmValueGraphMismatch ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key place 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+        Result::Err e: Result::Err e
+        Result::Ok present:
+            if present Result::Ok unit
+            else if eq role 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchOutputMissing ordinal
+            else if eq role 1 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeMissing ordinal
+            else if eq role 2 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmBindLocalMissing ordinal
+            else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmValueMissing ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_pattern_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern fn &SelfhostResourceIrCanonicalSymbolTable fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \pattern\symbols\arm_ordinal:
+    match pattern:
+        SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Variant symbol: if selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member symbols symbol.canonical Result::Ok unit else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmPatternSymbolMissing arm_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::IntLiteral _value: Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::BoolLiteral _value: Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Wildcard: Result::Ok unit
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arm_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \arm\places\symbols\key\graph_id\operation_ordinal\expected_ordinal:
+    if or not selfhost_memo_call_backend_private_cache_proof_key_eq arm.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq arm.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmIdentityMismatch expected_ordinal
+    else if or not eq arm.operation_ordinal operation_ordinal not eq arm.arm_ordinal expected_ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmOrdinalMismatch expected_ordinal
+    else if not source_span_is_valid arm.span Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmSpanInvalid expected_ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_pattern_validate_result arm.pattern symbols expected_ordinal:
+        Result::Err e: Result::Err e
+        Result::Ok _pattern:
+            match arm.bind_source_name:
+                Option::Some name:
+                    if not selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member symbols name.canonical Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmBindSourceNameMissing expected_ordinal
+                    else match arm.bind_local:
+                        Option::None: selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id arm.value expected_ordinal 3
+                        Option::Some bind_local:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id bind_local expected_ordinal 2:
+                                Result::Err e: Result::Err e
+                                Result::Ok _bind: selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id arm.value expected_ordinal 3
+                Option::None:
+                    match arm.bind_local:
+                        Option::None: selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id arm.value expected_ordinal 3
+                        Option::Some bind_local:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id bind_local expected_ordinal 2:
+                                Result::Err e: Result::Err e
+                                Result::Ok _bind: selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id arm.value expected_ordinal 3
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_arms_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \arms\places\symbols\key\graph_id\operation_ordinal\start\cursor\end:
+    if eq cursor end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_get arms cursor:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmUnexpected cursor
+        Option::Some arm:
+            match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_validate_result arm places symbols key graph_id operation_ordinal sub cursor start:
+                Result::Err e: Result::Err e
+                Result::Ok _arm: selfhost_memo_call_backend_private_cache_resource_ir_match_arms_validate_loop arms places symbols key graph_id operation_ordinal start add cursor 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \topology\operation_ordinal\expected_count\scope_idx\found:
+    if eq scope_idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len topology:
+        if eq found expected_count Result::Ok unit else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyCountMismatch operation_ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_get topology scope_idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyReadFailed scope_idx
+        Option::Some scope:
+            match scope.parent:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block _block: selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop topology operation_ordinal expected_count add scope_idx 1 found
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation parent:
+                    if not eq parent operation_ordinal selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop topology operation_ordinal expected_count add scope_idx 1 found
+                    else match scope.role:
+                        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm ordinal:
+                            if not eq ordinal found Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyOrdinalMismatch ordinal
+                            else selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop topology operation_ordinal expected_count add scope_idx 1 add found 1
+                        _: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyRoleMismatch scope_idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payload\arms\places\symbols\topology\key\graph_id:
+    let arm_end %i32 add payload.arm_start payload.arm_count
+    if or lt payload.arm_start 0 or lt payload.arm_count 0 or lt arm_end payload.arm_start gt arm_end selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_len arms Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmRangeInvalid payload.operation_ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id payload.output payload.operation_ordinal 0:
+        Result::Err e: Result::Err e
+        Result::Ok _output:
+            match selfhost_memo_call_backend_private_cache_resource_ir_match_place_validate_result places key graph_id payload.scrutinee payload.operation_ordinal 1:
+                Result::Err e: Result::Err e
+                Result::Ok _scrutinee:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop topology payload.operation_ordinal payload.arm_count 0 0:
+                        Result::Err e: Result::Err e
+                        Result::Ok _topology: selfhost_memo_call_backend_private_cache_resource_ir_match_arms_validate_loop arms places symbols key graph_id payload.operation_ordinal payload.arm_start payload.arm_start arm_end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\arms\kinds\places\symbols\topology\key\graph_id\operation_idx\operation_count\payload_idx\payload_count\arm_cursor:
+    if eq operation_idx operation_count:
+        if not eq payload_idx payload_count Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadUnexpected payload_idx
+        else if not eq arm_cursor selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_len arms Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmUnexpected arm_cursor
+        else Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds operation_idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed operation_idx
+        Option::Some operation:
+            match operation.kind:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_get payloads payload_idx:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadMissing operation_idx
+                        Option::Some payload:
+                            if or not selfhost_memo_call_backend_private_cache_proof_key_eq payload.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq payload.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadIdentityMismatch operation_idx
+                            else if not eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadOrdinalMismatch payload.operation_ordinal
+                            else if not eq payload.arm_start arm_cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmRangeInvalid operation_idx
+                            else match selfhost_memo_call_backend_private_cache_resource_ir_match_record_validate_result payload arms places symbols topology key graph_id:
+                                Result::Err e: Result::Err e
+                                Result::Ok _payload: selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop payloads arms kinds places symbols topology key graph_id add operation_idx 1 operation_count add payload_idx 1 payload_count add arm_cursor payload.arm_count
+                _:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_get payloads payload_idx:
+                        Option::Some payload: if eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadUnexpected operation_idx selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop payloads arms kinds places symbols topology key graph_id add operation_idx 1 operation_count payload_idx payload_count arm_cursor
+                        Option::None: selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop payloads arms kinds places symbols topology key graph_id add operation_idx 1 operation_count payload_idx payload_count arm_cursor

@@ -16,6 +16,8 @@ const branchPayloadPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_s
 const branchStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_branch_stage0_part.nepl";
 const loopPayloadPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_loop_payload_part.nepl";
 const loopStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_loop_stage0_part.nepl";
+const matchPayloadPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_match_payload_part.nepl";
+const matchStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_match_stage0_part.nepl";
 const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
 const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
@@ -28,6 +30,8 @@ const branchPayloadPartSource = fs.readFileSync(path.join(repoRoot, branchPayloa
 const branchStage0PartSource = fs.readFileSync(path.join(repoRoot, branchStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const loopPayloadPartSource = fs.readFileSync(path.join(repoRoot, loopPayloadPartRelPath), "utf8").replace(/\r\n/g, "\n");
 const loopStage0PartSource = fs.readFileSync(path.join(repoRoot, loopStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
+const matchPayloadPartSource = fs.readFileSync(path.join(repoRoot, matchPayloadPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const matchStage0PartSource = fs.readFileSync(path.join(repoRoot, matchStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
 const topologyPartMergeDirective = '#import "./memo_call_backend_scope_recursive_operation_topology_part" as @merge';
@@ -38,6 +42,8 @@ const branchPayloadPartMergeDirective = '#import "./memo_call_backend_scope_bran
 const branchStage0PartMergeDirective = '#import "./memo_call_backend_scope_branch_stage0_part" as @merge';
 const loopPayloadPartMergeDirective = '#import "./memo_call_backend_scope_loop_payload_part" as @merge';
 const loopStage0PartMergeDirective = '#import "./memo_call_backend_scope_loop_stage0_part" as @merge';
+const matchPayloadPartMergeDirective = '#import "./memo_call_backend_scope_match_payload_part" as @merge';
+const matchStage0PartMergeDirective = '#import "./memo_call_backend_scope_match_stage0_part" as @merge';
 const sourceWithInventory = anchorSource.replace(
     inventoryPartMergeDirective,
     `${inventoryPartMergeDirective}\n${inventoryPartSource}`,
@@ -70,9 +76,17 @@ const sourceWithLoopPayload = sourceWithBranchStage0.replace(
     loopPayloadPartMergeDirective,
     `${loopPayloadPartMergeDirective}\n${loopPayloadPartSource}`,
 );
-const source = sourceWithLoopPayload.replace(
+const sourceWithLoopStage0 = sourceWithLoopPayload.replace(
     loopStage0PartMergeDirective,
     `${loopStage0PartMergeDirective}\n${loopStage0PartSource}`,
+);
+const sourceWithMatchPayload = sourceWithLoopStage0.replace(
+    matchPayloadPartMergeDirective,
+    `${matchPayloadPartMergeDirective}\n${matchPayloadPartSource}`,
+);
+const source = sourceWithMatchPayload.replace(
+    matchStage0PartMergeDirective,
+    `${matchStage0PartMergeDirective}\n${matchStage0PartSource}`,
 );
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
@@ -563,10 +577,42 @@ assertOrdered(topLevelBlock(loopStage0PartSource, "fn", "selfhost_memo_call_back
 assert.match(loopStage0PartSource, /LoopPayloadOrdinalMismatch ordinal: and eq mode 6 eq ordinal 23/, "Loop ordinal mismatch matrix must pin the exact out-of-domain payload ordinal");
 assert.match(topologyPartSource, /Operation 22 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition[\s\S]*Operation 22 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody/, "central topology fixture must retain Loop condition and body scopes");
 assert.match(inventoryPartSource, /loop_stage0_payload_push_result loop_payloads0 key graph_id place0 0[\s\S]*ConditionFactRootBindingRecord key graph_id 22 Option::None/, "central fixture must pass a nonempty Loop header and its generic None binding");
-assert.match(inventoryPartSource, /Result::Ok scope: and eq scope\.operation_count 23/, "central fixture must validate the shared Branch and Loop global ordinal domain");
+assert.match(inventoryPartSource, /Result::Ok scope: and eq scope\.operation_count 24/, "central fixture must validate the shared Branch, Loop, and Match global ordinal domain");
 for (const errorName of ["LoopPayloadMissing", "LoopPayloadUnexpected", "LoopPayloadIdentityMismatch", "LoopPayloadOrdinalMismatch", "LoopConditionMissing", "LoopConditionGraphMismatch"]) {
     assert.match(inventoryPartSource, new RegExp(`${errorName} %i32`), `Loop typed error ${errorName} must remain declared`);
 }
+assert.match(anchorSource, /memo_call_backend_scope_match_payload_part" as @merge/, "proof-gate anchor must merge Match payload privately");
+assert.match(anchorSource, /memo_call_backend_scope_match_stage0_part" as @merge/, "proof-gate anchor must merge Match stage0 privately");
+assert.doesNotMatch(matchPayloadPartSource, /^pub\s/m, "Match payload part must not expose public declarations");
+assert.doesNotMatch(matchStage0PartSource, /^pub\s/m, "Match stage0 part must not expose public declarations");
+assert.match(rustResourceModel, /Match \{[\s\S]*output: Place,[\s\S]*scrutinee: Place,[\s\S]*scrutinee_is_borrow_target: bool,[\s\S]*arms: Vec<ResourceMatchArm>,[\s\S]*span: Span,/);
+assert.match(rustResourceModel, /pub struct ResourceMatchArm \{[\s\S]*pattern: ResourceMatchPattern,[\s\S]*bind_local: Option<Place>,[\s\S]*bind_source_name: Option<String>,[\s\S]*bind_mode: Option<ResourceMatchBindMode>,[\s\S]*ops: Vec<ResourceOp>,[\s\S]*value: Place,[\s\S]*span: Span,/);
+assert.match(rustResourceLower, /resource_arms\.push\(ResourceMatchArm \{[\s\S]*pattern: lower_match_pattern\(&arm\.pattern\),[\s\S]*bind_local,[\s\S]*bind_source_name,[\s\S]*bind_mode,[\s\S]*ops: arm_ops,[\s\S]*value,[\s\S]*span: arm\.body\.span,/);
+assertOrdered(topLevelBlock(matchPayloadPartSource, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord"), ["key %", "graph_id %", "operation_ordinal %i32", "output %", "scrutinee %", "scrutinee_is_borrow_target %bool", "arm_start %i32", "arm_count %i32"], "Match header must preserve Rust field order plus its ordered-arm owner range");
+assert.doesNotMatch(topLevelBlock(matchPayloadPartSource, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord"), /ops|scope_id|node_start|node_count|span/, "Match header must not duplicate arm operation topology or the dense operation span owner");
+assertOrdered(topLevelBlock(matchPayloadPartSource, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord"), ["operation_ordinal %i32", "arm_ordinal %i32", "pattern %", "bind_local %Option", "bind_source_name %Option", "bind_mode %Option", "value %", "span %SelfhostSourceSpan"], "ordered Match arms must preserve pattern, three independent optional bind fields, value, and arm span");
+assert.match(matchPayloadPartSource, /enum SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern:[\s\S]*Variant %[\s\S]*IntLiteral %i32[\s\S]*BoolLiteral %bool[\s\S]*Wildcard/, "Match pattern owner must preserve every Rust pattern variant without fallback");
+assert.match(matchPayloadPartSource, /enum SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode:[\s\S]*Owned[\s\S]*Borrowed %bool/, "Match bind mode must retain borrowed mutability");
+const matchValidator = topLevelBlock(matchPayloadPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop");
+assertOrdered(matchValidator, ["MatchPayloadUnexpected payload_idx", "MatchArmUnexpected arm_cursor", "OperationKind::Match", "MatchPayloadMissing operation_idx", "MatchPayloadIdentityMismatch operation_idx", "MatchPayloadOrdinalMismatch payload.operation_ordinal", "payload.arm_start arm_cursor", "match_record_validate_result"], "Match owner must close sparse header and global arm cursor gaps/excess");
+const matchTopologyValidator = topLevelBlock(matchPayloadPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop");
+assert.match(matchTopologyValidator, /found expected_count[\s\S]*parent operation_ordinal[\s\S]*OperationScopeRole::MatchArm ordinal[\s\S]*ordinal found/, "Match arm count must be cross-validated against dense topology MatchArm scopes");
+assertOrdered(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"), ["inventory_operation_topology_validate_result", "branch_payload_inventory_validate_loop", "loop_payload_inventory_validate_loop", "match_payload_inventory_validate_loop", "condition_fact_inventory_validate_loop"], "central authority must validate topology before Branch, Loop, Match, and generic fact owners");
+assert.match(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_empty_call_owners_result"), /match_payload_inventory_new[\s\S]*match_arm_inventory_new[\s\S]*inventory_scope_authority_result[\s\S]*match_arm_inventory_free[\s\S]*match_payload_inventory_free/, "compatibility wrapper must own and close Match payload and arm tables");
+assert.match(topologyPartSource, /Operation 23 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0/, "central topology fixture must retain an exact MatchArm scope");
+assert.match(inventoryPartSource, /MatchPayloadRecord key graph_id 23 place0 place0 false 0 1[\s\S]*MatchArmRecord key graph_id 23 0[\s\S]*MatchPattern::Wildcard/, "central fixture must pass a nonempty Match header and arm through the shared authority");
+assert.match(inventoryPartSource, /Result::Ok scope: and eq scope\.operation_count 24/, "central fixture must validate the Branch, Loop, and Match global ordinal domain");
+for (const token of ["Variant", "IntLiteral", "BoolLiteral", "Wildcard", "Owned", "Borrowed", "not eq mode 31", "Option::None", "Option::Some", "MatchArmTopologyCountMismatch", "MatchArmTopologyOrdinalMismatch", "MatchArmTopologyRoleMismatch"]) {
+    assert.ok(matchPayloadPartSource.includes(token) || matchStage0PartSource.includes(token), `Match owner matrix must cover ${token}`);
+}
+for (const errorName of ["MatchPayloadMissing", "MatchPayloadUnexpected", "MatchPayloadIdentityMismatch", "MatchPayloadOrdinalMismatch", "MatchOutputMissing", "MatchOutputGraphMismatch", "MatchScrutineeMissing", "MatchScrutineeGraphMismatch", "MatchArmRangeInvalid", "MatchArmUnexpected", "MatchArmIdentityMismatch", "MatchArmOrdinalMismatch", "MatchArmPatternSymbolMissing", "MatchArmBindLocalMissing", "MatchArmBindLocalGraphMismatch", "MatchArmBindSourceNameMissing", "MatchArmValueMissing", "MatchArmValueGraphMismatch", "MatchArmSpanInvalid", "MatchArmTopologyReadFailed", "MatchArmTopologyCountMismatch", "MatchArmTopologyOrdinalMismatch", "MatchArmTopologyRoleMismatch"]) {
+    assert.match(inventoryPartSource, new RegExp(`${errorName} %i32`), `Match typed error ${errorName} must remain declared`);
+}
+assert.match(anchorSource, /loop_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_matrix \(\)/, "proof-gate lifecycle must execute the Match matrix after Loop");
+assert.match(matchStage0PartSource, /arm0_name %Option[\s\S]*if eq mode 32 Option::None Option::Some name_symbol/, "Match matrix must isolate absent bind source name");
+assert.match(matchStage0PartSource, /arm0_local %Option[\s\S]*if eq mode 33 Option::None Option::Some arm0_bind/, "Match matrix must isolate absent bind local");
+assert.match(matchStage0PartSource, /arm0_mode %Option[\s\S]*if eq mode 37 Option::None Option::Some/, "Match matrix must isolate absent bind mode");
+assert.match(matchStage0PartSource, /stage0_case 0 38/, "Match matrix must execute every explicit mode without an unclassified default gap");
 for (const token of ["Option::None", "EqZero", "NeZero", "Positive", "NonPositive", "Negative", "NonNegative", "I32Relation", "Any", "All", "mode 51", "mode 18", "mode 50"]) {
     assert.ok(branchStage0PartSource.includes(token), `Branch stage0 matrix must cover ${token}`);
 }
@@ -577,12 +623,12 @@ assert.match(anchorSource, /operation_topology_stage0_matrix \(\) selfhost_memo_
 assert.match(anchorSource, /branch_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0 \(\)/, "proof-gate lifecycle must execute the nonempty Branch central fixture");
 assert.match(anchorSource, /branch_central_stage0 \(\) selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_matrix \(\)/, "proof-gate lifecycle must execute the Loop matrix after the shared Branch and Loop central fixture");
 assert.match(inventoryPartSource, /branch_central_stage0_case false[\s\S]*branch_central_stage0_case true/, "central fixture must execute positive and mismatch-negative cases");
-assert.match(inventoryPartSource, /OperationTopologyRejected topology_error[\s\S]*ScopeParentInvalid scope_id: eq scope_id 4/, "central mismatch negative must match the exact nested topology taxonomy and Loop scope ordinal");
+assert.match(inventoryPartSource, /if mismatch 22 23[\s\S]*OperationTopologyRejected topology_error[\s\S]*ScopeParentInvalid scope_id: eq scope_id 6/, "central mismatch negative must remove exactly the Match operation and match the MatchArm scope taxonomy");
 assert.match(topologyPartSource, /operation_topology_branch_fixture_result[\s\S]*BranchThen[\s\S]*BranchElse/, "central fixture topology must carry recursive Branch scopes");
 assert.match(inventoryPartSource, /control_fixture 1[\s\S]*branch_stage0_payload_push_result[\s\S]*branch_stage0_bindings_fill_result[\s\S]*branch_stage0_nodes_fill_result/, "central fixture must pass nonempty Branch and fact owners to the shared authority path");
 assert.match(branchStage0PartSource, /if eq mode 19 add 21 idx 21/, "stage0 bindings must assign Branch and Loop global ordinals");
 assert.match(branchStage0PartSource, /if and eq mode 19 eq idx 1 22 21/, "stage0 nodes must include a Loop-owned fact after the Branch-owned fact");
-for (const partSource of [conditionFactPartSource, branchPayloadPartSource, branchStage0PartSource, loopPayloadPartSource, loopStage0PartSource]) {
+for (const partSource of [conditionFactPartSource, branchPayloadPartSource, branchStage0PartSource, loopPayloadPartSource, loopStage0PartSource, matchPayloadPartSource, matchStage0PartSource]) {
     assert.doesNotMatch(partSource, /ResourceIrEnumerated|ResourceLoweringTraversalProduced|MemoBackendArtifact|PrecheckedArtifact/, "structural control parts must not mint production origin or backend artifacts");
 }
 assert.match(conditionFactPartSource, /impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord/);

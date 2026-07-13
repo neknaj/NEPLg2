@@ -222,7 +222,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_
         Result::Err e: Result::Err e
         Result::Ok topology: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_blocks_result topology inventory key graph_id 0 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len inventory
 
-//: central control fixture用にflat rootsへordinal 21のempty Branch Then / Elseとordinal 22のempty Loop Condition / Body scopeを追加します。
+//: central control fixture用にflat rootsへBranch / Loopのempty scopeとordinal 23のMatchArm scopeを追加します。
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_branch_fixture_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \inventory\key\graph_id:
     match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result inventory key graph_id:
         Result::Err e: Result::Err e
@@ -240,7 +240,11 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_branc
                                 Result::Err e: Result::Err e
                                 Result::Ok with_condition:
                                     let body_scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id 5 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 22 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody 23 0 23 23
-                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope with_condition body_scope
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope with_condition body_scope:
+                                        Result::Err e: Result::Err e
+                                        Result::Ok with_body:
+                                            let arm_scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id 6 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 23 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0 24 0 24 24
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope with_body arm_scope
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "nodes"
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "scopes"

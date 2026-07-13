@@ -1,0 +1,153 @@
+//: # memo_call backend private-cache Resource Match stage0 source part
+//:
+//: Match header、ordered arm metadata、MatchArm topology scopeのcross-owner検査をtyped matrixで実行します。
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_topology_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\mode\idx:
+    let count %i32 if eq mode 1 0 if or eq mode 16 eq mode 29 1 2
+    if eq idx count Result::Ok topology
+    else:
+        let role %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole if and eq mode 18 eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm if and eq mode 17 eq idx 1 0 idx
+        let scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id idx SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 23 role 0 0 24 24
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope topology scope:
+            Result::Err e: Result::Err e
+            Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_topology_fill_result next key graph_id mode add idx 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_topology_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \key\graph_id\mode:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_new:
+        Result::Err e: Result::Err e
+        Result::Ok topology: selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_topology_fill_result topology key graph_id mode 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_error_matches %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind bool \mode\error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadMissing ordinal: and eq mode 2 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadUnexpected ordinal: and eq mode 3 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadIdentityMismatch ordinal: and eq mode 4 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadOrdinalMismatch ordinal: and eq mode 5 eq ordinal 24
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchOutputMissing ordinal: and eq mode 6 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeGraphMismatch ordinal: and eq mode 7 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmRangeInvalid ordinal: and eq mode 8 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmIdentityMismatch ordinal: and eq mode 9 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmOrdinalMismatch ordinal: and eq mode 10 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmPatternSymbolMissing ordinal: and eq mode 11 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmBindLocalMissing ordinal: and eq mode 12 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmBindSourceNameMissing ordinal: and eq mode 13 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmValueMissing ordinal: and eq mode 14 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmSpanInvalid ordinal: and eq mode 15 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyCountMismatch ordinal: and eq mode 16 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyOrdinalMismatch ordinal: and eq mode 17 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmTopologyRoleMismatch ordinal: and eq mode 18 eq ordinal 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchOutputGraphMismatch ordinal: and eq mode 21 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeMissing ordinal: and eq mode 22 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmBindLocalGraphMismatch ordinal: and eq mode 23 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmValueGraphMismatch ordinal: and eq mode 24 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmRangeInvalid ordinal: and or or or eq mode 25 eq mode 26 eq mode 27 eq mode 28 eq ordinal 23
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmUnexpected ordinal: and eq mode 29 eq ordinal 1
+        _: false
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_with_symbol %impure fn i32 impure fn SelfhostResourceIrCanonicalSymbolTable impure fn SelfhostResourceIrVariantStableSymbol bool \mode\symbols\canonical:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let wrong_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let wrong_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 1
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_stage0_result key graph_id if eq mode 3 1 24:
+        Result::Err _e:
+            selfhost_resource_ir_canonical_symbol_table_free symbols
+            false
+        Result::Ok kinds:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 3 true if eq mode 36 SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Projection SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 1 selfhost_type_id_new 1:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                    false
+                Result::Ok places:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_topology_result key graph_id mode:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                            false
+                        Result::Ok topology:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_new:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                                    false
+                                Result::Ok payloads0:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_new:
+                                        Result::Err _e:
+                                            selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_free payloads0
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                                            false
+                                        Result::Ok arms0:
+                                            let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                                            let place1 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 1
+                                            let place2 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 2
+                                            let missing_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 99
+                                            let missing_symbol %SelfhostResourceIrVariantStableSymbol SelfhostResourceIrVariantStableSymbol 1 99
+                                            let variant_symbol %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol if eq mode 11 missing_symbol canonical
+                                            let name_symbol %SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol if eq mode 13 missing_symbol canonical
+                                            let arm0_pattern %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern if or eq mode 19 eq mode 34 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::IntLiteral if eq mode 34 2147483647 7 if or eq mode 20 eq mode 35 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::BoolLiteral not eq mode 35 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Variant variant_symbol
+                                            let arm0_bind %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 12 missing_place if eq mode 23 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace wrong_graph place2.place_id place2
+                                            let arm0_name %Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindSourceNameSymbol if eq mode 32 Option::None Option::Some name_symbol
+                                            let arm0_local %Option SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 33 Option::None Option::Some arm0_bind
+                                            let arm0_mode %Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode if eq mode 37 Option::None Option::Some SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode::Owned
+                                            let arm0_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 14 missing_place if eq mode 24 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace wrong_graph place1.place_id place1
+                                            let arm0 %SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord if eq mode 9 wrong_key key graph_id 23 if eq mode 10 1 0 arm0_pattern arm0_local arm0_name arm0_mode arm0_value if eq mode 15 source_span_new_unchecked 1 2 1 source_span_new_unchecked 1 0 1
+                                            let arm1_mode %SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode::Borrowed not eq mode 31
+                                            let arm1 %SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord key graph_id 23 1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Wildcard Option::None Option::None Option::Some arm1_mode place1 source_span_new_unchecked 1 0 1
+                                            let no_arms %bool eq mode 1
+                                            let arm_result0 %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if no_arms Result::Ok arms0 selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_push arms0 arm0
+                                            let arm_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match arm_result0:
+                                                Result::Err e: Result::Err e
+                                                Result::Ok arms1: if no_arms Result::Ok arms1 selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_push arms1 arm1
+                                            let accepted %bool match arm_result:
+                                                Result::Err _e:
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_free payloads0
+                                                    false
+                                                Result::Ok arms:
+                                                    let output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 6 missing_place if eq mode 21 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace wrong_graph place0.place_id place0
+                                                    let scrutinee %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 22 missing_place SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 7 wrong_graph graph_id place1.place_id
+                                                    let arm_start %i32 if or eq mode 8 eq mode 25 sub 0 1 if eq mode 27 2147483647 0
+                                                    let arm_count %i32 if no_arms 0 if eq mode 26 sub 0 1 if eq mode 27 2 if eq mode 28 3 if eq mode 29 1 2
+                                                    let payload %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord if eq mode 4 wrong_key key graph_id if eq mode 5 24 if eq mode 3 0 23 output scrutinee eq mode 30 arm_start arm_count
+                                                    let payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 2 Result::Ok payloads0 selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_push payloads0 payload
+                                                    let valid %bool match payload_result:
+                                                        Result::Err _e: false
+                                                        Result::Ok payloads:
+                                                            let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop &payloads &arms &kinds &places &symbols &topology key graph_id 0 if eq mode 3 1 24 0 selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_len &payloads 0
+                                                            let result %bool if or le mode 1 or or or or or or or or or eq mode 19 eq mode 20 eq mode 30 eq mode 31 eq mode 32 eq mode 33 eq mode 34 eq mode 35 eq mode 36 eq mode 37 match validation:
+                                                                Result::Ok _unit: true
+                                                                Result::Err _e: false
+                                                            else match validation:
+                                                                Result::Ok _unit: false
+                                                                Result::Err e: selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_error_matches mode e
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_free payloads
+                                                            result
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_free arms
+                                                    valid
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                                            accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_case %impure fn i32 bool \mode:
+    match selfhost_resource_ir_canonical_symbol_table_new:
+        Result::Err _e: false
+        Result::Ok symbols:
+            match selfhost_resource_ir_canonical_symbol_table_intern symbols "Result::Ok":
+                Result::Err _e: false
+                Result::Ok interned: selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_with_symbol mode interned.table interned.symbol
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_matrix %impure fn void bool \void:
+    selfhost_memo_call_backend_private_cache_resource_ir_stage0_all_modes selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_case 0 38
