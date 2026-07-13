@@ -84011,3 +84011,9 @@ MERGE_APPROVED
 - identity生成はsource spelling、qualified / alias name、global variant index、canonical symbolを参照しない。ただしpublic Copy record自体は偽造不能capabilityではなく別sessionで同じ数値になり得るため、consumerは発行元sessionと同じoriginへの再結合なしにsemantic authorityとして受理してはいけない。
 - Rust実装はparser宣言順variant列をTypeKind / EnumInfoへ写し、Match checkerで文字列検索した後もHIR / ResourceへStringを運び、backendで再び宣言順positionを検索する。今回のidentityはその意味論上のowner+tag ordinalをtypedに固定するが、checker spelling解決、TypeArena / checked tree / HIR / Resource輸送、Deref、cross-session stable keyは未接続である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
 - enum surface contract、focused doctest 1/1、source-policy回帰、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。stdlib documentation `2790 > 2756`とselfhost documentation `moduleNoDoc 67 > 59`は直前mainと同じ既存baseline debtで、このsliceの対象fileに新規gapはない。
+## 2026-07-14 selfhost enum member cross-source lookup
+
+- checkerがnamespace解決済みnominal ownerとmember-tail spanを渡すlookupをenum sessionへ追加した。raw qualifier / alias文字列は解釈せず、対象definition内だけを走査し、declaration-local ordinalから`SelfhostResolvedEnumMemberId`を発行する。qualifier nominalとscrutinee nominalの不一致拒否は次のchecker connectorの責務であり、このprimitive単独では証明しない。
+- queryはraw `str`ではなく`SelfhostSourceText` ownerとspanを受け、file ID、非空range、source byte長、UTF-8両境界をexact検査する。宣言spanもsession sourceとdefinition fileへ個別に結合し、異なるfile IDのsource間でallocation/clampなしのbyte比較を行う。
+- 実行testは別file sourceのfirst/last lookup、同名variantを持つ別enumのowner限定、unknown member、wrong owner、query file mismatch、end超過、UTF-8 continuation、nominal不在を検査する。qualified / alias prefixのtyped nominal解決、scrutinee TypeArena照合、checked tree / HIR / Resource輸送、Deref、cross-session stable keyは未接続で、セルフホストコンパイラ全体は未完成。`plan.md`は変更していない。
+- enum surface contract、focused doctest 1/1、source-policy回帰、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は最終差分で通過した。stdlib documentation `2790 > 2756`はmain既存baseline debtで、このsliceの対象外である。

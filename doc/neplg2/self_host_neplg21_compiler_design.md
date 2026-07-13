@@ -3772,7 +3772,9 @@ item spanとheader spanの一致、keyword/headの同一file・header内包含�
 
 このsessionはactual parser declarationからsame-session nominal surfaceを生成する最初のproducer boundaryである。`SelfhostResolvedEnumMemberId { nominal_id, variant_ordinal }`はdefinition indexとdefinition-local ordinalを受け、definition rangeとordered variant tableの両方にmembershipがある場合だけ、このsessionから発行する。identity生成はsource spelling、qualified name、alias、global variant indexを参照しない。ただしこのCopy recordはopaque capabilityやsession discriminatorではなく、別sessionで同じ数値になり得るtable-local keyである。consumerは発行元sessionとTypeArena等が同じoriginからco-produceされた証拠へ再結合するまでsemantic authorityとして受理しない。
 
-ただし、spellingをscrutineeのresolved nominal ownerへ解決するchecker、TypeArena投影、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行せず、次段ではcheckerがqualified / alias spellingをこのsessionのmember identityへ一度だけ正規化する。
+checker向けmember lookupはraw qualifierを解釈せず、name/import resolverが既に選んだnominal ID、enum session、利用側`SelfhostSourceText`とmember-tail spanを受ける。query spanはSourceTextのfile ID、source byte長、UTF-8境界へexactに結合し、範囲をclampするslice APIは使わない。宣言spanもsession source、definition file、UTF-8境界へ個別に結合した上で、異なるfile IDを許した二つのsource owner間byte比較を行う。一致時だけdefinition-local ordinalからmember IDを発行する。同じspellingが複数enumにあっても渡されたnominal owner内だけを検索するが、`WrongEnum::Ok`のqualifier ownerとscrutinee ownerの不一致を拒否する責務は次のchecker connectorにある。alias / qualified prefixからnominal IDを作るtyped resolver自体も未接続である。
+
+ただし、qualified / alias prefixをtyped nominal IDへ解決してscrutinee nominalと照合するchecker connector、TypeArena投影、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
 
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 

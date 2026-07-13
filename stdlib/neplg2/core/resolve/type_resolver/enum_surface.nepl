@@ -16,7 +16,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -27,6 +27,7 @@
 //: ##: [7] ok
 //: ##: [8] ok
 //: ##: [9] ok
+//: ##: [10] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -348,6 +349,46 @@
 //: fn check_invalid_payload %impure fn void Result unit str \void:
 //:     check_source_error "enum BadPayload:\n    Value i32\n" 7
 //:
+//: fn check_member_lookup %impure fn void Result unit str \void:
+//:     match selfhost_type_constructor_table_new:
+//:         Result::Ok table:
+//:             match selfhost_resolved_enum_module_session_materialize_result table "enum Result:\n    None\n    Ok %i32\n    Err %str\n\nenum Other:\n    Ok\n    Only\n":
+//:                 Result::Ok session:
+//:                     match selfhost_resolved_enum_session_definition_get &session 0:
+//:                         Option::Some result_definition:
+//:                             match selfhost_resolved_enum_session_definition_get &session 1:
+//:                                 Option::Some other_definition:
+//:                                     match source_text_new 7 "use.nepl" "xxErr yyOk zzMissing あ Only":
+//:                                         Result::Ok query_text:
+//:                                             let first_ok %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 2 5: Result::Ok member: eq member.variant_ordinal 2 Result::Err _e: false
+//:                                             let result_ok %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 8 10: Result::Ok member: and eq selfhost_named_type_id_index member.nominal_id selfhost_named_type_id_index result_definition.nominal_id eq member.variant_ordinal 1 Result::Err _e: false
+//:                                             let other_ok %bool match selfhost_resolved_enum_session_member_lookup_result &session other_definition.nominal_id &query_text source_span_new_unchecked 7 8 10: Result::Ok member: and eq selfhost_named_type_id_index member.nominal_id selfhost_named_type_id_index other_definition.nominal_id eq member.variant_ordinal 0 Result::Err _e: false
+//:                                             let wrong_owner %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 25 29: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::MemberUnknown: true _: false Result::Ok _member: false
+//:                                             let unknown %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 13 20: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::MemberUnknown: true _: false Result::Ok _member: false
+//:                                             let file_mismatch %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 8 2 5: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid: true _: false Result::Ok _member: false
+//:                                             let end_oob %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 2 99: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid: true _: false Result::Ok _member: false
+//:                                             let utf8_mid %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 22 24: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid: true _: false Result::Ok _member: false
+//:                                             let empty %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 2 2: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid: true _: false Result::Ok _member: false
+//:                                             let negative %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 sub 0 1 2: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid: true _: false Result::Ok _member: false
+//:                                             let reversed %bool match selfhost_resolved_enum_session_member_lookup_result &session result_definition.nominal_id &query_text source_span_new_unchecked 7 5 2: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid: true _: false Result::Ok _member: false
+//:                                             let nominal_missing %bool match selfhost_resolved_enum_session_member_lookup_result &session selfhost_named_type_id_new 99 &query_text source_span_new_unchecked 7 2 5: Result::Err e: match e.kind: SelfhostResolvedEnumMemberLookupErrorKind::DefinitionMissing: true _: false Result::Ok _member: false
+//:                                             source_text_free query_text
+//:                                             selfhost_resolved_enum_session_free session
+//:                                             if and and and and and and and and and and and first_ok result_ok other_ok wrong_owner unknown file_mismatch end_oob utf8_mid empty negative reversed nominal_missing Result::Ok unit Result::Err "member lookup boundary mismatch"
+//:                                         Result::Err _e:
+//:                                             selfhost_resolved_enum_session_free session
+//:                                             Result::Err "query source allocation failed"
+//:                                 Option::None:
+//:                                     selfhost_resolved_enum_session_free session
+//:                                     Result::Err "other enum definition missing"
+//:                         Option::None:
+//:                             selfhost_resolved_enum_session_free session
+//:                             Result::Err "result enum definition missing"
+//:                 Result::Err _e:
+//:                     Result::Err "enum lookup session materialization failed"
+//:         Result::Err _e:
+//:             Result::Err "enum lookup constructor table allocation failed"
+//:
 //: fn main %impure fn void i32 \void:
 //:     let checks0 checks_new
 //:     let checks1 checks_push checks0 check_positive
@@ -360,7 +401,8 @@
 //:     let checks8 checks_push checks7 check_generic_bounds_unsupported
 //:     let checks9 checks_push checks8 check_invalid_payload
 //:     let checks10 checks_push checks9 check_no_enum_module
-//:     let shown checks_print_report checks10
+//:     let checks11 checks_push checks10 check_member_lookup
+//:     let shown checks_print_report checks11
 //:     checks_exit_code shown
 //: ```
 
@@ -374,6 +416,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/text" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/lexer" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
@@ -453,6 +496,40 @@ impl Copy for SelfhostResolvedEnumMemberId:
     //: copy_mark: enum member identity の Copy 境界を定義する
     //: [契約/けいやく]: session owner を移動せず値を返します。計算量は O(1) です。
     fn copy_mark %fn SelfhostResolvedEnumMemberId SelfhostResolvedEnumMemberId \self:
+        self
+
+//: SelfhostResolvedEnumMemberLookupErrorKind: enum member spelling 解決の失敗分類
+//:
+//: [目的/もくてき]: 利用側span不正、nominal owner不在、member不在、session range不整合をboolや文字列へ潰さずcheckerへ返します。
+//: [type boundary]: diagnostic文ではなくclosedなsemantic failure分類です。
+pub enum SelfhostResolvedEnumMemberLookupErrorKind:
+    QuerySpanInvalid
+    DefinitionMissing
+    MemberUnknown
+    SessionRangeInvalid
+
+impl Clone for SelfhostResolvedEnumMemberLookupErrorKind:
+    //: clone: lookup error kind を複製する
+    fn clone %fn &SelfhostResolvedEnumMemberLookupErrorKind SelfhostResolvedEnumMemberLookupErrorKind \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumMemberLookupErrorKind:
+    //: copy_mark: lookup error kind の Copy 境界を定義する
+    fn copy_mark %fn SelfhostResolvedEnumMemberLookupErrorKind SelfhostResolvedEnumMemberLookupErrorKind \self:
+        self
+
+//: SelfhostResolvedEnumMemberLookupError: checker向けmember lookup error
+//: [契約/けいやく]: `span` は常に利用側sourceのquery spanです。宣言sourceのspanへ置き換えません。
+pub struct SelfhostResolvedEnumMemberLookupError:
+    kind %SelfhostResolvedEnumMemberLookupErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostResolvedEnumMemberLookupError:
+    fn clone %fn &SelfhostResolvedEnumMemberLookupError SelfhostResolvedEnumMemberLookupError \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumMemberLookupError:
+    fn copy_mark %fn SelfhostResolvedEnumMemberLookupError SelfhostResolvedEnumMemberLookupError \self:
         self
 
 //: SelfhostResolvedEnumDefinition: session 内の dense enum definition record
@@ -1314,6 +1391,135 @@ pub fn selfhost_resolved_enum_session_member_id %fn &SelfhostResolvedEnumSession
                                     none
         Option::None:
             none
+
+//: selfhost_resolved_enum_member_lookup_error_new: 利用側span付きlookup errorを作る
+fn selfhost_resolved_enum_member_lookup_error_new %fn SelfhostResolvedEnumMemberLookupErrorKind fn SelfhostSourceSpan SelfhostResolvedEnumMemberLookupError \kind\span:
+    SelfhostResolvedEnumMemberLookupError kind span
+
+//: selfhost_resolved_enum_member_query_eq_loop: 宣言sourceと利用sourceのbyte列を比較する
+//: [契約/けいやく]: callerが両rangeのUTF-8境界と同じbyte長を検査済みの場合だけ使います。source ownerを混ぜず、各indexを対応するsourceだけへ適用します。
+//: [計算量/けいさんりょう]: member byte長をnとしてO(n)です。
+fn selfhost_resolved_enum_member_query_eq_loop %fn str fn i32 fn str fn i32 fn i32 bool \declaration_source\declaration_idx\query_source\query_idx\remaining:
+    if:
+        le remaining 0
+        then:
+            true
+        else:
+            match string_access::byte_at declaration_source declaration_idx:
+                Option::Some declaration_byte:
+                    match string_access::byte_at query_source query_idx:
+                        Option::Some query_byte:
+                            and eq declaration_byte query_byte selfhost_resolved_enum_member_query_eq_loop declaration_source add declaration_idx 1 query_source add query_idx 1 sub remaining 1
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_resolved_enum_member_definition_find_loop: nominal ownerのdefinition indexを探す
+//: [契約/けいやく]: sessionのdense definitionだけを走査し、source spellingからnominal identityを推測しません。
+fn selfhost_resolved_enum_member_definition_find_loop %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn i32 Option i32 \session\nominal_id\idx:
+    if:
+        ge idx selfhost_resolved_enum_session_definition_len session
+        then:
+            none
+        else:
+            match selfhost_resolved_enum_session_definition_get session idx:
+                Option::Some definition:
+                    if selfhost_named_type_id_eq definition.nominal_id nominal_id some idx selfhost_resolved_enum_member_definition_find_loop session nominal_id add idx 1
+                Option::None:
+                    none
+
+//: selfhost_resolved_enum_member_definition_count_loop: nominal ownerのdefinition重複を数える
+//: [契約/けいやく]: producer sessionではexactly 1です。0件や複数件をsemantic lookupへ通しません。
+fn selfhost_resolved_enum_member_definition_count_loop %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn i32 fn i32 i32 \session\nominal_id\idx\count:
+    if:
+        ge idx selfhost_resolved_enum_session_definition_len session
+        then:
+            count
+        else:
+            match selfhost_resolved_enum_session_definition_get session idx:
+                Option::Some definition:
+                    selfhost_resolved_enum_member_definition_count_loop session nominal_id add idx 1 if selfhost_named_type_id_eq definition.nominal_id nominal_id add count 1 count
+                Option::None:
+                    count
+
+//: selfhost_resolved_enum_member_query_lookup_loop: 限定済みdefinition内で利用側member spellingを探す
+//: [契約/けいやく]: declaration spanはsession source、query spanはquery sourceにだけ適用します。一致時もIDはsame-session producerから発行します。
+fn selfhost_resolved_enum_member_query_lookup_loop %fn &SelfhostResolvedEnumSession fn i32 fn SelfhostResolvedEnumDefinition fn &SelfhostSourceText fn SelfhostSourceSpan fn i32 Result SelfhostResolvedEnumMemberId SelfhostResolvedEnumMemberLookupError \session\definition_idx\definition\query_text\query_span\ordinal:
+    if:
+        ge ordinal definition.variant_count
+        then:
+            Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::MemberUnknown query_span
+        else if:
+            or lt ordinal 0 gt definition.variant_start sub 2147483647 ordinal
+            then:
+                Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+            else:
+                match selfhost_resolved_enum_session_variant_get session add definition.variant_start ordinal:
+                    Option::Some variant:
+                        let query_source %str *field::get_ref query_text "source"
+                        let query_len %i32 sub query_span.end query_span.start
+                        let declaration_len %i32 sub variant.name_span.end variant.name_span.start
+                        let declaration_source %str *field::get_ref session "source"
+                        if:
+                            or or or or or or or or not source_span_is_valid definition.declaration_span gt definition.declaration_span.end string_access::len declaration_source not selfhost_resolved_enum_surface_utf8_boundary declaration_source definition.declaration_span.start not selfhost_resolved_enum_surface_utf8_boundary declaration_source definition.declaration_span.end not source_span_is_valid variant.name_span not selfhost_resolved_enum_surface_span_inside definition.declaration_span variant.name_span ge variant.name_span.start variant.name_span.end gt variant.name_span.end string_access::len declaration_source not selfhost_resolved_enum_surface_utf8_boundary declaration_source variant.name_span.start not selfhost_resolved_enum_surface_utf8_boundary declaration_source variant.name_span.end
+                            then:
+                                Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+                            else if:
+                                and eq query_len declaration_len selfhost_resolved_enum_member_query_eq_loop declaration_source variant.name_span.start query_source query_span.start query_len
+                                then:
+                                    match selfhost_resolved_enum_session_member_id session definition_idx ordinal:
+                                        Option::Some member_id:
+                                            Result::Ok member_id
+                                        Option::None:
+                                            Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+                                else:
+                                    selfhost_resolved_enum_member_query_lookup_loop session definition_idx definition query_text query_span add ordinal 1
+                    Option::None:
+                        Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+
+//: selfhost_resolved_enum_session_member_lookup_result: 解決済みnominal owner内の利用側spellingをmember identityへ正規化する
+//:
+//: [目的/もくてき]: checkerがqualified / alias pathをnominal IDへ解決した後、member tail spellingを一度だけdeclaration member identityへ変換します。
+//: [契約/けいやく]: `nominal_id`はscrutinee ownerと照合済みのsame-session table-local keyでなければなりません。raw qualifierやalias文字列をこの関数内でidentityへ変換しません。
+//: [計算量/けいさんりょう]: definition数をd、対象variant数をv、member byte長をnとしてO(d+vn)です。
+//: [authority boundary]: resolved nominal owner、session-owned declaration source/span、明示的な利用側source/spanの組だけをauthorityにします。
+//: [owner boundary]: sessionと`SelfhostSourceText`をborrowし、成功時はCopy member IDだけを返します。
+//: [source boundary]: query spanのfile_idはquery text ownerと一致させます。declaration sourceとquery sourceのfile_id一致は要求せず、各spanは対応するsource ownerにだけ適用します。
+pub fn selfhost_resolved_enum_session_member_lookup_result %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn &SelfhostSourceText fn SelfhostSourceSpan Result SelfhostResolvedEnumMemberId SelfhostResolvedEnumMemberLookupError \session\nominal_id\query_text\query_span:
+    let query_file_id %i32 *field::get_ref query_text "file_id"
+    let query_source %str *field::get_ref query_text "source"
+    if:
+        or or or or or not source_span_is_valid query_span not eq query_span.file_id query_file_id ge query_span.start query_span.end gt query_span.end string_access::len query_source not selfhost_resolved_enum_surface_utf8_boundary query_source query_span.start not selfhost_resolved_enum_surface_utf8_boundary query_source query_span.end
+        then:
+            Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::QuerySpanInvalid query_span
+        else:
+            let definition_count %i32 selfhost_resolved_enum_member_definition_count_loop session nominal_id 0 0
+            if:
+                eq definition_count 0
+                then:
+                    Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::DefinitionMissing query_span
+                else if:
+                    not eq definition_count 1
+                    then:
+                        Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+                    else:
+                        match selfhost_resolved_enum_member_definition_find_loop session nominal_id 0:
+                            Option::Some definition_idx:
+                                match selfhost_resolved_enum_session_definition_get session definition_idx:
+                                    Option::Some definition:
+                                        let enum_kind_ok %bool match definition.kind: SelfhostResolvedNominalDeclarationKind::Enum: true _: false
+                                        let constructor_member %bool match selfhost_resolved_enum_session_constructor_kind session definition_idx: Option::Some _kind: true Option::None: false
+                                        if:
+                                            or or or not enum_kind_ok not constructor_member lt definition.variant_start 0 lt definition.variant_count 0
+                                            then:
+                                                Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+                                            else:
+                                                selfhost_resolved_enum_member_query_lookup_loop session definition_idx definition query_text query_span 0
+                                    Option::None:
+                                        Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
+                            Option::None:
+                                Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
 
 //: selfhost_resolved_enum_session_constructor_kind: definitionのsame-session constructor kindを読む
 //:
