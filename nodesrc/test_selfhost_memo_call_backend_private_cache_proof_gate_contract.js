@@ -485,9 +485,30 @@ assert.doesNotMatch(
     "private inventory source part must not expose any public declaration or import",
 );
 assert.doesNotMatch(topologyPartSource, /^pub\s/m, "recursive operation topology part must not expose public declarations");
-assert.match(inventoryPartSource, /first_operation_ordinal[^\n]*operation_count[^\n]*現行central inventory[^\n]*flat operation authority/, "flat operation range must remain the documented central authority until recursive materialization is connected");
-assert.match(inventoryPartSource, /root_operation_scope_id[^\n]*standalone recursive topology validator用に予約/, "root scope id must remain explicitly reserved rather than claiming central authority");
-assert.match(topologyPartSource, /現行central inventory \/ materializerへの接続は後続slice/, "standalone topology must not claim central materializer integration");
+assert.match(inventoryPartSource, /root_operation_scope_id[^\n]*recursive topology owner[^\n]*exact/, "root scope id must document the central recursive topology authority");
+assert.match(inventoryPartSource, /first_operation_ordinal[^\n]*operation_count[^\n]*shape互換[^\n]*使いません/, "legacy flat operation range must not remain central authority");
+assert.match(inventoryPartSource, /operation_topology_node_len topology/, "central scope must derive the global operation domain from topology nodes");
+assert.match(inventoryPartSource, /inventory_operation_topology_validate_result topology inventory operation_kinds operation_spans/, "central scope must cross-validate topology after dense kind and span owners");
+assert.match(inventoryPartSource, /OperationTopologyRejected %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind/, "central errors must preserve typed topology rejection");
+assert.match(topologyPartSource, /InventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id/g, "nested positive and negative topology matrices must execute the same typed central cross-owner wrapper");
+assert.doesNotMatch(topologyPartSource, /現行central inventory \/ materializerへの接続は後続slice/, "topology docs must not retain the obsolete standalone-only claim");
+const centralInventorySignature = inventoryPartSource.match(/^fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result[^\n]+/m)?.[0] ?? "";
+assert.match(centralInventorySignature, /&SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology/, "topology-native central authority must require the recursive topology owner");
+assert.doesNotMatch(centralInventorySignature, /ActualWalkerOperationTable|\\operations(?:\\|:)/, "topology-native central authority must not accept the legacy walker table");
+assert.match(inventoryPartSource, /inventory_legacy_operation_bridge_validate_result[\s\S]*actual_walker_operation_table_len operations[\s\S]*resource_lowering_traversal_scope_validate_loop operations/, "legacy walker count and identity validation must remain in a named compatibility helper");
+assert.match(inventoryPartSource, /inventory_scope_authority_result key graph_id inventory places projections symbols types topology operation_spans/, "compatibility wrapper must call the topology-native core without forwarding operations");
+assert.match(topologyPartSource, /validate_scopes_loop[\s\S]*operation_topology_scope_block_result topology scope[\s\S]*validate_edges_loop topology scope/, "every scope, including an empty scope, must resolve its parent block before edge validation");
+assert.match(topologyPartSource, /Operation 999[\s\S]*eq mode 20[^\n]*idx 3[^\n]*0/, "negative matrix must include an empty orphan operation scope");
+assert.match(topologyPartSource, /lt record\.first_operation_ordinal 0[^\n]*lt record\.operation_count 0[^\n]*gt record\.operation_count sub 2147483647 record\.first_operation_ordinal/, "flat fixture must reject negative and overflowing ranges before addition");
+assert.match(topologyPartSource, /flat_fixture_negative_case 21[^\n]*flat_fixture_negative_case 22/, "flat fixture negative and overflow modes must execute in the runtime matrix");
+assert.match(topologyPartSource, /positive_node_block[\s\S]*fixture 5[^\n]*idx 3 1 0/, "multi-block fixture must assign the second root node to block one");
+assert.match(topologyPartSource, /positive_function_result[\s\S]*BlockInventoryRecord key graph_id 1 8[^\n]*ReturnPayload::None 3/, "multi-block fixture must bind block one to root scope three");
+assert.match(topologyPartSource, /positive_matrix_loop[\s\S]*ge fixture 6/, "positive matrix must execute the two-block nested fixture");
+assert.doesNotMatch(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_loop"), /next_operation_ordinal/, "block structure validation must not retain a meaningless flat operation accumulator");
+assert.equal(countOccurrences(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result"), "resource_ir_operation_topology_free topology"), 1, "stage0 central wrapper must close its topology owner exactly once after borrowing it");
+assert.equal(countOccurrences(topLevelBlock(topologyPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_blocks_result"), "resource_ir_operation_topology_free topology"), 2, "inventory read failure and invalid flat ranges must each close the partial topology owner exactly once");
+assert.equal(countOccurrences(topLevelBlock(topologyPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_negative_case"), "resource_ir_function_inventory_free inventory"), 1, "flat negative fixture must close function inventory exactly once");
+assert.equal(countOccurrences(topLevelBlock(topologyPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_case"), "resource_ir_operation_topology_free topology"), 1, "nested and multi-block positive fixtures must close topology exactly once");
 assert.doesNotMatch(
     indirectCallStage0PartSource,
     /^pub\s/m,
@@ -1571,7 +1592,7 @@ assertOrdered(
         "BlockIdInvalid record.block_id",
         "resource_ir_block_id_exists_before_loop inventory record.block_id 0 idx",
         "BlockIdDuplicate record.block_id",
-        "resource_ir_inventory_validate_block_tail inventory places key graph_id record idx block_count next_operation_ordinal",
+        "resource_ir_inventory_validate_block_tail inventory places key graph_id record idx block_count",
     ],
     "Resource IR inventory validation must establish key, graph, ordinal, and block-id uniqueness before inspecting block span",
 );
@@ -1579,16 +1600,14 @@ assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_validate_block_tail"),
     [
         "let span_valid %bool source_span_is_valid record.span",
-        "record.operation_count 0",
         "BlockSpanInvalid SelfhostMemoCallBackendPrivateCacheResourceBlockSpanError idx record.span",
-        "record.first_operation_ordinal next_operation_ordinal",
         "record.terminator_ordinal idx",
         "source_span_is_valid record.terminator_span",
         "TerminatorSpanInvalid SelfhostMemoCallBackendPrivateCacheResourceTerminatorSpanError idx record.terminator_span",
         "resource_ir_terminator_payload_validate_result record places",
-        "resource_ir_inventory_validate_loop inventory places key graph_id add idx 1 block_count add next_operation_ordinal record.operation_count",
+        "resource_ir_inventory_validate_loop inventory places key graph_id add idx 1 block_count",
     ],
-    "validated block identity must lead to one span check before operation range and terminator coverage",
+    "validated block identity must lead to span and terminator coverage without reviving flat operation authority",
 );
 assertOrdered(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new"),
@@ -1764,16 +1783,15 @@ assertOrdered(
         "resource_ir_projection_inventory_validate_places_loop projections places symbols key graph_id 0 place_count 0",
         "resource_ir_projection_inventory_len projections",
         "ProjectionCountMismatch actual_projection_count",
-        "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count 0",
-        "actual_walker_operation_table_len operations",
-        "OperationTableMismatch actual_operation_count",
+        "resource_ir_inventory_validate_loop inventory places key graph_id 0 block_count",
+        "resource_ir_operation_topology_node_len topology",
         "resource_ir_operation_span_inventory_len operation_spans",
         "OperationSpanTableMismatch actual_operation_span_count",
         "resource_ir_operation_kind_inventory_len operation_kinds",
         "OperationKindTableMismatch actual_operation_kind_count",
-        "resource_lowering_traversal_scope_validate_loop operations key graph_id 0 actual_operation_count",
         "resource_ir_operation_span_inventory_validate_loop operation_spans key graph_id 0 actual_operation_span_count",
         "resource_ir_operation_kind_inventory_validate_loop operation_kinds key graph_id 0 actual_operation_kind_count",
+        "resource_ir_inventory_operation_topology_validate_result topology inventory operation_kinds operation_spans key graph_id",
         "resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args places types",
     ],
     "a complete Resource IR-shaped inventory may mint only the non-production inventory-validated scope",
@@ -1888,7 +1906,7 @@ assertOrdered(
         "Result::Ok assign_payloads",
         "resource_ir_canonical_symbol_table_new",
         'resource_ir_canonical_symbol_table_intern symbols0 "Variant"',
-        "resource_ir_inventory_scope_with_empty_call_owners_result key graph_id inventory places projections &symbols types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
+        "resource_ir_inventory_scope_with_empty_call_owners_result key graph_id inventory places projections &symbols types operations &topology &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
         "resource_ir_canonical_symbol_table_free symbols",
         "resource_ir_assign_payload_inventory_free assign_payloads",
         "resource_ir_read_payload_inventory_free read_payloads",
@@ -1902,7 +1920,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_canonical_symbol_table_intern symbols0 "FunctionValue"[\s\S]*resource_ir_inventory_scope_with_empty_call_owners_result key graph_id inventory places &projections &symbols &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &function_value_payloads &function_value_args &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_function_value_type_arg_inventory_free function_value_args[\s\S]*resource_ir_function_value_payload_inventory_free function_value_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols/,
+    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_canonical_symbol_table_intern symbols0 "FunctionValue"[\s\S]*resource_ir_inventory_scope_with_empty_call_owners_result key graph_id inventory places &projections &symbols &types2 operations topology operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &function_value_payloads &function_value_args &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_function_value_type_arg_inventory_free function_value_args[\s\S]*resource_ir_function_value_payload_inventory_free function_value_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
@@ -2259,7 +2277,7 @@ assertOrdered(
     [
         "resource_ir_operation_span_inventory_fixture_result key graph_id span_count invalid_second_span",
         "resource_ir_operation_kind_inventory_fixture_result key graph_id kind_count bad_kind_identity",
-        "resource_ir_inventory_scope_with_operation_owners_stage0_result key graph_id &inventory &places &operations &operation_spans &operation_kinds",
+        "resource_ir_inventory_scope_with_operation_owners_stage0_result key graph_id &inventory &places &operations &topology &operation_spans &operation_kinds",
         "resource_ir_operation_kind_inventory_free operation_kinds",
         "resource_ir_operation_span_inventory_free operation_spans",
         "actual_walker_operation_table_free operations",

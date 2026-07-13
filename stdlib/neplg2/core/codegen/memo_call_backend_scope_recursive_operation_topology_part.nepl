@@ -1,6 +1,6 @@
 //: memo_call backend private-cache Resource IR recursive operation topology source part
 //:
-//: ResourceFunction.blocks直下とBranch / Loop / Match内の再帰`Vec<ResourceOp>`を、global preorder nodeと明示scope edgeでlosslessに保持できるstandalone validator modelです。現行central inventory / materializerへの接続は後続sliceです。
+//: ResourceFunction.blocks直下とBranch / Loop / Match内の再帰`Vec<ResourceOp>`を、global preorder nodeと明示scope edgeでlosslessに保持し、central inventory authorityへ接続するvalidator modelです。
 
 #import "alloc/collections/vec" as v
 #import "core/field" as field
@@ -164,6 +164,63 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free 
     v::free field::get topology "edges"
     v::free field::get topology "scopes"
     v::free field::get topology "nodes"
+
+//: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result: 旧stage0 block fixtureをrecursive ownerへ写す
+//:
+//: [契約/けいやく]:
+//: - actual walker tableの長さからnode数を推測せず、typed block fixtureのrangeだけを入力にします。
+//: - 生成物は全nodeがBlockOps直下にあるlegacy fixture bridgeです。nested fixtureは専用producerでglobal preorderを明示します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_nodes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\block_ordinal\idx\end:
+    if:
+        ge idx end
+        Result::Ok topology
+        block:
+            let node %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord key graph_id idx block_ordinal block_ordinal add idx 1
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_node topology node:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_nodes_result next key graph_id block_ordinal add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_edges_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\scope_id\first\idx\end:
+    if:
+        ge idx end
+        Result::Ok topology
+        block:
+            let edge %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord key graph_id idx scope_id sub idx first idx
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_edge topology edge:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_edges_result next key graph_id scope_id first add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_blocks_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\inventory\key\graph_id\idx\end:
+    if:
+        ge idx end
+        Result::Ok topology
+        match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_get inventory idx:
+            Option::None:
+                selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeMissing idx
+            Option::Some record:
+                if:
+                    or or lt record.first_operation_ordinal 0 lt record.operation_count 0 gt record.operation_count sub 2147483647 record.first_operation_ordinal
+                    block:
+                        selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RangeInvalid idx
+                    block:
+                        let range_end %i32 add record.first_operation_ordinal record.operation_count
+                        let scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id idx SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block idx SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps record.first_operation_ordinal record.operation_count record.first_operation_ordinal range_end
+                        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope topology scope:
+                            Result::Err e: Result::Err e
+                            Result::Ok with_scope:
+                                match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_nodes_result with_scope key graph_id idx record.first_operation_ordinal range_end:
+                                    Result::Err e: Result::Err e
+                                    Result::Ok with_nodes:
+                                        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_edges_result with_nodes key graph_id idx record.first_operation_ordinal record.first_operation_ordinal range_end:
+                                            Result::Err e: Result::Err e
+                                            Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_blocks_result next inventory key graph_id add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \inventory\key\graph_id:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_new:
+        Result::Err e: Result::Err e
+        Result::Ok topology: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_blocks_result topology inventory key graph_id 0 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len inventory
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "nodes"
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "scopes"
@@ -366,9 +423,15 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_valid
                                     if:
                                         not role_valid
                                         Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeRoleInvalid scope.scope_id
-                                        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_edges_loop topology scope scope.edge_start add scope.edge_start scope.child_count 0 scope.first_node:
+                                        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_block_result topology scope:
                                             Result::Err e: Result::Err e
-                                            Result::Ok _cursor: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_scopes_loop topology key graph_id block_count edge_count add idx 1 end add scope.edge_start scope.child_count
+                                            Result::Ok owning_block:
+                                                if:
+                                                    or lt owning_block 0 ge owning_block block_count
+                                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeParentInvalid scope.scope_id
+                                                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_edges_loop topology scope scope.edge_start add scope.edge_start scope.child_count 0 scope.first_node:
+                                                        Result::Err e: Result::Err e
+                                                        Result::Ok _cursor: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_scopes_loop topology key graph_id block_count edge_count add idx 1 end add scope.edge_start scope.child_count
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_nodes_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\kinds\spans\key\graph_id\edge_count\idx\end:
     if:
@@ -443,7 +506,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_valid
 //: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result: standalone recursive topology ownerを検査する
 //:
 //: [契約/けいやく]:
-//: - kind / spanの全record数をnode数とexact一致させます。将来central materializerが同じordinalでsparse payload ownerをco-produceするためのdomainを固定しますが、現行central payload scopeへの接続は主張しません。
+//: - kind / spanの全record数をnode数とexact一致させ、central sparse payload ownerが使うglobal ordinal domainを固定します。
 //: - exactly-one-parent、blockごとのroot、closed control role、dense sibling、canonical preorder、exclusive subtree、cross-blockを検査します。overflowし得るrange加算は先に`count <= end - start`を確認します。
 //: - function inventoryは既存validatorでentry / block dense / terminator構造を検査済みのownerを借用します。ここではblock identityと予約root scope linkを再照合しますが、function inventory全体の意味検査を再実行しません。
 //: - semantic branch condition、value join、loop convergence、match patternは検査しません。また成功してもproduction traversal originは発行しません。
@@ -483,17 +546,17 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage
                 Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_nodes_result next key graph_id mode add idx 1
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_scopes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\mode\idx:
-    let scope_count %i32 if eq mode 2 2 if eq mode 18 4 3
+    let scope_count %i32 if eq mode 2 2 if or eq mode 18 eq mode 20 4 3
     if:
         ge idx scope_count
         Result::Ok topology
         block:
-            let parent %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent if and eq mode 18 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 99 if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation if and or eq mode 4 eq mode 7 eq idx 1 if eq mode 4 3 1 0
-            let role %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole if and eq mode 18 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq idx 0 if eq mode 17 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq mode 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse
+            let parent %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent if and eq mode 20 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 999 if and eq mode 18 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 99 if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation if and or eq mode 4 eq mode 7 eq idx 1 if eq mode 4 3 1 0
+            let role %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole if and eq mode 20 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0 if and eq mode 18 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq idx 0 if eq mode 17 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq mode 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse
             let edge_start %i32 if eq idx 0 0 if eq idx 1 if eq mode 10 2147483647 2 if eq idx 2 3 4
-            let child_count %i32 if and eq mode 18 eq idx 3 0 if eq idx 0 if eq mode 14 1 2 1
-            let first_node %i32 if and eq mode 18 eq idx 3 4 if eq idx 0 0 idx
-            let subtree_end %i32 if and eq mode 18 eq idx 3 4 if eq idx 0 if eq mode 14 3 4 add idx 1
+            let child_count %i32 if and or eq mode 18 eq mode 20 eq idx 3 0 if eq idx 0 if eq mode 14 1 2 1
+            let first_node %i32 if and or eq mode 18 eq mode 20 eq idx 3 4 if eq idx 0 0 idx
+            let subtree_end %i32 if and or eq mode 18 eq mode 20 eq idx 3 4 if eq idx 0 if eq mode 14 3 4 add idx 1
             let scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id idx parent role edge_start child_count first_node subtree_end
             match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope topology scope:
                 Result::Err e: Result::Err e
@@ -545,8 +608,30 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage
         Result::Err e: Result::Err e
         Result::Ok inventory:
             let block_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 19 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 991 key
-            let block_record %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord block_key graph_id 0 7 source_span_new_unchecked 1 0 1 0 4 0 source_span_new_unchecked 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None 0
+            let first_operation_ordinal %i32 if eq mode 21 sub 0 1 if eq mode 22 2147483647 0
+            let operation_count %i32 if eq mode 22 1 4
+            let block_record %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord block_key graph_id 0 7 source_span_new_unchecked 1 0 1 first_operation_ordinal operation_count 0 source_span_new_unchecked 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None 0
             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory block_record
+
+//: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_negative_case: flat互換fixtureのrange narrowing
+//:
+//: 負firstとchecked-add overflowをrange加算とnode / scope / edge生成前にtyped rejectionし、partial topology ownerはbuilderが閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_negative_case %impure fn i32 bool \mode:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_function_result key graph_id mode:
+        Result::Err _e: false
+        Result::Ok inventory:
+            let rejected %bool match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result &inventory key graph_id:
+                Result::Err e:
+                    match e:
+                        SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RangeInvalid ordinal: eq ordinal 0
+                        _: false
+                Result::Ok topology:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                    false
+            selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
+            rejected
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_case %impure fn i32 bool \mode:
     let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
@@ -572,7 +657,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage
                                     selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
                                     false
                                 Result::Ok topology:
-                                    let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id
+                                    let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id
                                     let accepted %bool match checked:
                                         Result::Ok _: eq mode 0
                                         Result::Err _e: not eq mode 0
@@ -583,149 +668,59 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage
                                     accepted
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_count %fn i32 i32 \fixture:
-    if eq fixture 0 3 if or eq fixture 1 eq fixture 2 1 if eq fixture 3 4 6
+    if eq fixture 0 3 if or eq fixture 1 eq fixture 2 1 if or eq fixture 3 eq fixture 5 4 6
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_count %fn i32 i32 \fixture:
-    if or eq fixture 0 eq fixture 1 3 if eq fixture 2 1 if eq fixture 3 4 6
+    if or eq fixture 0 eq fixture 1 3 if eq fixture 2 1 if or eq fixture 3 eq fixture 5 4 6
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_count %fn i32 i32 \fixture:
-    if eq fixture 0 3 if or eq fixture 1 eq fixture 2 1 if eq fixture 3 4 6
+    if eq fixture 0 3 if or eq fixture 1 eq fixture 2 1 if or eq fixture 3 eq fixture 5 4 6
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_block %fn i32 fn i32 i32 \fixture\idx:
+    if and eq fixture 5 eq idx 3 1 0
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_parent %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 0
-        if eq idx 0 0 idx
-        if:
-            or eq fixture 1 eq fixture 2
-            0
-            if:
-                eq fixture 3
-                if eq idx 0 0 if eq idx 1 1 3
-                if eq idx 0 0 if eq idx 1 1 if eq idx 2 3 if eq idx 3 4 if eq idx 4 2 5
+    if eq fixture 0 if eq idx 0 0 idx if or eq fixture 1 eq fixture 2 0 if eq fixture 5 if eq idx 0 0 if eq idx 1 1 if eq idx 2 2 3 if eq fixture 3 if eq idx 0 0 if eq idx 1 1 3 if eq idx 0 0 if eq idx 1 1 if eq idx 2 3 if eq idx 3 4 if eq idx 4 2 5
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_end %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 0
-        if eq idx 0 3 add idx 1
-        if:
-            or eq fixture 1 eq fixture 2
-            1
-            if:
-                eq fixture 3
-                if eq idx 0 4 add idx 1
-                if eq idx 0 6 if eq idx 1 4 if eq idx 4 6 add idx 1
+    if eq fixture 0 if eq idx 0 3 add idx 1 if or eq fixture 1 eq fixture 2 1 if eq fixture 5 if eq idx 0 3 add idx 1 if eq fixture 3 if eq idx 0 4 add idx 1 if eq idx 0 6 if eq idx 1 4 if eq idx 4 6 add idx 1
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_kind %fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind \fixture\idx:
-    if:
-        or eq fixture 0 eq fixture 1
-        if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
-        if:
-            or eq fixture 2 eq fixture 3
-            if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
-            if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop if or eq idx 2 eq idx 4 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
+    if or eq fixture 0 eq fixture 1 if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr if eq fixture 5 if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr if or eq fixture 2 eq fixture 3 if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop if or eq idx 2 eq idx 4 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_parent %fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent \fixture\idx:
-    if:
-        eq idx 0
-        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 0
-        if:
-            or eq fixture 0 eq fixture 1
-            SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0
-            if:
-                eq fixture 3
-                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0
-                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation if lt idx 3 0 if lt idx 5 1 4
+    if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 0 if eq fixture 5 if lt idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 1 if or eq fixture 0 eq fixture 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0 if eq fixture 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation if lt idx 3 0 if lt idx 5 1 4
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_role %fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole \fixture\idx:
-    if:
-        eq idx 0
-        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps
-        if:
-            or eq fixture 0 eq fixture 1
-            if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody
-            if:
-                eq fixture 3
-                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm sub idx 1
-                if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq idx 2 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse if eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition if eq idx 4 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0
+    if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq fixture 5 if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq idx 2 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if or eq fixture 0 eq fixture 1 if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody if eq fixture 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm sub idx 1 if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq idx 2 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse if eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition if eq idx 4 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_edge_start %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 0
-        idx
-        if:
-            eq fixture 1
-            if eq idx 0 0 1
-            if:
-                eq fixture 2
-                0
-                if:
-                    eq fixture 3
-                    if eq idx 0 0 if eq idx 1 1 2
-                    idx
+    if eq fixture 0 idx if eq fixture 5 idx if eq fixture 1 if eq idx 0 0 1 if eq fixture 2 0 if eq fixture 3 if eq idx 0 0 if eq idx 1 1 2 idx
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_child_count %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 1
-        if eq idx 0 1 0
-        if:
-            eq fixture 3
-            if eq idx 2 0 if eq idx 3 2 1
-            1
+    if eq fixture 5 1 if eq fixture 1 if eq idx 0 1 0 if eq fixture 3 if eq idx 2 0 if eq idx 3 2 1 1
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_first %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 0
-        idx
-        if:
-            eq fixture 1
-            if eq idx 0 0 1
-            if:
-                eq fixture 2
-                0
-                if:
-                    eq fixture 3
-                    if eq idx 0 0 if eq idx 1 1 2
-                    if eq idx 0 0 if eq idx 1 1 if eq idx 2 4 if eq idx 3 2 if eq idx 4 3 5
+    if eq fixture 0 idx if eq fixture 5 idx if eq fixture 1 if eq idx 0 0 1 if eq fixture 2 0 if eq fixture 3 if eq idx 0 0 if eq idx 1 1 2 if eq idx 0 0 if eq idx 1 1 if eq idx 2 4 if eq idx 3 2 if eq idx 4 3 5
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_end %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 0
-        if eq idx 0 3 add idx 1
-        if:
-            eq fixture 1
-            1
-            if:
-                eq fixture 2
-                1
-                if:
-                    eq fixture 3
-                    if eq idx 0 4 if eq idx 1 2 if eq idx 2 2 4
-                    if eq idx 0 6 if eq idx 1 4 if eq idx 2 6 if eq idx 3 3 if eq idx 4 4 6
+    if eq fixture 0 if eq idx 0 3 add idx 1 if eq fixture 5 if eq idx 0 3 add idx 1 if eq fixture 1 1 if eq fixture 2 1 if eq fixture 3 if eq idx 0 4 if eq idx 1 2 if eq idx 2 2 4 if eq idx 0 6 if eq idx 1 4 if eq idx 2 6 if eq idx 3 3 if eq idx 4 4 6
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_scope %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 3
-        if lt idx 2 idx 3
-        idx
+    if eq fixture 5 idx if eq fixture 3 if lt idx 2 idx 3 idx
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_sibling %fn i32 fn i32 i32 \fixture\idx:
     if and eq fixture 3 eq idx 3 1 0
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_child %fn i32 fn i32 i32 \fixture\idx:
-    if:
-        eq fixture 3
-        if eq idx 0 0 if eq idx 1 1 if eq idx 2 2 3
-        if:
-            eq fixture 4
-            if eq idx 0 0 if eq idx 1 1 if eq idx 2 4 if eq idx 3 2 if eq idx 4 3 5
-            idx
+    if eq fixture 5 idx if eq fixture 3 if eq idx 0 0 if eq idx 1 1 if eq idx 2 2 3 if eq fixture 4 if eq idx 0 0 if eq idx 1 1 if eq idx 2 4 if eq idx 3 2 if eq idx 4 3 5 idx
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_nodes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\fixture\idx\end:
     if:
         ge idx end
         Result::Ok topology
         block:
-            let node %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord key graph_id idx 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_parent fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_end fixture idx
+            let node %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord key graph_id idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_block fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_parent fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_end fixture idx
             match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_node topology node:
                 Result::Err e: Result::Err e
                 Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_nodes_result next key graph_id fixture add idx 1 end
@@ -776,10 +771,21 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_posit
         Result::Err e: Result::Err e
         Result::Ok inventory: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kind_fill_result inventory key graph_id fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_count fixture
 
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_function_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\fixture:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_function_result key graph_id 0:
+        Result::Err e: Result::Err e
+        Result::Ok inventory:
+            if:
+                not eq fixture 5
+                Result::Ok inventory
+                block:
+                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 1 8 source_span_new_unchecked 1 1 2 3 1 1 source_span_new_unchecked 1 2 2 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None 3
+                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory second
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_case %impure fn i32 bool \fixture:
     let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
     let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_function_result key graph_id 0:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_function_result key graph_id fixture:
         Result::Err _e: false
         Result::Ok function_inventory:
             match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kinds_result key graph_id fixture:
@@ -800,7 +806,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_posit
                                     selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
                                     false
                                 Result::Ok topology:
-                                    let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id
+                                    let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id
                                     let accepted %bool match checked:
                                         Result::Ok _: true
                                         Result::Err _e: false
@@ -811,13 +817,13 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_posit
                                     accepted
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop %impure fn i32 bool \fixture:
-    if ge fixture 5 true and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_case fixture selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop add fixture 1
+    if ge fixture 6 true and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_case fixture selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop add fixture 1
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop %impure fn i32 bool \mode:
-    if ge mode 20 true and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_case mode selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop add mode 1
+    if ge mode 21 true and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_case mode selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop add mode 1
 
 //: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix: nested Branch topologyのruntime matrix
 //:
 //: mode 0のBranch(Then Expr / Else Expr)と後続root Exprに加え、nonempty / empty Loop、0-arm / multiple dense-arm Match、Branch / Loop / Matchの相互nestを実validatorで受理します。negative modeはnode/scope/edge gap、role欠落/重複、wrong parent、cross-block、two-parent、cycle形状、subtree不足/過剰、range overflow、kind/span count、sibling、orphan、node / block identity、root role、block範囲外rootを拒否します。
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix %impure fn void bool \void:
-    and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop 0
+    and and and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_negative_case 21 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_negative_case 22
