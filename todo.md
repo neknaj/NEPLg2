@@ -8,7 +8,7 @@
 
 2026-07-13 selfhost Resource recursive control payload
 
-- constructor namespace seed + 1 sourceを内部lex/parseし、source/tokens、dense definitions、span-only ordered variantsを所有するone-shot module session境界は実装済み。次はsame-session ownerから`ResolvedEnumMemberId`をchecker / TypeArena / checked tree / HIR / Resourceへ接続し、qualified / alias source spellingと解決済みdeclaration member identityを分離・正規化する。続いてreference-to-enumのDeref projectionとcross-session canonical type keyを接続し、その後actual `ResourceFunction`からtopology / kind / span / sparse payload ownerを同時生成するco-production authorityとproduction originを接続する
+- constructor namespace seed + 1 sourceを内部lex/parseし、source/tokens、dense definitions、span-only ordered variantsを所有するone-shot module sessionと、same-session definition rangeだけから`ResolvedEnumMemberId { nominal_id, variant_ordinal }`を発行するproducer境界は実装済み。次はcheckerでqualified / alias source spellingをscrutineeのresolved nominal ownerへ解決し、このidentityをTypeArena / checked tree / HIR / Resourceへ輸送する。続いてreference-to-enumのDeref projectionとcross-session canonical type keyを接続し、その後actual `ResourceFunction`からtopology / kind / span / sparse payload ownerを同時生成するco-production authorityとproduction originを接続する
 
 2026-06-01 GUI/TUI standard library
 

@@ -3770,7 +3770,9 @@ public producerはconstructor namespace seedと1 sourceだけを一度受け、�
 
 item spanとheader spanの一致、keyword/headの同一file・header内包含・token隣接、全generic tokenのheader内・同一file・単調spanとactual末尾colon、keyword indexから再計算したbody envelope / first expressionの完全一致を検査する。generic boundsはshallow surface段階では`GenericBoundsUnsupported`、variant payloadはRust enum surfaceに合わせて`%`または`<`導入だけを許可し、それ以外は`InvalidPayloadIntroducer`で閉じる。variant名の重複はspan同士のsource byte比較で検出する。variant UTF-8/span不正の`VariantSpanUnavailable`、宣言名境界不正の`DeclarationNameUnavailable`、検査後name copy失敗の`OutOfMemory`を区別する。definitionのdeclaration spanはitem/header全体、constructor診断spanはname tokenだけを保持する。
 
-このsessionはactual parser declarationからsame-session nominal surfaceを生成する最初のproducer boundaryであるが、TypeArena投影、import/alias解決、`ResolvedEnumMemberId { nominal_id, variant_ordinal }`、checked tree/HIR Match、Resource enum membership sidecar、reference-to-enum Deref、cross-session stable keyへはまだ接続しない。Rust HIR/Resourceが現在もvariant source spellingをStringで保持するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行せず、次段ではこのownerを唯一の入力としてchecker-resolved member identityを生成する。
+このsessionはactual parser declarationからsame-session nominal surfaceを生成する最初のproducer boundaryである。`SelfhostResolvedEnumMemberId { nominal_id, variant_ordinal }`はdefinition indexとdefinition-local ordinalを受け、definition rangeとordered variant tableの両方にmembershipがある場合だけ、このsessionから発行する。identity生成はsource spelling、qualified name、alias、global variant indexを参照しないため、後段が別enumの同名variantや別sessionで偶然同じ数値になったIDからmember identityを捏造できない。
+
+ただし、spellingをscrutineeのresolved nominal ownerへ解決するchecker、TypeArena投影、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行せず、次段ではcheckerがqualified / alias spellingをこのsessionのmember identityへ一度だけ正規化する。
 
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 

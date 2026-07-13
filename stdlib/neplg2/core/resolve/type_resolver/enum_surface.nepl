@@ -416,6 +416,30 @@ impl Copy for SelfhostResolvedEnumVariantHeader:
     fn copy_mark %fn SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumVariantHeader \self:
         self
 
+//: SelfhostResolvedEnumMemberId: 解決済み enum member の session-local identity
+//:
+//: [目的/もくてき]: source spelling ではなく、nominal enum identity と declaration-local variant ordinal の組で member を識別します。
+//: [契約/けいやく]: 値は `selfhost_resolved_enum_session_member_id` だけから作り、別 session の nominal ID や global variant index と組み替えてはいけません。
+//: [計算量/けいさんりょう]: copy は O(1) です。
+//: [authority boundary]: same-session definition range と ordered variant table membership が authority です。
+//: [owner boundary]: Copy record であり、source、token、variant buffer は session が所有します。
+//: [type boundary]: `variant_ordinal` は enum definition 内の0始まりordinalです。source spelling、global variant index、artifact stable keyではありません。
+pub struct SelfhostResolvedEnumMemberId:
+    nominal_id %SelfhostNamedTypeId
+    variant_ordinal %i32
+
+impl Clone for SelfhostResolvedEnumMemberId:
+    //: clone: 解決済み enum member identity を複製する
+    //: [契約/けいやく]: nominal identity と ordinal を変更せず返します。計算量は O(1) です。
+    fn clone %fn &SelfhostResolvedEnumMemberId SelfhostResolvedEnumMemberId \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumMemberId:
+    //: copy_mark: enum member identity の Copy 境界を定義する
+    //: [契約/けいやく]: session owner を移動せず値を返します。計算量は O(1) です。
+    fn copy_mark %fn SelfhostResolvedEnumMemberId SelfhostResolvedEnumMemberId \self:
+        self
+
 //: SelfhostResolvedEnumDefinition: session 内の dense enum definition record
 //:
 //: [目的/もくてき]: nominal ID、declaration span、ordered variant table 上の range を結びます。
@@ -1245,6 +1269,37 @@ pub fn selfhost_resolved_enum_session_variant_len %fn &SelfhostResolvedEnumSessi
 pub fn selfhost_resolved_enum_session_variant_get %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostResolvedEnumVariantHeader \session\idx:
     let variants %&Vec SelfhostResolvedEnumVariantHeader field::get_ref session "variants"
     v::get variants idx
+
+//: selfhost_resolved_enum_session_member_id: definition-local ordinal を解決済み member identity にする
+//:
+//: [目的/もくてき]: checker以降へ渡すenum member identityをsame-session ownerから発行し、qualified名やalias spellingからidentityを再構成しないようにします。
+//: [契約/けいやく]: definition indexとordinalの両方が有効で、対応するglobal variant entryが同じsessionに存在するときだけSomeを返します。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: definitionのnominal ID、variant_start、variant_countとsession-owned ordered variant tableだけを参照します。
+//: [owner boundary]: sessionをborrowし、Copy identityを返します。
+//: [type boundary]: ordinalはdefinition-localです。global index、source span、canonical spellingをpayloadへ混ぜません。
+//: [error boundary]: 範囲外definition、負または範囲外ordinal、破損したdefinition rangeはNoneとしてfail closedに扱います。
+pub fn selfhost_resolved_enum_session_member_id %fn &SelfhostResolvedEnumSession fn i32 fn i32 Option SelfhostResolvedEnumMemberId \session\definition_idx\variant_ordinal:
+    match selfhost_resolved_enum_session_definition_get session definition_idx:
+        Option::Some definition:
+            if:
+                or lt variant_ordinal 0 ge variant_ordinal definition.variant_count
+                then:
+                    none
+                else:
+                    let global_idx %i32 add definition.variant_start variant_ordinal
+                    if:
+                        or lt global_idx definition.variant_start lt global_idx 0
+                        then:
+                            none
+                        else:
+                            match selfhost_resolved_enum_session_variant_get session global_idx:
+                                Option::Some _variant:
+                                    some SelfhostResolvedEnumMemberId definition.nominal_id variant_ordinal
+                                Option::None:
+                                    none
+        Option::None:
+            none
 
 //: selfhost_resolved_enum_session_constructor_kind: definitionのsame-session constructor kindを読む
 //:
