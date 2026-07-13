@@ -1,0 +1,154 @@
+#indent 4
+
+//: # check/expr/enum_member
+//: Match variantのtyped owner evidenceをscrutinee型へ結合し、解決済みmember identityを作るchecker connectorです。
+//:
+//: [契約/けいやく]: qualifier ownerはname/import resolverが解決済みの`Option<SelfhostNamedTypeId>`だけを受け、raw qualifier spellingを解釈しません。scrutineeは同じTypeArenaのNamed / Appliedだけを許します。
+//: [authority boundary]: qualifierがある場合はscrutinee base nominalと一致した後だけenum session lookupへ進みます。成功payloadからsource spellingを再構成してはいけません。
+//: [未接続/みせつぞく]: qualifier spellingからtyped ownerを作るresolver、Reference Deref、checked Match tree / HIR / Resource輸送は後続sliceです。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/expr/enum_member" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/infra/text" as *
+//:| #import "neplg2/core/resolve/type_resolver" as *
+//:| #import "neplg2/core/ty/ty" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_type_constructor_table_new:
+//:         Result::Ok constructors:
+//:             match selfhost_resolved_enum_module_session_materialize_result constructors "enum Result<.T>:\n    Ok %.T\n    Err %str\n\nenum Other:\n    Ok\n":
+//:                 Result::Ok session:
+//:                     match selfhost_resolved_enum_session_definition_get &session 0:
+//:                         Option::Some result_definition:
+//:                             match selfhost_resolved_enum_session_definition_get &session 1:
+//:                                 Option::Some other_definition:
+//:                                     match selfhost_type_arena_new:
+//:                                         Result::Ok arena0:
+//:                                             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+//:                                                 Result::Ok primitive_alloc:
+//:                                                     let primitive_ty %SelfhostTypeId selfhost_type_arena_alloc_type_id &primitive_alloc
+//:                                                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena primitive_alloc
+//:                                                     match selfhost_type_arena_add_named arena1 result_definition.nominal_id:
+//:                                                         Result::Ok named_alloc:
+//:                                                             let named_ty %SelfhostTypeId selfhost_type_arena_alloc_type_id &named_alloc
+//:                                                             let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena named_alloc
+//:                                                             let args0 %Vec SelfhostTypeId unwrap_ok v::new
+//:                                                             let args1 %Vec SelfhostTypeId unwrap_ok v::push args0 named_ty
+//:                                                             match selfhost_type_arena_add_applied_named arena2 result_definition.nominal_id args1:
+//:                                                                 Result::Ok applied_alloc:
+//:                                                                     let applied_ty %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+//:                                                                     let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+//:                                                                     match source_text_new 7 "use.nepl" "Ok":
+//:                                                                         Result::Ok query:
+//:                                                                             let span %SelfhostSourceSpan source_span_new_unchecked 7 0 2
+//:                                                                             let named_ok %bool match selfhost_check_enum_member_resolve_result &arena named_ty none &session &query span: Result::Ok checked: eq checked.member_id.variant_ordinal 0 Result::Err _e: false
+//:                                                                             let applied_ok %bool match selfhost_check_enum_member_resolve_result &arena applied_ty some result_definition.nominal_id &session &query span: Result::Ok checked: eq checked.member_id.variant_ordinal 0 Result::Err _e: false
+//:                                                                             let mismatch %bool match selfhost_check_enum_member_resolve_result &arena named_ty some other_definition.nominal_id &session &query span: Result::Err e: match e.kind: SelfhostCheckedEnumMemberErrorKind::OwnerMismatch: true _: false Result::Ok _checked: false
+//:                                                                             let primitive_rejected %bool match selfhost_check_enum_member_resolve_result &arena primitive_ty none &session &query span: Result::Err e: match e.kind: SelfhostCheckedEnumMemberErrorKind::ScrutineeNotNominal: true _: false Result::Ok _checked: false
+//:                                                                             let missing_rejected %bool match selfhost_check_enum_member_resolve_result &arena selfhost_type_id_new 99 none &session &query span: Result::Err e: match e.kind: SelfhostCheckedEnumMemberErrorKind::ScrutineeTypeMissing: true _: false Result::Ok _checked: false
+//:                                                                             source_text_free query
+//:                                                                             selfhost_type_arena_free arena
+//:                                                                             selfhost_resolved_enum_session_free session
+//:                                                                             if and and and and named_ok applied_ok mismatch primitive_rejected missing_rejected 0 1
+//:                                                                         Result::Err _e:
+//:                                                                             selfhost_type_arena_free arena
+//:                                                                             selfhost_resolved_enum_session_free session
+//:                                                                             1
+//:                                                                 Result::Err _e:
+//:                                                                     selfhost_resolved_enum_session_free session
+//:                                                                     1
+//:                                                         Result::Err _e:
+//:                                                             selfhost_resolved_enum_session_free session
+//:                                                             1
+//:                                                 Result::Err _e:
+//:                                                     selfhost_resolved_enum_session_free session
+//:                                                     1
+//:                                         Result::Err _e:
+//:                                             selfhost_resolved_enum_session_free session
+//:                                             1
+//:                                 Option::None:
+//:                                     selfhost_resolved_enum_session_free session
+//:                                     1
+//:                         Option::None:
+//:                             selfhost_resolved_enum_session_free session
+//:                             1
+//:                 Result::Err _e:
+//:                     1
+//:         Result::Err _e:
+//:             1
+//: ```
+
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/text" as *
+#import "neplg2/core/resolve/type_resolver/enum_surface" as *
+#import "neplg2/core/ty/ty" as *
+
+pub struct SelfhostCheckedEnumMember:
+    scrutinee_type %SelfhostTypeId
+    member_id %SelfhostResolvedEnumMemberId
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCheckedEnumMember:
+    fn clone %fn &SelfhostCheckedEnumMember SelfhostCheckedEnumMember \self: *self
+
+impl Copy for SelfhostCheckedEnumMember:
+    fn copy_mark %fn SelfhostCheckedEnumMember SelfhostCheckedEnumMember \self: self
+
+pub enum SelfhostCheckedEnumMemberErrorKind:
+    ScrutineeTypeMissing
+    ScrutineeNotNominal
+    OwnerMismatch
+    Lookup %SelfhostResolvedEnumMemberLookupErrorKind
+
+impl Clone for SelfhostCheckedEnumMemberErrorKind:
+    fn clone %fn &SelfhostCheckedEnumMemberErrorKind SelfhostCheckedEnumMemberErrorKind \self: *self
+
+impl Copy for SelfhostCheckedEnumMemberErrorKind:
+    fn copy_mark %fn SelfhostCheckedEnumMemberErrorKind SelfhostCheckedEnumMemberErrorKind \self: self
+
+pub struct SelfhostCheckedEnumMemberError:
+    kind %SelfhostCheckedEnumMemberErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCheckedEnumMemberError:
+    fn clone %fn &SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberError \self: *self
+
+impl Copy for SelfhostCheckedEnumMemberError:
+    fn copy_mark %fn SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberError \self: self
+
+//: selfhost_check_enum_member_resolve_result: scrutinee nominalとqualifier ownerを照合してmember identityを確定する
+//: [契約/けいやく]: qualifier Noneはunqualified pattern、Someはresolver済みownerです。Someがscrutinee base nominalと異なる場合はlookup前にOwnerMismatchを返します。
+//: [計算量/けいさんりょう]: arena projectionはO(1)、member lookupはenum definition / variant数に比例します。
+pub fn selfhost_check_enum_member_resolve_result %fn &SelfhostTypeArena fn SelfhostTypeId fn Option SelfhostNamedTypeId fn &SelfhostResolvedEnumSession fn &SelfhostSourceText fn SelfhostSourceSpan Result SelfhostCheckedEnumMember SelfhostCheckedEnumMemberError \arena\scrutinee_type\qualifier_owner\session\query_text\query_span:
+    match selfhost_type_arena_get_record arena scrutinee_type:
+        Option::Some record:
+            let scrutinee_nominal_result %Result SelfhostNamedTypeId SelfhostCheckedEnumMemberError match record:
+                SelfhostTypeRecord::Named named: Result::Ok selfhost_named_type_record_id named
+                SelfhostTypeRecord::Applied applied: Result::Ok selfhost_applied_type_record_id applied
+                _: Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::ScrutineeNotNominal query_span
+            match scrutinee_nominal_result:
+                Result::Ok scrutinee_nominal:
+                    let owner_matches %bool match qualifier_owner: Option::Some qualifier_nominal: selfhost_named_type_id_eq qualifier_nominal scrutinee_nominal Option::None: true
+                    if:
+                        not owner_matches
+                        then:
+                            Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::OwnerMismatch query_span
+                        else:
+                            match selfhost_resolved_enum_session_member_lookup_result session scrutinee_nominal query_text query_span:
+                                Result::Ok member_id:
+                                    Result::Ok SelfhostCheckedEnumMember scrutinee_type member_id query_span
+                                Result::Err e:
+                                    Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::Lookup e.kind e.span
+                Result::Err e:
+                    Result::Err e
+        Option::None:
+            Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::ScrutineeTypeMissing query_span

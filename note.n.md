@@ -84017,3 +84017,8 @@ MERGE_APPROVED
 - queryはraw `str`ではなく`SelfhostSourceText` ownerとspanを受け、file ID、非空range、source byte長、UTF-8両境界をexact検査する。宣言spanもsession sourceとdefinition fileへ個別に結合し、異なるfile IDのsource間でallocation/clampなしのbyte比較を行う。
 - 実行testは別file sourceのfirst/last lookup、同名variantを持つ別enumのowner限定、unknown member、wrong owner、query file mismatch、end超過、UTF-8 continuation、nominal不在を検査する。qualified / alias prefixのtyped nominal解決、scrutinee TypeArena照合、checked tree / HIR / Resource輸送、Deref、cross-session stable keyは未接続で、セルフホストコンパイラ全体は未完成。`plan.md`は変更していない。
 - enum surface contract、focused doctest 1/1、source-policy回帰、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は最終差分で通過した。stdlib documentation `2790 > 2756`はmain既存baseline debtで、このsliceの対象外である。
+## 2026-07-14 selfhost enum member checker owner connector
+
+- TypeArenaにNamed / Applied共通のbase nominal projectionを追加し、checker connectorがscrutinee TypeId membershipを再確認してresolver済みqualifier ownerをmember lookup前に比較するようにした。不一致は`OwnerMismatch`、missing TypeIdとprimitive等のnonnominalは別typed errorで拒否する。
+- connector成功payloadはscrutinee TypeId、`SelfhostResolvedEnumMemberId`、diagnostic spanだけを保持し、raw qualifier/member spellingをsemantic authorityへ戻さない。Named、Applied、unqualified、matching qualifier、wrong owner、primitive、missing TypeIdを実行doctestで検査する。
+- Rust現行Match checkerはqualifier prefixを捨ててtailだけを検索するため`WrongEnum::Ok`を受理し得る。selfhostはこれを先行修正するが、Rust側へのowner検査反映、qualified / alias resolver evidence、TypeArenaとenum sessionの共通origin witness、checked Match tree / HIR / Resource輸送、Deref、stable keyは未接続である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。

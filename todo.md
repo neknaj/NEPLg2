@@ -8,7 +8,7 @@
 
 2026-07-13 selfhost Resource recursive control payload
 
-- one-shot enum module session、same-session `ResolvedEnumMemberId` producer、resolved nominal owner + `SelfhostSourceText` member-tail spanからidentityへ正規化するcross-source lookup境界は実装済み。次はqualified / alias prefixをtyped nominal IDへ解決してscrutineeのNamed / Applied base nominalと一致させるchecker connectorを追加し、このidentityをchecked tree / HIR / Resourceへ輸送する。続いてreference-to-enumのDeref projectionとcross-session canonical type keyを接続し、その後actual `ResourceFunction`からtopology / kind / span / sparse payload ownerを同時生成するco-production authorityとproduction originを接続する
+- enum session、`ResolvedEnumMemberId` producer、cross-source lookup、Named / Applied scrutinee nominalとresolver済みqualifier ownerをlookup前に照合するchecker connectorは実装済み。次はqualified / alias prefixからtyped nominal ownerを作るresolver evidenceと同一checker-session origin witnessを接続し、checked Match tree / HIR / Resourceへidentityを輸送する。続いてreference-to-enumのDeref projectionとcross-session canonical type keyを接続し、その後actual `ResourceFunction`からtopology / kind / span / sparse payload ownerを同時生成するco-production authorityとproduction originを接続する
 
 2026-06-01 GUI/TUI standard library
 
