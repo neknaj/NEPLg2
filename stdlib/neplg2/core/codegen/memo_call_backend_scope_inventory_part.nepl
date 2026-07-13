@@ -406,6 +406,61 @@ struct SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgRecord:
 struct SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory:
     records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgRecord
 
+//: IndirectCallだけを持つsparse header owner
+struct SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    callee %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    param_start %i32
+    param_count %i32
+    result_ty %SelfhostTypeId
+    arg_start %i32
+    arg_count %i32
+    operation_effect %SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectKind
+struct SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord
+
+//: IndirectCall paramsをsource orderで持つdense owner
+struct SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    param_ordinal %i32
+    ty %SelfhostTypeId
+struct SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord
+
+//: IndirectCall argsをsource orderで持つdense owner
+struct SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    arg_ordinal %i32
+    place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+struct SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord \self:
+        *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord \self:
+        self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord \self:
+        *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord \self:
+        self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord \self:
+        *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord \self:
+        self
+
 impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget \self:
         *self
@@ -1441,6 +1496,32 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     CallTraitIdMissing %i32
     CallTraitMethodMissing %i32
     CallTraitSelfTypeMissing %i32
+    IndirectCallPayloadTableAllocFailed %StdErrorKind
+    IndirectCallPayloadPushFailed %StdErrorKind
+    IndirectCallParamTableAllocFailed %StdErrorKind
+    IndirectCallParamPushFailed %StdErrorKind
+    IndirectCallArgTableAllocFailed %StdErrorKind
+    IndirectCallArgPushFailed %StdErrorKind
+    IndirectCallPayloadIdentityMismatch %i32
+    IndirectCallPayloadOrdinalMismatch %i32
+    IndirectCallPayloadMissing %i32
+    IndirectCallPayloadUnexpected %i32
+    IndirectCallOutputMissing %i32
+    IndirectCallOutputGraphMismatch %i32
+    IndirectCallCalleeMissing %i32
+    IndirectCallCalleeGraphMismatch %i32
+    IndirectCallParamRangeInvalid %i32
+    IndirectCallParamUnexpected %i32
+    IndirectCallParamIdentityMismatch %i32
+    IndirectCallParamOrdinalMismatch %i32
+    IndirectCallParamTypeMissing %i32
+    IndirectCallResultTypeMissing %i32
+    IndirectCallArgRangeInvalid %i32
+    IndirectCallArgUnexpected %i32
+    IndirectCallArgIdentityMismatch %i32
+    IndirectCallArgOrdinalMismatch %i32
+    IndirectCallArgPlaceMissing %i32
+    IndirectCallArgPlaceGraphMismatch %i32
     ExprPayloadTableAllocFailed %StdErrorKind
     ExprPayloadPushFailed %StdErrorKind
     ExprPayloadIdentityMismatch %i32
@@ -5767,6 +5848,136 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_call_type_arg_inventory_
 fn selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member %fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostResourceIrVariantStableSymbol bool \symbols\symbol:
     selfhost_memo_call_backend_private_cache_resource_ir_function_value_symbol_member symbols symbol
 
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory unit \inventory:
+    v::free field::get inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory unit \inventory:
+    v::free field::get inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory unit \inventory:
+    v::free field::get inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_place_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 fn bool Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\place\ordinal\output:
+    if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id:
+        if output Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallOutputGraphMismatch ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallCalleeGraphMismatch ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key place 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+        Result::Err e: Result::Err e
+        Result::Ok present:
+            if present Result::Ok unit else if output Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallOutputMissing ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallCalleeMissing ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_params_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn &SelfhostTypeArena fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \params\types\key\graph_id\operation_ordinal\start\cursor\end:
+    if eq cursor end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_get params cursor:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamUnexpected cursor
+        Option::Some param:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq param.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq param.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamIdentityMismatch cursor
+            else if or not eq param.operation_ordinal operation_ordinal not eq param.param_ordinal sub cursor start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamOrdinalMismatch cursor
+            else match selfhost_type_arena_get_record types param.ty:
+                Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamTypeMissing cursor
+                Option::Some _ty: selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_params_validate_loop params types key graph_id operation_ordinal start add cursor 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_args_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \args\places\key\graph_id\operation_ordinal\start\cursor\end:
+    if eq cursor end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_get args cursor:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgUnexpected cursor
+        Option::Some arg:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq arg.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq arg.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgIdentityMismatch cursor
+            else if or not eq arg.operation_ordinal operation_ordinal not eq arg.arg_ordinal sub cursor start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgOrdinalMismatch cursor
+            else if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq arg.place.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgPlaceGraphMismatch cursor
+            else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key arg.place 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+                Result::Err e: Result::Err e
+                Result::Ok present:
+                    if present selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_args_validate_loop args places key graph_id operation_ordinal start add cursor 1 end else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgPlaceMissing cursor
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payload\params\args\places\symbols\types\key\graph_id:
+    let ordinal %i32 payload.operation_ordinal
+    let param_end %i32 add payload.param_start payload.param_count
+    let arg_end %i32 add payload.arg_start payload.arg_count
+    if or lt payload.param_start 0 or lt payload.param_count 0 or lt param_end payload.param_start gt param_end selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_len params Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamRangeInvalid ordinal
+    else if or lt payload.arg_start 0 or lt payload.arg_count 0 or lt arg_end payload.arg_start gt arg_end selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_len args Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgRangeInvalid ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_place_validate_result places key graph_id payload.output ordinal true:
+        Result::Err e: Result::Err e
+        Result::Ok _output:
+            match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_place_validate_result places key graph_id payload.callee ordinal false:
+                Result::Err e: Result::Err e
+                Result::Ok _callee:
+                    match selfhost_type_arena_get_record types payload.result_ty:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallResultTypeMissing ordinal
+                        Option::Some _result:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_params_validate_loop params types key graph_id ordinal payload.param_start payload.param_start param_end:
+                                Result::Err e: Result::Err e
+                                Result::Ok _params:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_args_validate_loop args places key graph_id ordinal payload.arg_start payload.arg_start arg_end:
+                                        Result::Err e: Result::Err e
+                                        Result::Ok _args: selfhost_memo_call_backend_private_cache_resource_ir_call_effect_kind_validate_result payload.operation_effect symbols ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\params\args\kinds\places\symbols\types\key\graph_id\operation_idx\operation_count\payload_idx\payload_count\param_cursor\arg_cursor:
+    if eq operation_idx operation_count:
+        if not eq payload_idx payload_count Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadUnexpected payload_idx
+        else if not eq param_cursor selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_len params Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamUnexpected param_cursor
+        else if not eq arg_cursor selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_len args Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgUnexpected arg_cursor
+        else Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds operation_idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed operation_idx
+        Option::Some operation:
+            match operation.kind:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::IndirectCall:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_get payloads payload_idx:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadMissing operation_idx
+                        Option::Some payload:
+                            if or not selfhost_memo_call_backend_private_cache_proof_key_eq payload.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq payload.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadIdentityMismatch operation_idx
+                            else if not eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadOrdinalMismatch payload.operation_ordinal
+                            else if not eq payload.param_start param_cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamRangeInvalid operation_idx
+                            else if not eq payload.arg_start arg_cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgRangeInvalid operation_idx
+                            else match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_record_validate_result payload params args places symbols types key graph_id:
+                                Result::Err e: Result::Err e
+                                Result::Ok _valid: selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop payloads params args kinds places symbols types key graph_id add operation_idx 1 operation_count add payload_idx 1 payload_count add param_cursor payload.param_count add arg_cursor payload.arg_count
+                _: match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_get payloads payload_idx:
+                    Option::Some payload: if eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadUnexpected operation_idx selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop payloads params args kinds places symbols types key graph_id add operation_idx 1 operation_count payload_idx payload_count param_cursor arg_cursor
+                    Option::None: selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop payloads params args kinds places symbols types key graph_id add operation_idx 1 operation_count payload_idx payload_count param_cursor arg_cursor
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_call_place_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 fn bool Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\place\ordinal\output:
     if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id:
         if output Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::CallOutputGraphMismatch ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::CallArgPlaceGraphMismatch ordinal
@@ -6040,6 +6251,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_st
 //: Call payloadの3 target、zero/multiple/duplicate type args、projected Placeを実validatorで検査する非production matrix
 fn selfhost_memo_call_backend_private_cache_resource_ir_call_payload_stage0 %impure fn void bool \void:
     and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 0 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 1 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 2 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 3 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 4 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 5 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 6 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 7 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 8 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 9 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 10 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 11 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 12 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 13 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 14 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 15 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 16 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 17 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 18 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 19 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 20 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 21 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 22 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 23 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 24 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 25 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 26 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 27 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 28 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 29 and selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 30 selfhost_memo_call_backend_private_cache_resource_ir_call_payload_positive_stage0_case 31
+
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValuePayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
     match v::new:
@@ -6642,7 +6854,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_op
 //: - Rust `ResourceFunction.blocks`順でblock、各`ops` range、各blockのterminator 1件を全検査します。
 //: - operation tableも同じkey / graphとdense ordinalを持ち、inventoryのoperation総数と一致する場合だけ`ResourceIrInventoryValidated`を発行します。
 //: - inventoryとoperation ownerはまだactual lowering materializerによるco-production authorityを持たないため、`ResourceIrEnumerated`を発行しません。
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrAssignPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMovePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValuePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\symbols\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads\read_payloads\assign_payloads\borrow_payloads\move_payloads\drop_payloads\end_scope_payloads\end_scope_locals\function_value_payloads\function_value_args\call_effect_payloads\call_payloads\call_args\call_type_args\collection_storage_relocate_payloads\collection_slot_drop_traversal_payloads\collection_slot_transform_range_payloads\raw_address_alias_payloads\raw_address_view_payloads\storage_origin_payloads\collection_slot_lifecycle_payloads\raw_memory_payloads\raw_memory_args:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrAssignPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMovePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValuePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\symbols\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads\read_payloads\assign_payloads\borrow_payloads\move_payloads\drop_payloads\end_scope_payloads\end_scope_locals\function_value_payloads\function_value_args\call_effect_payloads\call_payloads\call_args\call_type_args\indirect_call_payloads\indirect_call_params\indirect_call_args\collection_storage_relocate_payloads\collection_slot_drop_traversal_payloads\collection_slot_transform_range_payloads\raw_address_alias_payloads\raw_address_view_payloads\storage_origin_payloads\collection_slot_lifecycle_payloads\raw_memory_payloads\raw_memory_args:
     let entry_block_id %i32 *field::get_ref inventory "entry_block_id"
     let result_ty %SelfhostTypeId *field::get_ref inventory "result_ty"
     let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect *field::get_ref inventory "effect"
@@ -6736,7 +6948,11 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authorit
                                                                                                                                                         let call_payload_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_call_payload_inventory_len call_payloads
                                                                                                                                                         match selfhost_memo_call_backend_private_cache_resource_ir_call_payload_inventory_validate_loop call_payloads call_args call_type_args operation_kinds places symbols types key graph_id 0 operation_count 0 call_payload_count 0 0:
                                                                                                                                                             Result::Err e: Result::Err e
-                                                                                                                                                            Result::Ok _call_payloads_valid: selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args places types
+                                                                                                                                                            Result::Ok _call_payloads_valid:
+                                                                                                                                                                let indirect_call_payload_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_len indirect_call_payloads
+                                                                                                                                                                match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop indirect_call_payloads indirect_call_params indirect_call_args operation_kinds places symbols types key graph_id 0 operation_count 0 indirect_call_payload_count 0 0:
+                                                                                                                                                                    Result::Err e: Result::Err e
+                                                                                                                                                                    Result::Ok _indirect_call_payloads_valid: selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args places types
                                                                                     Result::Err e:
                                                                                         Result::Err e
                                                                         Result::Err e:
@@ -6756,7 +6972,22 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
                     let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_call_type_arg_inventory_new:
                         Result::Err e: Result::Err e
                         Result::Ok call_type_args:
-                            let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections symbols types operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals function_value_payloads function_value_args call_effect_payloads &call_payloads &call_args &call_type_args collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                            let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_new:
+                                Result::Err e: Result::Err e
+                                Result::Ok indirect_call_payloads:
+                                    let params_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_new:
+                                        Result::Err e: Result::Err e
+                                        Result::Ok indirect_call_params:
+                                            let args_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_new:
+                                                Result::Err e: Result::Err e
+                                                Result::Ok indirect_call_args:
+                                                    let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections symbols types operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals function_value_payloads function_value_args call_effect_payloads &call_payloads &call_args &call_type_args &indirect_call_payloads &indirect_call_params &indirect_call_args collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_free indirect_call_args
+                                                    value
+                                            selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_free indirect_call_params
+                                            args_result
+                                    selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free indirect_call_payloads
+                                    params_result
                             selfhost_memo_call_backend_private_cache_resource_ir_call_type_arg_inventory_free call_type_args
                             checked
                     selfhost_memo_call_backend_private_cache_resource_ir_call_arg_inventory_free call_args

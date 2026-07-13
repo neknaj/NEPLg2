@@ -83901,3 +83901,12 @@ MERGE_APPROVED
 - `ResourceCallTarget::Builtin / User / Trait`をvariant-nativeに保持し、builtin / user / trait application / trait methodのcanonical symbol roleを混同させない。Trait self TypeIdとUser / Trait type argsはborrowed TypeArena、output / argsはsame-graph Place inventoryに結合する。
 - sparse / dense ownerのmissing / unexpected、identity / ordinal、range overflow / gap / excess、canonical symbol、TypeArena / Place membershipをfield固有typed errorで検査する。Rust `Vec`と同じく0件と重複argument / type argumentは許容するが、Builtin targetにtype-argument endpointを混入する場合は拒否する。
 - このnonproduction ownerはdirect-call resolution、trait dispatch、signature / effect semantics、actual loweringとowner tableのco-productionを証明しない。`ResourceIrInventoryValidated`をproduction originへ昇格せず、残るResource operation payloadはIndirectCall / Construct / Branch / Loop / Matchの5件である。`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource IndirectCall payload
+
+- Rust `ResourceOp::IndirectCall { output, callee, params, result, args, effect, span }`をkind tag 11専用のprivate sparse header、source-order parameter TypeId owner、source-order argument Place ownerへ投影した。
+- output / callee / argsはsame-graph Place inventory、params / resultはborrowed TypeArenaへ結合する。sparse / dense ownerのmissing / unexpected、identity / ordinal、range overflow / gap / excess、各Place / TypeId membership、closed `EffectOp`をfield固有typed errorへ拒否する。
+- runtime matrixはzero / multiple / duplicate paramsとargs、projected Place、同一output / calleeをpositiveとして実validatorへ通し、start gap、checked-add overflow、負countを含む各negative taxonomyもexact ordinalで固定する。fixtureが所有するTypeArenaは全failure / success pathで依存ownerの後に解放する。
+- runtime matrixのfixture責務をinventory model / validatorから分けるため、専用private merged source partへ置いた。anchor以外からの参照とpublic declaration / importはsource contractで禁止する。
+- reviewで、parameter endpoint push失敗時に未使用argument/header owner、argument endpoint push失敗時に未使用header ownerが残る経路を修正した。push helperが消費済みのfailing Vecは再解放せず、残存ownerだけを逆順に閉じてからTypeArenaを最後に解放する。
+- このownerはfunction-value alias resolution、callback signature / effect semantics、actual loweringとowner tableのco-productionを証明しない。`ResourceIrInventoryValidated`をproduction originへ昇格せず、残るResource operation payloadはConstruct / Branch / Loop / Matchの4件である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。

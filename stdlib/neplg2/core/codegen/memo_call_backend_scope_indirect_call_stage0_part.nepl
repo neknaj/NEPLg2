@@ -1,0 +1,187 @@
+//: memo_call backend private-cache IndirectCall stage0 source part
+//:
+//: IndirectCall ownerの実validator matrixをinventory modelと同じlogical moduleへprivate mergeします。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty" as *
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_error_matches %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind bool \mode\error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadMissing ordinal: and eq mode 1 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadUnexpected ordinal: or and eq mode 2 eq ordinal 0 and eq mode 6 eq ordinal 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadIdentityMismatch ordinal: and or eq mode 3 eq mode 4 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadOrdinalMismatch ordinal: and eq mode 5 eq ordinal 12
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamRangeInvalid ordinal: and or or or eq mode 7 eq mode 31 eq mode 33 eq mode 35 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamUnexpected ordinal: and eq mode 8 eq ordinal 2
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamIdentityMismatch ordinal: and or eq mode 9 eq mode 10 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamOrdinalMismatch ordinal: and or eq mode 11 eq mode 12 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallParamTypeMissing ordinal: and eq mode 13 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallResultTypeMissing ordinal: and eq mode 14 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgRangeInvalid ordinal: and or or or eq mode 15 eq mode 32 eq mode 34 eq mode 36 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgUnexpected ordinal: and eq mode 16 eq ordinal 2
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgIdentityMismatch ordinal: and or eq mode 17 eq mode 18 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgOrdinalMismatch ordinal: and or eq mode 19 eq mode 20 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgPlaceMissing ordinal: and eq mode 21 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallArgPlaceGraphMismatch ordinal: and eq mode 22 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallOutputMissing ordinal: and eq mode 23 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallOutputGraphMismatch ordinal: and eq mode 24 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallCalleeMissing ordinal: and eq mode 25 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallCalleeGraphMismatch ordinal: and eq mode 26 eq ordinal 11
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::CallEffectFunctionNameMissing ordinal: and eq mode 27 eq ordinal 11
+        _: false
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_with_types %impure fn i32 impure fn SelfhostTypeArena bool \mode\types:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let wrong_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78
+    let wrong_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 1
+    let kind_count %i32 if eq mode 2 1 12
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_stage0_result key graph_id kind_count:
+        Result::Err _e:
+            selfhost_type_arena_free types
+            false
+        Result::Ok kinds:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 1 selfhost_type_id_new 1:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                    selfhost_type_arena_free types
+                    false
+                Result::Ok places:
+                    match selfhost_resource_ir_canonical_symbol_table_new:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            selfhost_type_arena_free types
+                            false
+                        Result::Ok symbols:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_new:
+                                Result::Err _e:
+                                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_type_arena_free types
+                                    false
+                                Result::Ok payloads0:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_new:
+                                        Result::Err _e:
+                                            selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads0
+                                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            selfhost_type_arena_free types
+                                            false
+                                        Result::Ok params0:
+                                            match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_new:
+                                                Result::Err _e:
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_free params0
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads0
+                                                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                                    selfhost_type_arena_free types
+                                                    false
+                                                Result::Ok args0:
+                                                    let output_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 24 wrong_graph graph_id
+                                                    let output_index %i32 if eq mode 23 99 1
+                                                    let output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace output_graph selfhost_memo_call_backend_private_cache_resource_place_id_new output_index
+                                                    let callee_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 26 wrong_graph graph_id
+                                                    let callee_index %i32 if eq mode 25 99 if eq mode 30 output_index 0
+                                                    let callee %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace callee_graph selfhost_memo_call_backend_private_cache_resource_place_id_new callee_index
+                                                    let param_start %i32 if eq mode 31 1 if eq mode 33 2147483647 0
+                                                    let param_count %i32 if eq mode 35 sub 0 1 if or eq mode 0 eq mode 29 0 if eq mode 7 3 if eq mode 33 1 2
+                                                    let arg_start %i32 if eq mode 32 1 if eq mode 34 2147483647 0
+                                                    let arg_count %i32 if eq mode 36 sub 0 1 if eq mode 0 0 if eq mode 15 3 if eq mode 34 1 2
+                                                    let param_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 9 wrong_key key
+                                                    let param_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 10 wrong_graph graph_id
+                                                    let param_operation %i32 if eq mode 11 10 11
+                                                    let param_ordinal %i32 if eq mode 12 1 0
+                                                    let param_ty %SelfhostTypeId if eq mode 13 selfhost_type_id_new 99 selfhost_type_id_new 1
+                                                    let param0 %SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord param_key param_graph param_operation param_ordinal param_ty
+                                                    let param1 %SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord key graph_id 11 1 selfhost_type_id_new 1
+                                                    let params1_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq param_count 0 Result::Ok params0 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_push params0 param0
+                                                    let params2_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match params1_result:
+                                                        Result::Err e: Result::Err e
+                                                        Result::Ok params1: if eq param_count 0 Result::Ok params1 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_push params1 param1
+                                                    let params_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match params2_result:
+                                                        Result::Err e: Result::Err e
+                                                        Result::Ok params2: if eq mode 8 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_push params2 SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamRecord key graph_id 11 2 selfhost_type_id_new 1 Result::Ok params2
+                                                    let accepted %bool match params_result:
+                                                        Result::Err _e:
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_free args0
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads0
+                                                            false
+                                                        Result::Ok params:
+                                                            let arg_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 17 wrong_key key
+                                                            let arg_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 18 wrong_graph graph_id
+                                                            let arg_operation %i32 if eq mode 19 10 11
+                                                            let arg_ordinal %i32 if eq mode 20 1 0
+                                                            let arg_place_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 22 wrong_graph graph_id
+                                                            let arg_place_index %i32 if eq mode 21 99 0
+                                                            let arg_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace arg_place_graph selfhost_memo_call_backend_private_cache_resource_place_id_new arg_place_index
+                                                            let arg0 %SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord arg_key arg_graph arg_operation arg_ordinal arg_place
+                                                            let second_arg_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 28 arg_place output
+                                                            let arg1 %SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord key graph_id 11 1 second_arg_place
+                                                            let args1_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq arg_count 0 Result::Ok args0 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_push args0 arg0
+                                                            let args2_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match args1_result:
+                                                                Result::Err e: Result::Err e
+                                                                Result::Ok args1: if eq arg_count 0 Result::Ok args1 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_push args1 arg1
+                                                            let args_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match args2_result:
+                                                                Result::Err e: Result::Err e
+                                                                Result::Ok args2: if eq mode 16 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_push args2 SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord key graph_id 11 2 arg_place Result::Ok args2
+                                                            let checked %bool match args_result:
+                                                                Result::Err _e:
+                                                                    selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads0
+                                                                    false
+                                                                Result::Ok args:
+                                                                    let payload_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 3 wrong_key key
+                                                                    let payload_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 4 wrong_graph graph_id
+                                                                    let payload_ordinal %i32 if eq mode 5 12 if eq mode 2 0 11
+                                                                    let result_ty %SelfhostTypeId if eq mode 14 selfhost_type_id_new 99 selfhost_type_id_new 1
+                                                                    let effect %SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectKind if eq mode 27 SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectKind::UserCall SelfhostMemoCallBackendPrivateCacheResourceIrUserCallEffect SelfhostMemoCallBackendPrivateCacheResourceIrFunctionNameSymbol SelfhostResourceIrVariantStableSymbol 1 99 SelfhostMemoCallBackendPrivateCacheResourceIrCallSurfaceEffect::Pure SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectKind::Pure
+                                                                    let payload %SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadRecord payload_key payload_graph payload_ordinal output callee param_start param_count result_ty arg_start arg_count effect
+                                                                    let first_payloads %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 1 Result::Ok payloads0 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_push payloads0 payload
+                                                                    let all_payloads %Result SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match first_payloads:
+                                                                        Result::Err e: Result::Err e
+                                                                        Result::Ok payloads1: if eq mode 6 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_push payloads1 payload Result::Ok payloads1
+                                                                    let result %bool match all_payloads:
+                                                                        Result::Err _e: false
+                                                                        Result::Ok payloads:
+                                                                            let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if ge mode 33 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_record_validate_result payload &params &args &places &symbols &types key graph_id selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop &payloads &params &args &kinds &places &symbols &types key graph_id 0 kind_count 0 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_len &payloads 0 0
+                                                                            let validated %bool if or eq mode 0 and ge mode 28 le mode 30 match validation:
+                                                                                Result::Ok _unit: true
+                                                                                Result::Err _e: false
+                                                                            else match validation:
+                                                                                Result::Ok _unit: false
+                                                                                Result::Err e: selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_error_matches mode e
+                                                                            selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads
+                                                                            validated
+                                                                    selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_free args
+                                                                    result
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_free params
+                                                            checked
+                                                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                                    selfhost_type_arena_free types
+                                                    accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case %impure fn i32 bool \mode:
+    match selfhost_type_arena_new:
+        Result::Err _e: false
+        Result::Ok types0:
+            match selfhost_type_arena_add_type_parameter types0 selfhost_type_parameter_binding_new_unchecked 0 0:
+                Result::Err _e: false
+                Result::Ok allocated0:
+                    let types1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated0
+                    match selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32:
+                        Result::Err _e: false
+                        Result::Ok allocated1: selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_with_types mode selfhost_type_arena_alloc_into_arena allocated1
+
+//: IndirectCallのordered params/args、重複、projected Place、closed effectを実validatorで検査する非production matrix
+fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0 %impure fn void bool \void:
+    and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 0 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 1 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 2 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 3 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 4 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 5 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 6 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 7 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 8 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 9 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 10 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 11 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 12 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 13 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 14 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 15 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 16 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 17 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 18 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 19 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 20 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 21 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 22 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 23 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 24 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 25 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 26 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 27 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 28 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 29 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 30 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 31 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 32 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 33 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 34 and selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 35 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_case 36

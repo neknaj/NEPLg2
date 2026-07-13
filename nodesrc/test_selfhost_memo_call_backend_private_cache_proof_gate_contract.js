@@ -8,15 +8,22 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl";
 const inventoryPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_inventory_part.nepl";
+const indirectCallStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_indirect_call_stage0_part.nepl";
 const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
 const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartSource = fs.readFileSync(path.join(repoRoot, inventoryPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const indirectCallStage0PartSource = fs.readFileSync(path.join(repoRoot, indirectCallStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
-const source = anchorSource.replace(
+const indirectCallStage0PartMergeDirective = '#import "./memo_call_backend_scope_indirect_call_stage0_part" as @merge';
+const sourceWithInventory = anchorSource.replace(
     inventoryPartMergeDirective,
     `${inventoryPartMergeDirective}\n${inventoryPartSource}`,
+);
+const source = sourceWithInventory.replace(
+    indirectCallStage0PartMergeDirective,
+    `${indirectCallStage0PartMergeDirective}\n${indirectCallStage0PartSource}`,
 );
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
@@ -253,8 +260,31 @@ assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_ca
 const resourceScopeAuthority = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result");
 assert.match(resourceScopeAuthority, /&SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory[\s\S]*&SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory[\s\S]*&SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory/, "Resource scope authority must borrow all Call owners");
 assert.match(resourceScopeAuthority, /resource_ir_call_payload_inventory_validate_loop call_payloads call_args call_type_args/, "Resource scope authority must validate Call owners before issuing authority");
-assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), ["resource_ir_function_value_payload_stage0", "resource_ir_call_effect_payload_stage0", "resource_ir_call_payload_stage0"], "public Resource inventory runtime must execute FunctionValue, CallEffect, and Call conjunctions");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), ["resource_ir_function_value_payload_stage0", "resource_ir_call_effect_payload_stage0", "resource_ir_call_payload_stage0", "resource_ir_indirect_call_payload_stage0"], "public Resource inventory runtime must execute FunctionValue, CallEffect, Call, and IndirectCall conjunctions");
 assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_empty_call_owners_result"), ["resource_ir_call_payload_inventory_new", "resource_ir_call_arg_inventory_new", "resource_ir_call_type_arg_inventory_new", "resource_ir_inventory_scope_authority_result", "resource_ir_call_type_arg_inventory_free call_type_args", "resource_ir_call_arg_inventory_free call_args", "resource_ir_call_payload_inventory_free call_payloads"], "Call owners must be closed in reverse construction order after scope validation");
+assert.match(rustResourceModel, /IndirectCall \{\s*output: Place,\s*callee: Place,\s*params: Vec<TypeId>,\s*result: TypeId,\s*args: Vec<Place>,\s*effect: EffectOp,\s*span: Span,\s*\}/, "Rust IndirectCall payload shape must remain lossless");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory",
+    "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_record_validate_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `IndirectCall contract must retain ${symbol}`);
+const indirectCallValidator = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_record_validate_result");
+assertOrdered(indirectCallValidator, ["IndirectCallParamRangeInvalid ordinal", "IndirectCallArgRangeInvalid ordinal", "indirect_call_place_validate_result places key graph_id payload.output ordinal true", "indirect_call_place_validate_result places key graph_id payload.callee ordinal false", "IndirectCallResultTypeMissing ordinal", "indirect_call_params_validate_loop", "indirect_call_args_validate_loop", "call_effect_kind_validate_result payload.operation_effect"], "IndirectCall header validation must retain output, callee, params, result, args, and effect checks");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop"), ["IndirectCallPayloadUnexpected payload_idx", "IndirectCallParamUnexpected param_cursor", "IndirectCallArgUnexpected arg_cursor", "IndirectCallPayloadMissing operation_idx", "IndirectCallPayloadIdentityMismatch operation_idx", "IndirectCallPayloadOrdinalMismatch payload.operation_ordinal", "not eq payload.param_start param_cursor", "not eq payload.arg_start arg_cursor", "indirect_call_record_validate_result"], "IndirectCall sparse and dense owners must reject gaps and excess");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_indirect_call_payload_stage0/, "public Resource inventory runtime must execute IndirectCall validation");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_empty_call_owners_result"), ["resource_ir_indirect_call_payload_inventory_new", "resource_ir_indirect_call_param_inventory_new", "resource_ir_indirect_call_arg_inventory_new", "resource_ir_inventory_scope_authority_result", "resource_ir_indirect_call_arg_inventory_free indirect_call_args", "resource_ir_indirect_call_param_inventory_free indirect_call_params", "resource_ir_indirect_call_payload_inventory_free indirect_call_payloads"], "IndirectCall owners must be closed in reverse construction order after scope validation");
+const indirectCallStage0WithTypes = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0_with_types");
+assert.ok((indirectCallStage0WithTypes.match(/selfhost_type_arena_free types/g) || []).length >= 7, "IndirectCall stage0 must close its TypeArena on every owned exit path");
+assert.match(indirectCallStage0WithTypes, /resource_ir_operation_kind_inventory_free kinds\s+selfhost_type_arena_free types\s+accepted/, "IndirectCall stage0 success cleanup must close TypeArena after dependent owners");
+assert.match(indirectCallStage0WithTypes, /match params_result:\s+Result::Err _e:\s+selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_free args0\s+selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads0\s+false/, "IndirectCall parameter push failure must close unused argument and header owners in reverse order");
+assert.match(indirectCallStage0WithTypes, /match args_result:\s+Result::Err _e:\s+selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_free payloads0\s+false/, "IndirectCall argument push failure must close the unused header owner");
+assert.match(indirectCallStage0WithTypes, /param_start %i32 if eq mode 31 1 if eq mode 33 2147483647 0/, "IndirectCall matrix must cover parameter start gaps and checked-add overflow");
+assert.match(indirectCallStage0WithTypes, /arg_start %i32 if eq mode 32 1 if eq mode 34 2147483647 0/, "IndirectCall matrix must cover argument start gaps and checked-add overflow");
+assert.match(indirectCallStage0WithTypes, /param_count %i32 if eq mode 35 sub 0 1/, "IndirectCall matrix must reject negative parameter counts");
+assert.match(indirectCallStage0WithTypes, /arg_count %i32 if eq mode 36 sub 0 1/, "IndirectCall matrix must reject negative argument counts");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0"), /indirect_call_payload_stage0_case 36/, "IndirectCall runtime conjunction must execute the complete range matrix");
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -349,15 +379,39 @@ assert.deepEqual(
     "private inventory source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
 );
 
+const indirectCallStage0PartReferences = listNeplFiles(path.join(repoRoot, "stdlib/neplg2"))
+    .flatMap((filePath) => {
+        const fileSource = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+        return fileSource.split("\n")
+            .filter((line) => line.includes("memo_call_backend_scope_indirect_call_stage0_part"))
+            .map((line) => ({ filePath: path.relative(repoRoot, filePath), line }));
+    });
+
+assert.deepEqual(
+    indirectCallStage0PartReferences,
+    [{ filePath: relPath, line: indirectCallStage0PartMergeDirective }],
+    "private IndirectCall stage0 source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
+);
+
 assert.match(
     anchorSource,
     /#import "\.\/memo_call_backend_scope_inventory_part" as @merge/,
     "proof-gate anchor must merge the private inventory source part into the same logical module",
 );
+assert.match(
+    anchorSource,
+    /#import "\.\/memo_call_backend_scope_indirect_call_stage0_part" as @merge/,
+    "proof-gate anchor must merge the private IndirectCall stage0 source part into the same logical module",
+);
 assert.doesNotMatch(
     inventoryPartSource,
     /^pub\s/m,
     "private inventory source part must not expose any public declaration or import",
+);
+assert.doesNotMatch(
+    indirectCallStage0PartSource,
+    /^pub\s/m,
+    "private IndirectCall stage0 source part must not expose any public declaration or import",
 );
 assert.doesNotMatch(
     anchorSource,
