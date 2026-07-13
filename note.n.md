@@ -1,3 +1,30 @@
+# 2026-07-13 Selfhost parser-derived enum nominal surface session
+
+## 方針
+
+- `plan.md`、selfhost設計、対象issue、todo、Rust enum登録とMatch検査、selfhost parser / constructor / TypeArena / Resource実装を再確認した。`plan.md`は変更していない。
+- 根本原因はselfhost ASTが`EnumDecl` bodyをtyped variant列にせず、constructor tableもtable-local nominal IDとarityだけを持つため、constructor kindや別tableの同一ordinalをmembership authorityにできないことだった。
+
+## 実装
+
+- public producerをconstructor namespace seed + 1 sourceのone-shot入口に絞り、内部lex / parse後に全AST itemをsource順に1回走査する。sessionはsource/tokensも所有し、返却後append APIを公開しないため別source/AST/item混在を構造的に閉じた。seedはstruct/import由来namespace prefixでありparser origin証明ではない。
+- item/header span一致、keyword/headの同一file・header内包含・token隣接、actual colonにboundedなgeneric列、keyword indexから再計算したbody envelope / first expressionの完全一致を検査する。非enum itemはsource順を保ったままskipし、enumのheader/body欠落、empty/malformed body、non-identifier / nested / duplicate variant、range/token不整合、constructor/allocation失敗をtyped errorに分け、失敗時にpartial ownerを残さない。
+- payload introducerを`%` / `<`に閉じ、その他を`InvalidPayloadIntroducer`、generic boundsを`GenericBoundsUnsupported`にした。variant span、declaration name boundary、name copy OOMを別taxonomyにし、definition全体spanとconstructor name診断spanも分離した。
+- TypeArena、import/alias解決、checker-resolved member identity、checked tree/HIR Match、Resource membership、reference Deref、cross-session stable key、production originは今回の範囲外であり、未完了として維持する。
+
+## reviewと検証
+
+- 初回差分reviewは複数definition sessionで先頭IDだけを返す曖昧API、任意payload introducer、definition/name span混同、UTF-8/OOM taxonomy、generic token origin、exact range test不足を指摘した。全体整合reviewは外部AST/token/itemをappendできるsessionではmodule completenessとsame-originを証明できないblockerを指摘した。public入口をseed + sourceだけのinternal lex/parse one-shot producerへ作り直し、session-bound spelling比較、non-enum skip、owned source/tokens、closed payload introducerを追加した後、両reviewともblocker / majorなしを確認した。
+- pass: `node nodesrc/test_selfhost_enum_surface_contract.js`、`node nodesrc/issues.js check`、`git diff --check`。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/resolve/type_resolver/enum_surface.nepl -o tmp/selfhost-enum-module-session-mixed-final.json -j 1`。JSONは1 passed / 0 failed / 0 erroredで、内部10 checkはmixed non-enum + 2 enum、no-enum、existing constructor ID、payload exact range、duplicate/nested/non-identifier/malformed generic/bounds/invalid payloadを含む。
+- pass: `NO_COLOR=false trunk build`。Linux環境ではrepository既定hookの`npm.cmd`だけが見つからないため、一時PATH上でsystem `npm`へのshimを使い、repoは変更していない。
+- pass: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground_editor_selfhost_enum_module_session.json`。JSONはcaseCount 13 / passedCount 13 / failedCount 0 / erroredCount 0。
+- baseline unchanged: `node nodesrc/run_source_policy_regressions.js`は今回のenum contractを含む前段をpass後、既存`test_stdlib_documentation_contract.js`の`declarationNoDoc 2790 > 2756`で停止した。pristine HEAD archiveも同一値で失敗する。`test_selfhost_documentation_contract.js`もcurrent/pristine HEAD双方で同一`moduleNoDoc 67 > 59`であり、今回差分による悪化ではない。新規`enum_surface.nepl`自身は全top-level declarationに日本語docを持つ。
+
+## 残件
+
+- same-session enum surface ownerだけから`ResolvedEnumMemberId { nominal_id, variant_ordinal }`を生成し、qualified / alias source spellingとは別payloadとしてchecked tree/HIR/Resourceへ保持する。
+
 # 2026-07-11 Agent2 GUI font rendering F5nxe registered indexed PointX population owner
 
 ## 方針とphase境界

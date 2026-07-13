@@ -3762,6 +3762,16 @@ Match Variant membershipの監査では、Place inventoryからscrutineeの`Self
 
 現Resource patternが運ぶqualified / aliasを含むsource spellingは、checkerが解決した宣言member identityそのものではない。actual producerは両者を分離し、Rust checkerと同様にmember tailを解決した結果をdeclaration member identityへ正規化してsidecarとpattern evidenceを同時生成する必要がある。またsession-localな`SelfhostNamedTypeId`を安全に使うには、TypeArena projection、constructor table、membership ownerが同一producer / originからco-produceされた証拠が必要である。reference-to-enumのMatchはRust loweringと同じくDeref projectionを経てenum nominal typeへ到達させる。これらのsame-session origin証拠、cross-session canonical type key、actual declaration producer、pattern exhaustivenessは未実装であり、production authorityへ昇格しない。
 
+### 2026-07-13 parser由来enum nominal surface session
+
+Rust実装はenum宣言のAST variant列を`TypeKind::Enum`、`EnumInfo`、constructorへ同じ宣言処理から登録する。一方、selfhostの`SelfhostModuleItem`は`EnumDecl` headerとbody token envelopeだけを持ち、`SelfhostTypeConstructorTable`は名前、table-local nominal ID、arityしか保持しない。このためconstructor kindや、別fixtureで偶然同じ数値になった`SelfhostNamedTypeId`をenum membership authorityとして扱わない。
+
+public producerはconstructor namespace seedと1 sourceだけを一度受け、内部でlex / module parseし、全AST itemをsource順に1回走査する。返却sessionはsource、token owner、既存constructor table、dense enum definition列、宣言順variant列を同時所有し、返却後に別source/AST/itemをappendするpublic入口を持たない。これによりomitted / reordered / duplicated itemや別token streamの混在をsignature上で閉じる。constructor seedはstruct/importが先に占有したnamespace prefixにすぎず、parser origin証明とは主張しない。variant recordはname spanとpayload syntax rangeだけを保持し、宣言名だけを検査済みhead token spanからconstructor用owned `%str`へcopyする。
+
+item spanとheader spanの一致、keyword/headの同一file・header内包含・token隣接、全generic tokenのheader内・同一file・単調spanとactual末尾colon、keyword indexから再計算したbody envelope / first expressionの完全一致を検査する。generic boundsはshallow surface段階では`GenericBoundsUnsupported`、variant payloadはRust enum surfaceに合わせて`%`または`<`導入だけを許可し、それ以外は`InvalidPayloadIntroducer`で閉じる。variant名の重複はspan同士のsource byte比較で検出する。variant UTF-8/span不正の`VariantSpanUnavailable`、宣言名境界不正の`DeclarationNameUnavailable`、検査後name copy失敗の`OutOfMemory`を区別する。definitionのdeclaration spanはitem/header全体、constructor診断spanはname tokenだけを保持する。
+
+このsessionはactual parser declarationからsame-session nominal surfaceを生成する最初のproducer boundaryであるが、TypeArena投影、import/alias解決、`ResolvedEnumMemberId { nominal_id, variant_ordinal }`、checked tree/HIR Match、Resource enum membership sidecar、reference-to-enum Deref、cross-session stable keyへはまだ接続しない。Rust HIR/Resourceが現在もvariant source spellingをStringで保持するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行せず、次段ではこのownerを唯一の入力としてchecker-resolved member identityを生成する。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。

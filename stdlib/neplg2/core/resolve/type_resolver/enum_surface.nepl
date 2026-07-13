@@ -1,0 +1,1279 @@
+#indent 4
+
+//: # type_resolver/enum_surface
+//: parser が保持した enum declaration surface を constructor identity と variant owner へ変換します。
+//:
+//: [目的/もくてき]:
+//: - `EnumDecl` の declaration body envelope を top-level segment に分け、source spelling の参照と payload syntax range を宣言順に保持します。
+//: - constructor table、dense enum definitions、ordered variant spans を 1 つの move-only session owner にまとめます。
+//:
+//: [注意/ちゅうい]:
+//: - この session は parser / resolver 間の同一 session authority です。stable artifact identity や Resource production origin ではありません。
+//: - constructor kind は arity を表すだけです。struct / enum の discriminator は `SelfhostResolvedNominalDeclarationKind` が保持します。
+//: - caller は成功 owner を `selfhost_resolved_enum_session_free` で解放してください。
+//: - variant record は source span だけを保持し、spelling owner を複製しません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #indent 4
+//:|
+//:| #import "alloc/collections/vec" as v
+//:| #import "alloc/string" as string
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/enum_surface" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
+//:| #import "neplg2/core/syntax/lexer" as *
+//:| #import "neplg2/core/syntax/parser/module_parser" as *
+//:| #import "neplg2/core/syntax/parser/body_segmenter" as *
+//:| #import "neplg2/core/ty/ty/id" as *
+//:| #import "std/test" as *
+//:
+//: fn check_positive %impure fn void Result unit str \void:
+//:     let source %str "struct Record:\n    field %i32\n\nenum Result<.T, .E>:\n    None\n    Ok %.T\n    Err %.E\n\nenum Other:\n    Ok\n"
+//:     match lex_all source:
+//:         Result::Ok tokens:
+//:             match selfhost_parse_module_tokens source &tokens:
+//:                 Result::Ok ast:
+//:                     match selfhost_module_ast_get &ast 1:
+//:                         Option::Some item:
+//:                             match selfhost_type_constructor_table_new:
+//:                                 Result::Ok table:
+//:                                     match selfhost_resolved_enum_module_session_materialize_result table source:
+//:                                         Result::Ok enum_session:
+//:                                             let nominal_index %i32:
+//:                                                 match selfhost_resolved_enum_session_definition_get &enum_session 0:
+//:                                                     Option::Some definition:
+//:                                                         selfhost_named_type_id_index definition.nominal_id
+//:                                                     Option::None:
+//:                                                         sub 0 1
+//:                                             let constructor_ok %bool:
+//:                                                 match selfhost_resolved_enum_session_constructor_kind &enum_session 0:
+//:                                                     Option::Some kind:
+//:                                                         selfhost_type_constructor_kind_eq kind SelfhostTypeConstructorKind::TypeConstructor 2
+//:                                                     Option::None:
+//:                                                         false
+//:                                             let variant_count %i32 selfhost_resolved_enum_session_variant_len &enum_session
+//:                                             let definition_count %i32 selfhost_resolved_enum_session_definition_len &enum_session
+//:                                             let definition_ranges_ok %bool:
+//:                                                 match selfhost_resolved_enum_session_definition_get &enum_session 0:
+//:                                                     Option::Some first_definition:
+//:                                                         match selfhost_resolved_enum_session_definition_get &enum_session 1:
+//:                                                             Option::Some second_definition:
+//:                                                                 and and and eq first_definition.variant_start 0 eq first_definition.variant_count 3 eq second_definition.variant_start 3 eq second_definition.variant_count 1
+//:                                                             Option::None:
+//:                                                                 false
+//:                                                     Option::None:
+//:                                                         false
+//:                                             let variants_ok %bool:
+//:                                                 match selfhost_resolved_enum_session_variant_get &enum_session 0:
+//:                                                     Option::Some first:
+//:                                                         match selfhost_resolved_enum_session_variant_get &enum_session 1:
+//:                                                             Option::Some second:
+//:                                                                 match selfhost_resolved_enum_session_variant_get &enum_session 2:
+//:                                                                     Option::Some third:
+//:                                                                         let first_payload_empty %bool:
+//:                                                                             match first.payload:
+//:                                                                                 Option::Some _range:
+//:                                                                                     false
+//:                                                                                 Option::None:
+//:                                                                                     true
+//:                                                                         let second_payload_present %bool:
+//:                                                                             match second.payload:
+//:                                                                                 Option::Some payload_range:
+//:                                                                                     match payload_range:
+//:                                                                                         SelfhostSyntaxRange::Range payload_items:
+//:                                                                                             match selfhost_resolved_enum_session_token_get &enum_session payload_items.first_token:
+//:                                                                                                 Option::Some payload_first:
+//:                                                                                                     match selfhost_resolved_enum_session_token_get &enum_session sub add payload_items.first_token payload_items.token_count 1:
+//:                                                                                                         Option::Some payload_last:
+//:                                                                                                             match payload_first.kind:
+//:                                                                                                                 TokenKind::Percent:
+//:                                                                                                                     and and eq payload_items.token_count 3 eq payload_items.span.start payload_first.span.start eq payload_items.span.end payload_last.span.end
+//:                                                                                                                 _:
+//:                                                                                                                     false
+//:                                                                                                         Option::None:
+//:                                                                                                             false
+//:                                                                                                 Option::None:
+//:                                                                                                     false
+//:                                                                                         SelfhostSyntaxRange::Empty:
+//:                                                                                             false
+//:                                                                                 Option::None:
+//:                                                                                     false
+//:                                                                         and and and and selfhost_resolved_enum_session_variant_name_eq &enum_session 0 "None" selfhost_resolved_enum_session_variant_name_eq &enum_session 1 "Ok" selfhost_resolved_enum_session_variant_name_eq &enum_session 2 "Err" first_payload_empty second_payload_present
+//:                                                                     Option::None:
+//:                                                                         false
+//:                                                             Option::None:
+//:                                                                 false
+//:                                                     Option::None:
+//:                                                         false
+//:                                             let second_definition_ok %bool:
+//:                                                 match selfhost_resolved_enum_session_definition_get &enum_session 1:
+//:                                                     Option::Some definition:
+//:                                                         match selfhost_resolved_enum_session_constructor_kind &enum_session 1:
+//:                                                             Option::Some kind:
+//:                                                                 and and eq selfhost_named_type_id_index definition.nominal_id 1 selfhost_type_constructor_kind_eq kind SelfhostTypeConstructorKind::Type selfhost_resolved_enum_session_variant_name_eq &enum_session 3 "Ok"
+//:                                                             Option::None:
+//:                                                                 false
+//:                                                     Option::None:
+//:                                                         false
+//:                                             let declaration_span_ok %bool:
+//:                                                 match selfhost_resolved_enum_session_definition_get &enum_session 0:
+//:                                                     Option::Some definition:
+//:                                                         and and eq definition.declaration_span.file_id item.span.file_id eq definition.declaration_span.start item.span.start eq definition.declaration_span.end item.span.end
+//:                                                     Option::None:
+//:                                                         false
+//:                                             selfhost_resolved_enum_session_free enum_session
+//:                                             selfhost_module_ast_free ast
+//:                                             v::free tokens
+//:                                             if and and and and and and eq nominal_index 0 eq variant_count 4 eq definition_count 2 constructor_ok variants_ok definition_ranges_ok second_definition_ok declaration_span_ok Result::Ok unit Result::Err "resolved enum surface mismatch"
+//:                                         Result::Err _e:
+//:                                             selfhost_module_ast_free ast
+//:                                             v::free tokens
+//:                                             Result::Err "enum surface materialization failed"
+//:                                 Result::Err _e:
+//:                                     selfhost_module_ast_free ast
+//:                                     v::free tokens
+//:                                     Result::Err "constructor table allocation failed"
+//:                         Option::None:
+//:                             selfhost_module_ast_free ast
+//:                             v::free tokens
+//:                             Result::Err "enum item missing"
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     Result::Err "module parse failed"
+//:         Result::Err _e:
+//:             Result::Err "lex failed"
+//:
+//: fn enum_error_matches %fn SelfhostResolvedEnumSurfaceError fn i32 bool \error\mode:
+//:     if:
+//:         eq mode 0
+//:         then:
+//:             match error.kind:
+//:                 SelfhostResolvedEnumSurfaceErrorKind::DuplicateVariant:
+//:                     true
+//:                 _:
+//:                     false
+//:         else if:
+//:             eq mode 2
+//:             then:
+//:                 match error.kind:
+//:                     SelfhostResolvedEnumSurfaceErrorKind::BodySegmentation kind:
+//:                         selfhost_body_segment_error_kind_eq kind SelfhostBodySegmentErrorKind::EmptyEnvelope
+//:                     _:
+//:                         false
+//:             else if:
+//:                 eq mode 3
+//:                 then:
+//:                     match error.kind:
+//:                         SelfhostResolvedEnumSurfaceErrorKind::VariantSegmentKindInvalid:
+//:                             true
+//:                         _:
+//:                             false
+//:                 else if:
+//:                     eq mode 4
+//:                     then:
+//:                         match error.kind:
+//:                             SelfhostResolvedEnumSurfaceErrorKind::VariantNameTokenInvalid:
+//:                                 true
+//:                             _:
+//:                                 false
+//:                     else if:
+//:                         eq mode 5
+//:                         then:
+//:                             match error.kind:
+//:                                 SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid:
+//:                                     true
+//:                                 _:
+//:                                     false
+//:                         else if:
+//:                             eq mode 6
+//:                             then:
+//:                                 match error.kind:
+//:                                     SelfhostResolvedEnumSurfaceErrorKind::GenericBoundsUnsupported:
+//:                                         true
+//:                                     _:
+//:                                         false
+//:                             else:
+//:                                 match error.kind:
+//:                                     SelfhostResolvedEnumSurfaceErrorKind::InvalidPayloadIntroducer:
+//:                                         true
+//:                                     _:
+//:                                         false
+//:
+//: fn check_source_error %impure fn str impure fn i32 Result unit str \source\mode:
+//:     match lex_all source:
+//:         Result::Ok tokens:
+//:             match selfhost_parse_module_tokens source &tokens:
+//:                 Result::Ok ast:
+//:                     match selfhost_module_ast_get &ast 0:
+//:                         Option::Some item:
+//:                             match selfhost_type_constructor_table_new:
+//:                                 Result::Ok table:
+//:                                     match selfhost_resolved_enum_module_session_materialize_result table source:
+//:                                         Result::Ok enum_session:
+//:                                             selfhost_resolved_enum_session_free enum_session
+//:                                             selfhost_module_ast_free ast
+//:                                             v::free tokens
+//:                                             Result::Err "unexpected materialize success"
+//:                                         Result::Err error:
+//:                                             let error_ok %bool enum_error_matches error mode
+//:                                             selfhost_module_ast_free ast
+//:                                             v::free tokens
+//:                                             if error_ok Result::Ok unit Result::Err "typed enum surface error mismatch"
+//:                                 Result::Err _e:
+//:                                     selfhost_module_ast_free ast
+//:                                     v::free tokens
+//:                                     Result::Err "constructor table allocation failed"
+//:                         Option::None:
+//:                             selfhost_module_ast_free ast
+//:                             v::free tokens
+//:                             Result::Err "test item missing"
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     Result::Err "test module parse failed"
+//:         Result::Err _e:
+//:             Result::Err "test lex failed"
+//:
+//: fn check_existing_constructor_identity %impure fn void Result unit str \void:
+//:     let source %str "enum Choice:\n    One\n"
+//:     match lex_all source:
+//:         Result::Ok tokens:
+//:             match selfhost_parse_module_tokens source &tokens:
+//:                 Result::Ok ast:
+//:                     match selfhost_module_ast_get &ast 0:
+//:                         Option::Some item:
+//:                             match selfhost_type_constructor_table_new:
+//:                                 Result::Ok table0:
+//:                                     match selfhost_type_constructor_table_add_checked table0 "Prelude" 0 item.span:
+//:                                         Result::Ok added:
+//:                                             let table1 %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+//:                                             match selfhost_resolved_enum_module_session_materialize_result table1 source:
+//:                                                 Result::Ok enum_session:
+//:                                                     let identity_ok %bool:
+//:                                                         match selfhost_resolved_enum_session_definition_get &enum_session 0:
+//:                                                             Option::Some definition:
+//:                                                                 eq selfhost_named_type_id_index definition.nominal_id 1
+//:                                                             Option::None:
+//:                                                                 false
+//:                                                     selfhost_resolved_enum_session_free enum_session
+//:                                                     selfhost_module_ast_free ast
+//:                                                     v::free tokens
+//:                                                     if identity_ok Result::Ok unit Result::Err "preexisting constructor identity mismatch"
+//:                                                 Result::Err _error:
+//:                                                     selfhost_module_ast_free ast
+//:                                                     v::free tokens
+//:                                                     Result::Err "enum append after preexisting constructor failed"
+//:                                         Result::Err _e:
+//:                                             selfhost_module_ast_free ast
+//:                                             v::free tokens
+//:                                             Result::Err "constructor prefill failed"
+//:                                 Result::Err _e:
+//:                                     selfhost_module_ast_free ast
+//:                                     v::free tokens
+//:                                     Result::Err "constructor table allocation failed"
+//:                         Option::None:
+//:                             selfhost_module_ast_free ast
+//:                             v::free tokens
+//:                             Result::Err "enum item missing"
+//:                 Result::Err _e:
+//:                     v::free tokens
+//:                     Result::Err "module parse failed"
+//:         Result::Err _e:
+//:             Result::Err "lex failed"
+//:
+//: fn check_duplicate_variant %impure fn void Result unit str \void:
+//:     check_source_error "enum Choice:\n    Same\n    Same\n" 0
+//:
+//: fn check_no_enum_module %impure fn void Result unit str \void:
+//:     match selfhost_type_constructor_table_new:
+//:         Result::Ok table:
+//:             match selfhost_resolved_enum_module_session_materialize_result table "struct Record:\n    field %i32\n":
+//:                 Result::Ok enum_session:
+//:                     let empty %bool and eq selfhost_resolved_enum_session_definition_len &enum_session 0 eq selfhost_resolved_enum_session_variant_len &enum_session 0
+//:                     selfhost_resolved_enum_session_free enum_session
+//:                     if empty Result::Ok unit Result::Err "non-enum module produced enum surface"
+//:                 Result::Err _e:
+//:                     Result::Err "non-enum module was rejected"
+//:         Result::Err _e:
+//:             Result::Err "constructor table allocation failed"
+//:
+//: fn check_empty_body %impure fn void Result unit str \void:
+//:     check_source_error "enum Empty:\n" 2
+//:
+//: fn check_nested_variant %impure fn void Result unit str \void:
+//:     check_source_error "enum Nested:\n    Head:\n        Child\n" 3
+//:
+//: fn check_non_identifier_variant %impure fn void Result unit str \void:
+//:     check_source_error "enum Numeric:\n    1\n" 4
+//:
+//: fn check_malformed_generic %impure fn void Result unit str \void:
+//:     check_source_error "enum Broken<.T .E>:\n    Value\n" 5
+//:
+//: fn check_generic_bounds_unsupported %impure fn void Result unit str \void:
+//:     check_source_error "enum Bounded<.T: Trait>:\n    Value\n" 6
+//:
+//: fn check_invalid_payload %impure fn void Result unit str \void:
+//:     check_source_error "enum BadPayload:\n    Value i32\n" 7
+//:
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check_positive
+//:     let checks2 checks_push checks1 check_duplicate_variant
+//:     let checks3 checks_push checks2 check_empty_body
+//:     let checks4 checks_push checks3 check_existing_constructor_identity
+//:     let checks5 checks_push checks4 check_nested_variant
+//:     let checks6 checks_push checks5 check_non_identifier_variant
+//:     let checks7 checks_push checks6 check_malformed_generic
+//:     let checks8 checks_push checks7 check_generic_bounds_unsupported
+//:     let checks9 checks_push checks8 check_invalid_payload
+//:     let checks10 checks_push checks9 check_no_enum_module
+//:     let shown checks_print_report checks10
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "alloc/string/utf8" as string_utf8
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
+#import "neplg2/core/syntax/parser/module_parser/body_range" as *
+#import "neplg2/core/syntax/parser/range" as *
+#import "neplg2/core/syntax/token" as *
+#import "./constructor" as *
+
+//: SelfhostResolvedNominalDeclarationKind: constructor identity を宣言種別から分離する discriminator
+//:
+//: [目的/もくてき]: constructor arity では表せない struct / enum の宣言種別を保持します。
+//: [契約/けいやく]: enum definition record は必ず `Enum` を保持します。
+//: [計算量/けいさんりょう]: copy と判定は O(1) です。
+//: [authority boundary]: parser declaration kind を検査した materializer だけが値を確定します。
+//: [owner boundary]: Copy 値であり cleanup obligation はありません。
+//: [type boundary]: constructor kind や nominal ID と混ぜない専用 discriminator です。
+pub enum SelfhostResolvedNominalDeclarationKind:
+    Struct
+    Enum
+
+impl Clone for SelfhostResolvedNominalDeclarationKind:
+    //: clone: nominal 宣言種別を複製する
+    //: [契約/けいやく]: Copy discriminator を変更せず返し、所有権を発生させません。計算量は O(1) です。
+    fn clone %fn &SelfhostResolvedNominalDeclarationKind SelfhostResolvedNominalDeclarationKind \self:
+        *self
+
+impl Copy for SelfhostResolvedNominalDeclarationKind:
+    //: copy_mark: nominal 宣言種別の Copy 境界を定義する
+    //: [契約/けいやく]: authority を持たない値複製だけを行い、計算量は O(1) です。
+    fn copy_mark %fn SelfhostResolvedNominalDeclarationKind SelfhostResolvedNominalDeclarationKind \self:
+        self
+
+//: SelfhostResolvedEnumVariantHeader: source 由来の enum variant header
+//:
+//: [目的/もくてき]: variant name span、optional payload syntax range を宣言順 record にします。
+//: [契約/けいやく]: name token は `Ident` で、同一 definition 内の source byte spelling は重複しません。
+//: [計算量/けいさんりょう]: record の copy は O(1) です。
+//: [authority boundary]: name span と payload range は parser token buffer 由来です。
+//: [owner boundary]: record 自体は Copy 値です。配列 buffer は session が所有します。
+//: [type boundary]: payload は未解決 syntax range であり、TypeId や resolved member identity ではありません。
+pub struct SelfhostResolvedEnumVariantHeader:
+    name_span %SelfhostSourceSpan
+    payload %Option SelfhostSyntaxRange
+
+impl Clone for SelfhostResolvedEnumVariantHeader:
+    //: clone: span-only variant header を複製する
+    //: [契約/けいやく]: source owner を複製せず Copy record を返します。計算量は O(1) です。
+    fn clone %fn &SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumVariantHeader \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumVariantHeader:
+    //: copy_mark: variant header の Copy 境界を定義する
+    //: [契約/けいやく]: name span と payload range をそのまま返し、計算量は O(1) です。
+    fn copy_mark %fn SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumVariantHeader \self:
+        self
+
+//: SelfhostResolvedEnumDefinition: session 内の dense enum definition record
+//:
+//: [目的/もくてき]: nominal ID、declaration span、ordered variant table 上の range を結びます。
+//: [契約/けいやく]: `variant_start..variant_start+variant_count` は同じ session の variants 内にあります。
+//: [計算量/けいさんりょう]: record の copy は O(1) です。
+//: [authority boundary]: nominal ID は同じ session constructor table、range は同じ append operation 由来です。
+//: [owner boundary]: Copy recordであり、buffer ownerはsessionが保持します。
+//: [type boundary]: session-local definition recordであり、ResolvedEnumMemberIdやstable artifact keyではありません。
+pub struct SelfhostResolvedEnumDefinition:
+    kind %SelfhostResolvedNominalDeclarationKind
+    nominal_id %SelfhostNamedTypeId
+    declaration_span %SelfhostSourceSpan
+    variant_start %i32
+    variant_count %i32
+
+impl Clone for SelfhostResolvedEnumDefinition:
+    //: clone: dense enum definition record を複製する
+    //: [契約/けいやく]: session-local ID と range の値だけを複製し、計算量は O(1) です。
+    fn clone %fn &SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumDefinition:
+    //: copy_mark: enum definition の Copy 境界を定義する
+    //: [契約/けいやく]: buffer owner を移動せず record を返し、計算量は O(1) です。
+    fn copy_mark %fn SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition \self:
+        self
+
+//: SelfhostResolvedEnumSession: one-shot module parse origin と enum surface の owner
+//:
+//: [目的/もくてき]: 1 sourceを内部lex/parseして得たtokens、複数EnumDecl、constructor identity spaceを分離不能に保持します。
+//: [契約/けいやく]: definitions はdense、各variant rangeは非重複かつappend順で、constructorsとnominal ID空間を共有します。
+//: [計算量/けいさんりょう]: accessor は O(1)、解放は各 Vec buffer の解放計算量に従います。
+//: [authority boundary]: same-session constructor table、parser-derived definition order、variant orderの組だけをauthorityにします。
+//: [owner boundary]: Copy / Clone を実装しない move-only owner です。free API がtoken、definition、variant、constructorの4 bufferを閉じます。source `%str`は既存str cleanup modelに従い明示freeしません。
+//: [type boundary]: stable artifact identity、Resource production origin、ResolvedEnumMemberId はまだ保持しません。
+//: [lifetime]: sourceとtokensをsession自身が保持するため、返却後に別source/tokenを混ぜるappend入口はありません。
+pub struct SelfhostResolvedEnumSession:
+    source %str
+    tokens %Vec SelfhostToken
+    constructors %SelfhostTypeConstructorTable
+    definitions %Vec SelfhostResolvedEnumDefinition
+    variants %Vec SelfhostResolvedEnumVariantHeader
+
+//: SelfhostResolvedEnumSurfaceErrorKind: enum surface materialization の失敗分類
+//:
+//: [目的/もくてき]: item/header/body/token/variant/allocation/constructor failure を表示文字列から分離します。
+//: [契約/けいやく]: nested body segmenter と constructor table の error kind は payload のまま保持します。
+//: [計算量/けいさんりょう]: copy と分類は O(1) です。
+//: [authority boundary]: lower layer の typed failure を失わず materializer domain へ包みます。
+//: [owner boundary]: Copy 値であり cleanup obligation はありません。
+//: [error variant]: 正常値や silent fallback を表さず、列挙した failure だけを表します。
+pub enum SelfhostResolvedEnumSurfaceErrorKind:
+    LexFailed
+    ModuleParseFailed
+    ModuleItemUnavailable
+    DeclarationHeaderMissing
+    DeclarationKindMismatch
+    DeclarationHeadMissing
+    DeclarationHeadKindInvalid
+    DeclarationBodyMissing
+    ItemHeaderOriginMismatch
+    HeaderOriginMismatch
+    BodyOriginMismatch
+    HeaderTokenInvalid
+    GenericHeaderInvalid
+    GenericBoundsUnsupported
+    BodySegmentation %SelfhostBodySegmentErrorKind
+    VariantSegmentKindInvalid
+    VariantNameMissing
+    VariantNameTokenInvalid
+    VariantSpanUnavailable
+    InvalidPayloadIntroducer
+    DeclarationNameUnavailable
+    DuplicateVariant
+    OutOfMemory
+    ConstructorTable %SelfhostTypeConstructorTableErrorKind
+
+//: SelfhostResolvedEnumSurfaceError: typed failure と diagnostic span
+//:
+//: [目的/もくてき]: typed failure kind と原因 source span をまとめます。
+//: [契約/けいやく]: materialize failure 後に入力 table / 一時 buffer owner は残りません。
+//: [計算量/けいさんりょう]: payload の生成と copy は O(1) です。
+//: [authority boundary]: span は parser token または lower typed error 由来です。
+//: [owner boundary]: Copy 値であり cleanup obligation はありません。
+//: [error variant]: kind が失敗分類、span が diagnostic seed です。
+pub struct SelfhostResolvedEnumSurfaceError:
+    kind %SelfhostResolvedEnumSurfaceErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostResolvedEnumSurfaceErrorKind:
+    //: clone: enum surface の失敗分類を複製する
+    //: [契約/けいやく]: lower-layer typed kind を保持した Copy 値を返します。計算量は O(1) です。
+    fn clone %fn &SelfhostResolvedEnumSurfaceErrorKind SelfhostResolvedEnumSurfaceErrorKind \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumSurfaceErrorKind:
+    //: copy_mark: enum surface error kind の Copy 境界を定義する
+    //: [契約/けいやく]: cleanup obligation のない分類値を返し、計算量は O(1) です。
+    fn copy_mark %fn SelfhostResolvedEnumSurfaceErrorKind SelfhostResolvedEnumSurfaceErrorKind \self:
+        self
+
+impl Clone for SelfhostResolvedEnumSurfaceError:
+    //: clone: typed failure と diagnostic span の組を複製する
+    //: [契約/けいやく]: error authority を変更せず Copy record を返します。計算量は O(1) です。
+    fn clone %fn &SelfhostResolvedEnumSurfaceError SelfhostResolvedEnumSurfaceError \self:
+        *self
+
+impl Copy for SelfhostResolvedEnumSurfaceError:
+    //: copy_mark: enum surface error record の Copy 境界を定義する
+    //: [契約/けいやく]: kind と span をそのまま返し、所有権を発生させません。計算量は O(1) です。
+    fn copy_mark %fn SelfhostResolvedEnumSurfaceError SelfhostResolvedEnumSurfaceError \self:
+        self
+
+//: selfhost_resolved_enum_surface_error_new: typed failure と diagnostic span を組み立てる
+//: [契約/けいやく]: 入力を検証・所有せず Copy record にまとめます。計算量は O(1) です。
+fn selfhost_resolved_enum_surface_error_new %fn SelfhostResolvedEnumSurfaceErrorKind fn SelfhostSourceSpan SelfhostResolvedEnumSurfaceError \kind\span:
+    SelfhostResolvedEnumSurfaceError kind span
+
+//: selfhost_resolved_enum_surface_span_eq: 二つの source span identity を比較する
+//: [契約/けいやく]: file_id、start、end がすべて一致する時だけ true です。計算量は O(1) です。
+fn selfhost_resolved_enum_surface_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
+    and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
+
+//: selfhost_resolved_enum_surface_range_eq: parser syntax range を構造比較する
+//: [契約/けいやく]: Empty 同士、または token index/count/span が同じ Range 同士だけを同一とし、計算量は O(1) です。
+fn selfhost_resolved_enum_surface_range_eq %fn SelfhostSyntaxRange fn SelfhostSyntaxRange bool \a\b:
+    match a:
+        SelfhostSyntaxRange::Empty:
+            match b:
+                SelfhostSyntaxRange::Empty:
+                    true
+                _:
+                    false
+        SelfhostSyntaxRange::Range left:
+            match b:
+                SelfhostSyntaxRange::Range right:
+                    and and eq left.first_token right.first_token eq left.token_count right.token_count selfhost_resolved_enum_surface_span_eq left.span right.span
+                _:
+                    false
+
+//: selfhost_resolved_enum_surface_body_eq: declaration body の完全な parser range を比較する
+//: [契約/けいやく]: envelope と first_expression の双方が一致する時だけ true です。計算量は O(1) です。
+fn selfhost_resolved_enum_surface_body_eq %fn SelfhostModuleDeclarationBody fn SelfhostModuleDeclarationBody bool \a\b:
+    and selfhost_resolved_enum_surface_range_eq a.envelope b.envelope selfhost_resolved_enum_surface_range_eq a.first_expression b.first_expression
+
+//: selfhost_resolved_enum_surface_span_inside: inner span が同一 file の outer span 内か検査する
+//: [契約/けいやく]: inner が valid で両端を包含する時だけ true です。計算量は O(1) です。
+fn selfhost_resolved_enum_surface_span_inside %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \outer\inner:
+    and and and eq outer.file_id inner.file_id le outer.start inner.start le inner.end outer.end source_span_is_valid inner
+
+//: selfhost_resolved_enum_surface_utf8_boundary: byte index が source の UTF-8 境界か検査する
+//: [契約/けいやく]: 0 と終端を許可し、範囲外または continuation byte 位置は false です。計算量は O(1) です。
+fn selfhost_resolved_enum_surface_utf8_boundary %fn str fn i32 bool \source\idx:
+    if:
+        or lt idx 0 gt idx string_access::len source
+        then:
+            false
+        else if:
+            eq idx string_access::len source
+            then:
+                true
+            else:
+                match string_access::byte_at source idx:
+                    Option::Some byte:
+                        not string_utf8::string_utf8_is_continuation byte
+                    Option::None:
+                        false
+
+//: selfhost_resolved_enum_surface_find_span_token: exact span を持つ token index を前方検索する
+//: [契約/けいやく]: idx 以降の先頭一致を返し、見つからない時は None です。token 数を n として O(n) です。
+//: [authority boundary]: token buffer の span identity だけを照合し、source text は推測しません。
+fn selfhost_resolved_enum_surface_find_span_token %fn &Vec SelfhostToken fn i32 fn SelfhostSourceSpan fn i32 Option i32 \tokens\n\span\idx:
+    if:
+        ge idx n
+        then:
+            none
+        else:
+            match v::get tokens idx:
+                Option::Some token:
+                    if:
+                        selfhost_resolved_enum_surface_span_eq token.span span
+                        then:
+                            some idx
+                        else:
+                            selfhost_resolved_enum_surface_find_span_token tokens n span add idx 1
+                Option::None:
+                    none
+
+//: selfhost_resolved_enum_surface_generic_arity_loop: enum generic header の残りを検査して arity を数える
+//: [契約/けいやく]: `.Ident` の comma 列と末尾 `>:` だけを受理し、bounds と malformed token は typed error です。
+//: [計算量/けいさんりょう]: generic parameter 数を n として O(n) です。
+//: [authority boundary]: 全 token span が header 内で単調に並ぶことを同時に検査します。
+fn selfhost_resolved_enum_surface_generic_arity_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn SelfhostSourceSpan fn i32 Result i32 SelfhostResolvedEnumSurfaceError \tokens\n\idx\count\header_span\previous_end:
+    match v::get tokens idx:
+        Option::Some dot_token:
+            if:
+                or not selfhost_resolved_enum_surface_span_inside header_span dot_token.span lt dot_token.span.start previous_end
+                then:
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderOriginMismatch dot_token.span
+                else:
+                    match dot_token.kind:
+                        TokenKind::Dot:
+                            match v::get tokens add idx 1:
+                                Option::Some name_token:
+                                    if:
+                                        or not selfhost_resolved_enum_surface_span_inside header_span name_token.span lt name_token.span.start dot_token.span.end
+                                        then:
+                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderOriginMismatch name_token.span
+                                        else:
+                                            match name_token.kind:
+                                                TokenKind::Ident:
+                                                    match v::get tokens add idx 2:
+                                                        Option::Some separator:
+                                                            if:
+                                                                or not selfhost_resolved_enum_surface_span_inside header_span separator.span lt separator.span.start name_token.span.end
+                                                                then:
+                                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderOriginMismatch separator.span
+                                                                else:
+                                                                    match separator.kind:
+                                                                        TokenKind::Comma:
+                                                                            selfhost_resolved_enum_surface_generic_arity_loop tokens n add idx 3 add count 1 header_span separator.span.end
+                                                                        TokenKind::RAngle:
+                                                                            match v::get tokens add idx 3:
+                                                                                Option::Some colon:
+                                                                                    match colon.kind:
+                                                                                        TokenKind::Colon:
+                                                                                            if:
+                                                                                                and and selfhost_resolved_enum_surface_span_inside header_span colon.span ge colon.span.start separator.span.end eq colon.span.end header_span.end
+                                                                                                then:
+                                                                                                    Result::Ok add count 1
+                                                                                                else:
+                                                                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid colon.span
+                                                                                        _:
+                                                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid colon.span
+                                                                                Option::None:
+                                                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid separator.span
+                                                                        TokenKind::Colon:
+                                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericBoundsUnsupported separator.span
+                                                                        _:
+                                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid separator.span
+                                                        Option::None:
+                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid name_token.span
+                                                _:
+                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid name_token.span
+                                Option::None:
+                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid dot_token.span
+                        _:
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid dot_token.span
+        Option::None:
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid source_span_empty_unchecked 0 0
+
+//: selfhost_resolved_enum_surface_header_arity: parser enum header を照合して constructor arity を得る
+//: [契約/けいやく]: keyword/head/colon または generic 列が同一 header origin にある時だけ成功します。
+//: [計算量/けいさんりょう]: generic parameter 数を n として O(n) です。
+//: [error variant]: token origin、generic 形、bounds の違反を別の typed kind で返します。
+fn selfhost_resolved_enum_surface_header_arity %fn &Vec SelfhostToken fn SelfhostModuleDeclarationHeader fn SelfhostModuleDeclarationHead fn i32 Result i32 SelfhostResolvedEnumSurfaceError \tokens\header\head\keyword_idx:
+    let n %i32 v::len tokens
+    match v::get tokens keyword_idx:
+        Option::Some keyword_token:
+            match keyword_token.kind:
+                TokenKind::KwEnum:
+                    match v::get tokens add keyword_idx 1:
+                        Option::Some head_token:
+                            if:
+                                not selfhost_resolved_enum_surface_span_eq head_token.span head.span
+                                then:
+                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderOriginMismatch head.span
+                                else:
+                                    match head_token.kind:
+                                        TokenKind::Ident:
+                                            match v::get tokens add keyword_idx 2:
+                                                Option::Some after_head:
+                                                    match after_head.kind:
+                                                        TokenKind::Colon:
+                                                            if:
+                                                                and eq after_head.span.file_id header.header_span.file_id eq after_head.span.end header.header_span.end
+                                                                then:
+                                                                    Result::Ok 0
+                                                                else:
+                                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderOriginMismatch after_head.span
+                                                        TokenKind::LAngle:
+                                                            selfhost_resolved_enum_surface_generic_arity_loop tokens n add keyword_idx 3 0 header.header_span after_head.span.end
+                                                        _:
+                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::GenericHeaderInvalid after_head.span
+                                                Option::None:
+                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderTokenInvalid head.span
+                                        _:
+                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderTokenInvalid head_token.span
+                        Option::None:
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderTokenInvalid head.span
+                _:
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderTokenInvalid keyword_token.span
+        Option::None:
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderTokenInvalid header.keyword_span
+
+//: selfhost_resolved_enum_surface_source_ranges_eq_loop: 同長 source range を byte 単位で比較する
+//: [契約/けいやく]: remaining が 0 以下なら成功し、byte 取得不能または不一致なら false です。
+//: [計算量/けいさんりょう]: remaining を n として O(n) です。
+fn selfhost_resolved_enum_surface_source_ranges_eq_loop %fn str fn i32 fn i32 fn i32 bool \source\left\right\remaining:
+    if:
+        le remaining 0
+        then:
+            true
+        else:
+            match string_access::byte_at source left:
+                Option::Some left_byte:
+                    match string_access::byte_at source right:
+                        Option::Some right_byte:
+                            and eq left_byte right_byte selfhost_resolved_enum_surface_source_ranges_eq_loop source add left 1 add right 1 sub remaining 1
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_resolved_enum_surface_source_ranges_eq: 二つの span の source spelling を比較する
+//: [契約/けいやく]: 同一 file_id・同一 byte 長の span だけを比較し、source owner は借用します。
+//: [計算量/けいさんりょう]: span の byte 長を n として O(n) です。
+fn selfhost_resolved_enum_surface_source_ranges_eq %fn str fn SelfhostSourceSpan fn SelfhostSourceSpan bool \source\left\right:
+    if:
+        or not eq left.file_id right.file_id not eq sub left.end left.start sub right.end right.start
+        then:
+            false
+        else:
+            selfhost_resolved_enum_surface_source_ranges_eq_loop source left.start right.start sub left.end left.start
+
+//: selfhost_resolved_enum_surface_span_text_eq_loop: source slice と expected text を byte 単位で比較する
+//: [契約/けいやく]: remaining byte がすべて一致する時だけ true で、どちらかの範囲外は false です。
+//: [計算量/けいさんりょう]: remaining を n として O(n) です。
+fn selfhost_resolved_enum_surface_span_text_eq_loop %fn str fn i32 fn str fn i32 fn i32 bool \source\source_idx\expected\expected_idx\remaining:
+    if:
+        le remaining 0
+        then:
+            true
+        else:
+            match string_access::byte_at source source_idx:
+                Option::Some source_byte:
+                    match string_access::byte_at expected expected_idx:
+                        Option::Some expected_byte:
+                            and eq source_byte expected_byte selfhost_resolved_enum_surface_span_text_eq_loop source add source_idx 1 expected add expected_idx 1 sub remaining 1
+                        Option::None:
+                            false
+                Option::None:
+                    false
+
+//: selfhost_resolved_enum_session_variant_name_eq: session-owned source上のvariant名を比較する
+//:
+//: [契約/けいやく]: variant indexとsourceは同じone-shot sessionから読み、外部sourceやCopy spanを再注入しません。範囲外indexはfalseです。
+//: [計算量/けいさんりょう]: expectedのUTF-8 byte長をnとしてO(n)です。
+//: [authority boundary]: session-owned source、ordered variant table、global variant indexの組だけを比較authorityにします。
+//: [owner boundary]: sessionをborrowし、source/token/variant ownerを移動しません。
+//: [type boundary]: spelling比較だけを行い、ResolvedEnumMemberIdやcanonical symbolは生成しません。
+pub fn selfhost_resolved_enum_session_variant_name_eq %fn &SelfhostResolvedEnumSession fn i32 fn str bool \session\variant_idx\expected:
+    let variants %&Vec SelfhostResolvedEnumVariantHeader field::get_ref session "variants"
+    match v::get variants variant_idx:
+        Option::Some variant:
+            if:
+                not eq sub variant.name_span.end variant.name_span.start string_access::len expected
+                then:
+                    false
+                else:
+                    let source %str *field::get_ref session "source"
+                    selfhost_resolved_enum_surface_span_text_eq_loop source variant.name_span.start expected 0 string_access::len expected
+        Option::None:
+            false
+
+//: selfhost_resolved_enum_surface_variant_duplicate_loop: local definition 内の同名 variant を探す
+//: [契約/けいやく]: source spelling が一致する先行 record があれば true で、buffer owner は借用します。
+//: [計算量/けいさんりょう]: 既存 variant 数を m、名前 byte 長を n として O(mn) です。
+fn selfhost_resolved_enum_surface_variant_duplicate_loop %fn str fn &Vec SelfhostResolvedEnumVariantHeader fn SelfhostSourceSpan fn i32 bool \source\variants\name_span\idx:
+    if:
+        ge idx v::len variants
+        then:
+            false
+        else:
+            match v::get variants idx:
+                Option::Some existing:
+                    if:
+                        selfhost_resolved_enum_surface_source_ranges_eq source existing.name_span name_span
+                        then:
+                            true
+                        else:
+                            selfhost_resolved_enum_surface_variant_duplicate_loop source variants name_span add idx 1
+                Option::None:
+                    false
+
+//: selfhost_resolved_enum_surface_range_span: syntax range の diagnostic span を取り出す
+//: [契約/けいやく]: Empty は空 span、Range は parser-derived span を返します。計算量は O(1) です。
+fn selfhost_resolved_enum_surface_range_span %fn SelfhostSyntaxRange SelfhostSourceSpan \range:
+    match range:
+        SelfhostSyntaxRange::Empty:
+            source_span_empty_unchecked 0 0
+        SelfhostSyntaxRange::Range items:
+            items.span
+
+//: selfhost_resolved_enum_surface_variant_from_segment: body segment を span-only variant header に検査変換する
+//: [契約/けいやく]: flat Ident と optional `%` / `<` payload だけを受理し、重複名と block intro は拒否します。
+//: [計算量/けいさんりょう]: 先行 variant 数を m、名前 byte 長を n として重複検査は O(mn) です。
+//: [authority boundary]: token kind/span と parser segment range だけを variant surface の authority にします。
+//: [owner boundary]: source、tokens、variants を借用し、返却 record は source owner を持ちません。
+//: [error variant]: segment kind、name、span、payload introducer、duplicate を typed kind で区別します。
+fn selfhost_resolved_enum_surface_variant_from_segment %fn str fn &Vec SelfhostToken fn &Vec SelfhostResolvedEnumVariantHeader fn SelfhostBodySegment Result SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumSurfaceError \source\tokens\variants\segment:
+    match segment.kind:
+        SelfhostBodySegmentKind::BlockIntro:
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantSegmentKindInvalid selfhost_resolved_enum_surface_range_span segment.head
+        SelfhostBodySegmentKind::ExpressionLine:
+            match segment.head:
+                SelfhostSyntaxRange::Empty:
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameMissing source_span_empty_unchecked 0 0
+                SelfhostSyntaxRange::Range range:
+                    if:
+                        or le range.token_count 0 or lt range.first_token 0 gt range.first_token v::len tokens
+                        then:
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameMissing range.span
+                        else:
+                            match v::get tokens range.first_token:
+                                Option::Some name_token:
+                                    match name_token.kind:
+                                        TokenKind::Ident:
+                                            if:
+                                                or or or not source_span_is_valid name_token.span lt name_token.span.start 0 gt name_token.span.end string_access::len source or not selfhost_resolved_enum_surface_utf8_boundary source name_token.span.start not selfhost_resolved_enum_surface_utf8_boundary source name_token.span.end
+                                                then:
+                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantSpanUnavailable name_token.span
+                                                else:
+                                                    if:
+                                                        selfhost_resolved_enum_surface_variant_duplicate_loop source variants name_token.span 0
+                                                        then:
+                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DuplicateVariant name_token.span
+                                                        else:
+                                                            if:
+                                                                eq range.token_count 1
+                                                                then:
+                                                                    Result::Ok SelfhostResolvedEnumVariantHeader name_token.span none
+                                                                else:
+                                                                    match v::get tokens add range.first_token 1:
+                                                                        Option::Some payload_intro:
+                                                                            match payload_intro.kind:
+                                                                                TokenKind::Percent:
+                                                                                    Result::Ok SelfhostResolvedEnumVariantHeader name_token.span some selfhost_parser_syntax_range_from_indices tokens v::len tokens add range.first_token 1 add range.first_token range.token_count
+                                                                                TokenKind::LAngle:
+                                                                                    Result::Ok SelfhostResolvedEnumVariantHeader name_token.span some selfhost_parser_syntax_range_from_indices tokens v::len tokens add range.first_token 1 add range.first_token range.token_count
+                                                                                _:
+                                                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::InvalidPayloadIntroducer payload_intro.span
+                                                                        Option::None:
+                                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::InvalidPayloadIntroducer range.span
+                                        _:
+                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameTokenInvalid name_token.span
+                                Option::None:
+                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameMissing range.span
+
+//: selfhost_resolved_enum_surface_variant_scan_loop: segment 列を宣言順 variant buffer へ蓄積する
+//: [契約/けいやく]: 成功時は全 record を持つ Vec、失敗時は作成中 Vec を解放して typed error を返します。
+//: [計算量/けいさんりょう]: variant 数を m、名前比較総量を含めて最悪 O(m^2) です。
+//: [owner boundary]: variants を消費し、成功時の返り値または失敗経路の cleanup に一度だけ渡します。
+fn selfhost_resolved_enum_surface_variant_scan_loop %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostBodySegmentList impure fn i32 impure fn Vec SelfhostResolvedEnumVariantHeader Result Vec SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumSurfaceError \source\tokens\segments\idx\variants:
+    if:
+        ge idx selfhost_body_segment_list_len segments
+        then:
+            Result::Ok variants
+        else:
+            match selfhost_body_segment_list_get segments idx:
+                Option::Some segment:
+                    match selfhost_resolved_enum_surface_variant_from_segment source tokens &variants segment:
+                        Result::Ok variant:
+                            match v::push variants variant:
+                                Result::Ok next_variants:
+                                    selfhost_resolved_enum_surface_variant_scan_loop source tokens segments add idx 1 next_variants
+                                Result::Err push_error:
+                                    v::free v::vec_push_error_vec push_error
+                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory variant.name_span
+                        Result::Err e:
+                            v::free variants
+                            Result::Err e
+                Option::None:
+                    v::free variants
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameMissing source_span_empty_unchecked 0 0
+
+//: selfhost_resolved_enum_surface_scan_variants: declaration envelope を分割して ordered variant table を作る
+//: [契約/けいやく]: body segmenter の結果を全件検査し、一時 segment owner は成功・失敗の双方で解放します。
+//: [計算量/けいさんりょう]: token 数を n、variant 数を m として O(n+m^2) です。
+//: [error variant]: segmentation failure と enum surface failure を区別し、allocation failure は OutOfMemory です。
+fn selfhost_resolved_enum_surface_scan_variants %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostSyntaxRange Result Vec SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumSurfaceError \source\tokens\envelope:
+    match selfhost_body_segment_list_from_envelope tokens envelope:
+        Result::Ok segments:
+            let variants_result %Result Vec SelfhostResolvedEnumVariantHeader StdErrorKind v::new
+            match variants_result:
+                Result::Ok variants:
+                    let result %Result Vec SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumSurfaceError selfhost_resolved_enum_surface_variant_scan_loop source tokens &segments 0 variants
+                    selfhost_body_segment_list_free segments
+                    result
+                Result::Err _e:
+                    selfhost_body_segment_list_free segments
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+        Result::Err e:
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::BodySegmentation e.kind e.span
+
+//: selfhost_resolved_enum_surface_append_local_loop: local variant 列を session-global 列へ順序通り追記する
+//: [契約/けいやく]: 成功時は追記後 global owner を返し、失敗時は global owner を解放します。
+//: [計算量/けいさんりょう]: local variant 数を n として O(n) です。
+//: [owner boundary]: global Vec を消費し、local Vec は借用します。
+fn selfhost_resolved_enum_surface_append_local_loop %impure fn Vec SelfhostResolvedEnumVariantHeader impure fn &Vec SelfhostResolvedEnumVariantHeader impure fn i32 Result Vec SelfhostResolvedEnumVariantHeader SelfhostResolvedEnumSurfaceError \global\local\idx:
+    if:
+        ge idx v::len local
+        then:
+            Result::Ok global
+        else:
+            match v::get local idx:
+                Option::Some variant:
+                    match v::push global variant:
+                        Result::Ok next_global:
+                            selfhost_resolved_enum_surface_append_local_loop next_global local add idx 1
+                        Result::Err push_error:
+                            v::free v::vec_push_error_vec push_error
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory variant.name_span
+                Option::None:
+                    v::free global
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::VariantNameMissing source_span_empty_unchecked 0 0
+
+//: selfhost_resolved_enum_surface_finish: 検査済み enum を同一 session identity space へ確定する
+//: [契約/けいやく]: variants、checked constructor add、dense definition の順に確定し、nominal ID は add result からだけ取得します。
+//: [計算量/けいさんりょう]: local variant 数を n として追記は O(n)、table/Vec 追加は償却 O(1) です。
+//: [authority boundary]: constructor kind と nominal ID は same-session checked add result、variant range は append 前後の長さが authority です。
+//: [owner boundary]: session と local_variants を消費し、失敗時は到達済みの全 owner を閉じます。
+//: [error variant]: allocation failure と constructor table failure を typed kind で分離します。
+fn selfhost_resolved_enum_surface_finish %impure fn SelfhostResolvedEnumSession impure fn str impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn Vec SelfhostResolvedEnumVariantHeader Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \session\name\arity\declaration_span\name_span\local_variants:
+    let source %str field::get session "source"
+    let tokens %Vec SelfhostToken field::get session "tokens"
+    let constructors %SelfhostTypeConstructorTable field::get session "constructors"
+    let definitions %Vec SelfhostResolvedEnumDefinition field::get session "definitions"
+    let variants %Vec SelfhostResolvedEnumVariantHeader field::get session "variants"
+    let variant_start %i32 v::len &variants
+    let variant_count %i32 v::len &local_variants
+    match selfhost_resolved_enum_surface_append_local_loop variants &local_variants 0:
+        Result::Ok next_variants:
+            v::free local_variants
+            match selfhost_type_constructor_table_add_checked constructors name arity name_span:
+                Result::Ok added:
+                    let nominal_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
+                    let next_constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
+                    let definition %SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition SelfhostResolvedNominalDeclarationKind::Enum nominal_id declaration_span variant_start variant_count
+                    match v::push definitions definition:
+                        Result::Ok next_definitions:
+                            Result::Ok SelfhostResolvedEnumSession source tokens next_constructors next_definitions next_variants
+                        Result::Err push_error:
+                            v::free v::vec_push_error_vec push_error
+                            v::free next_variants
+                            v::free tokens
+                            selfhost_type_constructor_table_free next_constructors
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory declaration_span
+                Result::Err e:
+                    v::free definitions
+                    v::free next_variants
+                    v::free tokens
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ConstructorTable e.kind e.span
+        Result::Err e:
+            v::free local_variants
+            v::free definitions
+            v::free tokens
+            selfhost_type_constructor_table_free constructors
+            Result::Err e
+
+//: selfhost_resolved_enum_surface_validate_origin: item/header/head/body が一つの parser origin に属することを検査する
+//: [契約/けいやく]: item と header の exact span、header 内 keyword/head、再計算 body の完全一致をすべて要求します。
+//: [計算量/けいさんりょう]: token 数を n として keyword 検索は O(n)、body range 再計算は parser helper に従います。
+//: [authority boundary]: token buffer から body range を再導出し、外部から渡された range だけを信用しません。
+//: [error variant]: item/header/body origin と missing token を別の typed kind で返します。
+fn selfhost_resolved_enum_surface_validate_origin %fn &Vec SelfhostToken fn SelfhostModuleItem fn SelfhostModuleDeclarationHeader fn SelfhostModuleDeclarationHead fn SelfhostModuleDeclarationBody Result i32 SelfhostResolvedEnumSurfaceError \tokens\item\header\head\body:
+    if:
+        not selfhost_resolved_enum_surface_span_eq item.span header.header_span
+        then:
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ItemHeaderOriginMismatch item.span
+        else if:
+            or not selfhost_resolved_enum_surface_span_inside header.header_span header.keyword_span not selfhost_resolved_enum_surface_span_inside header.header_span head.span
+            then:
+                Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderOriginMismatch header.header_span
+            else:
+                let n %i32 v::len tokens
+                match selfhost_resolved_enum_surface_find_span_token tokens n header.keyword_span 0:
+                    Option::Some keyword_idx:
+                        let recomputed %SelfhostModuleDeclarationBody selfhost_parser_declaration_body_range tokens n keyword_idx
+                        if:
+                            selfhost_resolved_enum_surface_body_eq recomputed body
+                            then:
+                                Result::Ok keyword_idx
+                            else:
+                                Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::BodyOriginMismatch selfhost_resolved_enum_surface_range_span body.envelope
+                    Option::None:
+                        Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::HeaderTokenInvalid header.keyword_span
+
+//: selfhost_resolved_enum_surface_materialize_header_result: 検査済み parser EnumDecl を session へ一件反映する
+//: [契約/けいやく]: declaration kind/head/origin/arity/name boundary/variant surface を順に検査してから finish します。
+//: [計算量/けいさんりょう]: token 数を n、variant 数を m として O(n+m^2) です。
+//: [authority boundary]: parser header/body/token と checked constructor add だけを authority にします。
+//: [owner boundary]: session を消費し、成功時は後続 session、失敗時は全 owner cleanup 後の error を返します。
+//: [error variant]: name boundary と slice allocation failure を DeclarationNameUnavailable / OutOfMemory に分離します。
+fn selfhost_resolved_enum_surface_materialize_header_result %impure fn SelfhostResolvedEnumSession impure fn str impure fn &Vec SelfhostToken impure fn SelfhostModuleItem impure fn SelfhostModuleDeclarationHeader impure fn SelfhostModuleDeclarationBody Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \session\source\tokens\item\header\body:
+    match header.kind:
+        SelfhostModuleDeclarationKind::Enum:
+            match header.head:
+                Option::Some head:
+                    match head.kind:
+                        SelfhostModuleDeclarationHeadKind::Name:
+                            match selfhost_resolved_enum_surface_validate_origin tokens item header head body:
+                                Result::Ok keyword_idx:
+                                    match selfhost_resolved_enum_surface_header_arity tokens header head keyword_idx:
+                                        Result::Ok arity:
+                                            if:
+                                                or or or not source_span_is_valid head.span lt head.span.start 0 gt head.span.end string_access::len source or not selfhost_resolved_enum_surface_utf8_boundary source head.span.start not selfhost_resolved_enum_surface_utf8_boundary source head.span.end
+                                                then:
+                                                    selfhost_resolved_enum_session_free session
+                                                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DeclarationNameUnavailable head.span
+                                                else:
+                                                    match string_slice::str_slice_result source head.span.start head.span.end:
+                                                        Result::Ok name:
+                                                            match selfhost_resolved_enum_surface_scan_variants source tokens body.envelope:
+                                                                Result::Ok variants:
+                                                                    selfhost_resolved_enum_surface_finish session name arity item.span head.span variants
+                                                                Result::Err e:
+                                                                    selfhost_resolved_enum_session_free session
+                                                                    Result::Err e
+                                                        Result::Err _e:
+                                                            selfhost_resolved_enum_session_free session
+                                                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory head.span
+                                        Result::Err e:
+                                            selfhost_resolved_enum_session_free session
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_resolved_enum_session_free session
+                                    Result::Err e
+                        SelfhostModuleDeclarationHeadKind::TypeLabel:
+                            selfhost_resolved_enum_session_free session
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DeclarationHeadKindInvalid head.span
+                Option::None:
+                    selfhost_resolved_enum_session_free session
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DeclarationHeadMissing header.header_span
+        _:
+            selfhost_resolved_enum_session_free session
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DeclarationKindMismatch header.header_span
+
+//: selfhost_resolved_enum_session_append_result: parser item を内部 session scanへ反映する
+//:
+//: [目的/もくてき]: actual `EnumDecl`だけをsame-session nominal ID空間とordered variant tableへ追加し、他itemは変更せず通過させます。
+//: [契約/けいやく]:
+//: - 成功時は以前のdefinitions/variantsを保持した新session ownerを返します。
+//: - 失敗時は入力session全体を必ず解放します。constructor add failureではadd API自身がtableを解放します。
+//: - variant spanをsource spellingへ解釈する間だけ、対応する入力sourceの lifetimeを保ってください。
+//: [計算量/けいさんりょう]: token/segment数を n、variant数を m としてscanはO(n)、重複検査はO(m^2)です。
+//: [authority boundary]: item/header kind、body segment、token kind/span、constructor add結果だけをauthorityにします。
+//: [owner boundary]: 入力sessionを消費し、成功時だけ内部collect ownerを返します。失敗時はplaceholder token、definition、variant、constructorを閉じます。
+//: [type boundary]: payloadはsyntax rangeのままであり、TypeArena projectionやResolvedEnumMemberIdを作りません。
+//: [error variant]: enumのmissing/invalid header/body/token、duplicate variant、OOM、constructor errorをtypedに返します。非enum itemはerrorではありません。
+//: [lifetime]: one-shot producer内部だけでsource/tokensをborrowし、返却前に同じownerへattachします。
+fn selfhost_resolved_enum_session_append_result %impure fn SelfhostResolvedEnumSession impure fn str impure fn &Vec SelfhostToken impure fn SelfhostModuleItem Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \session\source\tokens\item:
+    match item.kind:
+        SelfhostModuleItemKind::EnumDecl:
+            match item.declaration:
+                Option::Some header:
+                    match item.declaration_body:
+                        Option::Some body:
+                            selfhost_resolved_enum_surface_materialize_header_result session source tokens item header body
+                        Option::None:
+                            selfhost_resolved_enum_session_free session
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DeclarationBodyMissing item.span
+                Option::None:
+                    selfhost_resolved_enum_session_free session
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::DeclarationHeaderMissing item.span
+        _:
+            Result::Ok session
+
+//: selfhost_resolved_enum_session_new: 空の継続session ownerを作る
+//:
+//: [契約/けいやく]: placeholder token、definition、variant bufferのいずれかの確保失敗時は先に確保したownerとconstructor seedを解放します。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: 空sessionはidentityをまだ発行しません。
+//: [owner boundary]: 成功時は内部module scanまたはfreeへ渡すmove-only ownerを返します。
+//: [type boundary]: constructor table、definition table、variant tableを空で揃えます。
+fn selfhost_resolved_enum_session_from_constructor_table %impure fn SelfhostTypeConstructorTable impure fn str Result SelfhostResolvedEnumSession StdErrorKind \constructors\source:
+    let placeholder_tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+    match placeholder_tokens_result:
+        Result::Ok placeholder_tokens:
+            let definitions_result %Result Vec SelfhostResolvedEnumDefinition StdErrorKind v::new
+            match definitions_result:
+                Result::Ok definitions:
+                    let variants_result %Result Vec SelfhostResolvedEnumVariantHeader StdErrorKind v::new
+                    match variants_result:
+                        Result::Ok variants:
+                            Result::Ok SelfhostResolvedEnumSession source placeholder_tokens constructors definitions variants
+                        Result::Err e:
+                            v::free definitions
+                            v::free placeholder_tokens
+                            selfhost_type_constructor_table_free constructors
+                            Result::Err e
+                Result::Err e:
+                    v::free placeholder_tokens
+                    selfhost_type_constructor_table_free constructors
+                    Result::Err e
+        Result::Err e:
+            selfhost_type_constructor_table_free constructors
+            Result::Err e
+
+//: selfhost_resolved_enum_module_collect_loop: module item を source 順に一度走査する
+//: [契約/けいやく]: 全 item を append helper へ渡し、AST index 不整合は ModuleItemUnavailable です。
+//: [計算量/けいさんりょう]: item 数と各 enum scan の総計に対して線形、重複検査を含む部分は各 enum で二乗です。
+//: [owner boundary]: session owner を各反復へ移し、失敗時は append helper またはこの関数が閉じます。
+fn selfhost_resolved_enum_module_collect_loop %impure fn SelfhostResolvedEnumSession impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst impure fn i32 Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \session\source\tokens\ast\idx:
+    if:
+        ge idx selfhost_module_ast_len ast
+        then:
+            Result::Ok session
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match selfhost_resolved_enum_session_append_result session source tokens item:
+                        Result::Ok next_session:
+                            selfhost_resolved_enum_module_collect_loop next_session source tokens ast add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_resolved_enum_session_free session
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ModuleItemUnavailable source_span_empty_unchecked 0 0
+
+//: selfhost_resolved_enum_session_attach_tokens: placeholder token buffer を実 parse token owner へ置換する
+//: [契約/けいやく]: 空の placeholder を解放し、他の session component を変更せず保持します。計算量は O(1) です。
+//: [owner boundary]: session と tokens を消費し、返却 session が tokens の唯一の cleanup obligation を持ちます。
+fn selfhost_resolved_enum_session_attach_tokens %impure fn SelfhostResolvedEnumSession impure fn Vec SelfhostToken SelfhostResolvedEnumSession \session\tokens:
+    let source %str field::get session "source"
+    v::free field::get session "tokens"
+    let constructors %SelfhostTypeConstructorTable field::get session "constructors"
+    let definitions %Vec SelfhostResolvedEnumDefinition field::get session "definitions"
+    let variants %Vec SelfhostResolvedEnumVariantHeader field::get session "variants"
+    SelfhostResolvedEnumSession source tokens constructors definitions variants
+
+//: selfhost_resolved_enum_module_session_materialize_result: 1 sourceの全enum surfaceを一度だけ生成する
+//:
+//: [契約/けいやく]: sourceを内部でlex/parseし、`SelfhostModuleAst`の全itemをsource順に1回走査します。返却sessionへitemを追加するpublic APIはありません。
+//: [authority boundary]: parser originは内部生成したsource/tokens/ASTだけです。`constructor_seed`はstruct/import等が先に占有したnamespace prefixであり、parser origin証明ではありません。
+//: [owner boundary]: constructor seedとsourceを消費し、成功時はsource/tokens/definitions/variants/constructorsを持つmove-only sessionを返します。失敗時は全ownerを閉じます。
+//: [type boundary]: omitted/reordered/duplicatedな外部ASTや別source token streamを受け取るsignatureを公開しません。
+//: [error variant]: lex、parse、origin、variant、constructor、allocation失敗をtyped kindに保ちます。
+pub fn selfhost_resolved_enum_module_session_materialize_result %impure fn SelfhostTypeConstructorTable impure fn str Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \constructor_seed\source:
+    match lex_all source:
+        Result::Ok tokens:
+            match selfhost_parse_module_tokens source &tokens:
+                Result::Ok ast:
+                    match selfhost_resolved_enum_session_from_constructor_table constructor_seed source:
+                        Result::Ok session:
+                            match selfhost_resolved_enum_module_collect_loop session source &tokens &ast 0:
+                                Result::Ok collected:
+                                    selfhost_module_ast_free ast
+                                    Result::Ok selfhost_resolved_enum_session_attach_tokens collected tokens
+                                Result::Err e:
+                                    selfhost_module_ast_free ast
+                                    v::free tokens
+                                    Result::Err e
+                        Result::Err _e:
+                            selfhost_module_ast_free ast
+                            v::free tokens
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+                Result::Err _e:
+                    v::free tokens
+                    selfhost_type_constructor_table_free constructor_seed
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ModuleParseFailed source_span_empty_unchecked 0 0
+        Result::Err e:
+            selfhost_type_constructor_table_free constructor_seed
+            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::LexFailed e.span
+
+//: selfhost_resolved_enum_session_definition_len: dense definition数を返す
+//:
+//: [契約/けいやく]: sessionをborrowするだけです。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: session-owned definition tableの長さです。
+//: [owner boundary]: ownerを移動しません。
+//: [type boundary]: constructor数やvariant数ではありません。
+pub fn selfhost_resolved_enum_session_definition_len %fn &SelfhostResolvedEnumSession i32 \session:
+    let definitions %&Vec SelfhostResolvedEnumDefinition field::get_ref session "definitions"
+    v::len definitions
+
+//: selfhost_resolved_enum_session_definition_get: dense definitionをindexで読む
+//:
+//: [契約/けいやく]: 範囲外はNoneです。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: sessionのdense definition tableだけを参照します。
+//: [owner boundary]: Copy recordを返します。
+//: [type boundary]: definition rangeは同じsession variantsにだけ適用できます。
+pub fn selfhost_resolved_enum_session_definition_get %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostResolvedEnumDefinition \session\idx:
+    let definitions %&Vec SelfhostResolvedEnumDefinition field::get_ref session "definitions"
+    v::get definitions idx
+
+//: selfhost_resolved_enum_session_source: session が所有する parser source を借用する
+//: [契約/けいやく]: session lifetime を越えない参照を返し、owner は移動しません。計算量は O(1) です。
+//: [authority boundary]: variant name span と組み合わせられる唯一の source origin です。
+pub fn selfhost_resolved_enum_session_source %fn &SelfhostResolvedEnumSession &str \session:
+    field::get_ref session "source"
+
+//: selfhost_resolved_enum_session_token_len: session-owned parser token 数を返す
+//: [契約/けいやく]: token buffer を借用するだけで、definition/variant 数ではありません。計算量は O(1) です。
+pub fn selfhost_resolved_enum_session_token_len %fn &SelfhostResolvedEnumSession i32 \session:
+    let tokens %&Vec SelfhostToken field::get_ref session "tokens"
+    v::len tokens
+
+//: selfhost_resolved_enum_session_token_get: session-owned parser token を index で読む
+//: [契約/けいやく]: 範囲内は Copy token、範囲外は None を返します。計算量は O(1) です。
+//: [authority boundary]: variant payload range と同じ session token origin だけを公開します。
+//: [owner boundary]: session と token buffer を借用し、cleanup obligation を移動しません。
+pub fn selfhost_resolved_enum_session_token_get %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostToken \session\idx:
+    let tokens %&Vec SelfhostToken field::get_ref session "tokens"
+    v::get tokens idx
+
+//: selfhost_resolved_enum_session_variant_len: ordered variant総数を返す
+//:
+//: [契約/けいやく]: sessionをborrowするだけです。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: session-owned ordered variant tableの長さです。
+//: [owner boundary]: ownerを移動しません。
+//: [type boundary]: individual definitionのvariant_countではありません。
+pub fn selfhost_resolved_enum_session_variant_len %fn &SelfhostResolvedEnumSession i32 \session:
+    let variants %&Vec SelfhostResolvedEnumVariantHeader field::get_ref session "variants"
+    v::len variants
+
+//: selfhost_resolved_enum_session_variant_get: ordered variantをglobal indexで読む
+//:
+//: [契約/けいやく]: 範囲外はNoneです。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: definition rangeと同じsessionのvariant tableだけを参照します。
+//: [owner boundary]: Copy recordを返します。
+//: [type boundary]: source spelling lookupやResolvedEnumMemberId lookupではありません。
+//: [lifetime]: name spanは同じsessionが所有するsource textにだけ適用できます。
+pub fn selfhost_resolved_enum_session_variant_get %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostResolvedEnumVariantHeader \session\idx:
+    let variants %&Vec SelfhostResolvedEnumVariantHeader field::get_ref session "variants"
+    v::get variants idx
+
+//: selfhost_resolved_enum_session_constructor_kind: definitionのsame-session constructor kindを読む
+//:
+//: [契約/けいやく]: definitionとconstructor tableの同一session対応だけを使います。
+//: [計算量/けいさんりょう]: O(1)です。
+//: [authority boundary]: definition nominal IDとsession constructor tableの組がauthorityです。
+//: [owner boundary]: ownerを移動しません。
+//: [type boundary]: arityを返し、Enum discriminatorはdefinition.kindが保持します。
+pub fn selfhost_resolved_enum_session_constructor_kind %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostTypeConstructorKind \session\definition_idx:
+    match selfhost_resolved_enum_session_definition_get session definition_idx:
+        Option::Some definition:
+            let constructors %&SelfhostTypeConstructorTable field::get_ref session "constructors"
+            match selfhost_type_constructor_table_get constructors definition.nominal_id:
+                Option::Some constructor:
+                    some constructor.kind
+                Option::None:
+                    none
+        Option::None:
+            none
+
+//: selfhost_resolved_enum_session_free: 継続sessionの全ownerを解放する
+//:
+//: [契約/けいやく]: sessionを消費し、再利用してはいけません。
+//: [計算量/けいさんりょう]: 4bufferの解放計算量に従います。
+//: [authority boundary]: semantic recordを変更せずcleanup obligationだけを閉じます。
+//: [owner boundary]: variants、definitions、tokens、constructorsをちょうど一度解放します。
+//: [type boundary]: source `%str`はsession payloadとして保持しますが、既存str cleanup model上は明示free対象ではありません。
+pub fn selfhost_resolved_enum_session_free %impure fn SelfhostResolvedEnumSession unit \session:
+    v::free field::get session "variants"
+    v::free field::get session "definitions"
+    v::free field::get session "tokens"
+    selfhost_type_constructor_table_free field::get session "constructors"

@@ -8,6 +8,7 @@ const TYPE_RESOLVER_SPLIT_FILES = [
     "stdlib/neplg2/core/resolve/type_resolver/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/input.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl",
+    "stdlib/neplg2/core/resolve/type_resolver/enum_surface.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/typeparam/id.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/typeparam/model.nepl",
     "stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl",

@@ -12,6 +12,7 @@ const checks = [
     "nodesrc/test_source_policy_no_line_count_limits.js",
     "nodesrc/test_readme_current_neplg2_reality.js",
     "nodesrc/test_selfhost_prototype_design_contract.js",
+    "nodesrc/test_selfhost_enum_surface_contract.js",
     "nodesrc/test_stdlib_match_decision_trees.js",
     "nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_fs_report_contract.js",
