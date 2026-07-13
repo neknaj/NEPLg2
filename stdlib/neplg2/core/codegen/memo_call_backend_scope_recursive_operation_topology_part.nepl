@@ -222,6 +222,18 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_
         Result::Err e: Result::Err e
         Result::Ok topology: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_blocks_result topology inventory key graph_id 0 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len inventory
 
+//: central Branch fixture用にflat rootsへordinal 21のempty Then / Else scopeを追加します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_branch_fixture_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \inventory\key\graph_id:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result inventory key graph_id:
+        Result::Err e: Result::Err e
+        Result::Ok topology:
+            let then_scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id 2 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 21 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen 22 0 22 22
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope topology then_scope:
+                Result::Err e: Result::Err e
+                Result::Ok with_then:
+                    let else_scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 21 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse 22 0 22 22
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope with_then else_scope
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "nodes"
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "scopes"
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_edge_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "edges"

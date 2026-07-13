@@ -1,0 +1,222 @@
+//: memo_call backend private-cache Resource Branch stage0 source part
+//:
+//: Branch payloadとcondition factのlossless ownerを、central structural validatorそのものへ通す非production matrixです。
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_error_matches %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind bool \mode\error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadMissing ordinal: and eq mode 20 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadUnexpected ordinal: and or eq mode 21 eq mode 48 eq ordinal if eq mode 21 0 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadIdentityMismatch ordinal: and or eq mode 22 eq mode 23 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadOrdinalMismatch ordinal: and eq mode 24 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchOutputMissing ordinal: and eq mode 25 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchOutputGraphMismatch ordinal: and eq mode 26 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchConditionMissing ordinal: and eq mode 27 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchConditionGraphMismatch ordinal: and eq mode 28 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchThenValueMissing ordinal: and eq mode 29 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchThenValueGraphMismatch ordinal: and eq mode 30 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchElseValueMissing ordinal: and eq mode 31 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchElseValueGraphMismatch ordinal: and eq mode 32 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootInvalid ordinal: and eq mode 33 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeIdentityMismatch ordinal: and or eq mode 34 eq mode 35 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeOrdinalMismatch ordinal: and eq mode 36 eq ordinal 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeOwnerMismatch ordinal: and eq mode 37 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeRangeInvalid ordinal: and eq mode 38 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeIdentityMismatch ordinal: and or eq mode 39 eq mode 59 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeOrdinalMismatch ordinal: and eq mode 40 eq ordinal 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeParentMismatch ordinal: and or eq mode 41 eq mode 43 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildMissing ordinal: and eq mode 42 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactLeafHasChildren ordinal: and eq mode 44 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPreorderInvalid ordinal: if eq mode 45 eq ordinal 1 if eq mode 46 eq ordinal 2 and or eq mode 47 eq mode 51 eq ordinal 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeUnexpected ordinal: and eq mode 48 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPlaceMissing ordinal: and eq mode 49 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPlaceGraphMismatch ordinal: and eq mode 50 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingMissing ordinal: and eq mode 52 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingUnexpected ordinal: and eq mode 53 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingIdentityMismatch ordinal: and eq mode 54 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingOrdinalMismatch ordinal: and eq mode 55 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactUnexpected ordinal: and or eq mode 56 eq mode 57 eq ordinal if eq mode 57 0 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildOwnerMismatch ordinal: and eq mode 58 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootMissing ordinal: and eq mode 60 eq ordinal 21
+        _: false
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_fact_kind %fn i32 fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind \mode\idx\place0\place1:
+    if eq mode 1 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero place0
+    else if eq mode 2 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::NeZero place0
+    else if eq mode 3 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Positive place0
+    else if eq mode 4 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::NonPositive place0
+    else if eq mode 5 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Negative place0
+    else if eq mode 6 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::NonNegative place0
+    else if and ge mode 7 le mode 12:
+        let op %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp if eq mode 7 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp::Eq if eq mode 8 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp::Ne if eq mode 9 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp::Lt if eq mode 10 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp::Le if eq mode 11 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp::Gt SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp::Ge
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::I32Relation SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation place0 op place1
+    else if eq mode 13 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Any
+    else if eq mode 14 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::All
+    else if or or eq mode 15 eq mode 16 eq mode 51:
+        if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Any if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::All SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero place0
+    else if or and ge mode 39 le mode 47 or eq mode 58 eq mode 59:
+        if eq idx 0 if eq mode 44 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero place0 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Any SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero place0
+    else SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero if or eq mode 17 eq mode 50 place1 place0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_node_count %fn i32 i32 \mode:
+    if or eq mode 0 eq mode 60 0 if or eq mode 15 eq mode 16 eq mode 51 5 if or or and ge mode 39 le mode 47 eq mode 18 or eq mode 58 eq mode 59 2 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_edge_count %fn i32 i32 \mode:
+    if or eq mode 15 eq mode 16 eq mode 51 4 if or and ge mode 39 le mode 47 or eq mode 58 eq mode 59 if eq mode 45 0 if eq mode 46 2 1 if eq mode 48 1 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_nodes_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\key\graph_id\place0\place1\mode\idx\count:
+    if ge idx count Result::Ok nodes
+    else let record_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 34 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78 key
+    let record_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 35 selfhost_memo_call_backend_private_cache_resource_graph_id_new 1 graph_id
+    let ordinal %i32 if eq mode 36 1 idx
+    let owner %i32 if eq mode 37 20 if eq mode 57 0 if and eq mode 58 eq idx 1 22 if and eq mode 18 eq idx 1 45 if and eq mode 19 eq idx 1 22 21
+    let child_count %i32 if or eq mode 15 eq mode 16 eq mode 51 if eq idx 0 2 if eq idx 1 2 0 if or and ge mode 39 le mode 47 or eq mode 58 eq mode 59 if eq idx 0 if eq mode 45 0 if eq mode 46 2 1 0 0
+    let edge_start %i32 if eq mode 38 1 if or eq mode 15 eq mode 16 eq mode 51 if eq idx 0 0 if eq idx 1 2 4 if or and ge mode 39 le mode 47 or eq mode 58 eq mode 59 if eq idx 0 0 1 0
+    let record %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord record_key record_graph ordinal owner selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_fact_kind mode idx place0 place1 edge_start child_count
+    match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_push nodes record:
+        Result::Err e: Result::Err e
+        Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_nodes_fill_result next key graph_id place0 place1 mode add idx 1 count
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_edges_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \edges\key\graph_id\mode\idx\count:
+    if ge idx count Result::Ok edges
+    else let record_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 39 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78 key
+    let ordinal %i32 if eq mode 40 1 idx
+    let parent %i32 if eq mode 41 1 if or eq mode 15 eq mode 16 eq mode 51 if lt idx 2 0 1 0
+    let sibling %i32 if eq mode 43 1 if or eq mode 15 eq mode 16 eq mode 51 if lt idx 2 idx sub idx 2 idx
+    let child %i32 if eq mode 42 99 if eq mode 47 0 if eq mode 46 1 if eq mode 51 if eq idx 0 2 if eq idx 1 1 add idx 1 if or eq mode 15 eq mode 16 if eq idx 0 1 if eq idx 1 4 if eq idx 2 2 3 1
+    let record_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 59 selfhost_memo_call_backend_private_cache_resource_graph_id_new 1 graph_id
+    let record %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord record_key record_graph ordinal parent sibling child
+    match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_push edges record:
+        Result::Err e: Result::Err e
+        Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_edges_fill_result next key graph_id mode add idx 1 count
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_payload_push_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\key\graph_id\place0\place1\mode\ordinal:
+    let wrong_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78
+    let wrong_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 1
+    let missing %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 99
+    let wrong0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace wrong_graph selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+    let output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 25 missing if eq mode 26 wrong0 place0
+    let condition %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 27 missing if eq mode 28 wrong0 place1
+    let then_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 29 missing if eq mode 30 wrong0 place0
+    let else_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace if eq mode 31 missing if eq mode 32 wrong0 place1
+    let payload %SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord if eq mode 22 wrong_key key if eq mode 23 wrong_graph graph_id if eq mode 24 20 ordinal output condition then_value else_value
+    selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_push payloads payload
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_bindings_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \bindings\key\graph_id\mode\idx\count:
+    if ge idx count Result::Ok bindings
+    else let ordinal %i32 if eq mode 53 0 if eq mode 55 20 if eq mode 18 if eq idx 0 21 if eq idx 1 22 45 if eq mode 19 add 21 idx 21
+    let root %Option i32 if or eq mode 0 eq mode 56 Option::None if eq mode 18 if eq idx 0 Option::Some 0 if eq idx 1 Option::None Option::Some 1 if eq mode 19 Option::Some idx if eq mode 33 Option::Some 99 Option::Some 0
+    let record_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 54 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78 key
+    let record %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord record_key graph_id ordinal root
+    match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_push bindings record:
+        Result::Err e: Result::Err e
+        Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_bindings_fill_result next key graph_id mode add idx 1 count
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_validate_owned %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn i32 impure fn i32 bool \payloads0\nodes0\edges0\bindings0\kinds\places\key\graph_id\place0\place1\mode\operation_count:
+    let payload_result0 %Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if or eq mode 20 or eq mode 53 eq mode 57 Result::Ok payloads0 selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_payload_push_result payloads0 key graph_id place0 place1 mode if eq mode 21 0 21
+    let payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match payload_result0:
+        Result::Err e: Result::Err e
+        Result::Ok payloads1: if eq mode 18 selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_payload_push_result payloads1 key graph_id place0 place1 mode 45 Result::Ok payloads1
+    match payload_result:
+        Result::Err _e:
+            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings0
+            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges0
+            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes0
+            false
+        Result::Ok payloads:
+            let node_count %i32 if eq mode 19 2 selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_node_count mode
+            match selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_nodes_fill_result nodes0 key graph_id place0 place1 mode 0 node_count:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings0
+                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges0
+                    selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads
+                    false
+                Result::Ok nodes:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_edges_fill_result edges0 key graph_id mode 0 selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_edge_count mode:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings0
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes
+                            selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads
+                            false
+                        Result::Ok edges:
+                            let binding_count %i32 if or eq mode 21 or eq mode 52 eq mode 57 0 if eq mode 18 3 if eq mode 19 2 1
+                            match selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_bindings_fill_result bindings0 key graph_id mode 0 binding_count:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes
+                                    selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads
+                                    false
+                                Result::Ok bindings:
+                                    let branch_validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_validate_loop &payloads kinds places key graph_id 0 operation_count 0 selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_len &payloads
+                                    let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match branch_validation:
+                                        Result::Err e: Result::Err e
+                                        Result::Ok _branch: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop &nodes &edges &bindings kinds places key graph_id 0 operation_count 0 0 0
+                                    let valid %bool if le mode 19 match validation:
+                                        Result::Ok _unit: true
+                                        Result::Err _e: false
+                                    else match validation:
+                                        Result::Ok _unit: false
+                                        Result::Err e: selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_error_matches mode e
+                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings
+                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes
+                                    selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads
+                                    valid
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_case %impure fn i32 bool \mode:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let operation_count %i32 if or eq mode 53 eq mode 57 1 if eq mode 21 21 if eq mode 18 46 if eq mode 19 23 22
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_stage0_result key graph_id operation_count:
+        Result::Err _e: false
+        Result::Ok kinds:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Projection selfhost_type_id_new 1:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                    false
+                Result::Ok places:
+                    let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new if eq mode 49 99 0
+                    let fact_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 50 selfhost_memo_call_backend_private_cache_resource_graph_id_new 1 graph_id
+                    let place1 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fact_graph selfhost_memo_call_backend_private_cache_resource_place_id_new 1
+                    match selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_new:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            false
+                        Result::Ok payloads0:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_new:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads0
+                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    false
+                                Result::Ok nodes0:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_new:
+                                        Result::Err _e:
+                                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes0
+                                            selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads0
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            false
+                                        Result::Ok edges0:
+                                            let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_new:
+                                                Result::Err _e:
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges0
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes0
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free payloads0
+                                                    false
+                                                Result::Ok bindings0: selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_validate_owned payloads0 nodes0 edges0 bindings0 &kinds &places key graph_id place0 place1 mode operation_count
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_loop %impure fn i32 bool \mode:
+    if gt mode 60 true and selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_case mode selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_loop add mode 1
+
+//: None、全unary/relation、空Any/All、nested/repeated tree、2 operation ownerとtyped rejectionを実validatorで検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_matrix %impure fn void bool \void:
+    selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_loop 0

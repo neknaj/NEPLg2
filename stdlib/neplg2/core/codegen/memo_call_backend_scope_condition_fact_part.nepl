@@ -1,0 +1,313 @@
+//: memo_call backend private-cache Resource condition fact source part
+//:
+//: Branch / Loop が共有する ResourceConditionFact の再帰treeを、dense nodeとordered edgeの単一ownerでlosslessに保持します。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+enum SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp:
+    Eq
+    Ne
+    Lt
+    Le
+    Gt
+    Ge
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation:
+    left %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    op %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp
+    right %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+
+enum SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind:
+    EqZero %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    NeZero %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    Positive %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    NonPositive %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    Negative %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    NonNegative %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    I32Relation %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation
+    Any
+    All
+
+//: node ordinalはowner全体でdense、operation ordinalはResource operation topologyのglobal preorder domainです。
+//: Any / Allだけがchild rangeを持ち、空rangeもNoneとは区別して保持します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    node_ordinal %i32
+    owning_operation_ordinal %i32
+    kind %SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind
+    edge_start %i32
+    child_count %i32
+
+//: edgeはparentごとのsource orderをsibling ordinalで保持し、同値factをdedupしません。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    edge_ordinal %i32
+    parent_node_ordinal %i32
+    sibling_ordinal %i32
+    child_node_ordinal %i32
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelationOp \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRelation \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory:
+    nodes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory:
+    edges %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    root %Option i32
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory:
+    bindings %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactCursor:
+    next_node %i32
+    next_edge %i32
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok nodes: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory nodes
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_new_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeTableAllocFailed error
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok edges: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory edges
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_new_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeTableAllocFailed error
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok bindings: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory bindings
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_new_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingTableAllocFailed error
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory unit \inventory:
+    v::free field::get inventory "nodes"
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory unit \inventory:
+    v::free field::get inventory "edges"
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory unit \inventory:
+    v::free field::get inventory "bindings"
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory i32 \inventory:
+    v::len field::get_ref inventory "nodes"
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory i32 \inventory:
+    v::len field::get_ref inventory "edges"
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory i32 \inventory:
+    v::len field::get_ref inventory "bindings"
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord \inventory\idx:
+    v::get field::get_ref inventory "nodes" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord \inventory\idx:
+    v::get field::get_ref inventory "edges" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord \inventory\idx:
+    v::get field::get_ref inventory "bindings" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    let nodes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord field::get inventory "nodes"
+    match v::push nodes record:
+        Result::Ok next: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodePushFailed error
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeRecord field::get inventory "edges"
+    match v::push edges record:
+        Result::Ok next: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgePushFailed error
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    let bindings %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord field::get inventory "bindings"
+    match v::push bindings record:
+        Result::Ok next: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingPushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\place\node_ordinal:
+    if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPlaceGraphMismatch node_ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key place 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+        Result::Err e: Result::Err e
+        Result::Ok present: if present Result::Ok unit else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPlaceMissing node_ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_owner_end_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn i32 fn i32 fn i32 i32 \nodes\operation_ordinal\idx\end:
+    if ge idx end idx
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes idx:
+        Option::None: idx
+        Option::Some node: if eq node.owning_operation_ordinal operation_ordinal selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_owner_end_loop nodes operation_ordinal add idx 1 end idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_kind_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \node\places\key\graph_id:
+    let leaf %bool match node.kind:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Any: false
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::All: false
+        _: true
+    if and leaf not eq node.child_count 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactLeafHasChildren node.node_ordinal
+    else match node.kind:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero place: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id place node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::NeZero place: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id place node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Positive place: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id place node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::NonPositive place: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id place node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Negative place: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id place node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::NonNegative place: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id place node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::I32Relation relation:
+            match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id relation.left node.node_ordinal:
+                Result::Err e: Result::Err e
+                Result::Ok _left: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_place_validate_result places key graph_id relation.right node.node_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::Any: Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::All: Result::Ok unit
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_incoming_count_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn i32 fn i32 fn i32 i32 \edges\node_ordinal\idx\end:
+    if ge idx end 0 match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_get edges idx:
+        Option::None: 0
+        Option::Some edge: add if eq edge.child_node_ordinal node_ordinal 1 0 selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_incoming_count_loop edges node_ordinal add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_reachable %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn i32 fn i32 fn i32 bool \nodes\edges\root\target\fuel:
+    if le fuel 0 false
+    else if eq root target true
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes root:
+        Option::None: false
+        Option::Some node: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_reachable_edges_loop nodes edges target node.edge_start add node.edge_start node.child_count sub fuel 1
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_reachable_edges_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn i32 fn i32 fn i32 fn i32 bool \nodes\edges\target\idx\end\fuel:
+    if ge idx end false
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_get edges idx:
+        Option::None: false
+        Option::Some edge: or selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_reachable nodes edges edge.child_node_ordinal target fuel selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_reachable_edges_loop nodes edges target add idx 1 end fuel
+
+//: preorder node列とparent-local edge列から再帰treeを一意に復元し、各direct child subtreeがsibling順に連続することを検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_preorder_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactCursor SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\edges\node_ordinal\expected_edge\node_end\edge_end:
+    if ge node_ordinal node_end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPreorderInvalid node_ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes node_ordinal:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeReadFailed node_ordinal
+        Option::Some node:
+            if or not eq node.edge_start expected_edge gt node.child_count sub edge_end expected_edge Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPreorderInvalid node_ordinal
+            else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_preorder_children_validate_result nodes edges node node_ordinal add node_ordinal 1 add expected_edge node.child_count node_end edge_end 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_preorder_children_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactCursor SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\edges\parent\parent_ordinal\next_node\next_edge\node_end\edge_end\sibling:
+    if eq sibling parent.child_count Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactCursor next_node next_edge
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_get edges add parent.edge_start sibling:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeReadFailed add parent.edge_start sibling
+        Option::Some edge:
+            if not eq edge.child_node_ordinal next_node:
+                match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes edge.child_node_ordinal:
+                    Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildMissing add parent.edge_start sibling
+                    Option::Some child: if not eq child.owning_operation_ordinal parent.owning_operation_ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildOwnerMismatch add parent.edge_start sibling Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPreorderInvalid next_node
+            else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes next_node:
+                Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildMissing add parent.edge_start sibling
+                Option::Some child:
+                    if not eq child.owning_operation_ordinal parent.owning_operation_ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildOwnerMismatch add parent.edge_start sibling
+                    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_preorder_validate_result nodes edges next_node next_edge node_end edge_end:
+                        Result::Err e: Result::Err e
+                        Result::Ok cursor: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_preorder_children_validate_result nodes edges parent parent_ordinal cursor.next_node cursor.next_edge node_end edge_end add sibling 1
+
+//: 1 operationに属する連続node/edge範囲を検査し、rooted ordered tree以外を拒否します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_operation_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\edges\places\key\graph_id\operation_ordinal\root\start\end\edge_start:
+    if or lt root start ge root end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootInvalid operation_ordinal
+    else if not eq root start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPreorderInvalid root
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_preorder_validate_result nodes edges root edge_start end selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_len edges:
+        Result::Err e: Result::Err e
+        Result::Ok cursor:
+            if not eq cursor.next_node end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactPreorderInvalid cursor.next_node
+            else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_nodes_validate_loop nodes edges places key graph_id operation_ordinal root start end start edge_start
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_nodes_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\edges\places\key\graph_id\operation_ordinal\root\start\end\idx\expected_edge:
+    if ge idx end Result::Ok expected_edge
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeReadFailed idx
+        Option::Some node:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq node.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq node.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeIdentityMismatch idx
+            else if not eq node.node_ordinal idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeOrdinalMismatch node.node_ordinal
+            else if not eq node.owning_operation_ordinal operation_ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactNodeOwnerMismatch idx
+            else if or or lt node.edge_start 0 lt node.child_count 0 or not eq node.edge_start expected_edge gt node.child_count sub selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_len edges node.edge_start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeRangeInvalid idx
+            else let incoming %i32 selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_incoming_count_loop edges idx 0 selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_len edges
+            if not eq incoming if eq idx root 0 1 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactIncomingCountInvalid idx
+            else if not selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_reachable nodes edges root idx add sub end start 1 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactOrphan idx
+            else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_kind_validate_result node places key graph_id:
+                Result::Err e: Result::Err e
+                Result::Ok _kind: match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edges_validate_loop nodes edges key graph_id operation_ordinal node idx node.edge_start add node.edge_start node.child_count:
+                    Result::Err e: Result::Err e
+                    Result::Ok _edges: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_nodes_validate_loop nodes edges places key graph_id operation_ordinal root start end add idx 1 add node.edge_start node.child_count
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edges_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\edges\key\graph_id\operation_ordinal\parent\idx\start\end:
+    if ge idx end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_get edges idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeReadFailed idx
+        Option::Some edge:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq edge.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq edge.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeIdentityMismatch idx
+            else if not eq edge.edge_ordinal idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeOrdinalMismatch edge.edge_ordinal
+            else if or not eq edge.parent_node_ordinal parent.node_ordinal not eq edge.sibling_ordinal sub idx start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeParentMismatch idx
+            else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_get nodes edge.child_node_ordinal:
+                Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildMissing idx
+                Option::Some child: if not eq child.owning_operation_ordinal operation_ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeChildOwnerMismatch idx else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edges_validate_loop nodes edges key graph_id operation_ordinal parent add idx 1 start end
+
+//: fact owner全体をoperation kind順に一度だけ消費し、Branch / Loopのexactly-one root bindingとtreeを一元検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \nodes\edges\bindings\kinds\places\key\graph_id\operation_idx\operation_count\binding_idx\node_cursor\edge_cursor:
+    if eq operation_idx operation_count:
+        if not eq node_cursor selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_len nodes Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactUnexpected node_cursor
+        else if not eq edge_cursor selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_len edges Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactEdgeUnexpected edge_cursor
+        else if not eq binding_idx selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_len bindings Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingUnexpected binding_idx
+        else Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds operation_idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed operation_idx
+        Option::Some operation:
+            let node_end %i32 selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_owner_end_loop nodes operation_idx node_cursor selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_len nodes
+            let control %bool match operation.kind:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch: true
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop: true
+                _: false
+            match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_get bindings binding_idx:
+                Option::None:
+                    if control Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingMissing operation_idx
+                    else if not eq node_cursor node_end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactUnexpected operation_idx
+                    else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop nodes edges bindings kinds places key graph_id add operation_idx 1 operation_count binding_idx node_cursor edge_cursor
+                Option::Some binding:
+                    if not control:
+                        if eq binding.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingUnexpected operation_idx
+                        else if not eq node_cursor node_end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactUnexpected operation_idx
+                        else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop nodes edges bindings kinds places key graph_id add operation_idx 1 operation_count binding_idx node_cursor edge_cursor
+                    else if or not selfhost_memo_call_backend_private_cache_proof_key_eq binding.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq binding.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingIdentityMismatch operation_idx
+                    else if not eq binding.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootBindingOrdinalMismatch binding.operation_ordinal
+                    else match binding.root:
+                        Option::None:
+                            if not eq node_cursor node_end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactUnexpected operation_idx
+                            else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop nodes edges bindings kinds places key graph_id add operation_idx 1 operation_count add binding_idx 1 node_cursor edge_cursor
+                        Option::Some root:
+                            if eq node_cursor node_end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConditionFactRootMissing operation_idx
+                            else match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_operation_validate_result nodes edges places key graph_id operation_idx root node_cursor node_end edge_cursor:
+                                Result::Err e: Result::Err e
+                                Result::Ok next_edge: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop nodes edges bindings kinds places key graph_id add operation_idx 1 operation_count add binding_idx 1 node_end next_edge

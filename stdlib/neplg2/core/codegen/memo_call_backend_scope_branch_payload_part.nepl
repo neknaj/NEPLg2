@@ -1,0 +1,101 @@
+//: memo_call backend private-cache Resource Branch payload source part
+//:
+//: Branch固有のoutput / condition / then value / else value Placeだけを保持し、condition fact rootはgeneric binding、then / else operation範囲はrecursive topologyへ一元化します。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    condition %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    then_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    else_value %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory:
+    payloads %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok payloads: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory payloads
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_new_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadTableAllocFailed error
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory unit \inventory:
+    v::free field::get inventory "payloads"
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory i32 \inventory:
+    v::len field::get_ref inventory "payloads"
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord \inventory\idx:
+    v::get field::get_ref inventory "payloads" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    let payloads %Vec SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord field::get inventory "payloads"
+    match v::push payloads record:
+        Result::Ok next: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadPushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_place_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\place\operation_ordinal\field_ordinal:
+    if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id:
+        if eq field_ordinal 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchOutputGraphMismatch operation_ordinal
+        else if eq field_ordinal 1 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchConditionGraphMismatch operation_ordinal
+        else if eq field_ordinal 2 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchThenValueGraphMismatch operation_ordinal
+        else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchElseValueGraphMismatch operation_ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key place 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+        Result::Err e: Result::Err e
+        Result::Ok present:
+            if present Result::Ok unit
+            else if eq field_ordinal 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchOutputMissing operation_ordinal
+            else if eq field_ordinal 1 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchConditionMissing operation_ordinal
+            else if eq field_ordinal 2 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchThenValueMissing operation_ordinal
+            else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchElseValueMissing operation_ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payload\places\key\graph_id:
+    let ordinal %i32 payload.operation_ordinal
+    match selfhost_memo_call_backend_private_cache_resource_ir_branch_place_validate_result places key graph_id payload.output ordinal 0:
+        Result::Err e: Result::Err e
+        Result::Ok _output:
+            match selfhost_memo_call_backend_private_cache_resource_ir_branch_place_validate_result places key graph_id payload.condition ordinal 1:
+                Result::Err e: Result::Err e
+                Result::Ok _condition:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_branch_place_validate_result places key graph_id payload.then_value ordinal 2:
+                        Result::Err e: Result::Err e
+                        Result::Ok _then:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_branch_place_validate_result places key graph_id payload.else_value ordinal 3:
+                                Result::Err e: Result::Err e
+                                Result::Ok _else: Result::Ok unit
+
+//: Branch sparse headerだけをglobal operation kindにmergeし、headerのgap / excessを閉じます。condition factはgeneric ownerが別に全走査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\kinds\places\key\graph_id\operation_idx\operation_count\payload_idx\payload_count:
+    if eq operation_idx operation_count:
+        if not eq payload_idx payload_count Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadUnexpected payload_idx
+        else Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds operation_idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed operation_idx
+        Option::Some operation:
+            match operation.kind:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_get payloads payload_idx:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadMissing operation_idx
+                        Option::Some payload:
+                            if or not selfhost_memo_call_backend_private_cache_proof_key_eq payload.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq payload.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadIdentityMismatch operation_idx
+                            else if not eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadOrdinalMismatch payload.operation_ordinal
+                            else match selfhost_memo_call_backend_private_cache_resource_ir_branch_record_validate_result payload places key graph_id:
+                                Result::Err e: Result::Err e
+                                Result::Ok _payload: selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_validate_loop payloads kinds places key graph_id add operation_idx 1 operation_count add payload_idx 1 payload_count
+                _:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_get payloads payload_idx:
+                        Option::Some payload: if eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::BranchPayloadUnexpected operation_idx selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_validate_loop payloads kinds places key graph_id add operation_idx 1 operation_count payload_idx payload_count
+                        Option::None: selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_validate_loop payloads kinds places key graph_id add operation_idx 1 operation_count payload_idx payload_count

@@ -11,6 +11,9 @@ const inventoryPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope
 const topologyPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_recursive_operation_topology_part.nepl";
 const indirectCallStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_indirect_call_stage0_part.nepl";
 const constructStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_construct_stage0_part.nepl";
+const conditionFactPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_condition_fact_part.nepl";
+const branchPayloadPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_branch_payload_part.nepl";
+const branchStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_branch_stage0_part.nepl";
 const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
 const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
@@ -18,11 +21,17 @@ const inventoryPartSource = fs.readFileSync(path.join(repoRoot, inventoryPartRel
 const topologyPartSource = fs.readFileSync(path.join(repoRoot, topologyPartRelPath), "utf8").replace(/\r\n/g, "\n");
 const indirectCallStage0PartSource = fs.readFileSync(path.join(repoRoot, indirectCallStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const constructStage0PartSource = fs.readFileSync(path.join(repoRoot, constructStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
+const conditionFactPartSource = fs.readFileSync(path.join(repoRoot, conditionFactPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const branchPayloadPartSource = fs.readFileSync(path.join(repoRoot, branchPayloadPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const branchStage0PartSource = fs.readFileSync(path.join(repoRoot, branchStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
 const topologyPartMergeDirective = '#import "./memo_call_backend_scope_recursive_operation_topology_part" as @merge';
 const indirectCallStage0PartMergeDirective = '#import "./memo_call_backend_scope_indirect_call_stage0_part" as @merge';
 const constructStage0PartMergeDirective = '#import "./memo_call_backend_scope_construct_stage0_part" as @merge';
+const conditionFactPartMergeDirective = '#import "./memo_call_backend_scope_condition_fact_part" as @merge';
+const branchPayloadPartMergeDirective = '#import "./memo_call_backend_scope_branch_payload_part" as @merge';
+const branchStage0PartMergeDirective = '#import "./memo_call_backend_scope_branch_stage0_part" as @merge';
 const sourceWithInventory = anchorSource.replace(
     inventoryPartMergeDirective,
     `${inventoryPartMergeDirective}\n${inventoryPartSource}`,
@@ -35,9 +44,21 @@ const sourceWithIndirectCall = sourceWithTopology.replace(
     indirectCallStage0PartMergeDirective,
     `${indirectCallStage0PartMergeDirective}\n${indirectCallStage0PartSource}`,
 );
-const source = sourceWithIndirectCall.replace(
+const sourceWithConstruct = sourceWithIndirectCall.replace(
     constructStage0PartMergeDirective,
     `${constructStage0PartMergeDirective}\n${constructStage0PartSource}`,
+);
+const sourceWithConditionFact = sourceWithConstruct.replace(
+    conditionFactPartMergeDirective,
+    `${conditionFactPartMergeDirective}\n${conditionFactPartSource}`,
+);
+const sourceWithBranchPayload = sourceWithConditionFact.replace(
+    branchPayloadPartMergeDirective,
+    `${branchPayloadPartMergeDirective}\n${branchPayloadPartSource}`,
+);
+const source = sourceWithBranchPayload.replace(
+    branchStage0PartMergeDirective,
+    `${branchStage0PartMergeDirective}\n${branchStage0PartSource}`,
 );
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
@@ -463,6 +484,18 @@ assert.deepEqual(
     "private Construct stage0 source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
 );
 
+for (const [partName, mergeDirective] of [
+    ["memo_call_backend_scope_condition_fact_part", conditionFactPartMergeDirective],
+    ["memo_call_backend_scope_branch_payload_part", branchPayloadPartMergeDirective],
+    ["memo_call_backend_scope_branch_stage0_part", branchStage0PartMergeDirective],
+]) {
+    const references = listNeplFiles(path.join(repoRoot, "stdlib/neplg2"))
+        .flatMap((filePath) => fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n").split("\n")
+            .filter((line) => line.includes(partName))
+            .map((line) => ({ filePath: path.relative(repoRoot, filePath), line })));
+    assert.deepEqual(references, [{ filePath: relPath, line: mergeDirective }], `${partName} must be referenced exactly once by the proof-gate anchor`);
+}
+
 assert.match(
     anchorSource,
     /#import "\.\/memo_call_backend_scope_inventory_part" as @merge/,
@@ -479,6 +512,43 @@ assert.match(
     /#import "\.\/memo_call_backend_scope_construct_stage0_part" as @merge/,
     "proof-gate anchor must merge the private Construct stage0 source part into the same logical module",
 );
+assert.match(anchorSource, /memo_call_backend_scope_condition_fact_part" as @merge/, "proof-gate anchor must merge condition facts privately");
+assert.match(anchorSource, /memo_call_backend_scope_branch_payload_part" as @merge/, "proof-gate anchor must merge Branch payload privately");
+assert.match(anchorSource, /memo_call_backend_scope_branch_stage0_part" as @merge/, "proof-gate anchor must merge Branch stage0 privately");
+assert.doesNotMatch(conditionFactPartSource, /^pub\s/m, "condition fact part must not expose public declarations");
+assert.doesNotMatch(branchPayloadPartSource, /^pub\s/m, "Branch payload part must not expose public declarations");
+assert.doesNotMatch(branchStage0PartSource, /^pub\s/m, "Branch stage0 part must not expose public declarations");
+assert.match(conditionFactPartSource, /enum SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind:[\s\S]*EqZero[\s\S]*NeZero[\s\S]*Positive[\s\S]*NonPositive[\s\S]*Negative[\s\S]*NonNegative[\s\S]*I32Relation[\s\S]*Any[\s\S]*All/, "condition fact owner must preserve every Rust fact variant without fallback");
+assert.match(conditionFactPartSource, /preorder_validate_result[\s\S]*child_node_ordinal next_node[\s\S]*cursor\.next_node[\s\S]*cursor\.next_edge/, "condition fact validator must consume direct child subtrees in canonical preorder");
+assert.match(conditionFactPartSource, /not eq root start[^\n]*ConditionFactPreorderInvalid/, "condition fact root must begin its exclusive owner range");
+const branchPayloadSignature = branchPayloadPartSource.match(/^fn selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_validate_loop[^\n]+/m)?.[0] ?? "";
+assert.match(branchPayloadSignature, /OperationKindInventory.*PlaceInventory/, "Branch merge validator must require global kind and Place owners");
+assert.doesNotMatch(branchPayloadSignature, /ConditionFact/, "Branch sparse validator must not own generic fact exhaustion");
+assert.doesNotMatch(branchPayloadPartSource.match(/^struct SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadRecord:[\s\S]*?(?=^\S)/m)?.[0] ?? "", /condition_fact_root/, "Branch header must not duplicate the generic root binding authority");
+assert.match(conditionFactPartSource, /struct SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord:[\s\S]*operation_ordinal %i32[\s\S]*root %Option i32/, "generic fact owner must preserve an explicit Branch/Loop root binding");
+assert.match(conditionFactPartSource, /condition_fact_inventory_validate_loop[\s\S]*OperationKind::Branch: true[\s\S]*OperationKind::Loop: true[\s\S]*ConditionFactRootBindingUnexpected/, "generic fact validator must allow exactly Branch/Loop bindings and reject non-control bindings");
+assert.match(inventoryPartSource, /branch_payload_inventory_validate_loop branch_payloads operation_kinds places key graph_id/, "central authority must validate Branch headers independently");
+assert.match(inventoryPartSource, /condition_fact_inventory_validate_loop condition_fact_nodes condition_fact_edges condition_fact_bindings operation_kinds places key graph_id/, "central authority must validate the generic fact owner without a bypass");
+assertOrdered(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"), ["inventory_operation_topology_validate_result", "branch_payload_inventory_validate_loop", "condition_fact_inventory_validate_loop"], "central authority must validate topology, Branch header, then generic facts");
+for (const token of ["Option::None", "EqZero", "NeZero", "Positive", "NonPositive", "Negative", "NonNegative", "I32Relation", "Any", "All", "mode 51", "mode 18", "mode 50"]) {
+    assert.ok(branchStage0PartSource.includes(token), `Branch stage0 matrix must cover ${token}`);
+}
+for (const errorName of ["BranchPayloadMissing", "BranchPayloadUnexpected", "BranchPayloadIdentityMismatch", "BranchPayloadOrdinalMismatch", "BranchOutputMissing", "BranchConditionMissing", "BranchThenValueMissing", "BranchElseValueMissing", "ConditionFactRootInvalid", "ConditionFactNodeIdentityMismatch", "ConditionFactNodeOrdinalMismatch", "ConditionFactNodeOwnerMismatch", "ConditionFactEdgeRangeInvalid", "ConditionFactEdgeIdentityMismatch", "ConditionFactEdgeOrdinalMismatch", "ConditionFactEdgeParentMismatch", "ConditionFactEdgeChildMissing", "ConditionFactEdgeChildOwnerMismatch", "ConditionFactLeafHasChildren", "ConditionFactPreorderInvalid", "ConditionFactEdgeUnexpected", "ConditionFactPlaceMissing", "ConditionFactPlaceGraphMismatch", "ConditionFactRootBindingMissing", "ConditionFactRootBindingUnexpected", "ConditionFactRootBindingIdentityMismatch", "ConditionFactRootBindingOrdinalMismatch", "ConditionFactRootMissing", "ConditionFactUnexpected"]) {
+    assert.ok(branchStage0PartSource.includes(errorName), `Branch stage0 matrix must typed-match ${errorName}`);
+}
+assert.match(anchorSource, /operation_topology_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_matrix \(\)/, "proof-gate lifecycle must execute Branch matrix with recursive topology matrix");
+assert.match(anchorSource, /branch_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0 \(\)/, "proof-gate lifecycle must execute the nonempty Branch central fixture");
+assert.match(inventoryPartSource, /branch_central_stage0_case false[\s\S]*branch_central_stage0_case true/, "central fixture must execute positive and mismatch-negative cases");
+assert.match(inventoryPartSource, /OperationTopologyRejected topology_error[\s\S]*ScopeParentInvalid scope_id: eq scope_id 2/, "central mismatch negative must match the exact nested topology taxonomy and scope ordinal");
+assert.match(topologyPartSource, /operation_topology_branch_fixture_result[\s\S]*BranchThen[\s\S]*BranchElse/, "central fixture topology must carry recursive Branch scopes");
+assert.match(inventoryPartSource, /control_fixture 1[\s\S]*branch_stage0_payload_push_result[\s\S]*branch_stage0_bindings_fill_result[\s\S]*branch_stage0_nodes_fill_result/, "central fixture must pass nonempty Branch and fact owners to the shared authority path");
+assert.match(branchStage0PartSource, /if eq mode 19 add 21 idx 21/, "stage0 bindings must assign Branch and Loop global ordinals");
+assert.match(branchStage0PartSource, /if and eq mode 19 eq idx 1 22 21/, "stage0 nodes must include a Loop-owned fact after the Branch-owned fact");
+for (const partSource of [conditionFactPartSource, branchPayloadPartSource, branchStage0PartSource]) {
+    assert.doesNotMatch(partSource, /ResourceIrEnumerated|ResourceLoweringTraversalProduced|MemoBackendArtifact|PrecheckedArtifact/, "structural Branch parts must not mint production origin or backend artifacts");
+}
+assert.match(conditionFactPartSource, /impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord/);
+assert.match(conditionFactPartSource, /impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord/);
 assert.doesNotMatch(
     inventoryPartSource,
     /^pub\s/m,
