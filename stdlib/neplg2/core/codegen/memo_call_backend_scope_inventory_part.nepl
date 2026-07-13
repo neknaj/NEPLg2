@@ -1298,7 +1298,8 @@ struct SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory:
 //:
 //: [契約/けいやく]:
 //: - block ordinalとterminator ordinalはそれぞれ`0..block_count`のdense順序です。
-//: - operation rangeは全blockを通じたdenseなoperation ordinalを表し、次blockのrangeと隙間なく接続します。
+//: - `first_operation_ordinal` / `operation_count`は現行central inventory / stage0 materializerが使うflat operation authorityです。nested descendantを保持できないため、recursive materializer接続後にroot scopeから再導出する形へ移行します。
+//: - `root_operation_scope_id`はstandalone recursive topology validator用に予約したfieldです。現行central inventory / materializerはtopology ownerを生成せず、この値をauthorityとして参照しません。
 //: - spanはRust ResourceBlock.spanのselfhost非負i32投影で、function spanとのsame-file/containmentはこの境界では要求しません。
 //: - terminator spanはRust ResourceTerminator全variantが持つspanのselfhost非負i32投影で、block spanとのsame-file/containmentは要求しません。
 //: - terminatorはeventへ合成しませんが、各blockで明示的に1件列挙したことをscope発行前に検査します。
@@ -1314,6 +1315,7 @@ struct SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord:
     terminator_span %SelfhostSourceSpan
     terminator_kind %SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind
     return_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload
+    root_operation_scope_id %i32
 
 struct SelfhostMemoCallBackendPrivateCacheResourceBlockSpanError:
     block_ordinal %i32
@@ -7575,10 +7577,10 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_sta
                                     match parameter_result:
                                         Result::Ok inventory_with_parameter:
                                             let first_return_place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id first_place
-                                            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 7 source_span_new_unchecked 2 3 4 0 1 0 source_span_new_unchecked 2 4 4 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place first_return_place
+                                            let first %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 7 source_span_new_unchecked 2 3 4 0 1 0 source_span_new_unchecked 2 4 4 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Return SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::Place first_return_place 0
                                             match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory_with_parameter first:
                                                 Result::Ok inventory3:
-                                                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_block_id second_block_span second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_span second_terminator_kind second_return_payload
+                                                    let second %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id second_block_ordinal second_block_id second_block_span second_first_operation_ordinal second_operation_count second_terminator_ordinal second_terminator_span second_terminator_kind second_return_payload second_block_ordinal
                                                     selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory3 second
                                                 Result::Err e:
                                                     Result::Err e
@@ -7608,7 +7610,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_function_parameter_mutab
                         Result::Ok inventory2:
                             let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
                             let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-                            let block_record %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 0 source_span_new_unchecked 0 0 0 0 0 0 source_span_new_unchecked 0 0 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None
+                            let block_record %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord key graph_id 0 0 source_span_new_unchecked 0 0 0 0 0 0 source_span_new_unchecked 0 0 0 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None 0
                             match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory2 block_record:
                                 Result::Ok inventory3:
                                     let stored_span %SelfhostSourceSpan *field::get_ref &inventory3 "span"

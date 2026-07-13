@@ -1,0 +1,823 @@
+//: memo_call backend private-cache Resource IR recursive operation topology source part
+//:
+//: ResourceFunction.blocks直下とBranch / Loop / Match内の再帰`Vec<ResourceOp>`を、global preorder nodeと明示scope edgeでlosslessに保持できるstandalone validator modelです。現行central inventory / materializerへの接続は後続sliceです。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent: operation scopeの親identity
+//:
+//: [契約/けいやく]:
+//: - `Block`はResourceFunction.blocksのdense block ordinal、`Operation`はselfhost投影が割り当てたglobal preorder node ordinalです。
+//: - Rust modelにglobal ordinalやscope idが保存されているとは主張しません。これらは再帰列挙を検査するselfhost projection contractです。
+enum SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent:
+    Block %i32
+    Operation %i32
+
+//: SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole: Rustの各`Vec<ResourceOp>` fieldを区別するrole
+//:
+//: [契約/けいやく]:
+//: - blockごとに`BlockOps`をちょうど1個持ちます。
+//: - BranchはThen / Else、LoopはCondition / Bodyだけを各1個持ちます。
+//: - MatchArmのordinalは0からdenseです。arm数0もRustのVec表現として保持し、意味上の到達可能性や型検査はここで推測しません。
+enum SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole:
+    BlockOps
+    BranchThen
+    BranchElse
+    LoopCondition
+    LoopBody
+    MatchArm %i32
+
+//: SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord: global preorder上のResourceOp node
+//:
+//: [契約/けいやく]:
+//: - node ordinalは0からdenseで、kind / span / sparse payload ownerのoperation ordinalと同じdomainです。
+//: - `subtree_end`はexclusiveです。node自身と全nested scopeをpreorderで覆い、leafでは`node_ordinal + 1`です。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    node_ordinal %i32
+    owning_block_ordinal %i32
+    parent_scope_id %i32
+    subtree_end %i32
+
+//: SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord: 1個のordered `Vec<ResourceOp>` region
+//:
+//: [契約/けいやく]:
+//: - edge rangeはdirect childだけを表し、nested descendant数を混ぜません。
+//: - `first_node`と`subtree_end`は各direct child subtreeを連結したexclusive preorder rangeです。空scopeでは同値です。
+//: - scope idはowner内で0からdenseです。異なるparentのscope group間にglobal割当順は設けず、同じoperation parentの中だけrole順（Branch Then / Else、Loop Condition / Body、Match arm 0..N）を要求します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    scope_id %i32
+    parent %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent
+    role %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole
+    edge_start %i32
+    child_count %i32
+    first_node %i32
+    subtree_end %i32
+
+//: SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord: scope内direct childのordered edge
+struct SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    edge_ordinal %i32
+    scope_id %i32
+    sibling_ordinal %i32
+    child_node_ordinal %i32
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord \self: self
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord \self: self
+
+//: SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology: recursive topologyの単一owner
+//:
+//: [契約/けいやく]:
+//: - nodes / scopes / edgesは一緒に所有し、部分ownerをscope authorityへ渡しません。
+//: - `Clone` / `Copy`を実装せず、検査後もproduction originや実Resource lowering完了を合成しません。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology:
+    nodes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord
+    scopes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord
+    edges %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord
+
+enum SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind:
+    NodeTableAllocFailed %StdErrorKind
+    ScopeTableAllocFailed %StdErrorKind
+    EdgeTableAllocFailed %StdErrorKind
+    NodePushFailed %StdErrorKind
+    ScopePushFailed %StdErrorKind
+    EdgePushFailed %StdErrorKind
+    NodeReadFailed %i32
+    ScopeReadFailed %i32
+    EdgeReadFailed %i32
+    IdentityMismatch %i32
+    NodeOrdinalMismatch %i32
+    ScopeOrdinalMismatch %i32
+    EdgeOrdinalMismatch %i32
+    NodeCountMismatch %i32
+    SpanCountMismatch %i32
+    RootScopeMissing %i32
+    RootScopeDuplicate %i32
+    RootScopeRoleInvalid %i32
+    ScopeParentInvalid %i32
+    ScopeRoleInvalid %i32
+    ScopeRoleMissing %i32
+    ScopeRoleDuplicate %i32
+    MatchArmOrdinalMismatch %i32
+    RangeInvalid %i32
+    RangeMismatch %i32
+    EdgeScopeMismatch %i32
+    EdgeSiblingOrdinalMismatch %i32
+    ChildNodeInvalid %i32
+    ChildParentMismatch %i32
+    ChildBlockMismatch %i32
+    ChildIncomingEdgeMissing %i32
+    ChildIncomingEdgeDuplicate %i32
+    SubtreeInvalid %i32
+    PreorderMismatch %i32
+    KindReadFailed %i32
+    KindIdentityMismatch %i32
+    SpanReadFailed %i32
+    SpanIdentityMismatch %i32
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \void:
+    let nodes_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord StdErrorKind v::new
+    match nodes_result:
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::NodeTableAllocFailed e
+        Result::Ok nodes:
+            let scopes_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord StdErrorKind v::new
+            match scopes_result:
+                Result::Err e:
+                    v::free nodes
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeTableAllocFailed e
+                Result::Ok scopes:
+                    let edges_result %Result Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord StdErrorKind v::new
+                    match edges_result:
+                        Result::Err e:
+                            v::free scopes
+                            v::free nodes
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::EdgeTableAllocFailed e
+                        Result::Ok edges: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology nodes scopes edges
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology unit \topology:
+    v::free field::get topology "edges"
+    v::free field::get topology "scopes"
+    v::free field::get topology "nodes"
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "nodes"
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "scopes"
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_edge_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology i32 \topology: v::len field::get_ref topology "edges"
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord \topology\idx: v::get field::get_ref topology "nodes" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord \topology\idx: v::get field::get_ref topology "scopes" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_edge_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord \topology\idx: v::get field::get_ref topology "edges" idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_node %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\record:
+    let scopes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord field::get topology "scopes"
+    let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord field::get topology "edges"
+    match v::push field::get topology "nodes" record:
+        Result::Ok nodes: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology nodes scopes edges
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free scopes
+            v::free edges
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::NodePushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\record:
+    let nodes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord field::get topology "nodes"
+    let edges %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord field::get topology "edges"
+    match v::push field::get topology "scopes" record:
+        Result::Ok scopes: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology nodes scopes edges
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free nodes
+            v::free edges
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopePushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_edge %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\record:
+    let nodes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord field::get topology "nodes"
+    let scopes %Vec SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord field::get topology "scopes"
+    match v::push field::get topology "edges" record:
+        Result::Ok edges: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology nodes scopes edges
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            v::free nodes
+            v::free scopes
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::EdgePushFailed error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId bool \expected_key\expected_graph\actual_key\actual_graph:
+    and selfhost_memo_call_backend_private_cache_proof_key_eq expected_key actual_key eq expected_graph.index actual_graph.index
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_block_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\scope:
+    match scope.parent:
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block block_ordinal:
+            Result::Ok block_ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation parent_node_ordinal:
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_get topology parent_node_ordinal:
+                Option::Some node:
+                    if lt parent_node_ordinal scope.first_node Result::Ok node.owning_block_ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeParentInvalid scope.scope_id
+                Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeParentInvalid scope.scope_id
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_incoming_count_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 fn i32 fn i32 i32 \topology\node_ordinal\idx\end:
+    if:
+        ge idx end
+        0
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_edge_get topology idx:
+            Option::Some edge: add if eq edge.child_node_ordinal node_ordinal 1 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_incoming_count_loop topology node_ordinal add idx 1 end
+            Option::None: 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_root_count_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 fn i32 fn i32 i32 \topology\block_ordinal\idx\end:
+    if:
+        ge idx end
+        0
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_get topology idx:
+            Option::Some scope:
+                let matched %bool match scope.parent:
+                    SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block actual: eq actual block_ordinal
+                    SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation _node: false
+                add if matched 1 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_root_count_loop topology block_ordinal add idx 1 end
+            Option::None: 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_role_rank %fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole i32 \kind\role:
+    match kind:
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch:
+            match role:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen: 0
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse: 1
+                _: sub 0 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop:
+            match role:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition: 0
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody: 1
+                _: sub 0 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match:
+            match role:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm ordinal: ordinal
+                _: sub 0 1
+        _: sub 0 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_scopes_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\node_ordinal\kind\idx\end\expected_rank\cursor:
+    if:
+        ge idx end
+        match kind:
+            SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch: if eq expected_rank 2 Result::Ok cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeRoleMissing node_ordinal
+            SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop: if eq expected_rank 2 Result::Ok cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeRoleMissing node_ordinal
+            _: Result::Ok cursor
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_get topology idx:
+            Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeReadFailed idx
+            Option::Some scope:
+                let belongs %bool match scope.parent:
+                    SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation actual: eq actual node_ordinal
+                    SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block _block: false
+                if:
+                    not belongs
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_scopes_loop topology node_ordinal kind add idx 1 end expected_rank cursor
+                    block:
+                        let rank %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_role_rank kind scope.role
+                        if:
+                            lt rank 0
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeRoleInvalid scope.scope_id
+                            if:
+                                lt rank expected_rank
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeRoleDuplicate scope.scope_id
+                                if:
+                                    gt rank expected_rank
+                                    block:
+                                        let is_match %bool match kind:
+                                            SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match: true
+                                            _: false
+                                        if is_match Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::MatchArmOrdinalMismatch scope.scope_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeRoleMissing node_ordinal
+                                    if:
+                                        not eq scope.first_node cursor
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::PreorderMismatch scope.scope_id
+                                        selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_scopes_loop topology node_ordinal kind add idx 1 end add expected_rank 1 scope.subtree_end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_edges_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\scope\idx\end\expected_sibling\cursor:
+    if:
+        ge idx end
+        if and eq expected_sibling scope.child_count eq cursor scope.subtree_end Result::Ok cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RangeMismatch scope.scope_id
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_edge_get topology idx:
+            Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::EdgeReadFailed idx
+            Option::Some edge:
+                if:
+                    not selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches scope.key scope.graph_id edge.key edge.graph_id
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::IdentityMismatch idx
+                    if:
+                        not eq edge.edge_ordinal idx
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::EdgeOrdinalMismatch edge.edge_ordinal
+                        if:
+                            not eq edge.scope_id scope.scope_id
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::EdgeScopeMismatch edge.edge_ordinal
+                            if:
+                                not eq edge.sibling_ordinal expected_sibling
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::EdgeSiblingOrdinalMismatch edge.edge_ordinal
+                                if:
+                                    not eq edge.child_node_ordinal cursor
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::PreorderMismatch edge.edge_ordinal
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_get topology edge.child_node_ordinal:
+                                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ChildNodeInvalid edge.edge_ordinal
+                                        Option::Some child:
+                                            if:
+                                                not eq child.parent_scope_id scope.scope_id
+                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ChildParentMismatch child.node_ordinal
+                                                match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_block_result topology scope:
+                                                    Result::Err e: Result::Err e
+                                                    Result::Ok owning_block:
+                                                        if:
+                                                            not eq child.owning_block_ordinal owning_block
+                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ChildBlockMismatch child.node_ordinal
+                                                            if:
+                                                                or le child.subtree_end child.node_ordinal gt child.subtree_end scope.subtree_end
+                                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::SubtreeInvalid child.node_ordinal
+                                                                selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_edges_loop topology scope add idx 1 end add expected_sibling 1 child.subtree_end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_scopes_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\block_count\edge_count\idx\end\expected_edge_start:
+    if:
+        ge idx end
+        if eq expected_edge_start edge_count Result::Ok expected_edge_start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RangeMismatch expected_edge_start
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_get topology idx:
+            Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeReadFailed idx
+            Option::Some scope:
+                if:
+                    not selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches key graph_id scope.key scope.graph_id
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::IdentityMismatch idx
+                    if:
+                        not eq scope.scope_id idx
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeOrdinalMismatch scope.scope_id
+                        if:
+                            or or or or lt scope.edge_start 0 lt scope.child_count 0 gt scope.edge_start edge_count gt scope.child_count sub edge_count scope.edge_start not eq scope.edge_start expected_edge_start
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RangeInvalid scope.scope_id
+                            if:
+                                or lt scope.first_node 0 lt scope.subtree_end scope.first_node
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::SubtreeInvalid scope.scope_id
+                                block:
+                                    let role_valid %bool match scope.parent:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block block_ordinal:
+                                            and and ge block_ordinal 0 lt block_ordinal block_count match scope.role:
+                                                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps: true
+                                                _: false
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation _node:
+                                            match scope.role:
+                                                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps: false
+                                                _: true
+                                    if:
+                                        not role_valid
+                                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeRoleInvalid scope.scope_id
+                                        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_edges_loop topology scope scope.edge_start add scope.edge_start scope.child_count 0 scope.first_node:
+                                            Result::Err e: Result::Err e
+                                            Result::Ok _cursor: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_scopes_loop topology key graph_id block_count edge_count add idx 1 end add scope.edge_start scope.child_count
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_nodes_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\kinds\spans\key\graph_id\edge_count\idx\end:
+    if:
+        ge idx end
+        Result::Ok unit
+        match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_get topology idx:
+            Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::NodeReadFailed idx
+            Option::Some node:
+                if:
+                    not selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches key graph_id node.key node.graph_id
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::IdentityMismatch idx
+                    if:
+                        not eq node.node_ordinal idx
+                        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::NodeOrdinalMismatch node.node_ordinal
+                        if:
+                            lt node.owning_block_ordinal 0
+                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ChildBlockMismatch idx
+                            block:
+                                let incoming %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_incoming_count_loop topology idx 0 edge_count
+                                if:
+                                    not eq incoming 1
+                                    if eq incoming 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ChildIncomingEdgeMissing idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ChildIncomingEdgeDuplicate idx
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds idx:
+                                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::KindReadFailed idx
+                                        Option::Some kind_record:
+                                            if:
+                                                not and eq kind_record.operation_ordinal idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches key graph_id kind_record.key kind_record.graph_id
+                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::KindIdentityMismatch idx
+                                                match selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_get spans idx:
+                                                    Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::SpanReadFailed idx
+                                                    Option::Some span_record:
+                                                        if:
+                                                            not and eq span_record.operation_ordinal idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches key graph_id span_record.key span_record.graph_id
+                                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::SpanIdentityMismatch idx
+                                                            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_scopes_loop topology idx kind_record.kind 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len topology 0 add idx 1:
+                                                                Result::Err e: Result::Err e
+                                                                Result::Ok subtree_end:
+                                                                    if not eq subtree_end node.subtree_end Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::SubtreeInvalid idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_nodes_loop topology kinds spans key graph_id edge_count add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_roots_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\function_inventory\key\graph_id\block_ordinal\block_count\scope_count\cursor:
+    if:
+        ge block_ordinal block_count
+        Result::Ok cursor
+        block:
+            let count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_root_count_loop topology block_ordinal 0 scope_count
+            if:
+                eq count 0
+                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeMissing block_ordinal
+                if:
+                    gt count 1
+                    Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeDuplicate block_ordinal
+                    match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_get function_inventory block_ordinal:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeMissing block_ordinal
+                        Option::Some block_record:
+                            if:
+                                or not eq block_record.block_ordinal block_ordinal not selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_identity_matches key graph_id block_record.key block_record.graph_id
+                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::IdentityMismatch block_ordinal
+                                match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_get topology block_record.root_operation_scope_id:
+                                    Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::RootScopeMissing block_ordinal
+                                    Option::Some root:
+                                        let exact_parent %bool match root.parent:
+                                            SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block actual: eq actual block_ordinal
+                                            SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation _node: false
+                                        if:
+                                            not exact_parent
+                                            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeParentInvalid root.scope_id
+                                            if:
+                                                not eq root.first_node cursor
+                                                Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::PreorderMismatch root.scope_id
+                                                selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_roots_loop topology function_inventory key graph_id add block_ordinal 1 block_count scope_count root.subtree_end
+
+//: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result: standalone recursive topology ownerを検査する
+//:
+//: [契約/けいやく]:
+//: - kind / spanの全record数をnode数とexact一致させます。将来central materializerが同じordinalでsparse payload ownerをco-produceするためのdomainを固定しますが、現行central payload scopeへの接続は主張しません。
+//: - exactly-one-parent、blockごとのroot、closed control role、dense sibling、canonical preorder、exclusive subtree、cross-blockを検査します。overflowし得るrange加算は先に`count <= end - start`を確認します。
+//: - function inventoryは既存validatorでentry / block dense / terminator構造を検査済みのownerを借用します。ここではblock identityと予約root scope linkを再照合しますが、function inventory全体の意味検査を再実行しません。
+//: - semantic branch condition、value join、loop convergence、match patternは検査しません。また成功してもproduction traversal originは発行しません。
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\function_inventory\kinds\spans\key\graph_id:
+    let node_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_len topology
+    let scope_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_scope_len topology
+    let edge_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_edge_len topology
+    let kind_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_len kinds
+    let span_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_len spans
+    if:
+        not eq node_count kind_count
+        Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::NodeCountMismatch kind_count
+        if:
+            not eq node_count span_count
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::SpanCountMismatch span_count
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_scopes_loop topology key graph_id selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len function_inventory edge_count 0 scope_count 0:
+                Result::Err e: Result::Err e
+                Result::Ok _:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_nodes_loop topology kinds spans key graph_id edge_count 0 node_count:
+                        Result::Err e: Result::Err e
+                        Result::Ok _:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_roots_loop topology function_inventory key graph_id 0 selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_len function_inventory scope_count 0:
+                                Result::Err e: Result::Err e
+                                Result::Ok forest_end: if eq forest_end node_count Result::Ok unit Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::PreorderMismatch forest_end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_nodes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\mode\idx:
+    if:
+        ge idx 4
+        Result::Ok topology
+        block:
+            let parent_scope %i32 if eq idx 0 0 if eq idx 1 1 if eq idx 2 2 0
+            let valid_end %i32 if eq idx 0 3 add idx 1
+            let record_key %SelfhostMemoCallBackendPrivateCacheProofKey if and eq mode 16 eq idx 2 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 991 key
+            let record %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord record_key graph_id if and eq mode 1 eq idx 2 7 idx if and eq mode 5 eq idx 1 1 0 parent_scope if and eq mode 8 eq idx 0 2 if and eq mode 9 eq idx 0 4 valid_end
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_node topology record:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_nodes_result next key graph_id mode add idx 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_scopes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\mode\idx:
+    let scope_count %i32 if eq mode 2 2 if eq mode 18 4 3
+    if:
+        ge idx scope_count
+        Result::Ok topology
+        block:
+            let parent %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent if and eq mode 18 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 99 if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation if and or eq mode 4 eq mode 7 eq idx 1 if eq mode 4 3 1 0
+            let role %SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole if and eq mode 18 eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq idx 0 if eq mode 17 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq mode 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse
+            let edge_start %i32 if eq idx 0 0 if eq idx 1 if eq mode 10 2147483647 2 if eq idx 2 3 4
+            let child_count %i32 if and eq mode 18 eq idx 3 0 if eq idx 0 if eq mode 14 1 2 1
+            let first_node %i32 if and eq mode 18 eq idx 3 4 if eq idx 0 0 idx
+            let subtree_end %i32 if and eq mode 18 eq idx 3 4 if eq idx 0 if eq mode 14 3 4 add idx 1
+            let scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id idx parent role edge_start child_count first_node subtree_end
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope topology scope:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_scopes_result next key graph_id mode add idx 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_edges_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\mode\idx:
+    if:
+        ge idx 4
+        Result::Ok topology
+        block:
+            let scope_id %i32 if lt idx 2 0 if eq idx 2 1 2
+            let sibling %i32 if lt idx 2 idx 0
+            let valid_child %i32 if eq idx 0 0 if eq idx 1 3 if eq idx 2 1 2
+            let child %i32 if and eq mode 6 eq idx 3 1 valid_child
+            let edge %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord key graph_id if and eq mode 15 eq idx 2 9 idx scope_id if and eq mode 13 eq idx 1 0 sibling child
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_edge topology edge:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_edges_result next key graph_id mode add idx 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \key\graph_id\mode:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_new:
+        Result::Err e: Result::Err e
+        Result::Ok topology0:
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_nodes_result topology0 key graph_id mode 0:
+                Result::Err e: Result::Err e
+                Result::Ok topology1:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_scopes_result topology1 key graph_id mode 0:
+                        Result::Err e: Result::Err e
+                        Result::Ok topology2: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_fill_edges_result topology2 key graph_id mode 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_kind_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\key\graph_id\idx\end:
+    if:
+        ge idx end
+        Result::Ok inventory
+        block:
+            let kind %SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
+            let record %SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventoryRecord key graph_id idx kind
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_push inventory record:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_kind_fill_result next key graph_id add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_kinds_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\mode:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_new:
+        Result::Err e: Result::Err e
+        Result::Ok inventory: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_kind_fill_result inventory key graph_id 0 if eq mode 11 3 4
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_function_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\mode:
+    match selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_new 7 selfhost_type_id_new 0 SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure source_span_new_unchecked 1 0 1:
+        Result::Err e: Result::Err e
+        Result::Ok inventory:
+            let block_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 19 selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 991 key
+            let block_record %SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrBlockInventoryRecord block_key graph_id 0 7 source_span_new_unchecked 1 0 1 0 4 0 source_span_new_unchecked 1 1 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None 0
+            selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_push inventory block_record
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_case %impure fn i32 bool \mode:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_function_result key graph_id mode:
+        Result::Err _e: false
+        Result::Ok function_inventory:
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_kinds_result key graph_id mode:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                    false
+                Result::Ok kinds:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_stage0_result key graph_id if eq mode 12 3 4:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                            false
+                        Result::Ok spans:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_result key graph_id mode:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free spans
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                                    false
+                                Result::Ok topology:
+                                    let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id
+                                    let accepted %bool match checked:
+                                        Result::Ok _: eq mode 0
+                                        Result::Err _e: not eq mode 0
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free spans
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                                    accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_count %fn i32 i32 \fixture:
+    if eq fixture 0 3 if or eq fixture 1 eq fixture 2 1 if eq fixture 3 4 6
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_count %fn i32 i32 \fixture:
+    if or eq fixture 0 eq fixture 1 3 if eq fixture 2 1 if eq fixture 3 4 6
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_count %fn i32 i32 \fixture:
+    if eq fixture 0 3 if or eq fixture 1 eq fixture 2 1 if eq fixture 3 4 6
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_parent %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 0
+        if eq idx 0 0 idx
+        if:
+            or eq fixture 1 eq fixture 2
+            0
+            if:
+                eq fixture 3
+                if eq idx 0 0 if eq idx 1 1 3
+                if eq idx 0 0 if eq idx 1 1 if eq idx 2 3 if eq idx 3 4 if eq idx 4 2 5
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_end %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 0
+        if eq idx 0 3 add idx 1
+        if:
+            or eq fixture 1 eq fixture 2
+            1
+            if:
+                eq fixture 3
+                if eq idx 0 4 add idx 1
+                if eq idx 0 6 if eq idx 1 4 if eq idx 4 6 add idx 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_kind %fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind \fixture\idx:
+    if:
+        or eq fixture 0 eq fixture 1
+        if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
+        if:
+            or eq fixture 2 eq fixture 3
+            if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
+            if eq idx 0 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Branch if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Loop if or eq idx 2 eq idx 4 SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Match SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Expr
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_parent %fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent \fixture\idx:
+    if:
+        eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Block 0
+        if:
+            or eq fixture 0 eq fixture 1
+            SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0
+            if:
+                eq fixture 3
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation 0
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeParent::Operation if lt idx 3 0 if lt idx 5 1 4
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_role %fn i32 fn i32 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole \fixture\idx:
+    if:
+        eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BlockOps
+        if:
+            or eq fixture 0 eq fixture 1
+            if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody
+            if:
+                eq fixture 3
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm sub idx 1
+                if eq idx 1 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchThen if eq idx 2 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::BranchElse if eq idx 3 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopCondition if eq idx 4 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::LoopBody SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_edge_start %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 0
+        idx
+        if:
+            eq fixture 1
+            if eq idx 0 0 1
+            if:
+                eq fixture 2
+                0
+                if:
+                    eq fixture 3
+                    if eq idx 0 0 if eq idx 1 1 2
+                    idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_child_count %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 1
+        if eq idx 0 1 0
+        if:
+            eq fixture 3
+            if eq idx 2 0 if eq idx 3 2 1
+            1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_first %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 0
+        idx
+        if:
+            eq fixture 1
+            if eq idx 0 0 1
+            if:
+                eq fixture 2
+                0
+                if:
+                    eq fixture 3
+                    if eq idx 0 0 if eq idx 1 1 2
+                    if eq idx 0 0 if eq idx 1 1 if eq idx 2 4 if eq idx 3 2 if eq idx 4 3 5
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_end %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 0
+        if eq idx 0 3 add idx 1
+        if:
+            eq fixture 1
+            1
+            if:
+                eq fixture 2
+                1
+                if:
+                    eq fixture 3
+                    if eq idx 0 4 if eq idx 1 2 if eq idx 2 2 4
+                    if eq idx 0 6 if eq idx 1 4 if eq idx 2 6 if eq idx 3 3 if eq idx 4 4 6
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_scope %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 3
+        if lt idx 2 idx 3
+        idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_sibling %fn i32 fn i32 i32 \fixture\idx:
+    if and eq fixture 3 eq idx 3 1 0
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_child %fn i32 fn i32 i32 \fixture\idx:
+    if:
+        eq fixture 3
+        if eq idx 0 0 if eq idx 1 1 if eq idx 2 2 3
+        if:
+            eq fixture 4
+            if eq idx 0 0 if eq idx 1 1 if eq idx 2 4 if eq idx 3 2 if eq idx 4 3 5
+            idx
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_nodes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\fixture\idx\end:
+    if:
+        ge idx end
+        Result::Ok topology
+        block:
+            let node %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyNodeRecord key graph_id idx 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_parent fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_end fixture idx
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_node topology node:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_nodes_result next key graph_id fixture add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_scopes_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\fixture\idx\end:
+    if:
+        ge idx end
+        Result::Ok topology
+        block:
+            let scope %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyScopeRecord key graph_id idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_parent fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_role fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_edge_start fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_child_count fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_first fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_end fixture idx
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_scope topology scope:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_scopes_result next key graph_id fixture add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_edges_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \topology\key\graph_id\fixture\idx\end:
+    if:
+        ge idx end
+        Result::Ok topology
+        block:
+            let edge %SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyEdgeRecord key graph_id idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_scope fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_sibling fixture idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_child fixture idx
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_push_edge topology edge:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_edges_result next key graph_id fixture add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopology SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind \key\graph_id\fixture:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_new:
+        Result::Err e: Result::Err e
+        Result::Ok topology0:
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_nodes_result topology0 key graph_id fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_count fixture:
+                Result::Err e: Result::Err e
+                Result::Ok topology1:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_scopes_result topology1 key graph_id fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_scope_count fixture:
+                        Result::Err e: Result::Err e
+                        Result::Ok topology2: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_fill_edges_result topology2 key graph_id fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_edge_count fixture
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kind_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\key\graph_id\fixture\idx\end:
+    if:
+        ge idx end
+        Result::Ok inventory
+        block:
+            let record %SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventoryRecord SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventoryRecord key graph_id idx selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_kind fixture idx
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_push inventory record:
+                Result::Err e: Result::Err e
+                Result::Ok next: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kind_fill_result next key graph_id fixture add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kinds_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\fixture:
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_new:
+        Result::Err e: Result::Err e
+        Result::Ok inventory: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kind_fill_result inventory key graph_id fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_count fixture
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_case %impure fn i32 bool \fixture:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_function_result key graph_id 0:
+        Result::Err _e: false
+        Result::Ok function_inventory:
+            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_kinds_result key graph_id fixture:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                    false
+                Result::Ok kinds:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_stage0_result key graph_id selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_node_count fixture:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                            false
+                        Result::Ok spans:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_result key graph_id fixture:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free spans
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                                    false
+                                Result::Ok topology:
+                                    let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_validate_result &topology &function_inventory &kinds &spans key graph_id
+                                    let accepted %bool match checked:
+                                        Result::Ok _: true
+                                        Result::Err _e: false
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_free topology
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_span_inventory_free spans
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free function_inventory
+                                    accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop %impure fn i32 bool \fixture:
+    if ge fixture 5 true and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_case fixture selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop add fixture 1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop %impure fn i32 bool \mode:
+    if ge mode 20 true and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_case mode selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop add mode 1
+
+//: selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix: nested Branch topologyのruntime matrix
+//:
+//: mode 0のBranch(Then Expr / Else Expr)と後続root Exprに加え、nonempty / empty Loop、0-arm / multiple dense-arm Match、Branch / Loop / Matchの相互nestを実validatorで受理します。negative modeはnode/scope/edge gap、role欠落/重複、wrong parent、cross-block、two-parent、cycle形状、subtree不足/過剰、range overflow、kind/span count、sibling、orphan、node / block identity、root role、block範囲外rootを拒否します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix %impure fn void bool \void:
+    and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix_loop 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_positive_matrix_loop 0

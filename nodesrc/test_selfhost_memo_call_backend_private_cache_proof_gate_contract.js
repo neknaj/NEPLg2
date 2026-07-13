@@ -8,23 +8,30 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl";
 const inventoryPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_inventory_part.nepl";
+const topologyPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_recursive_operation_topology_part.nepl";
 const indirectCallStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_indirect_call_stage0_part.nepl";
 const constructStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_construct_stage0_part.nepl";
 const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
 const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartSource = fs.readFileSync(path.join(repoRoot, inventoryPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const topologyPartSource = fs.readFileSync(path.join(repoRoot, topologyPartRelPath), "utf8").replace(/\r\n/g, "\n");
 const indirectCallStage0PartSource = fs.readFileSync(path.join(repoRoot, indirectCallStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const constructStage0PartSource = fs.readFileSync(path.join(repoRoot, constructStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
+const topologyPartMergeDirective = '#import "./memo_call_backend_scope_recursive_operation_topology_part" as @merge';
 const indirectCallStage0PartMergeDirective = '#import "./memo_call_backend_scope_indirect_call_stage0_part" as @merge';
 const constructStage0PartMergeDirective = '#import "./memo_call_backend_scope_construct_stage0_part" as @merge';
 const sourceWithInventory = anchorSource.replace(
     inventoryPartMergeDirective,
     `${inventoryPartMergeDirective}\n${inventoryPartSource}`,
 );
-const sourceWithIndirectCall = sourceWithInventory.replace(
+const sourceWithTopology = sourceWithInventory.replace(
+    topologyPartMergeDirective,
+    `${topologyPartMergeDirective}\n${topologyPartSource}`,
+);
+const sourceWithIndirectCall = sourceWithTopology.replace(
     indirectCallStage0PartMergeDirective,
     `${indirectCallStage0PartMergeDirective}\n${indirectCallStage0PartSource}`,
 );
@@ -414,6 +421,20 @@ assert.deepEqual(
     "private inventory source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
 );
 
+const topologyPartReferences = listNeplFiles(path.join(repoRoot, "stdlib/neplg2"))
+    .flatMap((filePath) => {
+        const fileSource = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+        return fileSource.split("\n")
+            .filter((line) => line.includes("memo_call_backend_scope_recursive_operation_topology_part"))
+            .map((line) => ({ filePath: path.relative(repoRoot, filePath), line }));
+    });
+
+assert.deepEqual(
+    topologyPartReferences,
+    [{ filePath: relPath, line: topologyPartMergeDirective }],
+    "private recursive operation topology source part must be referenced exactly once by the proof-gate anchor",
+);
+
 const indirectCallStage0PartReferences = listNeplFiles(path.join(repoRoot, "stdlib/neplg2"))
     .flatMap((filePath) => {
         const fileSource = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
@@ -447,6 +468,7 @@ assert.match(
     /#import "\.\/memo_call_backend_scope_inventory_part" as @merge/,
     "proof-gate anchor must merge the private inventory source part into the same logical module",
 );
+assert.match(anchorSource, /memo_call_backend_scope_recursive_operation_topology_part" as @merge/, "proof-gate anchor must merge recursive operation topology privately");
 assert.match(
     anchorSource,
     /#import "\.\/memo_call_backend_scope_indirect_call_stage0_part" as @merge/,
@@ -462,6 +484,10 @@ assert.doesNotMatch(
     /^pub\s/m,
     "private inventory source part must not expose any public declaration or import",
 );
+assert.doesNotMatch(topologyPartSource, /^pub\s/m, "recursive operation topology part must not expose public declarations");
+assert.match(inventoryPartSource, /first_operation_ordinal[^\n]*operation_count[^\n]*現行central inventory[^\n]*flat operation authority/, "flat operation range must remain the documented central authority until recursive materialization is connected");
+assert.match(inventoryPartSource, /root_operation_scope_id[^\n]*standalone recursive topology validator用に予約/, "root scope id must remain explicitly reserved rather than claiming central authority");
+assert.match(topologyPartSource, /現行central inventory \/ materializerへの接続は後続slice/, "standalone topology must not claim central materializer integration");
 assert.doesNotMatch(
     indirectCallStage0PartSource,
     /^pub\s/m,
