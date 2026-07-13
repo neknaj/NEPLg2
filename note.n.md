@@ -83848,6 +83848,12 @@ MERGE_APPROVED
 - PrivateEffectRegionIdはi64でu32全域を保持し、0と4294967295を受理、負値と4294967296を拒否する。nested operation / reasonはRustと対応するclosed enumで保持する。
 - stage0はRawMemory 13種をInternalAlloc / UnsafeMemoryの双方へ、PrivateState 4種、PrivateCache 4種、ExternalIo 43種、Nondet 3種、Unknown 5種をnamed variantで輸送し、sparse ownerのmissing / unexpected / key / graph / ordinalとregion境界、unknown canonical nameをexact照合する。これは構造輸送だけで、effect subtype、fresh region、masking、no-escape、actual co-productionを証明しない。残るpayloadは7件である。
 
+## 2026-07-13 selfhost Resource FunctionValue payload
+
+- kind tag 9専用のprivate sparse headerとdense type-argument ownerへ、output Place、display name、identity symbol、optional DefId、function TypeId、surface effect、Plain / Memoized、operation EffectOp、ordered type argsを保持する。
+- display nameとidentity symbolは別canonical roleとして独立にmembership検査する。現Rust loweringが同じspellingを渡すことをidentity authorityにはせず、function type / type argsはTypeArena、outputはPlace inventoryへ結合する。
+- sparse / dense ownerのexact rejectionをstage0で検査するが、function resolution、memo cache namespace、effect整合、actual co-production、production originは未完成である。残るpayloadは6件である。
+
 ## 2026-07-13 selfhost Resource RawAddressAlias payload
 
 - Rust `ResourceOp::RawAddressAlias { source, target, kind, span }`をkind tag 13専用のprivate sparse ownerへ接続した。source / targetは別々のgraph-bound Placeで、kindはTransparent / InternalHelper / OwnerTokenConstructの全3 variantを保持する。
@@ -83888,3 +83894,10 @@ MERGE_APPROVED
 - 2つのstage0 lifecycleでtableを生成し、Enum fixtureでは必要spellingをinternしてborrowし、検査後にprojection / type ownerより先にcanonical tableを解放する。実projection fixtureのsymbol identityは同table recordと一致する。
 - reviewで検出した全table再走査を除去した。scope moduleのprivate wrapperがtable全体を一度検査し、同じimmutable borrowをprivate再帰へ渡す。EnumPayloadはprivate membership-only lookupだけを行い、外部構築可能なvalidation evidenceは公開しない。malformed table + 実Deref projection / Placeのnegative fixtureで非Enum時もowner検査を省略しないことを確認する。
 - enum type key membership、canonical type key、serialized cross-session symbol、actual Rust loweringとのtable co-productionは後続である。残るResource operation payload数8件は減らさない。
+
+## 2026-07-13 selfhost Resource Call payload
+
+- Rust `ResourceOp::Call { output, target, args, effect, span }`をkind tag 10専用のprivate sparse header、source-order argument Place owner、target固有ordered type-argument ownerへ投影した。
+- `ResourceCallTarget::Builtin / User / Trait`をvariant-nativeに保持し、builtin / user / trait application / trait methodのcanonical symbol roleを混同させない。Trait self TypeIdとUser / Trait type argsはborrowed TypeArena、output / argsはsame-graph Place inventoryに結合する。
+- sparse / dense ownerのmissing / unexpected、identity / ordinal、range overflow / gap / excess、canonical symbol、TypeArena / Place membershipをfield固有typed errorで検査する。Rust `Vec`と同じく0件と重複argument / type argumentは許容するが、Builtin targetにtype-argument endpointを混入する場合は拒否する。
+- このnonproduction ownerはdirect-call resolution、trait dispatch、signature / effect semantics、actual loweringとowner tableのco-productionを証明しない。`ResourceIrInventoryValidated`をproduction originへ昇格せず、残るResource operation payloadはIndirectCall / Construct / Branch / Loop / Matchの5件である。`plan.md`は変更していない。
