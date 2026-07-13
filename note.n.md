@@ -83910,3 +83910,12 @@ MERGE_APPROVED
 - runtime matrixのfixture責務をinventory model / validatorから分けるため、専用private merged source partへ置いた。anchor以外からの参照とpublic declaration / importはsource contractで禁止する。
 - reviewで、parameter endpoint push失敗時に未使用argument/header owner、argument endpoint push失敗時に未使用header ownerが残る経路を修正した。push helperが消費済みのfailing Vecは再解放せず、残存ownerだけを逆順に閉じてからTypeArenaを最後に解放する。
 - このownerはfunction-value alias resolution、callback signature / effect semantics、actual loweringとowner tableのco-productionを証明しない。`ResourceIrInventoryValidated`をproduction originへ昇格せず、残るResource operation payloadはConstruct / Branch / Loop / Matchの4件である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
+
+## 2026-07-13 selfhost Resource Construct payload
+
+- Rust `ResourceOp::Construct { output, kind, inputs, span }`と`AggregateKind::{Enum, Struct, Tuple}`をkind tag 20専用sparse header、ordered input Place owner、ordered field-offset ownerへlosslessに投影した。
+- enum name / variant / struct nameは別canonical roleで保持する。inputsとfield offsetsを独立Vecとして扱い、zero / multiple / duplicate inputs、duplicate / non-monotonic offsets、複数Enum inputsを許容し、Enumへのoffset混入だけを拒否する。arity / layout / type一致はこのtransportで推測しない。
+- scopeはmissing / unexpected、identity / ordinal、range gap / excess / checked-add overflow / negative narrowing、same-graph Place membership、canonical symbol membershipをfield固有typed errorへ拒否する。runtime matrixはmode 0-32を実validatorへ通し、ownerを逆順に閉じる。
+- reviewでmode 11のinput countが0へ退行していたfixtureを実際の`-1`へ修正し、負count時はdense input ownerへrecordをpushしない。field-offset mode 19も同じlifecycleを監査し、負count時にoffset recordを作らずrange validatorへ渡す。
+- proof / visibility / projection contract、focused selfhost doctest 22/22、issues check、`git diff --check`、`trunk build`、playground editor CLI JSON 13/13は通過した。stdlib documentation contractの`2790 > 2756`はscanner対象の`stdlib/core` / `stdlib/alloc` / `stdlib/std`に当branch差分がなく、current-mainのGUI宣言追加に由来する既存baseline debtのため、このsliceではbaselineや別laneを変更しない。
+- constructor resolution、aggregate semantics、actual loweringとのco-productionは未接続であり、production originは発行しない。`plan.md`は変更していない。残るResource operation payloadはBranch / Loop / Matchの3件である。セルフホストコンパイラ全体は未完成である。

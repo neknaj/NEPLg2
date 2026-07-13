@@ -9,21 +9,28 @@ const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl";
 const inventoryPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_inventory_part.nepl";
 const indirectCallStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_indirect_call_stage0_part.nepl";
+const constructStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_construct_stage0_part.nepl";
 const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
 const anchorSource = fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartSource = fs.readFileSync(path.join(repoRoot, inventoryPartRelPath), "utf8").replace(/\r\n/g, "\n");
 const indirectCallStage0PartSource = fs.readFileSync(path.join(repoRoot, indirectCallStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
+const constructStage0PartSource = fs.readFileSync(path.join(repoRoot, constructStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
 const indirectCallStage0PartMergeDirective = '#import "./memo_call_backend_scope_indirect_call_stage0_part" as @merge';
+const constructStage0PartMergeDirective = '#import "./memo_call_backend_scope_construct_stage0_part" as @merge';
 const sourceWithInventory = anchorSource.replace(
     inventoryPartMergeDirective,
     `${inventoryPartMergeDirective}\n${inventoryPartSource}`,
 );
-const source = sourceWithInventory.replace(
+const sourceWithIndirectCall = sourceWithInventory.replace(
     indirectCallStage0PartMergeDirective,
     `${indirectCallStage0PartMergeDirective}\n${indirectCallStage0PartSource}`,
+);
+const source = sourceWithIndirectCall.replace(
+    constructStage0PartMergeDirective,
+    `${constructStage0PartMergeDirective}\n${constructStage0PartSource}`,
 );
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
@@ -285,6 +292,34 @@ assert.match(indirectCallStage0WithTypes, /arg_start %i32 if eq mode 32 1 if eq 
 assert.match(indirectCallStage0WithTypes, /param_count %i32 if eq mode 35 sub 0 1/, "IndirectCall matrix must reject negative parameter counts");
 assert.match(indirectCallStage0WithTypes, /arg_count %i32 if eq mode 36 sub 0 1/, "IndirectCall matrix must reject negative argument counts");
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_stage0"), /indirect_call_payload_stage0_case 36/, "IndirectCall runtime conjunction must execute the complete range matrix");
+assert.match(rustResourceModel, /Construct \{\s*output: Place,\s*kind: AggregateKind,\s*inputs: Vec<Place>,\s*span: Span,\s*\}/, "Rust Construct payload shape must remain lossless");
+assert.match(rustResourceModel, /pub enum AggregateKind \{[\s\S]*?Enum \{[\s\S]*?name: String,[\s\S]*?variant: String,[\s\S]*?Struct \{[\s\S]*?name: String,[\s\S]*?field_offsets: Vec<usize>,[\s\S]*?Tuple \{[\s\S]*?field_offsets: Vec<usize>,/, "Rust AggregateKind payload shape must remain variant-native");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols",
+    "selfhost_memo_call_backend_private_cache_resource_ir_construct_record_validate_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `Construct contract must retain ${symbol}`);
+assert.match(topLevelBlock(source, "enum", "SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind"), /Enum %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols/, "Construct Enum aggregate must use one pair payload because NEPL enum variants carry one payload");
+assertOrdered(topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols"), ["name %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol", "variant %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol"], "Construct Enum pair must preserve distinct canonical name and variant roles");
+const constructValidator = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_record_validate_result");
+assertOrdered(constructValidator, ["ConstructInputRangeInvalid ordinal", "ConstructFieldOffsetRangeInvalid ordinal", "ConstructOutputGraphMismatch ordinal", "ConstructOutputMissing ordinal", "construct_aggregate_validate_result", "construct_inputs_validate_loop", "construct_field_offsets_validate_loop"], "Construct header validation must retain output, aggregate, inputs, and field-offset checks");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_aggregate_validate_result"), ["ConstructAggregateKind::Enum", "ConstructEnumNameMissing ordinal", "ConstructEnumVariantMissing ordinal", "ConstructEnumFieldOffsetsUnexpected ordinal", "ConstructAggregateKind::Struct", "ConstructStructNameMissing ordinal", "ConstructAggregateKind::TupleAggregate"], "Construct aggregate validation must preserve variant-native symbol and offset ownership while avoiding the reserved Tuple identifier");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop"), ["ConstructPayloadUnexpected payload_idx", "ConstructInputUnexpected input_cursor", "ConstructFieldOffsetUnexpected offset_cursor", "ConstructPayloadMissing operation_idx", "ConstructPayloadIdentityMismatch operation_idx", "ConstructPayloadOrdinalMismatch payload.operation_ordinal", "not eq payload.input_start input_cursor", "not eq payload.field_offset_start offset_cursor", "construct_record_validate_result"], "Construct sparse and dense owners must reject gaps and excess");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"), /construct_payload_inventory_validate_loop construct_payloads construct_inputs construct_field_offsets/, "Resource scope authority must validate Construct owners before issuing authority");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_construct_payload_stage0/, "public Resource inventory runtime must execute Construct validation");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_loop"), /gt mode 32/, "Construct runtime conjunction must execute the complete mode 0-32 matrix");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_narrow_result"), ["lt value extend_s 0", "ConstructFieldOffsetNarrowResult::Negative", "gt value extend_s 2147483647", "ConstructFieldOffsetNarrowResult::OutOfRange", "ConstructFieldOffsetNarrowResult::Ok wrap value"], "Construct producer must checked-narrow Rust usize offsets into the selfhost i32 domain");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0"), /field_offset_narrow_result sub extend_s 0 extend_s 1[\s\S]*field_offset_narrow_result add extend_s 2147483647 extend_s 1/, "Construct runtime must reject negative and above-i32-max usize transport inputs");
+assert.match(constructStage0PartSource, /offset0[\s\S]*if eq mode 1 7 4[\s\S]*offset1[\s\S]*if eq mode 1 3 4/, "Construct matrix must preserve duplicate and non-monotonic field offsets");
+assert.match(constructStage0PartSource, /let input_count[\s\S]*if eq mode 12 3 2/, "Construct matrix must retain multiple ordered inputs");
+assert.match(constructStage0PartSource, /input_count %i32 if eq mode 11 sub 0 1[\s\S]*no_input_records %bool le input_count 0[\s\S]*if no_input_records Result::Ok inputs0/, "Construct negative input-count mode must pass -1 to the validator without fabricating dense input records");
+assert.match(constructStage0PartSource, /offset_count %i32[\s\S]*if eq mode 19 sub 0 1[\s\S]*no_offset_records %bool le offset_count 0[\s\S]*if no_offset_records Result::Ok offsets0/, "Construct negative field-offset count mode must pass -1 to the validator without fabricating dense offset records");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_error_matches"), /ConstructInputRangeInvalid ordinal: and or or or eq mode 9 eq mode 10 eq mode 11 eq mode 12 eq ordinal 20/, "Construct runtime must exact-match negative input count as InputRangeInvalid");
+assert.match(constructStage0PartSource, /let is_enum[\s\S]*let offset_count[\s\S]*if or is_enum eq mode 3 0/, "Construct matrix must permit Enum inputs independently while forbidding Enum offsets");
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -393,6 +428,20 @@ assert.deepEqual(
     "private IndirectCall stage0 source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
 );
 
+const constructStage0PartReferences = listNeplFiles(path.join(repoRoot, "stdlib/neplg2"))
+    .flatMap((filePath) => {
+        const fileSource = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+        return fileSource.split("\n")
+            .filter((line) => line.includes("memo_call_backend_scope_construct_stage0_part"))
+            .map((line) => ({ filePath: path.relative(repoRoot, filePath), line }));
+    });
+
+assert.deepEqual(
+    constructStage0PartReferences,
+    [{ filePath: relPath, line: constructStage0PartMergeDirective }],
+    "private Construct stage0 source part must be referenced exactly once by the proof-gate anchor's neutral private merge",
+);
+
 assert.match(
     anchorSource,
     /#import "\.\/memo_call_backend_scope_inventory_part" as @merge/,
@@ -403,6 +452,11 @@ assert.match(
     /#import "\.\/memo_call_backend_scope_indirect_call_stage0_part" as @merge/,
     "proof-gate anchor must merge the private IndirectCall stage0 source part into the same logical module",
 );
+assert.match(
+    anchorSource,
+    /#import "\.\/memo_call_backend_scope_construct_stage0_part" as @merge/,
+    "proof-gate anchor must merge the private Construct stage0 source part into the same logical module",
+);
 assert.doesNotMatch(
     inventoryPartSource,
     /^pub\s/m,
@@ -412,6 +466,11 @@ assert.doesNotMatch(
     indirectCallStage0PartSource,
     /^pub\s/m,
     "private IndirectCall stage0 source part must not expose any public declaration or import",
+);
+assert.doesNotMatch(
+    constructStage0PartSource,
+    /^pub\s/m,
+    "private Construct stage0 source part must not expose any public declaration or import",
 );
 assert.doesNotMatch(
     anchorSource,

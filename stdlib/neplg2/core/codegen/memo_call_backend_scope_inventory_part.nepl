@@ -461,6 +461,144 @@ impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord
     fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgRecord \self:
         self
 
+//: AggregateKindのString roleをenum variant symbol domainから分離するcanonical symbol
+//: enum type名のcanonical identityだけを保持し、raw spellingをownerへ混入させないroleです。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol:
+    canonical %SelfhostResourceIrVariantStableSymbol
+//: enum variant名をtype名とは別domainで照合するcanonical roleです。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol:
+    canonical %SelfhostResourceIrVariantStableSymbol
+//: struct type名のcanonical identityだけを保持するroleです。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol:
+    canonical %SelfhostResourceIrVariantStableSymbol
+//: NEPL enumの単一payload制約を守りながらenum type名とvariant名を順序付きで束ねます。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols:
+    name %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol
+    variant %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol
+//: enum type名roleを値コピーし、canonical symbol tableのownerは複製しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol \self:
+        *self
+//: enum type名roleのCopy markerを同じidentityのまま返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol \self:
+        self
+//: enum variant名roleを値コピーし、spelling ownerはborrowed tableに残します。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol \self:
+        *self
+//: enum variant名roleのCopy markerをidentity変換なしで返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol \self:
+        self
+//: struct type名roleを値コピーし、canonical bytesは複製しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol \self:
+        *self
+//: struct type名roleのCopy markerをidentity変換なしで返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol \self:
+        self
+//: enum symbol pairをfield順のまま値コピーします。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols \self:
+        *self
+//: enum symbol pairのCopy markerをname / variant identityを保って返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols \self:
+        self
+
+//: Rust AggregateKindをfallbackなしで保持するvariant-native payload
+//: Enum / Struct / Tupleを排他的に保持し、offset ownerの有無はvalidatorでvariant別に照合します。
+enum SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind:
+    Enum %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols
+    Struct %SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol
+    TupleAggregate
+//: aggregate kindをvariant payloadごと値コピーし、dense ownerは複製しません。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind \self:
+        *self
+//: aggregate kindのCopy markerをvariantとcanonical roleを保って返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind \self:
+        self
+
+//: Constructだけを持つsparse header owner
+//: operation identity、output、variant、独立input / offset rangeを1件のheaderに保持します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    output %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+    aggregate %SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind
+    input_start %i32
+    input_count %i32
+    field_offset_start %i32
+    field_offset_count %i32
+//: Construct header record列を所有し、kind ownerとのmerge cursorで消費します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord
+
+//: Construct inputsをsource orderで持つdense owner
+//: input Placeをoperation / input ordinalとsame-graph identityに結び付けます。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    input_ordinal %i32
+    place %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace
+//: Rust inputs Vecの順序と重複を変えずにrecord列として所有します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord
+
+//: Struct/Tuple field_offsetsをRust Vec順で持つdense owner
+//: checked narrowing済みoffsetをoperation / field ordinalに結び付けます。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId
+    operation_ordinal %i32
+    field_ordinal %i32
+    offset %i32
+//: Struct / Tupleのoffset順序、重複、非単調値を変えずに所有します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord
+
+//: Rust usize field offsetをselfhost i32 domainへ縮小するproducer境界
+//: 0..i32最大値だけをOkへ入れ、負値と上限超過を別variantへ分類します。
+enum SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult:
+    Ok %i32
+    Negative
+    OutOfRange
+
+//: i64 transport値を比較してからwrapし、範囲外値のtruncationを防ぎます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_narrow_result %fn i64 SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult \value:
+    if lt value extend_s 0 SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::Negative if gt value extend_s 2147483647 SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::OutOfRange SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::Ok wrap value
+
+//: sparse Construct headerをrangeとvariant payloadを保って値コピーします。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord \self:
+        *self
+//: sparse Construct headerのCopy markerを全identity field不変で返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord \self:
+        self
+//: input endpointをPlaceとordinalを保って値コピーします。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord \self:
+        *self
+//: input endpointのCopy markerをsame-graph handle不変で返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord \self:
+        self
+//: field-offset endpointをordinalとnarrowed値を保って値コピーします。
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord \self:
+        *self
+//: field-offset endpointのCopy markerをoffset変換なしで返します。
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord \self:
+        self
+
 impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget:
     fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget \self:
         *self
@@ -1522,6 +1660,33 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     IndirectCallArgOrdinalMismatch %i32
     IndirectCallArgPlaceMissing %i32
     IndirectCallArgPlaceGraphMismatch %i32
+    ConstructPayloadTableAllocFailed %StdErrorKind
+    ConstructPayloadPushFailed %StdErrorKind
+    ConstructInputTableAllocFailed %StdErrorKind
+    ConstructInputPushFailed %StdErrorKind
+    ConstructFieldOffsetTableAllocFailed %StdErrorKind
+    ConstructFieldOffsetPushFailed %StdErrorKind
+    ConstructPayloadIdentityMismatch %i32
+    ConstructPayloadOrdinalMismatch %i32
+    ConstructPayloadMissing %i32
+    ConstructPayloadUnexpected %i32
+    ConstructOutputMissing %i32
+    ConstructOutputGraphMismatch %i32
+    ConstructInputRangeInvalid %i32
+    ConstructInputUnexpected %i32
+    ConstructInputIdentityMismatch %i32
+    ConstructInputOrdinalMismatch %i32
+    ConstructInputPlaceMissing %i32
+    ConstructInputPlaceGraphMismatch %i32
+    ConstructFieldOffsetRangeInvalid %i32
+    ConstructFieldOffsetUnexpected %i32
+    ConstructFieldOffsetIdentityMismatch %i32
+    ConstructFieldOffsetOrdinalMismatch %i32
+    ConstructFieldOffsetOutOfRange %i32
+    ConstructEnumNameMissing %i32
+    ConstructEnumVariantMissing %i32
+    ConstructEnumFieldOffsetsUnexpected %i32
+    ConstructStructNameMissing %i32
     ExprPayloadTableAllocFailed %StdErrorKind
     ExprPayloadPushFailed %StdErrorKind
     ExprPayloadIdentityMismatch %i32
@@ -5978,6 +6143,152 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_in
                     Option::Some payload: if eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::IndirectCallPayloadUnexpected operation_idx selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop payloads params args kinds places symbols types key graph_id add operation_idx 1 operation_count payload_idx payload_count param_cursor arg_cursor
                     Option::None: selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop payloads params args kinds places symbols types key graph_id add operation_idx 1 operation_count payload_idx payload_count param_cursor arg_cursor
 
+//: 空のsparse header Vecを作り、allocation失敗をConstruct固有errorへ写像します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadTableAllocFailed e
+//: sparse header Vec ownerを一度だけ閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory unit \inventory:
+    v::free field::get inventory "records"
+//: borrowed header ownerのrecord数をmerge cursor用に返します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+//: headerをindexで読み、範囲外はOption::Noneとしてfail-closed検査へ渡します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+//: headerを末尾へ追加し、push失敗時は消費済みVecを閉じて固有errorを返します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadPushFailed e.error
+
+//: 空のordered input Vecを作り、allocation失敗をinput固有errorへ写像します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputTableAllocFailed e
+//: ordered input Vec ownerを一度だけ閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory unit \inventory:
+    v::free field::get inventory "records"
+//: borrowed input ownerのendpoint数をrange検査へ返します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+//: input endpointをindexで読み、範囲外をOption::Noneで表します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+//: input endpointをsource orderで追加し、失敗時は消費済みVecを閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputPushFailed e.error
+
+//: 空のordered field-offset Vecを作り、allocation失敗をoffset固有errorへ写像します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetTableAllocFailed e
+//: ordered field-offset Vec ownerを一度だけ閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory unit \inventory:
+    v::free field::get inventory "records"
+//: borrowed offset ownerのendpoint数をrange検査へ返します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory i32 \inventory:
+    v::len field::get_ref inventory "records"
+//: offset endpointをindexで読み、範囲外をOption::Noneで表します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord \inventory\idx:
+    v::get field::get_ref inventory "records" idx
+//: offset endpointをRust Vec順で追加し、失敗時は消費済みVecを閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push field::get inventory "records" record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetPushFailed e.error
+
+//: input rangeを線形走査し、identity / relative ordinal / same-graph Place membershipを順に検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_inputs_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inputs\places\key\graph_id\operation_ordinal\start\cursor\end:
+    if eq cursor end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_get inputs cursor:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputUnexpected cursor
+        Option::Some input:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq input.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq input.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputIdentityMismatch cursor
+            else if or not eq input.operation_ordinal operation_ordinal not eq input.input_ordinal sub cursor start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputOrdinalMismatch cursor
+            else if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq input.place.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputPlaceGraphMismatch cursor
+            else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key input.place 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+                Result::Err e: Result::Err e
+                Result::Ok present: if present selfhost_memo_call_backend_private_cache_resource_ir_construct_inputs_validate_loop inputs places key graph_id operation_ordinal start add cursor 1 end else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputPlaceMissing cursor
+
+//: offset rangeを線形走査し、identity / relative ordinalとnonnegative narrowing結果を検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offsets_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \offsets\key\graph_id\operation_ordinal\start\cursor\end:
+    if eq cursor end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_get offsets cursor:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetUnexpected cursor
+        Option::Some offset:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq offset.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq offset.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetIdentityMismatch cursor
+            else if or not eq offset.operation_ordinal operation_ordinal not eq offset.field_ordinal sub cursor start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetOrdinalMismatch cursor
+            else if lt offset.offset 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetOutOfRange cursor
+            else selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offsets_validate_loop offsets key graph_id operation_ordinal start add cursor 1 end
+
+//: aggregate variantを排他的に分岐し、必要symbol membershipとEnumのoffset不在だけを検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_aggregate_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind fn &SelfhostResourceIrCanonicalSymbolTable fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \aggregate\symbols\ordinal\field_offset_count:
+    match aggregate:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind::Enum enum_symbols:
+            if not selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member symbols enum_symbols.name.canonical Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructEnumNameMissing ordinal
+            else if not selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member symbols enum_symbols.variant.canonical Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructEnumVariantMissing ordinal
+            else if not eq field_offset_count 0 Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructEnumFieldOffsetsUnexpected ordinal
+            else Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind::Struct name: if selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member symbols name.canonical Result::Ok unit else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructStructNameMissing ordinal
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind::TupleAggregate: Result::Ok unit
+
+//: 2つのchecked range、output、variant、dense endpointsの順で1 Construct headerをfail-closed検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_record_validate_result %fn SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payload\inputs\offsets\places\symbols\key\graph_id:
+    let ordinal %i32 payload.operation_ordinal
+    let input_end %i32 add payload.input_start payload.input_count
+    let offset_end %i32 add payload.field_offset_start payload.field_offset_count
+    if or lt payload.input_start 0 or lt payload.input_count 0 or lt input_end payload.input_start gt input_end selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_len inputs Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputRangeInvalid ordinal
+    else if or lt payload.field_offset_start 0 or lt payload.field_offset_count 0 or lt offset_end payload.field_offset_start gt offset_end selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_len offsets Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetRangeInvalid ordinal
+    else if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq payload.output.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructOutputGraphMismatch ordinal
+    else match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_contains_loop places key payload.output 0 selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_len places:
+        Result::Err e: Result::Err e
+        Result::Ok output_present:
+            if not output_present Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructOutputMissing ordinal
+            else match selfhost_memo_call_backend_private_cache_resource_ir_construct_aggregate_validate_result payload.aggregate symbols ordinal payload.field_offset_count:
+                Result::Err e: Result::Err e
+                Result::Ok _aggregate:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_construct_inputs_validate_loop inputs places key graph_id ordinal payload.input_start payload.input_start input_end:
+                        Result::Err e: Result::Err e
+                        Result::Ok _inputs: selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offsets_validate_loop offsets key graph_id ordinal payload.field_offset_start payload.field_offset_start offset_end
+
+//: kind / sparse header / 2 dense ownerを4 cursorでmergeし、gapとexcessを決定的に拒否します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\inputs\offsets\kinds\places\symbols\key\graph_id\operation_idx\operation_count\payload_idx\payload_count\input_cursor\offset_cursor:
+    if eq operation_idx operation_count:
+        if not eq payload_idx payload_count Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadUnexpected payload_idx
+        else if not eq input_cursor selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_len inputs Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputUnexpected input_cursor
+        else if not eq offset_cursor selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_len offsets Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetUnexpected offset_cursor
+        else Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_get kinds operation_idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationKindReadFailed operation_idx
+        Option::Some operation:
+            match operation.kind:
+                SelfhostMemoCallBackendPrivateCacheResourceIrOperationKind::Construct:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_get payloads payload_idx:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadMissing operation_idx
+                        Option::Some payload:
+                            if or not selfhost_memo_call_backend_private_cache_proof_key_eq payload.key key not selfhost_memo_call_backend_private_cache_resource_graph_id_eq payload.graph_id graph_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadIdentityMismatch operation_idx
+                            else if not eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadOrdinalMismatch payload.operation_ordinal
+                            else if not eq payload.input_start input_cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputRangeInvalid operation_idx
+                            else if not eq payload.field_offset_start offset_cursor Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetRangeInvalid operation_idx
+                            else match selfhost_memo_call_backend_private_cache_resource_ir_construct_record_validate_result payload inputs offsets places symbols key graph_id:
+                                Result::Err e: Result::Err e
+                                Result::Ok _valid: selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop payloads inputs offsets kinds places symbols key graph_id add operation_idx 1 operation_count add payload_idx 1 payload_count add input_cursor payload.input_count add offset_cursor payload.field_offset_count
+                _: match selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_get payloads payload_idx:
+                    Option::Some payload: if eq payload.operation_ordinal operation_idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadUnexpected operation_idx selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop payloads inputs offsets kinds places symbols key graph_id add operation_idx 1 operation_count payload_idx payload_count input_cursor offset_cursor
+                    Option::None: selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop payloads inputs offsets kinds places symbols key graph_id add operation_idx 1 operation_count payload_idx payload_count input_cursor offset_cursor
+
 fn selfhost_memo_call_backend_private_cache_resource_ir_call_place_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 fn bool Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\key\graph_id\place\ordinal\output:
     if not selfhost_memo_call_backend_private_cache_resource_graph_id_eq place.graph_id graph_id:
         if output Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::CallOutputGraphMismatch ordinal Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::CallArgPlaceGraphMismatch ordinal
@@ -6854,7 +7165,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_op
 //: - Rust `ResourceFunction.blocks`順でblock、各`ops` range、各blockのterminator 1件を全検査します。
 //: - operation tableも同じkey / graphとdense ordinalを持ち、inventoryのoperation総数と一致する場合だけ`ResourceIrInventoryValidated`を発行します。
 //: - inventoryとoperation ownerはまだactual lowering materializerによるco-production authorityを持たないため、`ResourceIrEnumerated`を発行しません。
-fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrAssignPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMovePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValuePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\symbols\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads\read_payloads\assign_payloads\borrow_payloads\move_payloads\drop_payloads\end_scope_payloads\end_scope_locals\function_value_payloads\function_value_args\call_effect_payloads\call_payloads\call_args\call_type_args\indirect_call_payloads\indirect_call_params\indirect_call_args\collection_storage_relocate_payloads\collection_slot_drop_traversal_payloads\collection_slot_transform_range_payloads\raw_address_alias_payloads\raw_address_view_payloads\storage_origin_payloads\collection_slot_lifecycle_payloads\raw_memory_payloads\raw_memory_args:
+fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheResourceGraphId fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory fn &SelfhostResourceIrCanonicalSymbolTable fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationSpanInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrExprPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDeclareLocalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrReadPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrAssignPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrBorrowPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMovePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrDropPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrEndScopeLocalInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValuePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallEffectPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallParamInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrIndirectCallArgInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionStorageRelocatePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotDropTraversalPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotTransformRangePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressAliasPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawAddressViewPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrStorageOriginPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrCollectionSlotLifecyclePayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrRawMemoryArgInventory Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\symbols\types\operations\operation_spans\operation_kinds\expr_payloads\declare_local_payloads\read_payloads\assign_payloads\borrow_payloads\move_payloads\drop_payloads\end_scope_payloads\end_scope_locals\function_value_payloads\function_value_args\call_effect_payloads\call_payloads\call_args\call_type_args\indirect_call_payloads\indirect_call_params\indirect_call_args\construct_payloads\construct_inputs\construct_field_offsets\collection_storage_relocate_payloads\collection_slot_drop_traversal_payloads\collection_slot_transform_range_payloads\raw_address_alias_payloads\raw_address_view_payloads\storage_origin_payloads\collection_slot_lifecycle_payloads\raw_memory_payloads\raw_memory_args:
     let entry_block_id %i32 *field::get_ref inventory "entry_block_id"
     let result_ty %SelfhostTypeId *field::get_ref inventory "result_ty"
     let effect %SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect *field::get_ref inventory "effect"
@@ -6952,7 +7263,11 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authorit
                                                                                                                                                                 let indirect_call_payload_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_len indirect_call_payloads
                                                                                                                                                                 match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_payload_inventory_validate_loop indirect_call_payloads indirect_call_params indirect_call_args operation_kinds places symbols types key graph_id 0 operation_count 0 indirect_call_payload_count 0 0:
                                                                                                                                                                     Result::Err e: Result::Err e
-                                                                                                                                                                    Result::Ok _indirect_call_payloads_valid: selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args places types
+                                                                                                                                                                    Result::Ok _indirect_call_payloads_valid:
+                                                                                                                                                                        let construct_payload_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_len construct_payloads
+                                                                                                                                                                        match selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop construct_payloads construct_inputs construct_field_offsets operation_kinds places symbols key graph_id 0 operation_count 0 construct_payload_count 0 0:
+                                                                                                                                                                            Result::Err e: Result::Err e
+                                                                                                                                                                            Result::Ok _construct_payloads_valid: selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_after_operation_kinds_result key graph_id operation_count operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args places types
                                                                                     Result::Err e:
                                                                                         Result::Err e
                                                                         Result::Err e:
@@ -6981,7 +7296,22 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
                                             let args_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_new:
                                                 Result::Err e: Result::Err e
                                                 Result::Ok indirect_call_args:
-                                                    let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections symbols types operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals function_value_payloads function_value_args call_effect_payloads &call_payloads &call_args &call_type_args &indirect_call_payloads &indirect_call_params &indirect_call_args collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                                                    let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_new:
+                                                        Result::Err e: Result::Err e
+                                                        Result::Ok construct_payloads:
+                                                            let input_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_new:
+                                                                Result::Err e: Result::Err e
+                                                                Result::Ok construct_inputs:
+                                                                    let offset_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_new:
+                                                                        Result::Err e: Result::Err e
+                                                                        Result::Ok construct_field_offsets:
+                                                                            let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections symbols types operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals function_value_payloads function_value_args call_effect_payloads &call_payloads &call_args &call_type_args &indirect_call_payloads &indirect_call_params &indirect_call_args &construct_payloads &construct_inputs &construct_field_offsets collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                                                                            selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_free construct_field_offsets
+                                                                            checked
+                                                                    selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_free construct_inputs
+                                                                    offset_result
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free construct_payloads
+                                                            input_result
                                                     selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_arg_inventory_free indirect_call_args
                                                     value
                                             selfhost_memo_call_backend_private_cache_resource_ir_indirect_call_param_inventory_free indirect_call_params

@@ -1,0 +1,195 @@
+//: memo_call backend private-cache Construct stage0 source part
+//:
+//: Construct ownerの実validator matrixをinventory modelと同じlogical moduleへprivate mergeします。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: modeごとの期待error familyとordinalをexact matchし、誤分類されたnegativeを成功扱いしません。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_error_matches %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind bool \mode\error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadMissing ordinal: and eq mode 4 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadUnexpected ordinal: or and eq mode 5 eq ordinal 0 and eq mode 30 eq ordinal 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadIdentityMismatch ordinal: and or eq mode 6 eq mode 7 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructPayloadOrdinalMismatch ordinal: and eq mode 8 eq ordinal 21
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputRangeInvalid ordinal: and or or or eq mode 9 eq mode 10 eq mode 11 eq mode 12 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputUnexpected ordinal: and eq mode 31 eq ordinal 2
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputIdentityMismatch ordinal: and eq mode 13 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputOrdinalMismatch ordinal: and eq mode 14 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputPlaceMissing ordinal: and eq mode 15 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructInputPlaceGraphMismatch ordinal: and eq mode 16 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetRangeInvalid ordinal: and or or or eq mode 17 eq mode 18 eq mode 19 eq mode 20 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetUnexpected ordinal: and eq mode 32 eq ordinal 2
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetIdentityMismatch ordinal: and eq mode 21 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetOrdinalMismatch ordinal: and eq mode 22 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructFieldOffsetOutOfRange ordinal: and eq mode 23 eq ordinal 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructOutputMissing ordinal: and eq mode 24 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructOutputGraphMismatch ordinal: and eq mode 25 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructEnumNameMissing ordinal: and eq mode 26 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructEnumVariantMissing ordinal: and eq mode 27 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructEnumFieldOffsetsUnexpected ordinal: and eq mode 28 eq ordinal 20
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::ConstructStructNameMissing ordinal: and eq mode 29 eq ordinal 20
+        _: false
+
+//: canonical symbol ownerを受け、mode 0..32のheader / input / offset fixtureを構築して実validatorへ渡します。
+//: push失敗時は消費済みVecを再解放せず、残ったownerだけを依存関係の逆順で閉じます。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_with_symbols %impure fn i32 impure fn SelfhostResourceIrCanonicalSymbolTable impure fn SelfhostResourceIrVariantStableSymbol impure fn SelfhostResourceIrVariantStableSymbol bool \mode\symbols\name_symbol\variant_symbol:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let wrong_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    let wrong_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 1
+    let kind_count %i32 if eq mode 5 1 21
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_stage0_result key graph_id kind_count:
+        Result::Err _e:
+            selfhost_resource_ir_canonical_symbol_table_free symbols
+            false
+        Result::Ok kinds:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Local 1 selfhost_type_id_new 1:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                    false
+                Result::Ok places:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_new:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                            false
+                        Result::Ok payloads0:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_new:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free payloads0
+                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                                    false
+                                Result::Ok inputs0:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_new:
+                                        Result::Err _e:
+                                            selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_free inputs0
+                                            selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free payloads0
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                                            false
+                                        Result::Ok offsets0:
+                                            let input_count %i32 if eq mode 11 sub 0 1 if eq mode 3 0 if eq mode 12 3 2
+                                            let no_input_records %bool le input_count 0
+                                            let input_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 13 wrong_key key
+                                            let input_place_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 16 wrong_graph graph_id
+                                            let input_place_index %i32 if eq mode 15 99 0
+                                            let input0 %SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord input_key graph_id 20 if eq mode 14 1 0 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace input_place_graph selfhost_memo_call_backend_private_cache_resource_place_id_new input_place_index
+                                            let input1 %SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputRecord key graph_id 20 1 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                                            let input_result0 %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if no_input_records Result::Ok inputs0 selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_push inputs0 input0
+                                            let input_result1 %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match input_result0:
+                                                Result::Err e: Result::Err e
+                                                Result::Ok inputs1: if no_input_records Result::Ok inputs1 selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_push inputs1 input1
+                                            let input_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructInputInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match input_result1:
+                                                Result::Err e: Result::Err e
+                                                Result::Ok inputs2: if eq mode 31 selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_push inputs2 input1 Result::Ok inputs2
+                                            let accepted %bool match input_result:
+                                                Result::Err _e:
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_free offsets0
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free payloads0
+                                                    false
+                                                Result::Ok inputs:
+                                                    let is_enum %bool or eq mode 2 or and ge mode 26 le mode 28
+                                                    let offset_count %i32 if eq mode 28 1 if or is_enum eq mode 3 0 if eq mode 19 sub 0 1 if eq mode 20 3 2
+                                                    let no_offset_records %bool le offset_count 0
+                                                    let offset_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 21 wrong_key key
+                                                    let offset0 %SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord offset_key graph_id 20 if eq mode 22 1 0 if eq mode 23 sub 0 1 if eq mode 1 7 4
+                                                    let offset1 %SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetRecord key graph_id 20 1 if eq mode 1 3 4
+                                                    let offset_result0 %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if no_offset_records Result::Ok offsets0 selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_push offsets0 offset0
+                                                    let offset_result1 %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match offset_result0:
+                                                        Result::Err e: Result::Err e
+                                                        Result::Ok offsets1: if no_offset_records Result::Ok offsets1 selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_push offsets1 offset1
+                                                    let offset_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match offset_result1:
+                                                        Result::Err e: Result::Err e
+                                                        Result::Ok offsets2: if eq mode 32 selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_push offsets2 offset1 Result::Ok offsets2
+                                                    let checked %bool match offset_result:
+                                                        Result::Err _e:
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free payloads0
+                                                            false
+                                                        Result::Ok offsets:
+                                                            let missing_symbol %SelfhostResourceIrVariantStableSymbol SelfhostResourceIrVariantStableSymbol 1 99
+                                                            let enum_name %SelfhostResourceIrVariantStableSymbol if eq mode 26 missing_symbol name_symbol
+                                                            let enum_variant %SelfhostResourceIrVariantStableSymbol if eq mode 27 missing_symbol variant_symbol
+                                                            let struct_name %SelfhostResourceIrVariantStableSymbol if eq mode 29 missing_symbol name_symbol
+                                                            let enum_symbols %SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumSymbols SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumNameSymbol enum_name SelfhostMemoCallBackendPrivateCacheResourceIrConstructEnumVariantSymbol enum_variant
+                                                            let aggregate %SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind if is_enum SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind::Enum enum_symbols if eq mode 1 or eq mode 29 SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind::Struct SelfhostMemoCallBackendPrivateCacheResourceIrConstructStructNameSymbol struct_name SelfhostMemoCallBackendPrivateCacheResourceIrConstructAggregateKind::TupleAggregate
+                                                            let payload_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 6 wrong_key key
+                                                            let payload_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 7 wrong_graph graph_id
+                                                            let payload_ordinal %i32 if eq mode 8 21 if eq mode 5 0 20
+                                                            let output_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 25 wrong_graph graph_id
+                                                            let output_index %i32 if eq mode 24 99 1
+                                                            let input_start %i32 if eq mode 9 1 if eq mode 10 2147483647 0
+                                                            let effective_input_count %i32 if eq mode 10 1 input_count
+                                                            let offset_start %i32 if eq mode 17 1 if eq mode 18 2147483647 0
+                                                            let effective_offset_count %i32 if eq mode 18 1 if eq mode 28 1 offset_count
+                                                            let payload %SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadRecord payload_key payload_graph payload_ordinal SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace output_graph selfhost_memo_call_backend_private_cache_resource_place_id_new output_index aggregate input_start effective_input_count offset_start effective_offset_count
+                                                            let payload_result0 %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 4 Result::Ok payloads0 selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_push payloads0 payload
+                                                            let payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConstructPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match payload_result0:
+                                                                Result::Err e: Result::Err e
+                                                                Result::Ok payloads1: if eq mode 30 selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_push payloads1 payload Result::Ok payloads1
+                                                            let result %bool match payload_result:
+                                                                Result::Err _e: false
+                                                                Result::Ok payloads:
+                                                                    let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_validate_loop &payloads &inputs &offsets &kinds &places &symbols key graph_id 0 kind_count 0 selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_len &payloads 0 0
+                                                                    let valid %bool if le mode 3 match validation:
+                                                                        Result::Ok _unit: true
+                                                                        Result::Err _e: false
+                                                                    else match validation:
+                                                                        Result::Ok _unit: false
+                                                                        Result::Err e: selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_error_matches mode e
+                                                                    selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_inventory_free payloads
+                                                                    valid
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_inventory_free offsets
+                                                            result
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_construct_input_inventory_free inputs
+                                                    checked
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                                            accepted
+
+//: aggregate / variant spellingをcanonical tableへinternし、tableと2 symbolを1 matrix caseへ所有移譲します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_case %impure fn i32 bool \mode:
+    match selfhost_resource_ir_canonical_symbol_table_new:
+        Result::Err _e: false
+        Result::Ok symbols0:
+            match selfhost_resource_ir_canonical_symbol_table_intern symbols0 "aggregate":
+                Result::Err _e: false
+                Result::Ok named:
+                    match selfhost_resource_ir_canonical_symbol_table_intern named.table "variant":
+                        Result::Err _e: false
+                        Result::Ok variant: selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_with_symbols mode variant.table named.symbol variant.symbol
+
+//: mode 0..32を昇順に実行し、いずれかのvalidator結果が違えば即座にfalseを返します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_loop %impure fn i32 bool \mode:
+    if gt mode 32 true and selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_case mode selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_loop add mode 1
+
+//: Constructのvariant、独立したordered inputs/offsets、重複、usize narrowingを実validatorで検査する非production matrix
+//: i64 narrowingの0 / 最大 / 負 / 上限超過を先に検査し、その後mode 0..32を実行します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0 %impure fn void bool \void:
+    let zero %SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_narrow_result extend_s 0
+    let maximum %SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_narrow_result extend_s 2147483647
+    let negative %SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_narrow_result sub extend_s 0 extend_s 1
+    let excessive %SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult selfhost_memo_call_backend_private_cache_resource_ir_construct_field_offset_narrow_result add extend_s 2147483647 extend_s 1
+    and match zero:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::Ok value: eq value 0
+        _: false
+    and match maximum:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::Ok value: eq value 2147483647
+        _: false
+    and match negative:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::Negative: true
+        _: false
+    and match excessive:
+        SelfhostMemoCallBackendPrivateCacheResourceIrConstructFieldOffsetNarrowResult::OutOfRange: true
+        _: false
+    selfhost_memo_call_backend_private_cache_resource_ir_construct_payload_stage0_loop 0
