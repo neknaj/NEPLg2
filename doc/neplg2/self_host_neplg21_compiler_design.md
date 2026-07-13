@@ -3754,6 +3754,14 @@ stage0 matrixは0 arm、複数arm、全pattern、Owned / Borrowed mutable / immu
 
 この境界はpattern exhaustiveness、arm value type join、borrow semantics、actual loweringとのowner co-production、production originを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持する。次はenum type key membership、canonical type key、actual ResourceFunction / topology / kind / span / sparse payload co-productionを接続する。
 
+### 2026-07-13 Resource Match Variant membership prerequisite
+
+Match Variant membershipの監査では、Place inventoryからscrutineeの`SelfhostTypeId`を取得しTypeArena recordへ到達する経路はあるが、`SelfhostTypeRecord::Named / Applied`は`SelfhostNamedTypeId`と型引数範囲だけを持ち、宣言がstructかenumか、どのvariantを持つかを表さない。`SelfhostTypeConstructorKind`もType / TypeConstructor arityだけでありenum declaration authorityではない。したがってcanonical symbol tableにVariant spellingが存在することだけを、scrutinee enumのvariant memberである証明へ昇格させない。
+
+非production prerequisiteとして、`SelfhostNamedTypeId`だけをkeyにし、definition headerからproducer-resolved variant member identityのdense rangeを所有するenum membership sidecarを追加した。concrete `SelfhostTypeId`やcanonical type keyを同recordへ束ねず、Applied typeもbase nominal identityのvariant集合を共有する。central compatibility pathは既存のtopology / Match payload構造を先に検査し、enum owner全体のrange / cursor / identity / ordinal / canonical membership、definition nominal重複、variant重複を閉じてから、Variant patternだけを`Place.ty → TypeArena Named / Applied → nominal definition → member range`へ照合する。Variant armに対するnonnominal scrutineeまたはsidecar definition不在、wrong-owner member、range gap / overflow / excessをtyped rejectionし、bind source nameは照合入力に含めない。central fixtureはVariant positive、wrong-owner、duplicate definitionのexact negativeを通す。
+
+現Resource patternが運ぶqualified / aliasを含むsource spellingは、checkerが解決した宣言member identityそのものではない。actual producerは両者を分離し、Rust checkerと同様にmember tailを解決した結果をdeclaration member identityへ正規化してsidecarとpattern evidenceを同時生成する必要がある。またsession-localな`SelfhostNamedTypeId`を安全に使うには、TypeArena projection、constructor table、membership ownerが同一producer / originからco-produceされた証拠が必要である。reference-to-enumのMatchはRust loweringと同じくDeref projectionを経てenum nominal typeへ到達させる。これらのsame-session origin証拠、cross-session canonical type key、actual declaration producer、pattern exhaustivenessは未実装であり、production authorityへ昇格しない。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。

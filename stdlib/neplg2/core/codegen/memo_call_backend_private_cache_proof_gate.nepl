@@ -1118,6 +1118,7 @@
 #import "./memo_call_backend_scope_branch_payload_part" as @merge
 #import "./memo_call_backend_scope_loop_payload_part" as @merge
 #import "./memo_call_backend_scope_match_payload_part" as @merge
+#import "./memo_call_backend_scope_match_variant_membership_part" as @merge
 #import "./memo_call_backend_scope_indirect_call_stage0_part" as @merge
 #import "./memo_call_backend_scope_construct_stage0_part" as @merge
 #import "./memo_call_backend_scope_branch_stage0_part" as @merge
@@ -10731,7 +10732,7 @@ pub fn selfhost_memo_call_backend_private_cache_resource_lowering_traversal_scop
 //: assert_true selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0;
 //: ```
 pub fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0 %impure fn void bool \void:
-    let recursive_operation_topology_checked %bool and and and and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0 () selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_matrix ()
+    let recursive_operation_topology_checked %bool and and and and and selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0 () selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_matrix () selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_matrix ()
     let no_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None
     let return_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 1
     let missing_return_place %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 3

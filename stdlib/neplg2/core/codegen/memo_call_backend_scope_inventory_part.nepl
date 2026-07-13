@@ -1739,6 +1739,24 @@ enum SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind:
     MatchArmTopologyCountMismatch %i32
     MatchArmTopologyOrdinalMismatch %i32
     MatchArmTopologyRoleMismatch %i32
+    MatchEnumDefinitionTableAllocFailed %StdErrorKind
+    MatchEnumDefinitionPushFailed %StdErrorKind
+    MatchEnumVariantTableAllocFailed %StdErrorKind
+    MatchEnumVariantPushFailed %StdErrorKind
+    MatchEnumDefinitionReadFailed %i32
+    MatchEnumDefinitionIdentityMismatch %i32
+    MatchEnumDefinitionDuplicate %i32
+    MatchEnumDefinitionRangeInvalid %i32
+    MatchEnumVariantUnexpected %i32
+    MatchEnumVariantIdentityMismatch %i32
+    MatchEnumVariantOrdinalMismatch %i32
+    MatchEnumVariantSymbolMissing %i32
+    MatchEnumVariantDuplicate %i32
+    MatchScrutineePlaceReadFailed %i32
+    MatchScrutineeTypeMissing %i32
+    MatchScrutineeTypeUnsupported %i32
+    MatchEnumDefinitionMissing %i32
+    MatchVariantNotMember %i32
     ConditionFactNodeTableAllocFailed %StdErrorKind
     ConditionFactNodePushFailed %StdErrorKind
     ConditionFactEdgeTableAllocFailed %StdErrorKind
@@ -7415,7 +7433,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
                                                                             let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_branch_payload_inventory_new:
                                                                                 Result::Err e: Result::Err e
                                                                                 Result::Ok branch_payloads0:
-                                                                                    let branch_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq control_fixture 1:
+                                                                                    let branch_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrBranchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt control_fixture 0:
                                                                                         let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
                                                                                         selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_payload_push_result branch_payloads0 key graph_id place0 place0 1 21
                                                                                     else Result::Ok branch_payloads0
@@ -7426,7 +7444,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
                                                                                                 Result::Err e: Result::Err e
                                                                                                 Result::Ok loop_payloads0:
                                                                                                     let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
-                                                                                                    let loop_payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq control_fixture 1 selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_payload_push_result loop_payloads0 key graph_id place0 0 Result::Ok loop_payloads0
+                                                                                                    let loop_payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt control_fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_payload_push_result loop_payloads0 key graph_id place0 0 Result::Ok loop_payloads0
                                                                                                     match loop_payload_result:
                                                                                                         Result::Err e: Result::Err e
                                                                                                         Result::Ok loop_payloads:
@@ -7434,21 +7452,21 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
                                                                                                                 Result::Err e: Result::Err e
                                                                                                                 Result::Ok match_payloads0:
                                                                                                                     let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
-                                                                                                                    let match_payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq control_fixture 1 selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_push match_payloads0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord key graph_id 23 place0 place0 false 0 1 Result::Ok match_payloads0
+                                                                                                                    let match_payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt control_fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_push match_payloads0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord key graph_id 23 place0 place0 false 0 1 Result::Ok match_payloads0
                                                                                                                     match match_payload_result:
                                                                                                                         Result::Err e: Result::Err e
                                                                                                                         Result::Ok match_payloads:
                                                                                                                             let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_new:
                                                                                                                                 Result::Err e: Result::Err e
                                                                                                                                 Result::Ok match_arms0:
-                                                                                                                                    let arm_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq control_fixture 1 selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_push match_arms0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord key graph_id 23 0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Wildcard Option::None Option::None Option::None place0 source_span_new_unchecked 1 0 1 Result::Ok match_arms0
+                                                                                                                                    let arm_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt control_fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_push match_arms0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord key graph_id 23 0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Variant SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol SelfhostResourceIrVariantStableSymbol 1 1 Option::None Option::None Option::None place0 source_span_new_unchecked 1 0 1 Result::Ok match_arms0
                                                                                                                                     match arm_result:
                                                                                                                                         Result::Err e: Result::Err e
                                                                                                                                         Result::Ok match_arms:
                                                                                                                                             let node_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_new:
                                                                                                                                                 Result::Err e: Result::Err e
                                                                                                                                                 Result::Ok condition_fact_bindings0:
-                                                                                                                                                    let binding_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq control_fixture 1:
+                                                                                                                                                    let binding_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt control_fixture 0:
                                                                                                                                                         match selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_bindings_fill_result condition_fact_bindings0 key graph_id 1 0 1:
                                                                                                                                                             Result::Err e: Result::Err e
                                                                                                                                                             Result::Ok with_branch_binding: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_push with_branch_binding SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord key graph_id 22 Option::None
@@ -7460,16 +7478,22 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
                                                                                                                                                                 Result::Err e: Result::Err e
                                                                                                                                                                 Result::Ok condition_fact_nodes0:
                                                                                                                                                                     let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
-                                                                                                                                                                    let node_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq control_fixture 1 selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_nodes_fill_result condition_fact_nodes0 key graph_id place0 place0 1 0 1 Result::Ok condition_fact_nodes0
+                                                                                                                                                                    let node_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if gt control_fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_nodes_fill_result condition_fact_nodes0 key graph_id place0 place0 1 0 1 Result::Ok condition_fact_nodes0
                                                                                                                                                                     match node_result:
                                                                                                                                                                         Result::Err e: Result::Err e
                                                                                                                                                                         Result::Ok condition_fact_nodes:
                                                                                                                                                                             let edge_result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_new:
                                                                                                                                                                                 Result::Err e: Result::Err e
                                                                                                                                                                                 Result::Ok condition_fact_edges:
-                                                                                                                                                                                    let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match if eq control_fixture 1 Result::Ok unit selfhost_memo_call_backend_private_cache_resource_ir_inventory_legacy_operation_bridge_validate_result operations topology key graph_id:
+                                                                                                                                                                                    let value %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match if gt control_fixture 0 Result::Ok unit selfhost_memo_call_backend_private_cache_resource_ir_inventory_legacy_operation_bridge_validate_result operations topology key graph_id:
                                                                                                                                                                                         Result::Err e: Result::Err e
-                                                                                                                                                                                        Result::Ok _legacy_shape_valid: selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections symbols types topology operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals function_value_payloads function_value_args call_effect_payloads &call_payloads &call_args &call_type_args &indirect_call_payloads &indirect_call_params &indirect_call_args &construct_payloads &construct_inputs &construct_field_offsets &branch_payloads &loop_payloads &match_payloads &match_arms &condition_fact_bindings &condition_fact_nodes &condition_fact_edges collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args
+                                                                                                                                                                                        Result::Ok _legacy_shape_valid:
+                                                                                                                                                                                            match selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result key graph_id inventory places projections symbols types topology operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals function_value_payloads function_value_args call_effect_payloads &call_payloads &call_args &call_type_args &indirect_call_payloads &indirect_call_params &indirect_call_args &construct_payloads &construct_inputs &construct_field_offsets &branch_payloads &loop_payloads &match_payloads &match_arms &condition_fact_bindings &condition_fact_nodes &condition_fact_edges collection_storage_relocate_payloads collection_slot_drop_traversal_payloads collection_slot_transform_range_payloads raw_address_alias_payloads raw_address_view_payloads storage_origin_payloads collection_slot_lifecycle_payloads raw_memory_payloads raw_memory_args:
+                                                                                                                                                                                                Result::Err e: Result::Err e
+                                                                                                                                                                                                Result::Ok scope:
+                                                                                                                                                                                                    match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_compat_validate_result &match_payloads &match_arms places types symbols key control_fixture:
+                                                                                                                                                                                                        Result::Err e: Result::Err e
+                                                                                                                                                                                                        Result::Ok _match_variant_membership: Result::Ok scope
                                                                                                                                                                                     selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free condition_fact_edges
                                                                                                                                                                                     value
                                                                                                                                                                             selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free condition_fact_nodes
@@ -7504,7 +7528,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_emp
             result
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrProjectionInventory impure fn &SelfhostTypeArena impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\projections\types\operations\control_fixture:
-    match if eq control_fixture 1 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_branch_fixture_result inventory key graph_id selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result inventory key graph_id:
+    match if gt control_fixture 0 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_branch_fixture_result inventory key graph_id selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_flat_fixture_result inventory key graph_id:
         Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationTopologyRejected e
         Result::Ok topology:
             let operation_count %i32 selfhost_memo_call_backend_private_cache_resource_ir_operation_topology_node_len &topology
@@ -7917,7 +7941,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_sta
     let projection_place_id %SelfhostMemoCallBackendPrivateCacheResourcePlaceId selfhost_memo_call_backend_private_cache_resource_place_id_new 1
     selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_stage0_projection_result key graph_id inventory places operations key graph_id projection_place_id 0 SelfhostResourceIrPlaceProjection::Deref
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_with_types_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\operations:
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_with_types_result %impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrFunctionInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostMemoCallBackendPrivateCacheActualWalkerOperationTable impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \key\graph_id\inventory\places\operations\control_fixture:
     match selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_stage0_result key graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 1 0 SelfhostResourceIrPlaceProjection::Deref:
         Result::Err e: Result::Err e
         Result::Ok projections:
@@ -7932,22 +7956,22 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_wi
                             Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TypeArenaAllocFailed e
                         Result::Ok allocated0:
                             let types1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated0
-                            match selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32:
+                            match selfhost_type_arena_add_named types1 selfhost_named_type_id_new 0:
                                 Result::Err e:
                                     selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
                                     Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::TypeArenaAllocFailed e
                                 Result::Ok allocated1:
                                     let types2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated1
-                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result key graph_id inventory places &projections &types2 operations 1
+                                    let result %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0_authority_result key graph_id inventory places &projections &types2 operations control_fixture
                                     selfhost_type_arena_free types2
                                     selfhost_memo_call_backend_private_cache_resource_ir_projection_inventory_free projections
                                     result
 
-fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case %impure fn bool bool \mismatch:
+fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case %impure fn i32 bool \mode:
     let no_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None
     let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
     let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
-    match selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result 9 selfhost_type_id_new 1 SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure source_span_new_unchecked 1 2 3 source_span_new_unchecked 2 5 8 source_span_new_unchecked 3 6 9 0 selfhost_type_id_new 0 selfhost_type_id_new 0 1 selfhost_type_id_new 1 selfhost_memo_call_backend_private_cache_resource_place_id_new 0 9 1 1 if mismatch 22 23 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload:
+    match selfhost_memo_call_backend_private_cache_resource_ir_inventory_with_entry_stage0_result 9 selfhost_type_id_new 1 SelfhostMemoCallBackendPrivateCacheResourceFunctionSurfaceEffect::Pure source_span_new_unchecked 1 2 3 source_span_new_unchecked 2 5 8 source_span_new_unchecked 3 6 9 0 selfhost_type_id_new 0 selfhost_type_id_new 0 1 selfhost_type_id_new 1 selfhost_memo_call_backend_private_cache_resource_place_id_new 0 9 1 1 if eq mode 1 22 23 1 SelfhostMemoCallBackendPrivateCacheResourceIrTerminatorKind::Unreachable no_payload:
         Result::Err _e: false
         Result::Ok inventory:
             match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary 1 selfhost_type_id_new 1:
@@ -7961,17 +7985,29 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_ca
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
                             false
                         Result::Ok operations:
-                            let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_with_types_result key graph_id &inventory &places &operations
+                            let checked %Result SelfhostMemoCallBackendPrivateCacheResourceLoweringTraversalScopeAuthority SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_with_types_result key graph_id &inventory &places &operations if or eq mode 1 eq mode 2 2 if eq mode 3 3 1
                             selfhost_memo_call_backend_private_cache_actual_walker_operation_table_free operations
                             selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
                             selfhost_memo_call_backend_private_cache_resource_ir_function_inventory_free inventory
-                            if mismatch match checked:
+                            if eq mode 1 match checked:
                                 Result::Err error:
                                     match error:
                                         SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::OperationTopologyRejected topology_error:
                                             match topology_error:
                                                 SelfhostMemoCallBackendPrivateCacheResourceIrOperationTopologyErrorKind::ScopeParentInvalid scope_id: eq scope_id 6
                                                 _: false
+                                        _: false
+                                Result::Ok _scope: false
+                            else if eq mode 2 match checked:
+                                Result::Err error:
+                                    match error:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionMissing ordinal: eq ordinal 23
+                                        _: false
+                                Result::Ok _scope: false
+                            else if eq mode 3 match checked:
+                                Result::Err error:
+                                    match error:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionDuplicate ordinal: eq ordinal 1
                                         _: false
                                 Result::Ok _scope: false
                             else match checked:
@@ -7981,7 +8017,7 @@ fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_ca
                                 Result::Err _e: false
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0 %impure fn void bool \void:
-    and selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case false selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case true
+    and selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case 0 and selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case 1 and selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case 2 selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0_case 3
 
 fn selfhost_memo_call_backend_private_cache_resource_ir_operation_span_scope_stage0_case %impure fn i32 impure fn i32 impure fn bool impure fn i32 impure fn bool impure fn i32 bool \second_operation_ordinal\span_count\invalid_second_span\kind_count\bad_kind_identity\expected_error:
     let no_payload %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload SelfhostMemoCallBackendPrivateCacheResourceIrReturnPayload::None

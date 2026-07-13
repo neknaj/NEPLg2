@@ -17,6 +17,7 @@ const branchStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_sc
 const loopPayloadPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_loop_payload_part.nepl";
 const loopStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_loop_stage0_part.nepl";
 const matchPayloadPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_match_payload_part.nepl";
+const matchVariantMembershipPartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_match_variant_membership_part.nepl";
 const matchStage0PartRelPath = "stdlib/neplg2/core/codegen/memo_call_backend_scope_match_stage0_part.nepl";
 const projectionRelPath = "stdlib/neplg2/core/codegen/resource_ir_place_projection.nepl";
 const runnerRelPath = "nodesrc/run_source_policy_regressions.js";
@@ -31,6 +32,7 @@ const branchStage0PartSource = fs.readFileSync(path.join(repoRoot, branchStage0P
 const loopPayloadPartSource = fs.readFileSync(path.join(repoRoot, loopPayloadPartRelPath), "utf8").replace(/\r\n/g, "\n");
 const loopStage0PartSource = fs.readFileSync(path.join(repoRoot, loopStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const matchPayloadPartSource = fs.readFileSync(path.join(repoRoot, matchPayloadPartRelPath), "utf8").replace(/\r\n/g, "\n");
+const matchVariantMembershipPartSource = fs.readFileSync(path.join(repoRoot, matchVariantMembershipPartRelPath), "utf8").replace(/\r\n/g, "\n");
 const matchStage0PartSource = fs.readFileSync(path.join(repoRoot, matchStage0PartRelPath), "utf8").replace(/\r\n/g, "\n");
 const projectionSource = fs.readFileSync(path.join(repoRoot, projectionRelPath), "utf8").replace(/\r\n/g, "\n");
 const inventoryPartMergeDirective = '#import "./memo_call_backend_scope_inventory_part" as @merge';
@@ -43,6 +45,7 @@ const branchStage0PartMergeDirective = '#import "./memo_call_backend_scope_branc
 const loopPayloadPartMergeDirective = '#import "./memo_call_backend_scope_loop_payload_part" as @merge';
 const loopStage0PartMergeDirective = '#import "./memo_call_backend_scope_loop_stage0_part" as @merge';
 const matchPayloadPartMergeDirective = '#import "./memo_call_backend_scope_match_payload_part" as @merge';
+const matchVariantMembershipPartMergeDirective = '#import "./memo_call_backend_scope_match_variant_membership_part" as @merge';
 const matchStage0PartMergeDirective = '#import "./memo_call_backend_scope_match_stage0_part" as @merge';
 const sourceWithInventory = anchorSource.replace(
     inventoryPartMergeDirective,
@@ -84,7 +87,11 @@ const sourceWithMatchPayload = sourceWithLoopStage0.replace(
     matchPayloadPartMergeDirective,
     `${matchPayloadPartMergeDirective}\n${matchPayloadPartSource}`,
 );
-const source = sourceWithMatchPayload.replace(
+const sourceWithMatchVariantMembership = sourceWithMatchPayload.replace(
+    matchVariantMembershipPartMergeDirective,
+    `${matchVariantMembershipPartMergeDirective}\n${matchVariantMembershipPartSource}`,
+);
+const source = sourceWithMatchVariantMembership.replace(
     matchStage0PartMergeDirective,
     `${matchStage0PartMergeDirective}\n${matchStage0PartSource}`,
 );
@@ -99,6 +106,8 @@ const rustEffects = fs.readFileSync(path.join(repoRoot, "nepl-core/src/effects.r
 const rustAst = fs.readFileSync(path.join(repoRoot, "nepl-core/src/ast.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustFunctionIdentity = fs.readFileSync(path.join(repoRoot, "nepl-core/src/function_identity.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustResolve = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resolve.rs"), "utf8").replace(/\r\n/g, "\n");
+const selfhostTypeRecord = fs.readFileSync(path.join(repoRoot, "stdlib/neplg2/core/ty/ty/record.nepl"), "utf8").replace(/\r\n/g, "\n");
+const selfhostTypeConstructor = fs.readFileSync(path.join(repoRoot, "stdlib/neplg2/core/resolve/type_resolver/constructor.nepl"), "utf8").replace(/\r\n/g, "\n");
 
 assert.match(rustResourceModel, /pub struct ResourceLocal \{[\s\S]*pub name: String,[\s\S]*pub ty: TypeId,[\s\S]*pub mutable: bool,[\s\S]*pub place: Place,/);
 assert.match(rustResourceModel, /pub enum PlaceRoot \{[\s\S]*Local\(String\)/);
@@ -582,8 +591,10 @@ for (const errorName of ["LoopPayloadMissing", "LoopPayloadUnexpected", "LoopPay
     assert.match(inventoryPartSource, new RegExp(`${errorName} %i32`), `Loop typed error ${errorName} must remain declared`);
 }
 assert.match(anchorSource, /memo_call_backend_scope_match_payload_part" as @merge/, "proof-gate anchor must merge Match payload privately");
+assert.match(anchorSource, /memo_call_backend_scope_match_variant_membership_part" as @merge/, "proof-gate anchor must merge Match enum membership privately");
 assert.match(anchorSource, /memo_call_backend_scope_match_stage0_part" as @merge/, "proof-gate anchor must merge Match stage0 privately");
 assert.doesNotMatch(matchPayloadPartSource, /^pub\s/m, "Match payload part must not expose public declarations");
+assert.doesNotMatch(matchVariantMembershipPartSource, /^pub\s/m, "Match enum membership part must not expose public declarations");
 assert.doesNotMatch(matchStage0PartSource, /^pub\s/m, "Match stage0 part must not expose public declarations");
 assert.match(rustResourceModel, /Match \{[\s\S]*output: Place,[\s\S]*scrutinee: Place,[\s\S]*scrutinee_is_borrow_target: bool,[\s\S]*arms: Vec<ResourceMatchArm>,[\s\S]*span: Span,/);
 assert.match(rustResourceModel, /pub struct ResourceMatchArm \{[\s\S]*pattern: ResourceMatchPattern,[\s\S]*bind_local: Option<Place>,[\s\S]*bind_source_name: Option<String>,[\s\S]*bind_mode: Option<ResourceMatchBindMode>,[\s\S]*ops: Vec<ResourceOp>,[\s\S]*value: Place,[\s\S]*span: Span,/);
@@ -593,6 +604,22 @@ assert.doesNotMatch(topLevelBlock(matchPayloadPartSource, "struct", "SelfhostMem
 assertOrdered(topLevelBlock(matchPayloadPartSource, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord"), ["operation_ordinal %i32", "arm_ordinal %i32", "pattern %", "bind_local %Option", "bind_source_name %Option", "bind_mode %Option", "value %", "span %SelfhostSourceSpan"], "ordered Match arms must preserve pattern, three independent optional bind fields, value, and arm span");
 assert.match(matchPayloadPartSource, /enum SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern:[\s\S]*Variant %[\s\S]*IntLiteral %i32[\s\S]*BoolLiteral %bool[\s\S]*Wildcard/, "Match pattern owner must preserve every Rust pattern variant without fallback");
 assert.match(matchPayloadPartSource, /enum SelfhostMemoCallBackendPrivateCacheResourceIrMatchBindMode:[\s\S]*Owned[\s\S]*Borrowed %bool/, "Match bind mode must retain borrowed mutability");
+assert.doesNotMatch(topLevelBlock(selfhostTypeRecord, "enum", "SelfhostTypeRecord"), /Enum|Variant/, "TypeArena records do not yet carry enum declaration or variant membership authority");
+assert.doesNotMatch(topLevelBlock(selfhostTypeConstructor, "enum", "SelfhostTypeConstructorKind"), /Enum|Struct|Variant/, "type constructor arity must not be mistaken for enum declaration membership");
+const matchPatternValidator = topLevelBlock(matchPayloadPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_pattern_validate_result");
+assert.match(matchPatternValidator, /MatchPattern::Variant symbol:[\s\S]*call_symbol_member symbols symbol\.canonical/, "current Match Variant transport must validate canonical spelling membership");
+assert.doesNotMatch(matchPatternValidator, /bind_source_name|MatchBindSourceName|type_arena|TypeArena|PlaceInventory/, "canonical transport validation must stay separate from typed enum membership");
+assertOrdered(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_scrutinee_nominal_result"), ["place_inventory_get places scrutinee.place_id.index", "selfhost_type_arena_get_record types place.ty", "SelfhostTypeRecord::Named", "SelfhostTypeRecord::Applied", "MatchScrutineeTypeUnsupported"], "Variant membership must resolve the scrutinee Place type through Named and Applied nominal identities");
+assertOrdered(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_validate_result"), ["match_enum_definition_validate_loop", "match_variant_membership_payload_loop"], "Match semantic validation must first close the borrowed enum owner before checking patterns");
+assert.match(matchVariantMembershipPartSource, /match_enum_definition_find_loop definitions nominal_id[\s\S]*match_enum_variant_member_loop variants symbol\.canonical definition\.variant_start/, "Variant symbols must be members of the scrutinee nominal definition range");
+assertOrdered(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_validate_loop"), ["MatchEnumDefinitionIdentityMismatch", "match_enum_definition_duplicate_loop", "MatchEnumDefinitionDuplicate", "MatchEnumDefinitionRangeInvalid"], "enum definition validation must reject duplicate nominal authority before consuming its range");
+assertOrdered(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_owner_error_matches"), ["MatchEnumDefinitionIdentityMismatch", "MatchEnumDefinitionDuplicate", "MatchEnumDefinitionRangeInvalid", "MatchEnumVariantIdentityMismatch", "MatchEnumVariantOrdinalMismatch", "MatchEnumVariantSymbolMissing", "MatchEnumVariantDuplicate", "MatchEnumVariantUnexpected"], "runtime owner matrix must exact-match every enum owner error class");
+assert.match(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_types_result"), /eq mode 11[\s\S]*selfhost_type_arena_add_applied_named[\s\S]*eq mode 13 eq mode 14[\s\S]*selfhost_type_arena_add_primitive/, "runtime type matrix must cover Applied and nonnominal scrutinee records");
+assert.match(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_semantic_case"), /eq mode 14[\s\S]*MatchPattern::IntLiteral[\s\S]*MatchVariantNotMember[\s\S]*MatchScrutineeTypeUnsupported/, "runtime semantic matrix must cover non-Variant nonnominal acceptance, wrong member, and nonnominal Variant rejection");
+assert.match(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_matrix"), /stage0_owner_case 0 10[\s\S]*stage0_semantic_case 10 15/, "runtime enum membership matrix must execute every owner and semantic mode");
+assert.doesNotMatch(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_validate_result"), /bind_source_name|MatchBindSourceName/, "bind-source names must not participate in enum member identity");
+assert.doesNotMatch(topLevelBlock(matchVariantMembershipPartSource, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord"), /SelfhostTypeId|canonical_type|spelling|name/, "enum membership authority must stay keyed only by nominal identity and its dense resolved member range");
+assertOrdered(topLevelBlock(matchVariantMembershipPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_compat_validate_result"), ["match_enum_definition_inventory_new", "match_enum_variant_inventory_new", "match_variant_membership_validate_result", "match_enum_variant_inventory_free", "match_enum_definition_inventory_free"], "compatibility path must own, validate, and close both enum membership tables");
 const matchValidator = topLevelBlock(matchPayloadPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_validate_loop");
 assertOrdered(matchValidator, ["MatchPayloadUnexpected payload_idx", "MatchArmUnexpected arm_cursor", "OperationKind::Match", "MatchPayloadMissing operation_idx", "MatchPayloadIdentityMismatch operation_idx", "MatchPayloadOrdinalMismatch payload.operation_ordinal", "payload.arm_start arm_cursor", "match_record_validate_result"], "Match owner must close sparse header and global arm cursor gaps/excess");
 const matchTopologyValidator = topLevelBlock(matchPayloadPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_match_topology_arms_validate_loop");
@@ -600,7 +627,12 @@ assert.match(matchTopologyValidator, /found expected_count[\s\S]*parent operatio
 assertOrdered(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result"), ["inventory_operation_topology_validate_result", "branch_payload_inventory_validate_loop", "loop_payload_inventory_validate_loop", "match_payload_inventory_validate_loop", "condition_fact_inventory_validate_loop"], "central authority must validate topology before Branch, Loop, Match, and generic fact owners");
 assert.match(topLevelBlock(inventoryPartSource, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_empty_call_owners_result"), /match_payload_inventory_new[\s\S]*match_arm_inventory_new[\s\S]*inventory_scope_authority_result[\s\S]*match_arm_inventory_free[\s\S]*match_payload_inventory_free/, "compatibility wrapper must own and close Match payload and arm tables");
 assert.match(topologyPartSource, /Operation 23 SelfhostMemoCallBackendPrivateCacheResourceIrOperationScopeRole::MatchArm 0/, "central topology fixture must retain an exact MatchArm scope");
-assert.match(inventoryPartSource, /MatchPayloadRecord key graph_id 23 place0 place0 false 0 1[\s\S]*MatchArmRecord key graph_id 23 0[\s\S]*MatchPattern::Wildcard/, "central fixture must pass a nonempty Match header and arm through the shared authority");
+assert.match(inventoryPartSource, /MatchPayloadRecord key graph_id 23 place0 place0 false 0 1[\s\S]*MatchArmRecord key graph_id 23 0[\s\S]*MatchPattern::Variant/, "central fixture must pass a typed Variant Match arm through the shared authority");
+assert.match(inventoryPartSource, /inventory_scope_authority_result key graph_id[\s\S]*Result::Ok scope:[\s\S]*match_variant_membership_compat_validate_result &match_payloads &match_arms places types symbols key control_fixture[\s\S]*Result::Ok _match_variant_membership: Result::Ok scope/, "central compatibility path must validate structural authority before borrowing validated Match ranges for enum membership");
+assert.match(inventoryPartSource, /branch_central_stage0_case 0[\s\S]*branch_central_stage0_case 1[\s\S]*branch_central_stage0_case 2[\s\S]*branch_central_stage0_case 3/, "central matrix must execute positive, topology-negative, wrong-enum-owner, and duplicate-definition cases");
+assert.match(inventoryPartSource, /MatchEnumDefinitionMissing ordinal: eq ordinal 23/, "wrong-owner central case must match the exact Match operation ordinal");
+assert.match(inventoryPartSource, /MatchEnumDefinitionDuplicate ordinal: eq ordinal 1/, "duplicate enum definition central case must match the second definition ordinal");
+assert.match(inventoryPartSource, /if or eq mode 1 eq mode 2 2[\s\S]*OperationTopologyRejected topology_error/, "topology-negative central case must outrank a simultaneous wrong enum owner");
 assert.match(inventoryPartSource, /Result::Ok scope: and eq scope\.operation_count 24/, "central fixture must validate the Branch, Loop, and Match global ordinal domain");
 for (const token of ["Variant", "IntLiteral", "BoolLiteral", "Wildcard", "Owned", "Borrowed", "not eq mode 31", "Option::None", "Option::Some", "MatchArmTopologyCountMismatch", "MatchArmTopologyOrdinalMismatch", "MatchArmTopologyRoleMismatch"]) {
     assert.ok(matchPayloadPartSource.includes(token) || matchStage0PartSource.includes(token), `Match owner matrix must cover ${token}`);
@@ -608,7 +640,11 @@ for (const token of ["Variant", "IntLiteral", "BoolLiteral", "Wildcard", "Owned"
 for (const errorName of ["MatchPayloadMissing", "MatchPayloadUnexpected", "MatchPayloadIdentityMismatch", "MatchPayloadOrdinalMismatch", "MatchOutputMissing", "MatchOutputGraphMismatch", "MatchScrutineeMissing", "MatchScrutineeGraphMismatch", "MatchArmRangeInvalid", "MatchArmUnexpected", "MatchArmIdentityMismatch", "MatchArmOrdinalMismatch", "MatchArmPatternSymbolMissing", "MatchArmBindLocalMissing", "MatchArmBindLocalGraphMismatch", "MatchArmBindSourceNameMissing", "MatchArmValueMissing", "MatchArmValueGraphMismatch", "MatchArmSpanInvalid", "MatchArmTopologyReadFailed", "MatchArmTopologyCountMismatch", "MatchArmTopologyOrdinalMismatch", "MatchArmTopologyRoleMismatch"]) {
     assert.match(inventoryPartSource, new RegExp(`${errorName} %i32`), `Match typed error ${errorName} must remain declared`);
 }
+for (const errorName of ["MatchEnumDefinitionIdentityMismatch", "MatchEnumDefinitionDuplicate", "MatchEnumDefinitionRangeInvalid", "MatchEnumVariantUnexpected", "MatchEnumVariantIdentityMismatch", "MatchEnumVariantOrdinalMismatch", "MatchEnumVariantSymbolMissing", "MatchEnumVariantDuplicate", "MatchScrutineePlaceReadFailed", "MatchScrutineeTypeMissing", "MatchScrutineeTypeUnsupported", "MatchEnumDefinitionMissing", "MatchVariantNotMember"]) {
+    assert.match(inventoryPartSource, new RegExp(`${errorName} %i32`), `Match enum membership typed error ${errorName} must remain declared`);
+}
 assert.match(anchorSource, /loop_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_match_stage0_matrix \(\)/, "proof-gate lifecycle must execute the Match matrix after Loop");
+assert.match(anchorSource, /match_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_matrix \(\)/, "proof-gate lifecycle must execute Match enum membership after structural Match matrix");
 assert.match(matchStage0PartSource, /arm0_name %Option[\s\S]*if eq mode 32 Option::None Option::Some name_symbol/, "Match matrix must isolate absent bind source name");
 assert.match(matchStage0PartSource, /arm0_local %Option[\s\S]*if eq mode 33 Option::None Option::Some arm0_bind/, "Match matrix must isolate absent bind local");
 assert.match(matchStage0PartSource, /arm0_mode %Option[\s\S]*if eq mode 37 Option::None Option::Some/, "Match matrix must isolate absent bind mode");
@@ -622,13 +658,13 @@ for (const errorName of ["BranchPayloadMissing", "BranchPayloadUnexpected", "Bra
 assert.match(anchorSource, /operation_topology_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_branch_stage0_matrix \(\)/, "proof-gate lifecycle must execute Branch matrix with recursive topology matrix");
 assert.match(anchorSource, /branch_stage0_matrix \(\) selfhost_memo_call_backend_private_cache_resource_ir_branch_central_stage0 \(\)/, "proof-gate lifecycle must execute the nonempty Branch central fixture");
 assert.match(anchorSource, /branch_central_stage0 \(\) selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_matrix \(\)/, "proof-gate lifecycle must execute the Loop matrix after the shared Branch and Loop central fixture");
-assert.match(inventoryPartSource, /branch_central_stage0_case false[\s\S]*branch_central_stage0_case true/, "central fixture must execute positive and mismatch-negative cases");
-assert.match(inventoryPartSource, /if mismatch 22 23[\s\S]*OperationTopologyRejected topology_error[\s\S]*ScopeParentInvalid scope_id: eq scope_id 6/, "central mismatch negative must remove exactly the Match operation and match the MatchArm scope taxonomy");
+assert.match(inventoryPartSource, /branch_central_stage0_case 0[\s\S]*branch_central_stage0_case 1[\s\S]*branch_central_stage0_case 2[\s\S]*branch_central_stage0_case 3/, "central fixture must execute positive, topology-negative, enum-owner-negative, and duplicate-definition cases");
+assert.match(inventoryPartSource, /if eq mode 1 22 23[\s\S]*OperationTopologyRejected topology_error[\s\S]*ScopeParentInvalid scope_id: eq scope_id 6/, "central mismatch negative must remove exactly the Match operation and match the MatchArm scope taxonomy");
 assert.match(topologyPartSource, /operation_topology_branch_fixture_result[\s\S]*BranchThen[\s\S]*BranchElse/, "central fixture topology must carry recursive Branch scopes");
-assert.match(inventoryPartSource, /control_fixture 1[\s\S]*branch_stage0_payload_push_result[\s\S]*branch_stage0_bindings_fill_result[\s\S]*branch_stage0_nodes_fill_result/, "central fixture must pass nonempty Branch and fact owners to the shared authority path");
+assert.match(inventoryPartSource, /gt control_fixture 0[\s\S]*branch_stage0_payload_push_result[\s\S]*branch_stage0_bindings_fill_result[\s\S]*branch_stage0_nodes_fill_result/, "central fixture must pass nonempty Branch and fact owners to the shared authority path");
 assert.match(branchStage0PartSource, /if eq mode 19 add 21 idx 21/, "stage0 bindings must assign Branch and Loop global ordinals");
 assert.match(branchStage0PartSource, /if and eq mode 19 eq idx 1 22 21/, "stage0 nodes must include a Loop-owned fact after the Branch-owned fact");
-for (const partSource of [conditionFactPartSource, branchPayloadPartSource, branchStage0PartSource, loopPayloadPartSource, loopStage0PartSource, matchPayloadPartSource, matchStage0PartSource]) {
+for (const partSource of [conditionFactPartSource, branchPayloadPartSource, branchStage0PartSource, loopPayloadPartSource, loopStage0PartSource, matchPayloadPartSource, matchVariantMembershipPartSource, matchStage0PartSource]) {
     assert.doesNotMatch(partSource, /ResourceIrEnumerated|ResourceLoweringTraversalProduced|MemoBackendArtifact|PrecheckedArtifact/, "structural control parts must not mint production origin or backend artifacts");
 }
 assert.match(conditionFactPartSource, /impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord/);

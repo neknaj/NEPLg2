@@ -1,0 +1,395 @@
+//: # memo_call backend private-cache Match variant membership source part
+//:
+//: checkerが解決したenum nominal identityとvariant symbolの対応をborrowし、Matchのscrutinee型とVariant patternを同じ定義へ結合します。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+//: enum definitionごとのdense variant範囲です。
+//:
+//: concrete TypeIdやsource spellingはauthorityに含めません。Applied typeもbase nominal identityのvariant集合を共有します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    nominal_id %SelfhostNamedTypeId
+    variant_start %i32
+    variant_count %i32
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord \self: self
+
+//: producerが名前解決したvariant member identityを定義内ordinal順に保持します。
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    nominal_id %SelfhostNamedTypeId
+    variant_ordinal %i32
+    symbol %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord \self: *self
+impl Copy for SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord \self: self
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord
+
+struct SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory:
+    records %Vec SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory unit \inventory: v::free inventory.records
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory i32 \inventory: v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord \inventory\idx: v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push inventory.records record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \void:
+    match v::new:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory records
+        Result::Err e: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantTableAllocFailed e
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_free %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory unit \inventory: v::free inventory.records
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_len %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory i32 \inventory: v::len field::get_ref inventory "records"
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_get %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord \inventory\idx: v::get field::get_ref inventory "records" idx
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_push %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \inventory\record:
+    match v::push inventory.records record:
+        Result::Ok records: Result::Ok SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory records
+        Result::Err e:
+            v::free e.vec
+            Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantPushFailed e.error
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_duplicate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn SelfhostNamedTypeId fn SelfhostResourceIrVariantStableSymbol fn i32 fn i32 bool \variants\nominal_id\symbol\idx\end:
+    if eq idx end false
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_get variants idx:
+        Option::None: false
+        Option::Some previous: if and selfhost_named_type_id_eq previous.nominal_id nominal_id selfhost_resource_ir_variant_stable_symbol_eq previous.symbol.canonical symbol true selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_duplicate_loop variants nominal_id symbol add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_range_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostNamedTypeId fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \variants\symbols\key\nominal_id\start\idx\end:
+    if eq idx end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_get variants idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantUnexpected idx
+        Option::Some variant:
+            if or not selfhost_memo_call_backend_private_cache_proof_key_eq variant.key key not selfhost_named_type_id_eq variant.nominal_id nominal_id Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantIdentityMismatch idx
+            else if not eq variant.variant_ordinal sub idx start Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantOrdinalMismatch idx
+            else if not selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member symbols variant.symbol.canonical Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantSymbolMissing idx
+            else if selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_duplicate_loop variants nominal_id variant.symbol.canonical start idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantDuplicate idx
+            else selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_range_validate_loop variants symbols key nominal_id start add idx 1 end
+
+//: 先行definitionと同じnominal identityが存在するか検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_duplicate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn SelfhostNamedTypeId fn i32 fn i32 bool \definitions\nominal_id\idx\end:
+    if eq idx end false
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_get definitions idx:
+        Option::None: false
+        Option::Some previous: if selfhost_named_type_id_eq previous.nominal_id nominal_id true selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_duplicate_loop definitions nominal_id add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \definitions\variants\symbols\key\idx\end\variant_cursor:
+    if eq idx end:
+        if eq variant_cursor selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_len variants Result::Ok unit else Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantUnexpected variant_cursor
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_get definitions idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionReadFailed idx
+        Option::Some definition:
+            let variant_end %i32 add definition.variant_start definition.variant_count
+            if not selfhost_memo_call_backend_private_cache_proof_key_eq definition.key key Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionIdentityMismatch idx
+            else if selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_duplicate_loop definitions definition.nominal_id 0 idx Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionDuplicate idx
+            else if or lt selfhost_named_type_id_index definition.nominal_id 0 or not eq definition.variant_start variant_cursor or lt definition.variant_count 0 or lt variant_end definition.variant_start or gt variant_end selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_len variants Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionRangeInvalid idx
+            else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_range_validate_loop variants symbols key definition.nominal_id definition.variant_start definition.variant_start variant_end:
+                Result::Err e: Result::Err e
+                Result::Ok _variants: selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_validate_loop definitions variants symbols key add idx 1 end variant_end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_find_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn SelfhostNamedTypeId fn i32 fn i32 Option SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord \definitions\nominal_id\idx\end:
+    if eq idx end Option::None
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_get definitions idx:
+        Option::None: Option::None
+        Option::Some definition: if selfhost_named_type_id_eq definition.nominal_id nominal_id Option::Some definition selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_find_loop definitions nominal_id add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_member_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn SelfhostResourceIrVariantStableSymbol fn i32 fn i32 bool \variants\symbol\idx\end:
+    if eq idx end false
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_get variants idx:
+        Option::None: false
+        Option::Some variant: if selfhost_resource_ir_variant_stable_symbol_eq variant.symbol.canonical symbol true selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_member_loop variants symbol add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_scrutinee_nominal_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace fn i32 Result SelfhostNamedTypeId SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \places\types\scrutinee\operation_ordinal:
+    match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_get places scrutinee.place_id.index:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineePlaceReadFailed operation_ordinal
+        Option::Some place:
+            match selfhost_type_arena_get_record types place.ty:
+                Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeTypeMissing operation_ordinal
+                Option::Some record:
+                    match record:
+                        SelfhostTypeRecord::Named named: Result::Ok selfhost_named_type_record_id named
+                        SelfhostTypeRecord::Applied applied: Result::Ok selfhost_applied_type_record_id applied
+                        _: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeTypeUnsupported operation_ordinal
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_validate_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn SelfhostNamedTypeId fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \arms\definitions\variants\nominal_id\operation_ordinal\idx\end:
+    if eq idx end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_get arms idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchArmUnexpected idx
+        Option::Some arm:
+            match arm.pattern:
+                SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Variant symbol:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_find_loop definitions nominal_id 0 selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_len definitions:
+                        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionMissing operation_ordinal
+                        Option::Some definition:
+                            if not selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_member_loop variants symbol.canonical definition.variant_start add definition.variant_start definition.variant_count Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchVariantNotMember arm.arm_ordinal
+                            else selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_validate_loop arms definitions variants nominal_id operation_ordinal add idx 1 end
+                _: selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_validate_loop arms definitions variants nominal_id operation_ordinal add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_payload_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\arms\places\types\definitions\variants\idx\end:
+    if eq idx end Result::Ok unit
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_get payloads idx:
+        Option::None: Result::Err SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchPayloadUnexpected idx
+        Option::Some payload:
+            match selfhost_memo_call_backend_private_cache_resource_ir_match_scrutinee_nominal_result places types payload.scrutinee payload.operation_ordinal:
+                Result::Err e:
+                    let arm_end %i32 add payload.arm_start payload.arm_count
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_require_nominal_loop arms payload.arm_start arm_end:
+                        Option::None: selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_payload_loop payloads arms places types definitions variants add idx 1 end
+                        Option::Some _variant: Result::Err e
+                Result::Ok nominal_id:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_validate_loop arms definitions variants nominal_id payload.operation_ordinal payload.arm_start add payload.arm_start payload.arm_count:
+                        Result::Err e: Result::Err e
+                        Result::Ok _arms: selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_payload_loop payloads arms places types definitions variants add idx 1 end
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_require_nominal_loop %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn i32 fn i32 Option unit \arms\idx\end:
+    if eq idx end Option::None
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_get arms idx:
+        Option::None: Option::None
+        Option::Some arm:
+            match arm.pattern:
+                SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Variant _symbol: Option::Some unit
+                _: selfhost_memo_call_backend_private_cache_resource_ir_match_variant_arms_require_nominal_loop arms add idx 1 end
+
+//: Match Variant patternをscrutineeのenum定義membershipへ結合します。
+//:
+//: bind_source_nameはvariant member identityではないため、この検査の入力に使用しません。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_validate_result %fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory fn &SelfhostTypeArena fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory fn &SelfhostResourceIrCanonicalSymbolTable fn SelfhostMemoCallBackendPrivateCacheProofKey Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\arms\places\types\definitions\variants\symbols\key:
+    match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_validate_loop definitions variants symbols key 0 selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_len definitions 0:
+        Result::Err e: Result::Err e
+        Result::Ok _owners: selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_payload_loop payloads arms places types definitions variants 0 selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_len payloads
+
+//: compatibility fixtureが使用するempty／single-enum owner lifecycleです。
+//:
+//: production declaration producerの代替ではなく、central gateがborrowed owner全体を必ず検査するための非production adapterです。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_fixture_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \definitions0\key\control_fixture:
+    if le control_fixture 0 Result::Ok definitions0
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_push definitions0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord key selfhost_named_type_id_new if eq control_fixture 2 1 0 0 1:
+        Result::Err e: Result::Err e
+        Result::Ok definitions1:
+            if eq control_fixture 3 selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_push definitions1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord key selfhost_named_type_id_new 0 1 1 Result::Ok definitions1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_fixture_fill_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \variants0\key\control_fixture:
+    if le control_fixture 0 Result::Ok variants0
+    else match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_push variants0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord key selfhost_named_type_id_new if eq control_fixture 2 1 0 0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol SelfhostResourceIrVariantStableSymbol 1 1:
+        Result::Err e: Result::Err e
+        Result::Ok variants1:
+            if eq control_fixture 3 selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_push variants1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord key selfhost_named_type_id_new 0 0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol SelfhostResourceIrVariantStableSymbol 1 1 Result::Ok variants1
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_compat_validate_result %impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn &SelfhostTypeArena impure fn &SelfhostResourceIrCanonicalSymbolTable impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn i32 Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\arms\places\types\symbols\key\control_fixture:
+    match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_new:
+        Result::Err e: Result::Err e
+        Result::Ok definitions0:
+            let definition_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_fixture_fill_result definitions0 key control_fixture
+            let result %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match definition_result:
+                Result::Err e: Result::Err e
+                Result::Ok definitions:
+                    match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_new:
+                        Result::Err e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_free definitions
+                            Result::Err e
+                        Result::Ok variants0:
+                            let variant_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_fixture_fill_result variants0 key control_fixture
+                            let checked %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match variant_result:
+                                Result::Err e: Result::Err e
+                                Result::Ok variants:
+                                    let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_validate_result payloads arms places types &definitions &variants symbols key
+                                    selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_free variants
+                                    validation
+                            selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_free definitions
+                            checked
+            result
+
+//: enum membership owner matrix用definitionを構築します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_definitions_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheProofKey Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \mode\key:
+    match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_new:
+        Result::Err e: Result::Err e
+        Result::Ok definitions0:
+            let wrong_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 91
+            let start %i32 if eq mode 4 1 0
+            let count %i32 if eq mode 3 sub 0 1 if eq mode 8 2 1
+            match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_push definitions0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord if eq mode 1 wrong_key key selfhost_named_type_id_new 0 start count:
+                Result::Err e: Result::Err e
+                Result::Ok definitions1:
+                    if not eq mode 2 Result::Ok definitions1
+                    else selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_push definitions1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumDefinitionRecord key selfhost_named_type_id_new 0 1 1
+
+//: enum membership owner matrix用variant列を構築します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_variants_result %impure fn i32 impure fn SelfhostMemoCallBackendPrivateCacheProofKey Result SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \mode\key:
+    match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_new:
+        Result::Err e: Result::Err e
+        Result::Ok variants0:
+            let nominal %SelfhostNamedTypeId selfhost_named_type_id_new if eq mode 5 1 0
+            let ordinal %i32 if eq mode 6 1 0
+            let symbol %SelfhostResourceIrVariantStableSymbol if eq mode 7 SelfhostResourceIrVariantStableSymbol 1 2 SelfhostResourceIrVariantStableSymbol 1 1
+            match selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_push variants0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord key nominal ordinal SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol symbol:
+                Result::Err e: Result::Err e
+                Result::Ok variants1:
+                    if not or or eq mode 2 eq mode 8 eq mode 9 Result::Ok variants1
+                    else:
+                        let second_nominal %SelfhostNamedTypeId if eq mode 9 selfhost_named_type_id_new 1 selfhost_named_type_id_new 0
+                        let second_symbol %SelfhostResourceIrVariantStableSymbol if eq mode 8 symbol SelfhostResourceIrVariantStableSymbol 1 1
+                        selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_push variants1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchEnumVariantRecord key second_nominal 1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol second_symbol
+
+//: owner matrixのtyped errorをmodeごとに照合します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_owner_error_matches %fn i32 fn SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind bool \mode\error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionIdentityMismatch idx: and eq mode 1 eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionDuplicate idx: and eq mode 2 eq idx 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumDefinitionRangeInvalid idx: and or eq mode 3 eq mode 4 eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantIdentityMismatch idx: and eq mode 5 eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantOrdinalMismatch idx: and eq mode 6 eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantSymbolMissing idx: and eq mode 7 eq idx 0
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantDuplicate idx: and eq mode 8 eq idx 1
+        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchEnumVariantUnexpected idx: and eq mode 9 eq idx 1
+        _: false
+
+//: owner whole-validationを実行するmatrix caseです。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_owner_case %impure fn i32 bool \mode:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    match selfhost_resource_ir_canonical_symbol_table_new:
+        Result::Err _e: false
+        Result::Ok symbols0:
+            match selfhost_resource_ir_canonical_symbol_table_intern symbols0 "Variant":
+                Result::Err _e: false
+                Result::Ok interned:
+                    let symbols %SelfhostResourceIrCanonicalSymbolTable interned.table
+                    let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_definitions_result mode key:
+                        Result::Err _e: false
+                        Result::Ok definitions:
+                            let checked %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_variants_result mode key:
+                                Result::Err _e: false
+                                Result::Ok variants:
+                                    let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_validate_loop &definitions &variants &symbols key 0 selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_len &definitions 0
+                                    let valid %bool if eq mode 0 match validation:
+                                        Result::Ok _unit: true
+                                        Result::Err _e: false
+                                    else match validation:
+                                        Result::Ok _unit: false
+                                        Result::Err e: selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_owner_error_matches mode e
+                                    selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_free variants
+                                    valid
+                            selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_free definitions
+                            checked
+                    selfhost_resource_ir_canonical_symbol_table_free symbols
+                    accepted
+
+//: semantic matrix用にNamed / Applied / primitive scrutinee型を構築します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_types_result %impure fn i32 Result SelfhostTypeArena StdErrorKind \mode:
+    match selfhost_type_arena_new:
+        Result::Err e: Result::Err e
+        Result::Ok types0:
+            match selfhost_type_arena_add_type_parameter types0 selfhost_type_parameter_binding_new_unchecked 0 0:
+                Result::Err e: Result::Err e
+                Result::Ok allocated0:
+                    let types1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated0
+                    if eq mode 11:
+                        match v::new:
+                            Result::Err e:
+                                selfhost_type_arena_free types1
+                                Result::Err e
+                            Result::Ok args0:
+                                match v::push args0 selfhost_type_id_new 0:
+                                    Result::Err e:
+                                        selfhost_type_arena_free types1
+                                        v::free e.vec
+                                        Result::Err e.error
+                                    Result::Ok args:
+                                        match selfhost_type_arena_add_applied_named types1 selfhost_named_type_id_new 0 args:
+                                            Result::Err e: Result::Err e
+                                            Result::Ok allocated: Result::Ok selfhost_type_arena_alloc_into_arena allocated
+                    else if or eq mode 13 eq mode 14:
+                        match selfhost_type_arena_add_primitive types1 SelfhostPrimitiveTypeKind::I32:
+                            Result::Err e: Result::Err e
+                            Result::Ok allocated: Result::Ok selfhost_type_arena_alloc_into_arena allocated
+                    else match selfhost_type_arena_add_named types1 selfhost_named_type_id_new 0:
+                        Result::Err e: Result::Err e
+                        Result::Ok allocated: Result::Ok selfhost_type_arena_alloc_into_arena allocated
+
+//: semantic matrixがMatch payloadとarmを実validatorへ渡します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_semantic_case %impure fn i32 bool \mode:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    match selfhost_resource_ir_canonical_symbol_table_new:
+        Result::Err _e: false
+        Result::Ok symbols0:
+            match selfhost_resource_ir_canonical_symbol_table_intern symbols0 "Variant":
+                Result::Err _e: false
+                Result::Ok member:
+                    match selfhost_resource_ir_canonical_symbol_table_intern member.table "Other":
+                        Result::Err _e: false
+                        Result::Ok other:
+                            let symbols %SelfhostResourceIrCanonicalSymbolTable other.table
+                            let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_types_result mode:
+                                Result::Err _e: false
+                                Result::Ok types:
+                                    let checked %bool match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Temporary 1 selfhost_type_id_new 1:
+                                        Result::Err _e: false
+                                        Result::Ok places:
+                                            let payload_checked %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_new:
+                                                Result::Err _e: false
+                                                Result::Ok payloads0:
+                                                    let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                                                    let place1 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 1
+                                                    match selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_push payloads0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPayloadRecord key graph_id 0 place0 place1 false 0 1:
+                                                        Result::Err _e: false
+                                                        Result::Ok payloads:
+                                                            let arm_checked %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_new:
+                                                                Result::Err _e: false
+                                                                Result::Ok arms0:
+                                                                    let pattern %SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern if eq mode 14 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::IntLiteral 1 SelfhostMemoCallBackendPrivateCacheResourceIrMatchPattern::Variant SelfhostMemoCallBackendPrivateCacheResourceIrMatchPatternVariantSymbol if eq mode 12 other.symbol member.symbol
+                                                                    match selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_push arms0 SelfhostMemoCallBackendPrivateCacheResourceIrMatchArmRecord key graph_id 0 0 pattern Option::None Option::None Option::None place0 source_span_new_unchecked 1 0 1:
+                                                                        Result::Err _e: false
+                                                                        Result::Ok arms:
+                                                                            let owner_checked %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_definitions_result 0 key:
+                                                                                Result::Err _e: false
+                                                                                Result::Ok definitions:
+                                                                                    let result %bool match selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_variants_result 0 key:
+                                                                                        Result::Err _e: false
+                                                                                        Result::Ok variants:
+                                                                                            let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_validate_result &payloads &arms &places &types &definitions &variants &symbols key
+                                                                                            let valid %bool match validation:
+                                                                                                Result::Ok _unit: or or eq mode 10 eq mode 11 eq mode 14
+                                                                                                Result::Err e:
+                                                                                                    match e:
+                                                                                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchVariantNotMember ordinal: and eq mode 12 eq ordinal 0
+                                                                                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::MatchScrutineeTypeUnsupported ordinal: and eq mode 13 eq ordinal 0
+                                                                                                        _: false
+                                                                                            selfhost_memo_call_backend_private_cache_resource_ir_match_enum_variant_inventory_free variants
+                                                                                            valid
+                                                                                    selfhost_memo_call_backend_private_cache_resource_ir_match_enum_definition_inventory_free definitions
+                                                                                    result
+                                                                            selfhost_memo_call_backend_private_cache_resource_ir_match_arm_inventory_free arms
+                                                                            owner_checked
+                                                                    arm_checked
+                                                            selfhost_memo_call_backend_private_cache_resource_ir_match_payload_inventory_free payloads
+                                                            arm_checked
+                                                    payload_checked
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            payload_checked
+                                    selfhost_type_arena_free types
+                                    checked
+                            selfhost_resource_ir_canonical_symbol_table_free symbols
+                            accepted
+
+//: Match enum membership validatorのprivate runtime matrixです。
+fn selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_matrix %impure fn void bool \void:
+    and selfhost_memo_call_backend_private_cache_resource_ir_stage0_all_modes selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_owner_case 0 10 selfhost_memo_call_backend_private_cache_resource_ir_stage0_all_modes selfhost_memo_call_backend_private_cache_resource_ir_match_variant_membership_stage0_semantic_case 10 15
