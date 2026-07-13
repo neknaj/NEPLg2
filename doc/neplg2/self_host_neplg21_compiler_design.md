@@ -3686,6 +3686,12 @@ scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、d
 
 検査はheader/endpointのmissing/unexpected、identity/ordinal、range overflow/gap/excess、output/argのPlace membershipとgraph mismatchをtyped errorで区別する。このinventoryはraw memoryの意味、source capability、actual Resource IRとのco-productionを証明せず、`ResourceIrInventoryValidated`をproduction originへ昇格させない。残るoperation payloadは8件である。
 
+### 2026-07-13 Resource CallEffect payload
+
+`ResourceOp::CallEffect { effect, span }`はkind tag 8専用のprivate sparse ownerで保持する。Rust `EffectOp`のPure、UserCall、IndirectCall、InternalAlloc、UnsafeMemory、PrivateState、PrivateCache、ExternalIo、Nondet、Unknownを排他的payloadとして運び、UserCallのsurface `Effect`もPure / Impureを区別する。UserCall名はEnum variant symbolを直接流用せず専用roleで包み、scope入口で一度検査したcanonical byte ownerの対象recordへprivate membership照合する。
+
+PrivateEffectRegionIdはnonnegative i32へ縮小せず、i64上の`0..4294967295`でu32全bit patternを保持する。compiler private-cache region id 0も有効である。nested operation / reasonはRustと対応するclosed enumで表現し、stage0はRawMemory 13種をInternalAlloc / UnsafeMemoryの双方へ、PrivateState 4種、PrivateCache 4種、ExternalIo 43種、Nondet 3種、Unknown 5種をすべてnamed variantで輸送する。このownerは構造輸送だけを保証し、effect subtype、private region freshness / masking、no-escape、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは7件である。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。
