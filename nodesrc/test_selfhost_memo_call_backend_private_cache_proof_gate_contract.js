@@ -25,6 +25,9 @@ const rustSpan = fs.readFileSync(path.join(repoRoot, "nepl-core/src/span.rs"), "
 const rustResourceContext = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/resource_summary_value_cache/context.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustCollectionSlotLifecycleModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/collection_slot_lifecycle_model.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustEffects = fs.readFileSync(path.join(repoRoot, "nepl-core/src/effects.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustAst = fs.readFileSync(path.join(repoRoot, "nepl-core/src/ast.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustFunctionIdentity = fs.readFileSync(path.join(repoRoot, "nepl-core/src/function_identity.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustResolve = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resolve.rs"), "utf8").replace(/\r\n/g, "\n");
 
 assert.match(rustResourceModel, /pub struct ResourceLocal \{[\s\S]*pub name: String,[\s\S]*pub ty: TypeId,[\s\S]*pub mutable: bool,[\s\S]*pub place: Place,/);
 assert.match(rustResourceModel, /pub enum PlaceRoot \{[\s\S]*Local\(String\)/);
@@ -157,6 +160,60 @@ assertOrdered(
     ["CallEffectKind::InternalAlloc operation", "CallEffectKind::UnsafeMemory operation"],
     "each RawMemory operation must be transported through both EffectOp variants",
 );
+assert.match(rustResourceModel, /FunctionValue \{\s*output: Place,\s*name: String,\s*identity: FunctionValueIdentity,\s*value_kind: ResourceFunctionValueKind,\s*effect: EffectOp,\s*span: Span,\s*\}/, "Rust FunctionValue payload shape must remain lossless");
+assert.match(rustFunctionIdentity, /pub struct FunctionValueIdentity \{\s*pub symbol: String,\s*pub def_id: Option<DefId>,\s*pub function_ty: TypeId,\s*pub effect: Effect,\s*pub type_args: Vec<TypeId>,\s*\}/, "Rust function identity must retain symbol, optional DefId, type, surface effect, and ordered type args");
+const rustSurfaceEffectStart = rustAst.indexOf("pub enum Effect {");
+const rustSurfaceEffects = [...rustAst.slice(rustSurfaceEffectStart, rustAst.indexOf("\n}", rustSurfaceEffectStart) + 2).matchAll(/^    ([A-Za-z][A-Za-z0-9_]*),$/gm)].map((match) => match[1]);
+assert.deepEqual(rustSurfaceEffects, ["Pure", "Impure"], "Rust function surface Effect must remain exactly Pure/Impure");
+assert.deepEqual(enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrCallSurfaceEffect"), ["Pure", "Impure"], "selfhost function identity surface effect must match Rust exactly");
+assert.match(topLevelBlock(source, "struct", "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueIdentity"), /effect %SelfhostMemoCallBackendPrivateCacheResourceIrCallSurfaceEffect/, "FunctionValue identity must not accept internal effect categories as Rust surface Effect");
+assert.match(rustResolve, /pub struct DefId \{\s*pub file_id: u32,\s*pub start: u32,\s*pub end: u32,\s*\}/, "Rust DefId must retain its three independent u32 fields");
+assert.equal((rustResourceLower.match(/name: identity\.symbol\.clone\(\),\s*identity(?:: identity\.clone\(\))?/g) || []).length, 3, "current Rust lowering must pass identity symbol into all three FunctionValue display-name producers");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueNameSymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueIdentitySymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueDefId",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueIdentity",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueKind",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValuePayloadInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrFunctionValueTypeArgInventory",
+    "selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_inventory_validate_loop",
+    "selfhost_memo_call_backend_private_cache_resource_ir_function_value_record_validate_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_function_value_type_args_validate_loop",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `FunctionValue contract must retain ${symbol}`);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_def_id_valid"),
+    ["Option::None: true", "ge id.file_id 0", "le id.file_id 4294967295", "ge id.start 0", "le id.start 4294967295", "ge id.end 0", "le id.end 4294967295"],
+    "FunctionValue DefId transport must accept None and preserve every u32 field without inventing span ordering",
+);
+assert.ok(!topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_def_id_valid").includes("id.start id.end"), "FunctionValue DefId must not invent start <= end");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_inventory_validate_loop"),
+    ["FunctionValuePayloadUnexpected payload_idx", "FunctionValueTypeArgUnexpected arg_cursor", "FunctionValuePayloadMissing operation_idx", "FunctionValuePayloadIdentityMismatch operation_idx", "FunctionValuePayloadOrdinalMismatch payload.operation_ordinal", "not eq payload.identity.type_arg_start arg_cursor", "function_value_record_validate_result"],
+    "FunctionValue sparse and dense owners must merge deterministically and reject gaps/excess",
+);
+const functionValueRecordValidator = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_record_validate_result");
+assertOrdered(functionValueRecordValidator, ["FunctionValueTypeArgRangeInvalid ordinal", "FunctionValueNameMissing ordinal", "FunctionValueIdentitySymbolMissing ordinal", "FunctionValueDefIdOutOfRange ordinal", "FunctionValueFunctionTypeMissing ordinal", "FunctionValueOutputGraphMismatch ordinal", "FunctionValueOutputMissing ordinal", "call_effect_kind_validate_result payload.operation_effect", "function_value_type_args_validate_loop"], "FunctionValue record validation must preserve field-specific ownership checks");
+assert.ok(!functionValueRecordValidator.includes("payload.name.canonical payload.identity.symbol.canonical"), "manual FunctionValue transport must keep display name and identity symbol as independent canonical roles");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_stage0"),
+    Array.from({ length: 26 }, (_, mode) => `function_value_payload_sparse_stage0_case ${mode}`),
+    "FunctionValue runtime must execute the positive transport and every exact sparse, dense, and field mode",
+);
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_stage0_error_matches"),
+    ["FunctionValuePayloadMissing ordinal", "FunctionValuePayloadUnexpected ordinal", "FunctionValuePayloadIdentityMismatch ordinal", "FunctionValuePayloadOrdinalMismatch ordinal", "FunctionValueTypeArgRangeInvalid ordinal", "FunctionValueTypeArgUnexpected ordinal", "FunctionValueTypeArgIdentityMismatch ordinal", "FunctionValueTypeArgOrdinalMismatch ordinal", "FunctionValueTypeArgTypeMissing ordinal", "FunctionValueNameMissing ordinal", "FunctionValueIdentitySymbolMissing ordinal", "FunctionValueDefIdOutOfRange ordinal", "FunctionValueFunctionTypeMissing ordinal", "FunctionValueOutputMissing ordinal", "FunctionValueOutputGraphMismatch ordinal"],
+    "FunctionValue runtime must exact-match every validator rejection family",
+);
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_symbol_member"), ["field::get_ref symbols \"records\"", "selfhost_resource_ir_variant_stable_symbol_eq"], "FunctionValue canonical membership must use the scope-validated table without rescanning it");
+assert.ok(!topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_symbol_member").includes("canonical_symbol_table_contains_result"), "FunctionValue membership must not repeat whole-table validation per symbol");
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_sparse_stage0_with_types"), /eq mode 25[\s\S]*FunctionValueTypeArgRecord key graph_id 9 1 selfhost_type_id_new 1[\s\S]*type_arg_count %i32[\s\S]*eq mode 25 2/, "FunctionValue positive matrix must retain two ordered duplicate TypeId arguments");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_function_value_payload_sparse_stage0_with_types"),
+    ["function_value_payload_inventory_get &payloads 0", "function_value_payload_inventory_free payloads"],
+    "FunctionValue runtime must inspect transported payloads before closing their owner",
+);
+assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_function_value_payload_stage0/, "public Resource inventory runtime must execute FunctionValue validation");
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -1665,7 +1722,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols0 &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols0/,
+    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_canonical_symbol_table_intern symbols0 "FunctionValue"[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &function_value_payloads &function_value_args &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_function_value_type_arg_inventory_free function_value_args[\s\S]*resource_ir_function_value_payload_inventory_free function_value_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 

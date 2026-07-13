@@ -3692,6 +3692,12 @@ scopeはStorageOrigin ownerの後にこのownerを検査する。key、graph、d
 
 PrivateEffectRegionIdはnonnegative i32へ縮小せず、i64上の`0..4294967295`でu32全bit patternを保持する。compiler private-cache region id 0も有効である。nested operation / reasonはRustと対応するclosed enumで表現し、stage0はRawMemory 13種をInternalAlloc / UnsafeMemoryの双方へ、PrivateState 4種、PrivateCache 4種、ExternalIo 43種、Nondet 3種、Unknown 5種をすべてnamed variantで輸送する。このownerは構造輸送だけを保証し、effect subtype、private region freshness / masking、no-escape、actual co-productionを証明しない。成功originは非productionの`ResourceIrInventoryValidated`を維持し、残るoperation payloadは7件である。
 
+### 2026-07-13 Resource FunctionValue payload
+
+`ResourceOp::FunctionValue`はkind tag 9専用のprivate sparse headerと、identityのordered type argumentを持つdense endpoint ownerへ保持する。outputはsame-graph Place membership、function typeと各type argumentはborrowed TypeArena membershipへ結合する。表示用`name`と`FunctionValueIdentity.symbol`は現在のRust loweringでは同じbyte列から生成されるが、schema上は異なるdomain-specific canonical roleとして独立に保持・検査し、文字列一致をidentity authorityとして使わない。
+
+identityは`Option<DefId>`を欠落も含めてlosslessに運ぶ。`None`はintrinsic fallbackで有効であり、`Some`のfile / start / endはi64上の`0..4294967295`でu32全域を保持する。DefId自体にないstart <= end制約は追加しない。surface effectのPure / Impure、Plain / Memoized value kind、operation側のclosed `EffectOp`は別fieldとして保持する。type argumentは0件と重複を許し、検査はsparse headerとdense endpointのidentity / ordinal / range overflow / gap / excess、canonical membership、TypeArena / Place membershipをfield固有typed errorへ分ける。output Place type == identity function typeとname == identity symbolは現Rust loweringのproducer invariantだが、このnonproduction manual transport ownerはlossless schema検査とproducer co-production検査を混ぜない。このownerはfunction resolution、memo cache namespace、effect整合、actual Resource IR co-productionを証明せず、production originを発行しない。残るoperation payloadは6件である。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。
