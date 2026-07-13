@@ -342,24 +342,6 @@ pub fn selfhost_type_arena_named_id %fn &SelfhostTypeArena fn SelfhostTypeId Opt
         Option::None:
             none
 
-//: selfhost_type_arena_nominal_id: Named / Applied type の base nominal identity を返す
-//:
-//: [目的/もくてき]: checkerがgeneric applicationでもconstructor ownerを同じtyped境界で比較できるようにします。
-//: [契約/けいやく]: Namedはrecord identity、Appliedはbase constructor identityを返し、primitive / parameter / function / missingはNoneです。型引数はidentityへ混ぜません。
-//: [計算量/けいさんりょう]: O(1)です。
-pub fn selfhost_type_arena_nominal_id %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostNamedTypeId \arena\type_id:
-    match selfhost_type_arena_get_record arena type_id:
-        Option::Some record:
-            match record:
-                SelfhostTypeRecord::Named named:
-                    some selfhost_named_type_record_id named
-                SelfhostTypeRecord::Applied applied:
-                    some selfhost_applied_type_record_id applied
-                _:
-                    none
-        Option::None:
-            none
-
 //: selfhost_type_arena_type_parameter_binding: type parameter record の binder-indexed identity を[返/かえ]す
 //:
 //: [目的/もくてき]:

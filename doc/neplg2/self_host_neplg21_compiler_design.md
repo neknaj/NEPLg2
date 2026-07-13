@@ -3778,7 +3778,7 @@ checker connectorはscrutinee TypeIdをTypeArena membershipへ戻し、Namedな�
 
 ただしTypeArenaとenum sessionのtable-local nominal IDには共通origin tokenがなく、数値一致だけでcross-session originをruntime証明できない。今回のAPIはcallerが同一checker sessionから両ownerを渡す契約であり、完全なorigin証明はenum sessionからTypeArenaをco-produceするchecker contextまたは共通origin witnessの後続sliceで行う。alias / qualified prefixからnominal IDを作るtyped resolver自体も未接続である。
 
-ただし、qualified / alias prefixをtyped nominal IDへ解決してscrutinee nominalと照合するchecker connector、TypeArena投影、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
+ただし、qualified / alias prefixからtyped nominal ownerを作るresolver evidence、TypeArenaとenum sessionの共通origin witness、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
 
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 

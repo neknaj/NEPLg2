@@ -92,6 +92,9 @@
 #import "neplg2/core/resolve/type_resolver/enum_surface" as *
 #import "neplg2/core/ty/ty" as *
 
+//: SelfhostCheckedEnumMember: checkerが確定したenum member evidence
+//: [契約/けいやく]: scrutinee TypeId、declaration member identity、diagnostic spanだけを保持し、raw qualifier/member spellingをsemantic authorityとして保存しません。
+//: [owner boundary]: Copy payloadであり、TypeArena、enum session、source textのownerは移動しません。
 pub struct SelfhostCheckedEnumMember:
     scrutinee_type %SelfhostTypeId
     member_id %SelfhostResolvedEnumMemberId
@@ -103,6 +106,8 @@ impl Clone for SelfhostCheckedEnumMember:
 impl Copy for SelfhostCheckedEnumMember:
     fn copy_mark %fn SelfhostCheckedEnumMember SelfhostCheckedEnumMember \self: self
 
+//: SelfhostCheckedEnumMemberErrorKind: checker connectorの失敗分類
+//: [error priority]: missing TypeId、nonnominal、qualifier owner mismatch、nested lookupの順で分類します。Lookup payloadはresolverのtyped理由を失わず保持します。
 pub enum SelfhostCheckedEnumMemberErrorKind:
     ScrutineeTypeMissing
     ScrutineeNotNominal
@@ -115,6 +120,8 @@ impl Clone for SelfhostCheckedEnumMemberErrorKind:
 impl Copy for SelfhostCheckedEnumMemberErrorKind:
     fn copy_mark %fn SelfhostCheckedEnumMemberErrorKind SelfhostCheckedEnumMemberErrorKind \self: self
 
+//: SelfhostCheckedEnumMemberError: 利用側span付きchecker error
+//: [契約/けいやく]: spanはmember-tail query spanです。declaration spanやraw diagnostic文字列へ置き換えません。
 pub struct SelfhostCheckedEnumMemberError:
     kind %SelfhostCheckedEnumMemberErrorKind
     span %SelfhostSourceSpan
