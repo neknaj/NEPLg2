@@ -83815,6 +83815,13 @@ MERGE_APPROVED
 - source別index化後、trunk build後のfocused registered-face doctestは22 / 22通過した。synthetic production-depth回帰とconditional target unit controlsも維持している。blocker issueとtodoを完了扱いに同期する。
 - これはF5nxk production runtime gateのcheckpointであり、checked-span curve/event forwarding、stroke provenance chain、フォントレンダリングエンジン、native/GUI表示の最終目標は未完了である。`plan.md`は変更していない。
 
+## 2026-07-13 F5nxk checked curve/event source checkpoint
+
+- sealed indexed collectionからPathCommandTag completed authorityまで13段のborrow-only curve forwardingを追加した。各段は同じchecked spanとlocal edgeをlowerへexactly once渡し、raw collectionやnested ownerのtake/refを公開しない。
+- F5nxi checked readをmetadata preflight、checked-span curve core 1回、curveからのpure event/value projectionへ分けた。F5nxk commandはvalue、indexed span、curve、eventを同じCopy valueに束ねる。
+- controlled registered-face fixtureはindex 0 / 4のSkipNoSegment OffCurveStartをcommand、curve、eventの3 authorityで照合し、index -1、typed span/identity failure、error後same-owner利用、最後のsingle freeを維持する。metric join、stroke provenance drain/seal、offset geometry、coverage、raster/render/platformとフォント/GUI全体は未完了である。`plan.md`は変更していない。
+- gates: production runtime 1 / 1、F5nxi module 69 / 69、F5nxk module 14 / 14、source-policy、normal compile、trunk build、playground editor CLI JSON 13 / 13、issues check、diff checkが通過した。
+
 ## 2026-07-13 selfhost Resource CollectionSlotDropTraversal payload
 
 - Rust `ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`をkind tag 18専用のprivate sparse ownerへ接続した。

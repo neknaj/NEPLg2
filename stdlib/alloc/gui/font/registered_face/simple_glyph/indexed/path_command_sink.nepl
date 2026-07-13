@@ -434,6 +434,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed
     let source %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner field::get_ref owner "source"
     gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at source index
 
+//: completed_owner_read_checked_at: source authorityのchecked curve/event command readを転送します
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_read_checked_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner field::get_ref owner "source"
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_checked_at source index
+
 //: completed_owner_contour_span_lookup: downstream phaseへO(1) indexed span lookupを転送します
 //:
 //: neplg2:test[skip]

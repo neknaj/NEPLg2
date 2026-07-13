@@ -375,6 +375,13 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_contou
     let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
     gui_font_registered_face_simple_glyph_indexed_action_owner_contour_edge_checked_span action span edge_index
 
+//: summary authorityから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: immediate nested action ownerへexactly once委譲し、raw collectionを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let action %&GuiFontRegisteredFaceSimpleGlyphIndexedActionOwner field::get_ref owner "action"
+    gui_font_registered_face_simple_glyph_indexed_action_owner_curve_segment_checked_span action span edge_index
+
 //: summary authority から checked span 内の sink event を exactly once forwarding します。
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:
@@ -692,6 +699,13 @@ pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_ow
 pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_contour_edge_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \owner\span\edge_index:
     let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
     gui_font_registered_face_simple_glyph_indexed_action_summary_owner_contour_edge_checked_span summary span edge_index
+
+//: completed summary authorityから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: immediate nested summary ownerへexactly once委譲し、raw collectionを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let summary %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner field::get_ref owner "summary"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_owner_curve_segment_checked_span summary span edge_index
 
 //: completed summary authority から checked span 内の sink event を exactly once forwarding します。
 //: neplg2:test[skip]

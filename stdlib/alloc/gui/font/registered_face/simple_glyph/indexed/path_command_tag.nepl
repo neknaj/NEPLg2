@@ -497,6 +497,14 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_
     let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
     gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contour_span_lookup edge contour_index
 
+//: completed PathCommandTag authorityから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: nested completed Edgeへexactly once委譲し、raw collectionを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner field::get_ref owner "running"
+    let edge %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner field::get_ref running "edge"
+    gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_curve_segment_checked_span edge span edge_index
+
 //: completed PathCommandTag authorityからchecked sink eventをexactly once forwardingします。
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_event_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:

@@ -687,6 +687,13 @@ pub fn gui_font_registered_face_simple_glyph_indexed_owner_contour_edge_checked_
     let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_contour_span_indexed_collection_ref lower
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_checked_span collection span edge_index
 
+//: indexed ownerから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: collectionを借用したままchecked-span coreへexactly once委譲し、raw collectionを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let collection %&GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_font_registered_face_simple_glyph_indexed_owner_collection_ref owner
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_checked_span collection span edge_index
+
 //: sealed indexed owner が保持する collection から checked span 内の sink event を読みます。
 //:
 //: [契約/けいやく]: raw collection を公開せず、下位の checked-span event read を exactly once 呼びます。span lookup は caller が分離して行います。

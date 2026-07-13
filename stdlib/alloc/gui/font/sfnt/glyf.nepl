@@ -9290,7 +9290,7 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_even
 //: gui_sfnt_simple_glyph_path_sink_event_from_curve_segment: curve segmentを再走査なしで指定slotのeventへ写す
 //:
 //: neplg2:test[skip]
-fn gui_sfnt_simple_glyph_path_sink_event_from_curve_segment %fn &GuiSfntSimpleGlyphCurveSegment fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEvent \segment\slot:
+pub fn gui_sfnt_simple_glyph_path_sink_event_from_curve_segment %fn &GuiSfntSimpleGlyphCurveSegment fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEvent \segment\slot:
     let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair segment
     let event_pair %GuiSfntSimpleGlyphPathSinkEventPair gui_sfnt_simple_glyph_path_command_pair_sink_event_pair &pair
     gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot

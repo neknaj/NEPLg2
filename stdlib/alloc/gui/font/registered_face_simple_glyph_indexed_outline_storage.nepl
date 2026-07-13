@@ -395,6 +395,13 @@ pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_conto
     let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
     gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_contour_edge_checked_span completed span edge_index
 
+//: storage authorityから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: completed summary forwardingへexactly once委譲し、raw collectionを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let completed %&GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryCompletedOwner field::get_ref owner "completed"
+    gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_curve_segment_checked_span completed span edge_index
+
 //: storage authority から checked span 内の sink event を exactly once forwarding します。
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_outline_storage_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedOutlineStorageOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:

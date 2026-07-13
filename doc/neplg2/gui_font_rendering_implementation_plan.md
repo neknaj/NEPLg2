@@ -6614,6 +6614,14 @@ owner / state契約:
 - source policyでregistered authority保持、owner-bound read、legacy algorithm exactly once、success後cursor commit、raw split/foreign pairing/full scan/F5nxk以降禁止を固定する。
 - normal compileでtest-only failure injectionとprivate constructorがproduction surfaceへ露出しないことを確認する。
 
+### Phase F5nxk: registered stroke checked curve / event source
+
+- F5nxj completed writer authorityを保持したまま、stored tag、edge marker、indexed spanをowner-bound metadata preflightで検査する。
+- sealed indexed collectionからPathCommandTag completed ownerまで既存event chainと同じborrow-only curve forwardingを追加し、raw collectionやnested ownerの参照/takeを公開しない。
+- command readはchecked-span curve coreをexactly once呼び、eventとcommand valueをcurveからpure projectionする。value、span、curve、eventを同じCopy commandへ束ねる。
+- runtimeはindex 0 / 4のSkipNoSegment OffCurveStart curve/event、index -1、typed span/identity failure、error後same-owner利用、single freeを固定する。
+- metric join、stroke provenance drain/seal、offset geometry、coverage、raster/render/platformは後続へ残す。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

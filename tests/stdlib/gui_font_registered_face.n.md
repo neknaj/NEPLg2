@@ -2269,16 +2269,53 @@ fn registered_face_stroke_source_contour_completed_ok %impure fn GuiFontRegister
         Result::Ok command:
             let value gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value &command
             let span gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_span &command
+            let curve gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_curve &command
+            let event gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_event &command
             let command_ok %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value:
-                GuiSfntSimpleGlyphPathCommand::SkipNoSegment _skip: true
+                GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+                    match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                        GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                        _: false
                 _: false
-            and command_ok and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value and eq 0 gui_sfnt_simple_glyph_contour_span_index &span and eq 0 gui_sfnt_simple_glyph_contour_span_start_point_index &span and eq 1 gui_sfnt_simple_glyph_contour_span_end_point_index &span eq 2 gui_sfnt_simple_glyph_contour_span_point_count &span
+            let curve_ok %bool match curve:
+                GuiSfntSimpleGlyphCurveSegment::NoSegment no_segment:
+                    match gui_sfnt_simple_glyph_curve_no_segment_reason &no_segment:
+                        GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                        _: false
+                _: false
+            let event_ok %bool match gui_sfnt_simple_glyph_path_sink_event_command &event:
+                GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+                    match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                        GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                        _: false
+                _: false
+            and command_ok and curve_ok and event_ok and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value and eq 0 gui_sfnt_simple_glyph_contour_span_index &span and eq 0 gui_sfnt_simple_glyph_contour_span_start_point_index &span and eq 1 gui_sfnt_simple_glyph_contour_span_end_point_index &span eq 2 gui_sfnt_simple_glyph_contour_span_point_count &span
     let fourth_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_at &owner 4:
         Result::Err _error: false
         Result::Ok command:
             let value gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value &command
             let span gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_span &command
-            and eq 4 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value and eq 2 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value and eq 1 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value and eq 1 gui_sfnt_simple_glyph_contour_span_index &span and eq 2 gui_sfnt_simple_glyph_contour_span_start_point_index &span and eq 3 gui_sfnt_simple_glyph_contour_span_end_point_index &span eq 2 gui_sfnt_simple_glyph_contour_span_point_count &span
+            let curve gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_curve &command
+            let event gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_event &command
+            let command_ok %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value:
+                GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+                    match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                        GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                        _: false
+                _: false
+            let curve_ok %bool match curve:
+                GuiSfntSimpleGlyphCurveSegment::NoSegment no_segment:
+                    match gui_sfnt_simple_glyph_curve_no_segment_reason &no_segment:
+                        GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                        _: false
+                _: false
+            let event_ok %bool match gui_sfnt_simple_glyph_path_sink_event_command &event:
+                GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+                    match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                        GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart: true
+                        _: false
+                _: false
+            and command_ok and curve_ok and event_ok and eq 4 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value and eq 2 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_edge_index &value and eq 1 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_index &value and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_contour_edge_index &value and eq 1 gui_sfnt_simple_glyph_contour_span_index &span and eq 2 gui_sfnt_simple_glyph_contour_span_start_point_index &span and eq 3 gui_sfnt_simple_glyph_contour_span_end_point_index &span eq 2 gui_sfnt_simple_glyph_contour_span_point_count &span
     let negative_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_at &owner sub 0 1:
         Result::Ok _command: false
         Result::Err kind:

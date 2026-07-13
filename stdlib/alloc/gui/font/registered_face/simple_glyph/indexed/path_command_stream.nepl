@@ -543,6 +543,28 @@ pub enum GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadEr
     EdgeOwnerIdentityMismatch
     EventReadFailed
     SourceTagMismatch
+
+//: CheckedCommand: sealed authorityから同じchecked spanで再構築したcurve、event、command valueを束ねます
+//:
+//: neplg2:test[skip]
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand:
+    value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue
+    span %GuiSfntSimpleGlyphContourSpan
+    curve %GuiSfntSimpleGlyphCurveSegment
+    event %GuiSfntSimpleGlyphPathSinkEvent
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand \command: *command
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand \command: command
+
+struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamReadSource:
+    path_command_index %i32
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    event_slot %GuiSfntSimpleGlyphPathSinkEventSlot
+    stored_tag %GuiSfntSimpleGlyphPathCommandTag
+    span %GuiSfntSimpleGlyphContourSpan
 impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind:
     fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \value: *value
 impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind:
@@ -555,7 +577,7 @@ impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedR
 //: - 読込だけを行い、cursor、summary、storageを変更しません。
 //:
 //: neplg2:test[skip]
-pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
+fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_source_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamReadSource GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
     let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner field::get_ref owner "running"
     let tag %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref running "tag"
     let capacity gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_capacity tag
@@ -584,16 +606,55 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_complet
                                         then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::EdgeOwnerIdentityMismatch
                                         else:
                                             let slot %GuiSfntSimpleGlyphPathSinkEventSlot if eq ordinal 0 then GuiSfntSimpleGlyphPathSinkEventSlot::First else GuiSfntSimpleGlyphPathSinkEventSlot::Second
-                                            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_contour_event_checked_span tag span local slot:
-                                                Result::Err _error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::EventReadFailed
-                                                Result::Ok event:
-                                                    let source_kind gui_sfnt_simple_glyph_path_sink_event_kind &event
-                                                    let source_tag gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind &source_kind
-                                                    if not gui_sfnt_simple_glyph_path_command_tag_eq &stored_tag &source_tag:
-                                                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SourceTagMismatch
-                                                        else:
-                                                            let command gui_sfnt_simple_glyph_path_sink_event_command &event
-                                                            Result::Ok gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value index edge_index contour local slot stored_tag source_tag command
+                                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamReadSource index edge_index contour local slot stored_tag span
+
+//: completed_owner_read_checked_at: metadata検査後にcurve coreを1回だけ呼び、eventをpure projectionします
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_checked_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_source_at owner index:
+        Result::Err kind: Result::Err kind
+        Result::Ok source:
+            let running %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner field::get_ref owner "running"
+            let tag %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner field::get_ref running "tag"
+            let span *field::get_ref &source "span"
+            let local *field::get_ref &source "contour_edge_index"
+            let slot *field::get_ref &source "event_slot"
+            match gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_curve_segment_checked_span tag span local:
+                Result::Err _error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::EventReadFailed
+                Result::Ok curve:
+                    let event gui_sfnt_simple_glyph_path_sink_event_from_curve_segment &curve slot
+                    let source_kind gui_sfnt_simple_glyph_path_sink_event_kind &event
+                    let source_tag gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind &source_kind
+                    let stored_tag *field::get_ref &source "stored_tag"
+                    if not gui_sfnt_simple_glyph_path_command_tag_eq &stored_tag &source_tag:
+                        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SourceTagMismatch
+                        else:
+                            let path_command_index *field::get_ref &source "path_command_index"
+                            let edge_index *field::get_ref &source "edge_index"
+                            let contour *field::get_ref &source "contour_index"
+                            let local_index *field::get_ref &source "contour_edge_index"
+                            let command gui_sfnt_simple_glyph_path_sink_event_command &event
+                            let value gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value path_command_index edge_index contour local_index slot stored_tag source_tag command
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand value span curve event
+
+//: checked_command_value: checked command valueを返します
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_checked_command_value %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue \command: *field::get_ref command "value"
+//: checked_command_span: checked spanを返します
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_checked_command_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiSfntSimpleGlyphContourSpan \command: *field::get_ref command "span"
+//: checked_command_curve: checked curve segmentを返します
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_checked_command_curve %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiSfntSimpleGlyphCurveSegment \command: *field::get_ref command "curve"
+//: checked_command_event: checked eventを返します
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_checked_command_event %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCheckedCommand GuiSfntSimpleGlyphPathSinkEvent \command: *field::get_ref command "event"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind \owner\index:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_read_checked_at owner index:
+        Result::Err kind: Result::Err kind
+        Result::Ok command: Result::Ok gui_font_registered_face_simple_glyph_indexed_path_command_stream_checked_command_value &command
 
 //: completed_owner_contour_span_lookup: sealed authorityからcontour spanをO(1)で取得します
 //:

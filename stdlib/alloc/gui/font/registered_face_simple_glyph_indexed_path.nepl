@@ -165,6 +165,13 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_contour_edge_che
     let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
     gui_font_registered_face_simple_glyph_indexed_owner_contour_edge_checked_span indexed span edge_index
 
+//: indexed path authorityから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: nested indexed ownerへexactly once委譲し、raw collectionやownerを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let indexed %&GuiFontRegisteredFaceSimpleGlyphIndexedOwner field::get_ref owner "indexed"
+    gui_font_registered_face_simple_glyph_indexed_owner_curve_segment_checked_span indexed span edge_index
+
 //: path authority から checked span 内の sink event を exactly once forwarding します。
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_path_owner_path_sink_event_at_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedPathOwner fn GuiSfntSimpleGlyphContourSpan fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index\slot:

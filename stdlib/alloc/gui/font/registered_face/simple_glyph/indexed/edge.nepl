@@ -622,6 +622,14 @@ pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_contin
                             if bounds_ok then GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Valid else GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CursorCapacityMismatch
                 _: GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantCheck::Invalid GuiFontRegisteredFaceSimpleGlyphIndexedEdgePhaseInvariantInvalidKind::CompletedCursorNotAtEnd
 
+//: completed Edge authorityから取得済みchecked span内のcurve segmentを読みます。
+//: [契約/けいやく]: nested completed PointYへexactly once委譲し、raw collectionを公開しません。
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_edge_completed_owner_curve_segment_checked_span %fn &GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner fn GuiSfntSimpleGlyphContourSpan fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \owner\span\edge_index:
+    let running %&GuiFontRegisteredFaceSimpleGlyphIndexedEdgeOwner field::get_ref owner "running"
+    let point_y %&GuiFontRegisteredFaceSimpleGlyphIndexedPointYCompletedOwner field::get_ref running "point_y"
+    gui_font_registered_face_simple_glyph_indexed_point_y_completed_owner_curve_segment_checked_span point_y span edge_index
+
 //: completed Edge authorityからchecked span内のsink eventをexactly once forwardingします。
 //:
 //: neplg2:test[skip]
