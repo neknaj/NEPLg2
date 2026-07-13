@@ -83888,3 +83888,10 @@ MERGE_APPROVED
 - 2つのstage0 lifecycleでtableを生成し、Enum fixtureでは必要spellingをinternしてborrowし、検査後にprojection / type ownerより先にcanonical tableを解放する。実projection fixtureのsymbol identityは同table recordと一致する。
 - reviewで検出した全table再走査を除去した。scope moduleのprivate wrapperがtable全体を一度検査し、同じimmutable borrowをprivate再帰へ渡す。EnumPayloadはprivate membership-only lookupだけを行い、外部構築可能なvalidation evidenceは公開しない。malformed table + 実Deref projection / Placeのnegative fixtureで非Enum時もowner検査を省略しないことを確認する。
 - enum type key membership、canonical type key、serialized cross-session symbol、actual Rust loweringとのtable co-productionは後続である。残るResource operation payload数8件は減らさない。
+
+## 2026-07-13 selfhost Resource Call payload
+
+- Rust `ResourceOp::Call { output, target, args, effect, span }`をkind tag 10専用のprivate sparse header、source-order argument Place owner、target固有ordered type-argument ownerへ投影した。
+- `ResourceCallTarget::Builtin / User / Trait`をvariant-nativeに保持し、builtin / user / trait application / trait methodのcanonical symbol roleを混同させない。Trait self TypeIdとUser / Trait type argsはborrowed TypeArena、output / argsはsame-graph Place inventoryに結合する。
+- sparse / dense ownerのmissing / unexpected、identity / ordinal、range overflow / gap / excess、canonical symbol、TypeArena / Place membershipをfield固有typed errorで検査する。Rust `Vec`と同じく0件と重複argument / type argumentは許容するが、Builtin targetにtype-argument endpointを混入する場合は拒否する。
+- このnonproduction ownerはdirect-call resolution、trait dispatch、signature / effect semantics、actual loweringとowner tableのco-productionを証明しない。`ResourceIrInventoryValidated`をproduction originへ昇格せず、残るResource operation payloadはIndirectCall / Construct / Branch / Loop / Matchの5件である。`plan.md`は変更していない。

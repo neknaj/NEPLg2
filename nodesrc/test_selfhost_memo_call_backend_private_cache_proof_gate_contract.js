@@ -21,6 +21,7 @@ const source = anchorSource.replace(
 const runner = fs.readFileSync(path.join(repoRoot, runnerRelPath), "utf8").replace(/\r\n/g, "\n");
 const rustResourceModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/model.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustResourceLower = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/lower.rs"), "utf8").replace(/\r\n/g, "\n");
+const rustResourceLowerCall = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/lower_call.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustSpan = fs.readFileSync(path.join(repoRoot, "nepl-core/src/span.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustResourceContext = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/resource_summary_value_cache/context.rs"), "utf8").replace(/\r\n/g, "\n");
 const rustCollectionSlotLifecycleModel = fs.readFileSync(path.join(repoRoot, "nepl-core/src/resource/collection_slot_lifecycle_model.rs"), "utf8").replace(/\r\n/g, "\n");
@@ -214,6 +215,46 @@ assertOrdered(
     "FunctionValue runtime must inspect transported payloads before closing their owner",
 );
 assert.match(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), /resource_ir_function_value_payload_stage0/, "public Resource inventory runtime must execute FunctionValue validation");
+assert.match(rustResourceModel, /Call \{\s*output: Place,\s*target: ResourceCallTarget,\s*args: Vec<Place>,\s*effect: EffectOp,\s*span: Span,\s*\}/, "Rust Call payload shape must remain lossless");
+const rustCallTargetStart = rustResourceModel.indexOf("pub enum ResourceCallTarget {");
+assert.notEqual(rustCallTargetStart, -1, "Rust ResourceCallTarget enum must exist");
+const rustCallTarget = rustResourceModel.slice(rustCallTargetStart, rustResourceModel.indexOf("\n}", rustCallTargetStart) + 2);
+assert.match(rustCallTarget, /Builtin \{\s*name: String,\s*\}/, "Rust builtin call target must retain its name");
+assert.match(rustCallTarget, /User \{\s*name: String,\s*type_args: Vec<TypeId>,\s*\}/, "Rust user call target must retain ordered type arguments");
+assert.match(rustCallTarget, /Trait \{\s*application: ResourceTraitApplication,\s*method: ResourceTraitMethodId,\s*self_ty: TypeId,\s*\}/, "Rust trait call target must retain application, method, and self type");
+assert.deepEqual(enumVariantNames(source, "SelfhostMemoCallBackendPrivateCacheResourceIrCallTarget"), ["Builtin", "User", "Trait"], "selfhost Call target variants must match Rust");
+assert.match(rustResourceLowerCall, /FuncRef::Builtin\(name\) => ResourceCallTarget::Builtin \{ name: name\.clone\(\) \}/, "Call lowering must preserve Builtin name");
+assert.match(rustResourceLowerCall, /FuncRef::User\(name, type_args, _\) => ResourceCallTarget::User \{\s*name: name\.clone\(\),\s*type_args: type_args\.clone\(\),\s*\}/, "Call lowering must preserve User name and ordered type arguments");
+assert.match(rustResourceLowerCall, /ResourceCallTarget::Trait \{\s*application: ResourceTraitApplication::new\(\s*application\.trait_id\.as_str\(\)\.to_string\(\),\s*application\.args\.clone\(\),\s*\),\s*method: ResourceTraitMethodId::from_name\(method\.as_str\(\)\.to_string\(\)\),\s*self_ty: \*self_ty,\s*\}/, "Call lowering must preserve split Trait id, ordered application args, method, and self type");
+for (const symbol of [
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallBuiltinNameSymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallUserNameSymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallTraitIdSymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallTraitMethodSymbol",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory",
+    "SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory",
+    "selfhost_memo_call_backend_private_cache_resource_ir_call_record_validate_result",
+    "selfhost_memo_call_backend_private_cache_resource_ir_call_payload_inventory_validate_loop",
+]) assert.match(source, new RegExp(`\\b${symbol}\\b`), `Call contract must retain ${symbol}`);
+const callRecordValidator = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_record_validate_result");
+assertOrdered(callRecordValidator, ["CallArgRangeInvalid ordinal", "call_place_validate_result places key graph_id payload.output ordinal true", "call_args_validate_loop", "call_effect_kind_validate_result payload.operation_effect", "call_target_validate_result"], "Call header validation must retain range, output, args, effect, and target checks");
+const callTargetValidator = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_target_validate_result");
+assertOrdered(callTargetValidator, ["CallTarget::Builtin", "CallBuiltinNameMissing ordinal", "CallTarget::User", "CallTypeArgRangeInvalid ordinal", "CallUserNameMissing ordinal", "call_type_args_validate_loop", "CallTarget::Trait", "CallTraitIdMissing ordinal", "CallTraitMethodMissing ordinal", "CallTraitSelfTypeMissing ordinal"], "Call targets must keep variant-specific canonical and type ownership checks");
+assert.ok(!topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_symbol_member").includes("canonical_symbol_table_contains_result"), "Call symbol membership must not rescan the whole canonical table");
+assertOrdered(
+    topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_payload_inventory_validate_loop"),
+    ["CallPayloadUnexpected payload_idx", "CallArgUnexpected arg_cursor", "CallTypeArgUnexpected type_cursor", "CallPayloadMissing operation_idx", "CallPayloadIdentityMismatch operation_idx", "CallPayloadOrdinalMismatch payload.operation_ordinal", "not eq payload.arg_start arg_cursor", "call_record_validate_result"],
+    "Call sparse and dense owners must merge deterministically and reject gaps and excess",
+);
+const callStage0 = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_payload_stage0");
+for (const mode of [0, 30, 31, ...Array.from({ length: 29 }, (_, index) => index + 1)]) assert.match(callStage0, new RegExp(`call_payload_positive_stage0_case ${mode}\\b`), `Call runtime matrix must execute mode ${mode}`);
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_call_payload_stage0_error_matches"), ["CallPayloadMissing ordinal", "CallPayloadUnexpected ordinal", "CallPayloadIdentityMismatch ordinal", "CallPayloadOrdinalMismatch ordinal", "CallArgRangeInvalid ordinal", "CallArgUnexpected ordinal", "CallArgIdentityMismatch ordinal", "CallArgOrdinalMismatch ordinal", "CallArgPlaceMissing ordinal", "CallArgPlaceGraphMismatch ordinal", "CallTypeArgRangeInvalid ordinal", "CallTypeArgUnexpected ordinal", "CallTypeArgIdentityMismatch ordinal", "CallTypeArgOrdinalMismatch ordinal", "CallTypeArgTypeMissing ordinal", "CallBuiltinNameMissing ordinal", "CallBuiltinTypeArgsUnexpected ordinal", "CallUserNameMissing ordinal", "CallTraitIdMissing ordinal", "CallTraitMethodMissing ordinal", "CallTraitSelfTypeMissing ordinal", "CallOutputMissing ordinal", "CallOutputGraphMismatch ordinal"], "Call runtime must exact-match every rejection family");
+const resourceScopeAuthority = topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_authority_result");
+assert.match(resourceScopeAuthority, /&SelfhostMemoCallBackendPrivateCacheResourceIrCallPayloadInventory[\s\S]*&SelfhostMemoCallBackendPrivateCacheResourceIrCallArgInventory[\s\S]*&SelfhostMemoCallBackendPrivateCacheResourceIrCallTypeArgInventory/, "Resource scope authority must borrow all Call owners");
+assert.match(resourceScopeAuthority, /resource_ir_call_payload_inventory_validate_loop call_payloads call_args call_type_args/, "Resource scope authority must validate Call owners before issuing authority");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_stage0"), ["resource_ir_function_value_payload_stage0", "resource_ir_call_effect_payload_stage0", "resource_ir_call_payload_stage0"], "public Resource inventory runtime must execute FunctionValue, CallEffect, and Call conjunctions");
+assertOrdered(topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_empty_call_owners_result"), ["resource_ir_call_payload_inventory_new", "resource_ir_call_arg_inventory_new", "resource_ir_call_type_arg_inventory_new", "resource_ir_inventory_scope_authority_result", "resource_ir_call_type_arg_inventory_free call_type_args", "resource_ir_call_arg_inventory_free call_args", "resource_ir_call_payload_inventory_free call_payloads"], "Call owners must be closed in reverse construction order after scope validation");
 assert.match(rustResourceLower, /ResourceFunction \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /ResourceBlock \{[\s\S]*span: function\.span,/);
 assert.match(rustResourceLower, /HirBody::Block\(block\)[\s\S]*ResourceTerminator::Return \{[\s\S]*span: block\.span,/);
@@ -1708,7 +1749,7 @@ assertOrdered(
         "Result::Ok assign_payloads",
         "resource_ir_canonical_symbol_table_new",
         'resource_ir_canonical_symbol_table_intern symbols0 "Variant"',
-        "resource_ir_inventory_scope_authority_result key graph_id inventory places projections &symbols types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
+        "resource_ir_inventory_scope_with_empty_call_owners_result key graph_id inventory places projections &symbols types operations &operation_spans &operation_kinds &expr_payloads &declare_local_payloads &read_payloads &assign_payloads",
         "resource_ir_canonical_symbol_table_free symbols",
         "resource_ir_assign_payload_inventory_free assign_payloads",
         "resource_ir_read_payload_inventory_free read_payloads",
@@ -1722,7 +1763,7 @@ assertOrdered(
 );
 assert.match(
     topLevelBlock(source, "fn", "selfhost_memo_call_backend_private_cache_resource_ir_inventory_scope_with_operation_owners_stage0_result"),
-    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_canonical_symbol_table_intern symbols0 "FunctionValue"[\s\S]*resource_ir_inventory_scope_authority_result key graph_id inventory places &projections &symbols &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &function_value_payloads &function_value_args &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_function_value_type_arg_inventory_free function_value_args[\s\S]*resource_ir_function_value_payload_inventory_free function_value_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols/,
+    /resource_ir_canonical_symbol_table_new[\s\S]*resource_ir_canonical_symbol_table_intern symbols0 "FunctionValue"[\s\S]*resource_ir_inventory_scope_with_empty_call_owners_result key graph_id inventory places &projections &symbols &types2 operations operation_spans operation_kinds expr_payloads declare_local_payloads read_payloads assign_payloads borrow_payloads move_payloads drop_payloads end_scope_payloads end_scope_locals &function_value_payloads &function_value_args &call_effect_payloads collection_storage_relocate_payloads[\s\S]*resource_ir_call_effect_payload_inventory_free call_effect_payloads[\s\S]*resource_ir_function_value_type_arg_inventory_free function_value_args[\s\S]*resource_ir_function_value_payload_inventory_free function_value_payloads[\s\S]*resource_ir_canonical_symbol_table_free symbols/,
     "the explicit-owner stage0 caller must pass its borrowed sparse payload owners to scope authority",
 );
 
