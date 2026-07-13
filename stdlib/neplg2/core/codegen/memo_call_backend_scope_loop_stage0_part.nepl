@@ -1,0 +1,118 @@
+//: # memo_call backend private-cache Resource Loop stage0 source part
+//:
+//: Loop sparse headerとgeneric condition fact bindingを同じglobal ordinal domainへ通す非production matrixです。
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty" as *
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_payload_push_result %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn i32 Result SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind \payloads\key\graph_id\condition\mode:
+    let wrong_key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_resource_walker_stage0_key_with_fingerprint 78
+    let wrong_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 1
+    let record_key %SelfhostMemoCallBackendPrivateCacheProofKey if eq mode 4 wrong_key key
+    let record_graph %SelfhostMemoCallBackendPrivateCacheResourceGraphId if eq mode 5 wrong_graph graph_id
+    let ordinal %i32 if eq mode 6 23 if eq mode 3 0 22
+    let record %SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadRecord SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadRecord record_key record_graph ordinal condition
+    selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_push payloads record
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_validate_owned %impure fn SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactEdgeInventory impure fn SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrOperationKindInventory impure fn &SelfhostMemoCallBackendPrivateCacheResourceIrPlaceInventory impure fn SelfhostMemoCallBackendPrivateCacheProofKey impure fn SelfhostMemoCallBackendPrivateCacheResourceGraphId impure fn SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace impure fn i32 bool \payloads0\nodes0\edges\bindings0\kinds\places\key\graph_id\place0\mode:
+    let payload_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrLoopPayloadInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 2 Result::Ok payloads0 selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_payload_push_result payloads0 key graph_id if eq mode 7 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 99 if eq mode 8 SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace selfhost_memo_call_backend_private_cache_resource_graph_id_new 1 place0.place_id place0 mode
+    match payload_result:
+        Result::Err _e:
+            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings0
+            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes0
+            false
+        Result::Ok payloads:
+            let binding_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 1:
+                selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_push bindings0 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord key graph_id 22 Option::Some 0
+            else selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_push bindings0 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactRootBindingRecord key graph_id 22 Option::None
+            match binding_result:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes0
+                    selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_free payloads
+                    false
+                Result::Ok bindings:
+                    let node_result %Result SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeInventory SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind if eq mode 1:
+                        selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_push nodes0 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactNodeRecord key graph_id 0 22 SelfhostMemoCallBackendPrivateCacheResourceIrConditionFactKind::EqZero place0 0 0
+                    else Result::Ok nodes0
+                    match node_result:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+                            selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_free payloads
+                            false
+                        Result::Ok nodes:
+                            let loop_validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_validate_loop &payloads kinds places key graph_id 0 23 0 selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_len &payloads
+                            let validation %Result unit SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind match loop_validation:
+                                Result::Err e: Result::Err e
+                                Result::Ok _loop: selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_inventory_validate_loop &nodes &edges &bindings kinds places key graph_id 0 23 0 0 0
+                            let accepted %bool match validation:
+                                Result::Ok _unit: le mode 1
+                                Result::Err e:
+                                    match e:
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::LoopPayloadMissing ordinal: and eq mode 2 eq ordinal 22
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::LoopPayloadUnexpected ordinal: and eq mode 3 eq ordinal 0
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::LoopPayloadIdentityMismatch ordinal: and or eq mode 4 eq mode 5 eq ordinal 22
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::LoopPayloadOrdinalMismatch ordinal: and eq mode 6 eq ordinal 23
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::LoopConditionMissing ordinal: and eq mode 7 eq ordinal 22
+                                        SelfhostMemoCallBackendPrivateCacheResourceIrInventoryErrorKind::LoopConditionGraphMismatch ordinal: and eq mode 8 eq ordinal 22
+                                        _: false
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_free bindings
+                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+                            selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_free payloads
+                            accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_case %impure fn i32 bool \mode:
+    let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+    let graph_id %SelfhostMemoCallBackendPrivateCacheResourceGraphId selfhost_memo_call_backend_private_cache_resource_graph_id_new 0
+    match selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_stage0_result key graph_id 23:
+        Result::Err _e: false
+        Result::Ok kinds:
+            match selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_stage0_result 1 true SelfhostMemoCallBackendPrivateCacheResourceIrPlaceRoot::Projection selfhost_type_id_new 1:
+                Result::Err _e:
+                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                    false
+                Result::Ok places:
+                    let place0 %SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace SelfhostMemoCallBackendPrivateCacheResourceIrReturnPlace graph_id selfhost_memo_call_backend_private_cache_resource_place_id_new 0
+                    match selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_new:
+                        Result::Err _e:
+                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                            false
+                        Result::Ok payloads:
+                            match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_new:
+                                Result::Err _e:
+                                    selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_free payloads
+                                    selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                    selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                    false
+                                Result::Ok nodes:
+                                    match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_new:
+                                        Result::Err _e:
+                                            selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes
+                                            selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_free payloads
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            false
+                                        Result::Ok edges:
+                                            let accepted %bool match selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_root_binding_inventory_new:
+                                                Result::Err _e:
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_edge_inventory_free edges
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_condition_fact_node_inventory_free nodes
+                                                    selfhost_memo_call_backend_private_cache_resource_ir_loop_payload_inventory_free payloads
+                                                    false
+                                                Result::Ok bindings: selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_validate_owned payloads nodes edges bindings &kinds &places key graph_id place0 mode
+                                            selfhost_memo_call_backend_private_cache_resource_ir_place_inventory_free places
+                                            selfhost_memo_call_backend_private_cache_resource_ir_operation_kind_inventory_free kinds
+                                            accepted
+
+fn selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_loop %impure fn i32 bool \mode:
+    if gt mode 8 true and selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_case mode selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_loop add mode 1
+
+//: Noneとgeneric fact実binding、sparse gap/excess、identity/ordinal、Place missing/graph mismatchを実validatorで検査します。
+fn selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_matrix %impure fn void bool \void:
+    selfhost_memo_call_backend_private_cache_resource_ir_loop_stage0_loop 0
