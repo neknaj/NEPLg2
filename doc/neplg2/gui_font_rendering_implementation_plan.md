@@ -6620,7 +6620,9 @@ owner / state契約:
 - sealed indexed collectionからPathCommandTag completed ownerまで既存event chainと同じborrow-only curve forwardingを追加し、raw collectionやnested ownerの参照/takeを公開しない。
 - command readはchecked-span curve coreをexactly once呼び、eventとcommand valueをcurveからpure projectionする。value、span、curve、eventを同じCopy commandへ束ねる。
 - runtimeはindex 0 / 4のSkipNoSegment OffCurveStart curve/event、index -1、typed span/identity failure、error後same-owner利用、single freeを固定する。
-- metric join、stroke provenance drain/seal、offset geometry、coverage、raster/render/platformは後続へ残す。
+- checked command summaryからdraw capacityを導出するmetric provenance drainを同じregistered authorityへ接続する。stepはterminalをbudgetより先に判定して高々1commandを読み、Move/Skipはcountだけ、Line/Quadraticはpush成功後だけcursor/countをcommitする。
+- checked sealはcommand cursor、kind別summary、metric count、Vec len/capを照合する。sealed provenanceはowner-bound O(1) readだけを公開し、raw Vec/source splitや旧F5ku/F5kw pairingを公開しない。
+- actual numeric metric join、offset geometry、coverage、raster/render/platformは後続へ残す。
 
 ### Phase F5nxa: registered indexed path action owner
 

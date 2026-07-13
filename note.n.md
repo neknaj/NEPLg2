@@ -83822,6 +83822,12 @@ MERGE_APPROVED
 - controlled registered-face fixtureはindex 0 / 4のSkipNoSegment OffCurveStartをcommand、curve、eventの3 authorityで照合し、index -1、typed span/identity failure、error後same-owner利用、最後のsingle freeを維持する。metric join、stroke provenance drain/seal、offset geometry、coverage、raster/render/platformとフォント/GUI全体は未完了である。`plan.md`は変更していない。
 - gates: production runtime 1 / 1、F5nxi module 69 / 69、F5nxk module 14 / 14、source-policy、normal compile、trunk build、playground editor CLI JSON 13 / 13、issues check、diff checkが通過した。
 
+## 2026-07-13 F5nxk stroke metric provenance drain/seal checkpoint
+
+- F5nxk checked commandをmetric indexと束ねるCopy provenance、summary由来exact-capacity storage、phase-specific drain/completed ownerを追加した。terminal-before-budget、1 step 1 command、Line/Quadraticのpush-success-before-commit、Move/Skip count-only、checked seal、typed O(1) provenance readを同じregistered authority chainに固定した。
+- 深いowner payload enumはResource IR projectionで偽のuse-after-moveを再現したため、既存phaseと同じCopy status kind + move-only BudgetStepへ変更した。延長production runtime gateはall-off-curve 8 command、budget 0、8 skip、0 metric、cap 0、seal/single freeを1 / 1で通過した。
+- actual numeric metric join、offset geometry、raster/render/platform、フォントレンダリングエンジンとGUIライブラリ全体は未完了である。このcheckpointを全体完成とは扱わず、`plan.md`は変更していない。
+
 ## 2026-07-13 selfhost Resource CollectionSlotDropTraversal payload
 
 - Rust `ResourceOp::CollectionSlotDropTraversal { storage, initialized_count, expected_ty, span }`をkind tag 18専用のprivate sparse ownerへ接続した。

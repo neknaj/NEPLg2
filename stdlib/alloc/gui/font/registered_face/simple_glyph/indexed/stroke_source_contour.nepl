@@ -21,6 +21,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_sink" as *
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
 #import "alloc/gui/font/sfnt" as *
+#import "alloc/collections/vec" as vec
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
@@ -52,6 +53,81 @@ pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind
     CommandReadFailed %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind
     SpanLookupFailed %GuiSfntSimpleGlyphContourSpanIndexLookupError
     SpanIdentityMismatch
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance:
+    metric_index %i32
+    command %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner
+    provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance
+    next_command_index %i32
+    expected_command_count %i32
+    expected_move_count %i32
+    expected_line_count %i32
+    expected_quadratic_count %i32
+    expected_skip_count %i32
+    move_count %i32
+    line_count %i32
+    quadratic_count %i32
+    skip_count %i32
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner
+    provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance
+    command_count %i32
+    move_count %i32
+    line_count %i32
+    quadratic_count %i32
+    skip_count %i32
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind:
+    InvalidSummary
+    AllocationFailed %StdErrorKind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepErrorKind:
+    SourceReadFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind
+    StoragePushFailed %StdErrorKind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind:
+    Completed
+    StepBudgetExhausted
+    Progressed
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind \value: *value
+
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind:
+    CommandCursorMismatch
+    SummaryCountMismatch
+    MetricCountMismatch
+    StorageMismatch
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
+    IndexOutOfRange
 
 //: command_from_span: commandとindexed spanのidentityを一か所で検査します
 //:
@@ -125,6 +201,154 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_comma
 //: command_event: checked curveからpure projectionしたsink eventを返します
 //: neplg2:test[skip]
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_event %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand GuiSfntSimpleGlyphPathSinkEvent \command: *field::get_ref command "event"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_metric_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance i32 \value: *field::get_ref value "metric_index"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_command %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourCommand \value: *field::get_ref value "command"
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner fn Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner \source\provenance\next\expected_command\expected_move\expected_line\expected_quadratic\expected_skip\move\line\quadratic\skip:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner source provenance next expected_command expected_move expected_line expected_quadratic expected_skip move line quadratic skip
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError \source:
+    let sink %&GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner field::get_ref &source "sink"
+    let summary gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_summary sink
+    let total gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
+    let move gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
+    let line gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
+    let quadratic gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary
+    let skip gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
+    let draw add line quadratic
+    if or lt total 0 or lt move 0 or lt line 0 or lt quadratic 0 lt skip 0:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError source GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind::InvalidSummary
+        else if ne total add add move draw skip:
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError source GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind::InvalidSummary
+            else:
+                match vec::with_capacity<GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance> draw:
+                    Result::Err error: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError source GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind::AllocationFailed error
+                    Result::Ok provenance: Result::Ok gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source provenance 0 total move line quadratic skip 0 0 0 0
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_budget %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError \owner\budget:
+    let next %i32 *field::get_ref &owner "next_command_index"
+    let end %i32 *field::get_ref &owner "expected_command_count"
+    if ge next end:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Completed
+        else if le budget 0:
+            then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::StepBudgetExhausted
+            else:
+                let borrowed_source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner field::get_ref &owner "source"
+                match gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_at borrowed_source next:
+                    Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepErrorKind::SourceReadFailed kind
+                    Result::Ok command:
+                        let event gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_event &command
+                        let kind gui_sfnt_simple_glyph_path_sink_event_kind &event
+                        let source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner field::get owner "source"
+                        let provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get owner "provenance"
+                        let expected_move %i32 *field::get_ref &owner "expected_move_count"
+                        let expected_line %i32 *field::get_ref &owner "expected_line_count"
+                        let expected_quadratic %i32 *field::get_ref &owner "expected_quadratic_count"
+                        let expected_skip %i32 *field::get_ref &owner "expected_skip_count"
+                        let move %i32 *field::get_ref &owner "move_count"
+                        let line %i32 *field::get_ref &owner "line_count"
+                        let quadratic %i32 *field::get_ref &owner "quadratic_count"
+                        let skip %i32 *field::get_ref &owner "skip_count"
+                        match kind:
+                            GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+                                Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep (gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source provenance add next 1 end expected_move expected_line expected_quadratic expected_skip add move 1 line quadratic skip) GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed
+                            GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment _reason:
+                                Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep (gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source provenance add next 1 end expected_move expected_line expected_quadratic expected_skip move line quadratic add skip 1) GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed
+                            GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+                                let metric_index %i32 add line quadratic
+                                let item %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance metric_index command
+                                match vec::push provenance item:
+                                    Result::Err error:
+                                        let storage_kind %StdErrorKind vec::vec_push_error_kind &error
+                                        let recovered %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance vec::vec_push_error_vec error
+                                        let recovered_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source recovered next end expected_move expected_line expected_quadratic expected_skip move line quadratic skip
+                                        Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError recovered_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepErrorKind::StoragePushFailed storage_kind
+                                    Result::Ok pushed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep (gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source pushed add next 1 end expected_move expected_line expected_quadratic expected_skip move add line 1 quadratic skip) GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed
+                            GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+                                let metric_index %i32 add line quadratic
+                                let item %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance metric_index command
+                                match vec::push provenance item:
+                                    Result::Err error:
+                                        let storage_kind %StdErrorKind vec::vec_push_error_kind &error
+                                        let recovered %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance vec::vec_push_error_vec error
+                                        let recovered_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source recovered next end expected_move expected_line expected_quadratic expected_skip move line quadratic skip
+                                        Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError recovered_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepErrorKind::StoragePushFailed storage_kind
+                                    Result::Ok pushed: Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep (gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner source pushed add next 1 end expected_move expected_line expected_quadratic expected_skip move line add quadratic 1 skip) GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind \step:
+    *field::get_ref step "status"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner \step:
+    field::get step "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep unit \step:
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free field::get step "owner"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError \owner:
+    let next %i32 *field::get_ref &owner "next_command_index"
+    let command_count %i32 *field::get_ref &owner "expected_command_count"
+    let move %i32 *field::get_ref &owner "move_count"
+    let line %i32 *field::get_ref &owner "line_count"
+    let quadratic %i32 *field::get_ref &owner "quadratic_count"
+    let skip %i32 *field::get_ref &owner "skip_count"
+    let provenance %&Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get_ref &owner "provenance"
+    if ne next command_count:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind::CommandCursorMismatch
+        else if or ne move *field::get_ref &owner "expected_move_count" or ne line *field::get_ref &owner "expected_line_count" or ne quadratic *field::get_ref &owner "expected_quadratic_count" ne skip *field::get_ref &owner "expected_skip_count":
+            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind::SummaryCountMismatch
+            else if ne add line quadratic vec::len provenance:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind::MetricCountMismatch
+                else if ne vec::len provenance vec::cap provenance:
+                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind::StorageMismatch
+                    else:
+                        let source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner field::get owner "source"
+                        let moved %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get owner "provenance"
+                        Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner source moved command_count move line quadratic skip
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_start_error_recover_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner \error: field::get error "source"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal_error_take_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner \error: field::get error "owner"
+//: start_error_kind: source ownerを消費せずstart failureを分類します
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind \error: *field::get_ref error "kind"
+//: step_error_kind: recovery ownerを保持したままstep failureを分類します
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepErrorKind \error: *field::get_ref error "kind"
+//: seal_error_kind: drain ownerを保持したままseal invariant failureを分類します
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_command_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner: *field::get_ref owner "command_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_metric_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner:
+    let provenance %&Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get_ref owner "provenance"
+    vec::len provenance
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_move_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner: *field::get_ref owner "move_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_line_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner: *field::get_ref owner "line_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_quadratic_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner: *field::get_ref owner "quadratic_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_skip_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner: *field::get_ref owner "skip_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_storage_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner i32 \owner:
+    let provenance %&Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get_ref owner "provenance"
+    vec::cap provenance
+//: completed_owner_read_provenance: sealed ownerからmetric順のchecked command provenanceをO(1)で読みます
+//:
+//: 負値またはmetric数以上のindexはtyped errorにし、内部Vecやsource ownerを公開しません。
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_read_provenance %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind \owner\metric_index:
+    if lt metric_index 0:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind::IndexOutOfRange
+        else:
+            let provenance %&Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get_ref owner "provenance"
+            match vec::get provenance metric_index:
+                Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind::IndexOutOfRange
+                Option::Some value: Result::Ok value
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free field::get owner "source";
+    vec::free field::get owner "provenance"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free field::get error "source"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free field::get owner "source";
+    vec::free field::get owner "provenance"
 
 //: owner_free: sourceとlegacy sink storageをexactly once解放します
 //:

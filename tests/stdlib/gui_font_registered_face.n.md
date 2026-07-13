@@ -2262,6 +2262,51 @@ fn registered_face_path_command_tag_slot_ok %fn &GuiSfntSimpleGlyphOutlinePointS
         GuiSfntSimpleGlyphPathSinkEventSlot::Second: eq rem_s expected_index 2 1
     and eq expected_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_path_command_index slot and eq expected_edge gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_edge_index slot and eq expected_contour gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_index slot and eq expected_local gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_edge_index slot and eq expected_scalar gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_scalar_value slot event_ok
 
+fn registered_face_stroke_metric_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner impure fn i32 bool \owner\remaining:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_budget owner 1:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_error_free error
+            false
+        Result::Ok step:
+            let status gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_status &step
+            let next gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_take_owner step
+            match status:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::StepBudgetExhausted:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free next
+                    false
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed:
+                    if le remaining 0:
+                        then:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free next
+                            false
+                        else registered_face_stroke_metric_drain_ok next sub remaining 1
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Completed:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal next:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal_error_free error
+                            false
+                        Result::Ok sealed:
+                            let counts_ok %bool and eq 8 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_command_count &sealed and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_metric_count &sealed and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_move_count &sealed and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_line_count &sealed and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_quadratic_count &sealed and eq 8 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_skip_count &sealed eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_storage_cap &sealed
+                            let empty_read_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_read_provenance &sealed 0:
+                                Result::Ok _value: false
+                                Result::Err kind:
+                                    match kind:
+                                        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind::IndexOutOfRange: true
+                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_free sealed
+                            and counts_ok and empty_read_ok eq remaining 0
+
+fn registered_face_stroke_metric_initial_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStep bool \initial:
+    let status gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_status &initial
+    let owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_take_owner initial
+    match status:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::StepBudgetExhausted: registered_face_stroke_metric_drain_ok owner 8
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free owner
+            false
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Completed:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free owner
+            false
+
 fn registered_face_stroke_source_contour_completed_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner bool \completed:
     let owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_start completed
     let first_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_read_at &owner 0:
@@ -2331,8 +2376,17 @@ fn registered_face_stroke_source_contour_completed_ok %impure fn GuiFontRegister
     let identity_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_force_identity_mismatch &owner:
         GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch: true
         _: false
-    gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free owner
-    and first_ok and fourth_ok and negative_ok and lookup_ok identity_ok
+    let metric_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_metric_start owner:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_start_error_free error
+            false
+        Result::Ok metric_owner:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_budget metric_owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_error_free error
+                    false
+                Result::Ok initial: registered_face_stroke_metric_initial_ok initial
+    and first_ok and fourth_ok and negative_ok and lookup_ok and identity_ok metric_ok
 
 fn registered_face_path_command_sink_drain_ok %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner impure fn i32 bool \owner\remaining:
     if le remaining 0:

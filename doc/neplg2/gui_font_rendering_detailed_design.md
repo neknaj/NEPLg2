@@ -472,7 +472,9 @@ budget 0以下ではlookupもsummary mutationも行わず、Completedをbudget�
 
 F5nxj outer ownerはF5nxi completed ownerを全phaseで保持する。PlanReadyはsummary由来plan、Allocatedはplan検査済みlegacy sink storage、Writingはlegacy writerと`next/end` cursor、Completedは全command commit済みwriterを保持する。public transitionはouter ownerを消費し、plan/storage/writerだけのtake、raw collection再注入、異なるglyph由来resourceとのpairingを提供しない。
 
-F5nxk ownerはF5nxj CompletedOwnerを唯一のfieldとして保持する。`read_at(command_index)`はstored tag、edge marker、O(1) indexed spanをowner-bound metadata preflightで照合し、同じspanをregistered forwarding chain経由でchecked curve coreへexactly once渡す。sink eventとcommand valueはcurveからpure projectionし、value/span/curve/eventを一つのCopy commandとして返す。source owner参照やtake、collection/tag再注入、旧curve full scanは禁止する。metric provenance構築は次sliceに残す。
+F5nxk ownerはF5nxj CompletedOwnerを唯一のfieldとして保持する。`read_at(command_index)`はstored tag、edge marker、O(1) indexed spanをowner-bound metadata preflightで照合し、同じspanをregistered forwarding chain経由でchecked curve coreへexactly once渡す。sink eventとcommand valueはcurveからpure projectionし、value/span/curve/eventを一つのCopy commandとして返す。source owner参照やtake、collection/tag再注入、旧curve full scanは禁止する。
+
+metric provenance drain ownerはF5nxk source、summary由来expected counts、exact draw-capacity Vec、command cursor、actual countsを一体所有する。compiler-safe budget resultはCopy status kindとmove-only ownerを持つstep structで表し、owner payload enumを深いcaller projectionへ返さない。Move/Skipはcountだけを進め、Line/Quadraticはmetric indexとchecked commandを同じCopy provenanceへ束ね、Vec push成功後だけcursor/countを進める。sealは全summary/count/capacityを再検査し、completed ownerはtyped O(1) provenance readとsingle freeだけを公開する。actual numeric metric joinとgeometryは次sliceに残す。
 
 plan derivationは`total=emitted`、`draw=line+quadratic`、`path_segment=move+line+quadratic`、`raster_edge=draw`をchecked算術で固定し、既存F5ay algorithmを変更しない。allocation failureではF5nxi ownerを回収可能に保ち、2本目Vec失敗時は1本目を逆順freeする。Writingはsuccess push後だけcursorを進め、budget 0以下ではread/pushしない。途中scalar push failureはlegacy owner-bearing errorから分類を保存してpartial writerを直ちにsingle freeし、registered authority、分類、failure cursorだけをcleanup-only errorへ移す。sealはcursor、summary、writer counts、last index、plan/capacity、Vec len/capを照合する。
 
