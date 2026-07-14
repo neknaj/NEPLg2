@@ -84144,3 +84144,10 @@ MERGE_APPROVED
 - native per-function / op-level計測で、type parameter / constructorの予約名判定2関数がnested `if` 13段をResource path alternatives 1〜4で反復し、final initialized checkの約25秒を占めることを確認した。固定集合のstring比較はすべて純粋なので、short-circuit branch列をeagerな`or` call列へ正規化し、同じ13名を保ったままhelper自身のResource branchを生成しない。
 - Rust CellTable index化とcopy `EndScope` metadata退役も比較実装したが、full fixtureのfinal initialized checkを改善せず逆に悪化したため全て撤回した。推測によるRust変更は残していない。
 - CPU競合下のnative再検証は300秒でtimeoutし、actual runtime gateは引き続き未達である。このcheckpointを全体完成や統合可能状態とは扱わない。`plan.md`は変更していない。
+
+## 2026-07-15 Resource lowering coverage module index
+
+- full selfhost facadeのHIR functionごとにcallable name集合とDrop identity indexをmodule全走査で再構築し、transparent helper lookupもfunction列を線形探索していた。coverage比較入口で借用文字列のmodule indexを一度だけ構築し、各function contextはlocal scopeだけを所有するようにした。重複canonical nameは旧線形探索と同じfirst-winsを維持する。
+- native releaseの同一direct fixtureで`resource_lowering_coverage`は従来約27--49秒から53msへ低下した。transparent raw-address helper、明示Drop trait call、collection slot lifecycle coverageのfocused regressionは通過した。
+- actual native checkは300秒で終了コード124となった。`resource_initialized_moves=67303ms`の後にもowner解析が残るため、このcheckpointをセルフホスト完成または統合可能とは扱わない。次はinitialized/owner summaryとper-function checkの支配経路を追う。`plan.md`は変更していない。
+- 差分reviewは重複canonical nameで旧lookupがfirst-winsである点を検出し、indexも`entry.or_insert`で同じ挙動へ修正した。修正後の差分reviewはBlocker / High / Mediumなしで承認、全体整合reviewはcoverage差分を承認しつつactual exit124を統合Blockerとした。focused Rust regression 3件、issues check、format、`git diff --check`、Linux用一時`npm.cmd` shim経由の`trunk build`、Playground editor CLI JSON 13/13は通過した。

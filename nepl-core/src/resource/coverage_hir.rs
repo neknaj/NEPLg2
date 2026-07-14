@@ -2,7 +2,7 @@ extern crate alloc;
 
 use alloc::string::String;
 
-use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirModule};
+use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction};
 use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::types::TypeCtx;
 
@@ -18,18 +18,18 @@ use super::coverage_hir_projection::{
     intrinsic_projects_reference_address, intrinsic_projects_reference_field,
 };
 use super::coverage_hir_raw::should_count_raw_memory_call;
-use super::coverage_hir_scope::HirCoverageContext;
+use super::coverage_hir_scope::{HirCoverageContext, HirCoverageModuleIndex};
 use super::coverage_hir_transparent::transparent_raw_address_return_deref_projection_count;
 use super::lower_raw_memory::{raw_memory_op_from_callee, raw_memory_op_from_intrinsic};
 
 pub(super) fn hir_function_coverage(
     function: &HirFunction,
-    module: &HirModule,
+    module_index: &HirCoverageModuleIndex<'_>,
     types: &TypeCtx,
     string_literals: &[String],
 ) -> ResourceCoverageCounts {
     let mut counts = ResourceCoverageCounts::default();
-    let mut context = HirCoverageContext::new(function, module);
+    let mut context = HirCoverageContext::new(function, module_index);
     if let HirBody::Block(block) = &function.body {
         hir_block_coverage(&mut context, block, &mut counts, types, string_literals);
     }

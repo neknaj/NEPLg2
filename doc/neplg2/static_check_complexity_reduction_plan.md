@@ -1176,6 +1176,13 @@ Resource checker の責務分割 policy も確認し、`initialized_summary_vari
 
 したがって、この計画の完了条件は変更しない。旧 checker の special-case や旧 drop walker を戻して現状維持するのではなく、残る raw-memory-backed stdlib public API、owner token、collection storage state を Resource IR / enum / match の設計へ移す。
 
+2026-07-15 の full selfhost facade 計測では、Resource lowering coverage が function ごとに module 全体の
+callable name / Drop identity index を再構築して二次的になっていた。coverage比較入口でmodule単位の
+不変indexを一度だけ構築し、function contextはlocal scopeだけを持つ。transparent helper lookupも同じ
+indexを使い、重複名のfirst-wins互換を維持する。同一native fixtureのstage timeは約27--49秒から53msへ
+低下した。coverage診断の意味論やgateは変更していない。全体compileはなお300秒を超えるため、
+initialized/owner解析のsummaryとfunction checkを次の支配経路として扱う。
+
 ## 完了条件
 
 この計画は次を満たした時点で完了とする。

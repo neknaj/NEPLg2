@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-06-03
+updated: 2026-07-15
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -808,3 +808,19 @@ summary kind ごとに分けて不要な function-value edge を減らすこと�
 - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 1 --dist web/dist`
 - `node nodesrc/run_doctest.js -i tests/stdlib/kp.n.md -n 3 --dist web/dist`
 - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent_perf_kp_20260525.json -j 1 --assert-io --dist web/dist`
+
+## 2026-07-15 Resource lowering coverage module index
+
+full selfhost facade の native stage timing で `resource_lowering_coverage` が約 27--49 秒を占めていた。
+原因は各 HIR function の coverage を数えるたびに、module 全体の callable name 集合と Drop call identity
+index を再構築し、transparent raw-address helper 解決でも function 列を線形探索していたことだった。
+
+coverage module index を比較処理の入口で一度だけ作り、各 function context はその不変 index を参照して
+local scope だけを保持するようにした。重複 canonical function name の lookup は旧実装と同じ first-wins を
+維持する。修正後の同じ native release fixture では `resource_lowering_coverage=53ms` まで低下した。
+transparent raw-address helper、明示 Drop trait call、collection slot lifecycle coverage の focused regression は
+通過した。
+
+この issue は未解決である。同じ実測は300秒で終了コード124となり、`resource_initialized_moves=67303ms`
+の後にも owner解析が残る。coverage gateを削除・弱化せず、次は initialized/owner summary と
+per-function check の支配経路を追う。
