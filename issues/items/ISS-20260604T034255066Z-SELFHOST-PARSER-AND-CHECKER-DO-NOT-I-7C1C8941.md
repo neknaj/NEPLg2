@@ -39,6 +39,8 @@ Implement or stage a real PrefixList/TypePrefixList parser boundary, connect che
 
 ## 進捗
 
+- 2026-07-14: exact-VFS public export enum originをfile-id-aware parser enum sessionとTypeArenaの同一producerへ再結合するmove-only checker-session contextを追加した。caller supplied nominal / TypeIdの数値一致はauthorityにせず、graph/VFS/order、module-local DefId、name span / bytes、definition bindingから導出したnominalをproducer内でarenaへ追加する。checked Match / HIR / Resource輸送とcross-session stable nominal keyは後続である。
+
 - 2026-06-05: `SelfhostSyntaxRange` を追加し、module declaration header が `%` type annotation range と lambda header range を typed evidence として保持するようにした。`module_parser/prefix_range.nepl` は token stream 上の flat range だけを切り、型木・式木・call boundary は parser では確定しない。
 - 2026-06-05: module checker / proof solver は function 宣言で type annotation range と lambda header range が nonempty かつ header span 内にあることを検査するようにした。非 function 宣言では lambda/type range を受け付けない。
 - 2026-06-05: `resolve/type_resolver` を追加し、parser の `%` annotation range から `%` marker を除いた flat type prefix item list を作る resolver input 境界を実装した。`void` は専用 marker item、`unit` は通常の named type item として分類し、まだ `TypeId` は生成しない。

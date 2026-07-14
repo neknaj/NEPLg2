@@ -33,10 +33,12 @@ assert.match(source, /pub struct SelfhostResolvedEnumVariantHeader:[\s\S]*name_s
 assert.doesNotMatch(topLevelBlock("struct", "SelfhostResolvedEnumVariantHeader"), /name %str/, "variant records must not retain source-backed spelling owners");
 assert.match(source, /pub enum SelfhostResolvedEnumSurfaceErrorKind:[\s\S]*ItemHeaderOriginMismatch[\s\S]*HeaderOriginMismatch[\s\S]*BodyOriginMismatch[\s\S]*DeclarationNameUnavailable[\s\S]*OutOfMemory[\s\S]*ConstructorTable/, "origin, unavailable-name, allocation, and constructor failures must remain distinct");
 
-const producer = topLevelBlock("fn", "selfhost_resolved_enum_module_session_materialize_result");
-assert.match(producer, /lex_all source[\s\S]*selfhost_parse_module_tokens source &tokens[\s\S]*selfhost_resolved_enum_module_collect_loop[\s\S]*selfhost_resolved_enum_session_attach_tokens/, "public producer must internally lex, parse, scan the complete module, and retain its token origin");
-assert.match(producer, /SelfhostTypeConstructorTable[\s\S]*str Result SelfhostResolvedEnumSession/, "public producer must accept only a constructor namespace seed and source");
+const producer = topLevelBlock("fn", "selfhost_resolved_enum_module_session_materialize_with_file_id_result");
+assert.match(producer, /lex_all_with_file_id source file_id[\s\S]*selfhost_parse_module_tokens source &tokens[\s\S]*selfhost_resolved_enum_module_collect_loop[\s\S]*selfhost_resolved_enum_session_attach_tokens/, "public producer must internally lex with the VFS file identity, parse, scan the complete module, and retain its token origin");
+assert.match(producer, /SelfhostTypeConstructorTable[\s\S]*str[\s\S]*i32 Result SelfhostResolvedEnumSession/, "public producer must accept only a constructor namespace seed, source, and file identity");
 assert.doesNotMatch(producer, /SelfhostModuleAst|&Vec SelfhostToken|SelfhostModuleItem/, "public producer must not accept forgeable external AST, token, or item inputs");
+const compatibilityProducer = topLevelBlock("fn", "selfhost_resolved_enum_module_session_materialize_result");
+assert.match(compatibilityProducer, /selfhost_resolved_enum_module_session_materialize_with_file_id_result constructor_seed source 0/, "single-file compatibility producer must delegate with file ID zero");
 assert.doesNotMatch(source, /pub fn selfhost_resolved_enum_session_(?:append_result|new|from_constructor_table)/, "single-item or reopenable session APIs must not be public");
 assert.doesNotMatch(source, /pub fn selfhost_resolved_enum_surface_materialize_result/, "legacy single-item materialization must not remain public");
 assert.doesNotMatch(source, /pub fn selfhost_resolved_enum_session_nominal_id/, "ambiguous first-definition nominal accessor must not remain public");

@@ -499,6 +499,12 @@ pub fn compile(opts: CompileOptions, source_map: &SourceMap)
  10. codegen::{wasm,llvm}   コード生成
 ```
 
+### public enum origin と checker session
+
+exact-VFS public export の enum entry は、visible name から元定義の module node / file / module-local DefId / name span へ戻した後、同じ file ID で source を parse / hoist / enum materialize する。`SelfhostExportedEnumOriginContext` は、その definition binding から導出した nominal ID を同じ producer 内で TypeArena へ追加し、enum session、arena、返却 TypeId、origin witness を一つのowner bundleとして閉じる。caller が export entry、source、scope、nominal ID、TypeId をproducer入力で差し替える経路はないが、contextの値は直接構築可能なためsemantic capabilityではない。後続consumerはcurrent graph/VFS/orderへ再validationする。
+
+この context が証明するのは同一 checker session 内の origin だけである。Rust 実装が持つ source path、declaration kind、arity、definition hash 由来の stable nominal identity とは分け、cross-session canonical key は後続 stage で付与する。
+
 各ステージは独立した `Result<_, Vec<Diagnostic>>` を返す。エラーがあっても可能な限り後段まで続行して診断をまとめる（エラー回復）。
 
 ---

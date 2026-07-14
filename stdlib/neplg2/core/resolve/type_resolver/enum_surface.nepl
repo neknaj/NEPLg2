@@ -1264,15 +1264,15 @@ fn selfhost_resolved_enum_session_attach_tokens %impure fn SelfhostResolvedEnumS
     let variants %Vec SelfhostResolvedEnumVariantHeader field::get session "variants"
     SelfhostResolvedEnumSession source tokens constructors definitions variants
 
-//: selfhost_resolved_enum_module_session_materialize_result: 1 sourceの全enum surfaceを一度だけ生成する
+//: selfhost_resolved_enum_module_session_materialize_with_file_id_result: file identity付き1 sourceの全enum surfaceを一度だけ生成する
 //:
-//: [契約/けいやく]: sourceを内部でlex/parseし、`SelfhostModuleAst`の全itemをsource順に1回走査します。返却sessionへitemを追加するpublic APIはありません。
+//: [契約/けいやく]: sourceを指定file IDで内部lex/parseし、`SelfhostModuleAst`の全itemをsource順に1回走査します。file IDはVFS / SourceMapのcallerが発行し、token、definition、variantの全spanに保持されます。返却sessionへitemを追加するpublic APIはありません。
 //: [authority boundary]: parser originは内部生成したsource/tokens/ASTだけです。`constructor_seed`はstruct/import等が先に占有したnamespace prefixであり、parser origin証明ではありません。
 //: [owner boundary]: constructor seedとsourceを消費し、成功時はsource/tokens/definitions/variants/constructorsを持つmove-only sessionを返します。失敗時は全ownerを閉じます。
 //: [type boundary]: omitted/reordered/duplicatedな外部ASTや別source token streamを受け取るsignatureを公開しません。
 //: [error variant]: lex、parse、origin、variant、constructor、allocation失敗をtyped kindに保ちます。
-pub fn selfhost_resolved_enum_module_session_materialize_result %impure fn SelfhostTypeConstructorTable impure fn str Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \constructor_seed\source:
-    match lex_all source:
+pub fn selfhost_resolved_enum_module_session_materialize_with_file_id_result %impure fn SelfhostTypeConstructorTable impure fn str impure fn i32 Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \constructor_seed\source\file_id:
+    match lex_all_with_file_id source file_id:
         Result::Ok tokens:
             match selfhost_parse_module_tokens source &tokens:
                 Result::Ok ast:
@@ -1289,14 +1289,19 @@ pub fn selfhost_resolved_enum_module_session_materialize_result %impure fn Selfh
                         Result::Err _e:
                             selfhost_module_ast_free ast
                             v::free tokens
-                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+                            Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::OutOfMemory source_span_empty_unchecked file_id 0
                 Result::Err _e:
                     v::free tokens
                     selfhost_type_constructor_table_free constructor_seed
-                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ModuleParseFailed source_span_empty_unchecked 0 0
+                    Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::ModuleParseFailed source_span_empty_unchecked file_id 0
         Result::Err e:
             selfhost_type_constructor_table_free constructor_seed
             Result::Err selfhost_resolved_enum_surface_error_new SelfhostResolvedEnumSurfaceErrorKind::LexFailed e.span
+
+//: selfhost_resolved_enum_module_session_materialize_result: single-file互換のfile_id=0 wrapper
+//: [契約/けいやく]: VFSに結び付くmulti-file callerはこのwrapperを使わず、file-id-aware入口を使います。
+pub fn selfhost_resolved_enum_module_session_materialize_result %impure fn SelfhostTypeConstructorTable impure fn str Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError \constructor_seed\source:
+    selfhost_resolved_enum_module_session_materialize_with_file_id_result constructor_seed source 0
 
 //: selfhost_resolved_enum_session_definition_len: dense definition数を返す
 //:

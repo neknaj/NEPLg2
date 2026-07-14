@@ -18,6 +18,7 @@ const checks = [
     "nodesrc/test_selfhost_qualified_enum_import_contract.js",
     "nodesrc/test_selfhost_public_import_visibility_contract.js",
     "nodesrc/test_selfhost_public_export_closure_contract.js",
+    "nodesrc/test_selfhost_exported_enum_origin_contract.js",
     "nodesrc/test_stdlib_match_decision_trees.js",
     "nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_fs_report_contract.js",
