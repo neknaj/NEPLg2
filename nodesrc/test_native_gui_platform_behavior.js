@@ -3233,6 +3233,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeFontResourceHost, /libc::O_RDONLY \| libc::O_CLOEXEC \| libc::O_NOFOLLOW/);
     assert.match(nativeFontResourceHost, /libc::O_NONBLOCK/);
     assert.match(nativeFontResourceHost, /OwnedFd::from_raw_fd\(fd\)/);
+    assert.match(nativeFontResourceHost, /NtCreateFile/);
+    assert.match(nativeFontResourceHost, /RootDirectory: root/);
+    assert.match(nativeFontResourceHost, /FILE_DIRECTORY_FILE \| FILE_OPEN_REPARSE_POINT/);
+    assert.match(nativeFontResourceHost, /FILE_NON_DIRECTORY_FILE \| FILE_OPEN_REPARSE_POINT/);
+    assert.match(nativeFontResourceHost, /attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0/);
+    assert.match(nativeFontResourceHost, /Attributes: 0/);
+    assert.doesNotMatch(nativeFontResourceHost, /OBJ_CASE_INSENSITIVE/);
     assert.match(nativeFontResourceHost, /named_pipe_is_rejected_without_blocking_open/);
     assert.match(nativeFontResourceHost, /RESOLVE_BENEATH \| RESOLVE_NO_MAGICLINKS \| RESOLVE_NO_SYMLINKS/);
     assert.match(nativeFontResourceHost, /File::from_raw_fd\(fd\)/);
@@ -3258,7 +3265,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner uses OS-managed resize and close state",
             "Letterboxed framebuffer hit testing is modeled with explicit surface state",
             "Native monotonic clock source uses Instant with i32 range failure",
-            "Native Linux and macOS font resource hosts open bounded snapshots beneath verified directory handles",
+            "Native Linux, macOS, and Windows font resource hosts open bounded snapshots beneath verified directory handles",
             "Native span-operation host ABI validates scalar packet input before injected sink execution",
             "Native RGBA8888 framebuffer sink requires complete span sequences without endian byte views",
             "Native RGB0 present buffer conversion uses explicit background alpha composition",

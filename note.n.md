@@ -168155,3 +168155,10 @@ MERGE_APPROVED
 
 - macOS native font resource hostに、configured root directory handleから各canonical path segmentを`openat` + `O_NOFOLLOW`で辿るbackendを追加した。中間segmentは`O_DIRECTORY`も要求し、symlinkやnon-directory aliasを最終file open前に拒否する。root open前metadataとopened descriptorのdevice/inode identityを照合し、final openは`O_NONBLOCK`でFIFOによる停止を防いでtyped non-binary errorへ写す。Linux root/final openにも同じidentity/FIFO対策を適用した。
 - Linux `openat2` backendとsnapshot/session上限は維持する。Windows root-handle-relative NT open、bare/headless provider、layout、rasterization、render2d、presentationは未完了であり、全体完成とは扱わない。`plan.md`は変更していない。
+
+2026-07-15 GUI font Windows secure resource open
+
+- Windows native font resource hostに、configured root handleをauthorityとして各canonical path segmentを`NtCreateFile`の`OBJECT_ATTRIBUTES.RootDirectory`から順に開くbackendを追加した。rootは`FILE_FLAG_OPEN_REPARSE_POINT`で取得した単一handleを検査後も保持してpathから再openせず、全segmentを`FILE_OPEN_REPARSE_POINT`で開いてreparse pointを拒否する。中間segmentはdirectory、最終segmentはnon-directoryを要求し、case-insensitive object lookupは使わない。
+- Windows cross-targetのlib/test typecheckとnative `nepl-gui-native` 537 testsを通した。Windows実機でのjunction/symlink fixtureは未実施であり、cross-target compileを実機runtime evidenceとは扱わない。
+- Native GUI platform source-policyにWindowsの`NtCreateFile` root-relative segment walk、parent/final option、reparse拒否、case-sensitive object attributesを固定した。
+- bare/headless provider、layout、rasterization、render2d、presentationは未完了であり、このcheckpointをfont engineまたはGUI library全体の完成とは扱わない。`plan.md`は変更していない。

@@ -77,12 +77,17 @@ impl NativeFontResourceHost {
                 ErrorKind::NotFound => NativeFontResourceRootError::Missing,
                 _ => NativeFontResourceRootError::BackendFailure,
             })?;
-        let expected_metadata = fs::metadata(&canonical_root)
-            .map_err(|_| NativeFontResourceRootError::BackendFailure)?;
-        if !expected_metadata.is_dir() {
-            return Err(NativeFontResourceRootError::NotDirectory);
-        }
-        let root_directory = open_resource_root_directory(&canonical_root, &expected_metadata)?;
+        #[cfg(target_os = "windows")]
+        let root_directory = open_resource_root_directory(&canonical_root)?;
+        #[cfg(not(target_os = "windows"))]
+        let root_directory = {
+            let expected_metadata = fs::metadata(&canonical_root)
+                .map_err(|_| NativeFontResourceRootError::BackendFailure)?;
+            if !expected_metadata.is_dir() {
+                return Err(NativeFontResourceRootError::NotDirectory);
+            }
+            open_resource_root_directory(&canonical_root, &expected_metadata)?
+        };
         Ok(Self {
             canonical_root: Some(canonical_root),
             root_directory: Some(root_directory),
@@ -238,7 +243,53 @@ fn open_resource_root_directory(
     Ok(root)
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(target_os = "windows")]
+fn open_resource_root_directory(
+    canonical_root: &Path,
+) -> Result<File, NativeFontResourceRootError> {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
+        FILE_FLAG_OPEN_REPARSE_POINT,
+    };
+
+    let root = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(canonical_root)
+        .map_err(|error| match error.kind() {
+            ErrorKind::NotFound => NativeFontResourceRootError::Missing,
+            _ => NativeFontResourceRootError::BackendFailure,
+        })?;
+    let (_, attributes) =
+        windows_file_identity(&root).ok_or(NativeFontResourceRootError::BackendFailure)?;
+    if attributes & FILE_ATTRIBUTE_DIRECTORY == 0 || attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+    {
+        return Err(NativeFontResourceRootError::NotDirectory);
+    }
+    Ok(root)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_file_identity(file: &File) -> Option<((u32, u64), u32)> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+    };
+
+    let mut information = BY_HANDLE_FILE_INFORMATION::default();
+    let succeeded =
+        unsafe { GetFileInformationByHandle(file.as_raw_handle() as _, &mut information) } != 0;
+    succeeded.then_some((
+        (
+            information.dwVolumeSerialNumber,
+            ((information.nFileIndexHigh as u64) << 32) | information.nFileIndexLow as u64,
+        ),
+        information.dwFileAttributes,
+    ))
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 fn open_resource_root_directory(
     canonical_root: &Path,
     _expected_metadata: &fs::Metadata,
@@ -378,7 +429,144 @@ fn map_macos_open_error(error: std::io::Error) -> i32 {
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(target_os = "windows")]
+fn open_resource_beneath(root: &File, relative: &Path) -> Result<File, i32> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
+    use windows_sys::Wdk::Storage::FileSystem::{
+        NtCreateFile, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN,
+        FILE_OPEN_REPARSE_POINT, FILE_SYNCHRONOUS_IO_NONALERT,
+    };
+    use windows_sys::Win32::Foundation::{HANDLE, UNICODE_STRING};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT, FILE_GENERIC_READ,
+        FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
+        SYNCHRONIZE,
+    };
+    use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
+
+    let segments = relative
+        .components()
+        .map(|component| match component {
+            Component::Normal(segment) => {
+                let encoded = segment.encode_wide().collect::<Vec<_>>();
+                if encoded.is_empty() || encoded.len() > (u16::MAX as usize / 2) {
+                    Err(())
+                } else {
+                    Ok(encoded)
+                }
+            }
+            _ => Err(()),
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH)?;
+    let Some((last, parents)) = segments.split_last() else {
+        return Err(GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH);
+    };
+
+    let mut parent: Option<OwnedHandle> = None;
+    for segment in parents {
+        let directory = parent
+            .as_ref()
+            .map_or_else(|| root.as_raw_handle(), AsRawHandle::as_raw_handle);
+        let opened = windows_nt_open_relative(
+            directory as HANDLE,
+            segment,
+            FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE,
+            FILE_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
+        )?;
+        let file = unsafe { File::from_raw_handle(opened as _) };
+        let (_, attributes) =
+            windows_file_identity(&file).ok_or(GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE)?;
+        if attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Err(GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH);
+        }
+        parent = Some(file.into());
+    }
+
+    let directory = parent
+        .as_ref()
+        .map_or_else(|| root.as_raw_handle(), AsRawHandle::as_raw_handle);
+    let opened = windows_nt_open_relative(
+        directory as HANDLE,
+        last,
+        FILE_GENERIC_READ | SYNCHRONIZE,
+        FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
+    )?;
+    let file = unsafe { File::from_raw_handle(opened as _) };
+    let (_, attributes) =
+        windows_file_identity(&file).ok_or(GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE)?;
+    if attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Err(GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH);
+    }
+    return Ok(file);
+
+    fn windows_nt_open_relative(
+        root: HANDLE,
+        segment: &[u16],
+        access: u32,
+        options: u32,
+    ) -> Result<HANDLE, i32> {
+        let name = UNICODE_STRING {
+            Length: (segment.len() * 2) as u16,
+            MaximumLength: (segment.len() * 2) as u16,
+            Buffer: segment.as_ptr() as *mut _,
+        };
+        let attributes = OBJECT_ATTRIBUTES {
+            Length: std::mem::size_of::<OBJECT_ATTRIBUTES>() as u32,
+            RootDirectory: root,
+            ObjectName: &name,
+            Attributes: 0,
+            SecurityDescriptor: std::ptr::null(),
+            SecurityQualityOfService: std::ptr::null(),
+        };
+        let mut status_block = IO_STATUS_BLOCK::default();
+        let mut handle: HANDLE = std::ptr::null_mut();
+        let status = unsafe {
+            NtCreateFile(
+                &mut handle,
+                access,
+                &attributes,
+                &mut status_block,
+                std::ptr::null(),
+                FILE_ATTRIBUTE_NORMAL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                FILE_OPEN,
+                options,
+                std::ptr::null(),
+                0,
+            )
+        };
+        if status >= 0 {
+            return Ok(handle);
+        }
+        Err(map_windows_nt_open_status(status))
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn map_windows_nt_open_status(status: i32) -> i32 {
+    use windows_sys::Win32::Foundation::{
+        STATUS_FILE_IS_A_DIRECTORY, STATUS_IO_REPARSE_TAG_NOT_HANDLED, STATUS_NOT_A_DIRECTORY,
+        STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+        STATUS_REPARSE_POINT_ENCOUNTERED, STATUS_STOPPED_ON_SYMLINK,
+    };
+
+    match status {
+        STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND => {
+            GUI_NATIVE_FONT_RESOURCE_STATUS_MISSING_RESOURCE
+        }
+        STATUS_NOT_A_DIRECTORY
+        | STATUS_IO_REPARSE_TAG_NOT_HANDLED
+        | STATUS_REPARSE_POINT_ENCOUNTERED
+        | STATUS_STOPPED_ON_SYMLINK => GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH,
+        STATUS_FILE_IS_A_DIRECTORY => GUI_NATIVE_FONT_RESOURCE_STATUS_PAYLOAD_NOT_BINARY,
+        _ => GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE,
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 fn open_resource_beneath(_root: &File, _relative: &Path) -> Result<File, i32> {
     Err(GUI_NATIVE_FONT_RESOURCE_STATUS_UNSUPPORTED)
 }
