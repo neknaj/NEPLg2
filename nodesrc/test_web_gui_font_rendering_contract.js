@@ -23412,6 +23412,33 @@ assertNoMatch(
     /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError:|pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal:|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_start\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_step\b/,
     "alloc/gui/font/sfnt/glyf F5ku owner-bearing boundary types and drain start/step must remain private",
 );
+assertMatch(allocFontSfntGlyfImpl, /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner:\s+inner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner/, "F5nxl must expose a new opaque checkpoint wrapper around the private actual metric owner");
+assertNoMatch(allocFontSfntGlyfImpl, /pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection\b/, "F5nxl checkpoint constructor and private metric projection must remain private");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at"), ["owner_invariants_for_contour inner", "metric_count", "IndexOutOfRange", "vec::get metrics metric_index", "metric_projection metric"], "F5nxl checkpoint read must validate plan-bound invariants before one owner-bound O(1) projection");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_summary"), ["owner_invariants_for_contour inner", "metric_count inner", "line_metric_count inner", "quadratic_metric_count inner", "metrics_len inner", "metrics_cap inner"], "F5nxl checkpoint summary must validate the owner before exposing total, kind, length, and capacity counts");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_build"), ["render_stroke_request_owner_start writer config", "render_stroke_source_segment_metric_checkpoint_plan_start request_owner"], "F5nxl production bridge must enter the private request-plan-cursor-metric chain through the legacy completed writer");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_start"), ["render_stroke_source_segment_metric_drain_owner_start cursor", "path_command_count", "DrainBudgetInvalid", "add path_command_count 1"], "F5nxl production bridge must derive a checked finite drain budget from the completed path command count");
+assertMatch(allocFontSfntGlyfImpl, /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError:\s+kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind\s+payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload/, "F5nxl production bridge errors must retain the private failing-stage owner payload");
+assertMatch(allocFontSfntGlyfImpl, /pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error_free\b/, "F5nxl production bridge errors must expose one ownership-closing free boundary");
+assertMatch(allocFontSfntGlyfImpl, /pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_free\b/, "F5nxl opaque checkpoint owner must expose single free");
+assertNoMatch(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at"), /field::get\s+inner\s+"(?:metrics|plan_owner)"|take_|full_scan|gui_sfnt_lookup_|gui_sfnt_parse_metadata/, "F5nxl checkpoint read must not split raw owner state or re-enter lookup/parser traversal");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, /pub struct GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner:\s+source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner\s+checkpoint %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner/, "F5nxl registered transition must keep the registered source and actual metric checkpoint in one owner");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start"), ["field::get completed \"source\"", "field::get completed \"writer\"", "metric_checkpoint_owner_build writer origin paint", "MetricCheckpointOwner source checkpoint"], "F5nxl registered transition must consume the completed source and writer exactly once before joining them");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, /pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_owner_free\b/, "F5nxl registered metric checkpoint owner must expose one combined free boundary");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start"), /gui_sfnt_lookup_|gui_sfnt_parse_metadata|fallback|platform|render command/, "F5nxl registered transition must not re-enter lookup, parser, fallback, platform, or final rendering");
+assertNoMatch(guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests, /neplg2:test\[skip\]/, "F5nxl metric checkpoint fixture must execute instead of remaining a source-policy-only skip");
+for (const fragment of [
+    "GuiSfntSimpleGlyphPathCommand::QuadraticTo",
+    "GuiSfntSimpleGlyphPathCommand::LineTo",
+    "metric_checkpoint_owner_build",
+    "metric_checkpoint_owner_summary",
+    "metric_checkpoint_owner_read_at",
+    "metric_checkpoint_owner_free",
+    "start_control_length_squared",
+    "length_squared",
+]) {
+    assert(guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests.includes(fragment), `F5nxl runtime fixture must include ${fragment}`);
+}
 for (const fragment of [
     "CursorInvariantFailed",
     "CursorScalarIndexNotZero",
@@ -23453,8 +23480,7 @@ for (const fragment of [
     assert(renderStrokeSourceSegmentMetricDrainErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ku drain error kind must include ${fragment}`);
 }
 for (const fragment of [
-    "cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor",
-    "completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner",
+    "recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner",
     "metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric",
     "cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind",
     "metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind",
@@ -23588,12 +23614,23 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5ku step must validate state, complete exactly at scalar_count, and delegate line/quadratic terminals to metric push helpers",
 );
 const renderStrokeSourceSegmentMetricDrainErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_free");
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner:\s+Cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor\s+Completed %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner/,
+    "alloc/gui/font/sfnt/glyf F5ku drain recovery authority must encode cursor/completed exclusivity as one enum",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner:/,
+    "alloc/gui/font/sfnt/glyf F5ku drain recovery authority must remain private",
+);
 assertOrderedFragments(
     renderStrokeSourceSegmentMetricDrainErrorFree,
     [
-        "Option::Some cursor_value",
+        "field::get error \"recovery_owner\"",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor_value",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor_value",
-        "Option::Some plan_owner",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Completed plan_owner",
         "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner",
         "vec::free metrics",
     ],

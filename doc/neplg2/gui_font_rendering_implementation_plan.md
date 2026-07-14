@@ -6624,6 +6624,14 @@ owner / state契約:
 - checked sealはcommand cursor、kind別summary、metric count、Vec len/capを照合する。sealed provenanceはowner-bound O(1) readだけを公開し、raw Vec/source splitや旧F5ku/F5kw pairingを公開しない。
 - actual numeric metric join、offset geometry、coverage、raster/render/platformは後続へ残す。
 
+### Phase F5nxl: registered actual stroke metric join
+
+- F5ku actual metric ownerはopaque public authorityとし、raw metric Vec、plan owner、constructor、takeは公開しない。公開面はcount summary、owner-bound O(1) indexed Copy metric read、single freeに限定する。
+- F5nxk sealed provenance ownerとactual metric ownerをmove-only join ownerへ束ねるproduction bridgeを追加し、metric count、line/quadratic count、len/capを照合してから走査を開始する。
+- join stepはterminal、budget、provenance read、actual metric read、metric index、variant、checked curve座標、stroke widthの順に検査し、全検査成功後だけcursorを進める。新しいmetric Vecやfull command scanは作らない。
+- LineとQuadraticを含むregistered drawable fixtureでmetric indexとpath command indexを区別し、座標、delta、squared length、typed mismatch、owner recoveryを検査する。既存8 Skip fixtureはzero-draw edge caseとして残す。
+- actual metric ownerを作るproduction checkpoint bridgeとdrawable runtime gateが揃うまでF5nxl完了とは扱わず、offset geometry以降へ進まない。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:

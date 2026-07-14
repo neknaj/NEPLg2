@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-12T23:17:28.308Z",
+  "generated_at": "2026-07-14T02:01:42.916Z",
   "counts": {
-    "total": 1373,
-    "open": 59,
+    "total": 1374,
+    "open": 60,
     "resolved": 1314,
     "by_area": {
       "stdlib": {
@@ -15,6 +15,11 @@
         "total": 665,
         "open": 28,
         "resolved": 637
+      },
+      "RESOURCE": {
+        "total": 5,
+        "open": 1,
+        "resolved": 4
       },
       "selfhost": {
         "total": 119,
@@ -60,11 +65,6 @@
         "total": 3,
         "open": 0,
         "resolved": 3
-      },
-      "RESOURCE": {
-        "total": 4,
-        "open": 0,
-        "resolved": 4
       },
       "ci": {
         "total": 5,
@@ -518,6 +518,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260604T000000000Z-TEST-MODE-DIRECTIVE-FOR-DOCTEST-AND-CLI-TEST.md"
+    },
+    {
+      "id": "ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A",
+      "title": "Exclusive variant owner copy aliases sibling payloads",
+      "area": "RESOURCE",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-07-13",
+      "updated": "2026-07-14",
+      "target": "nepl-core/src/resource/initialized_alias.rs, nepl-core/src/resource/owner_variant.rs, nepl-core/tests/resource_ir.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260713T062424364Z-EXCLUSIVE-VARIANT-OWNER-COPY-ALIASES-FBD4236A.md"
     },
     {
       "id": "ISS-20260604T034255066Z-SELFHOST-PARSER-AND-CHECKER-DO-NOT-I-7C1C8941",

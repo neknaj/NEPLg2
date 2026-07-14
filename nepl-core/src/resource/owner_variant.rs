@@ -1,6 +1,5 @@
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -8,7 +7,7 @@ use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::{Place, PlaceRoot, ResourceMatchPattern};
+use super::model::{OwnerState, Place, PlaceRoot, ResourceMatchPattern, StorageId};
 use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::summarize_owner_storage_extent_for_owner;
@@ -26,7 +25,9 @@ use super::owner_variant_utils::{
     push_unique_variant_consumed_source, push_unique_variant_projection_return,
 };
 use super::owner_variant_value_condition::PendingVariantValueCondition;
-use super::place_utils::{place_with_suffix, places_overlap};
+use super::place_utils::{
+    place_suffix_after_prefix, place_with_suffix, places_overlap, replace_place_prefix,
+};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 use super::summary::{
@@ -148,33 +149,35 @@ impl PendingVariantOwnerEffects {
             .collect::<Vec<_>>();
         let available =
             snapshot_return_availability(&matching_returns, engine, owners, raw_aliases);
-        let mut applied_targets = BTreeMap::<Place, Vec<Place>>::new();
+        let mut applied_targets = Vec::<AppliedOwnerTarget>::new();
         for (index, entry) in matching_returns.iter().enumerate() {
             if should_skip_unavailable_alternative(&matching_returns, &available, index) {
                 continue;
             }
             let target = summary_projection_place(scrutinee, &entry.target_suffix, entry.target_ty);
-            let source = available
+            let source_identity = available
                 .get(index)
-                .and_then(|availability| availability.source.as_ref());
-            if let Some(source) = source {
-                if let Some(applied_target) =
-                    mutually_exclusive_applied_target(&applied_targets, source, &target)
-                {
-                    if copy_exclusive_applied_target(
+                .and_then(|availability| availability.source_identity.as_ref());
+            if let Some(source_identity) = source_identity {
+                let applied_candidates =
+                    mutually_exclusive_applied_targets(&applied_targets, source_identity, &target);
+                if applied_candidates.into_iter().any(|applied_target| {
+                    copy_exclusive_applied_target(
                         owners,
                         raw_aliases,
                         raw_views,
                         storage_origins,
-                        applied_target,
+                        &applied_target,
                         &target,
-                    ) {
-                        applied_targets
-                            .entry(source.clone())
-                            .or_default()
-                            .push(target);
-                        continue;
+                    )
+                }) {
+                    if available[index].source.is_some() {
+                        applied_targets.push(AppliedOwnerTarget {
+                            source_identity: source_identity.clone(),
+                            target,
+                        });
                     }
+                    continue;
                 }
             }
             let applied_source = apply_pending_variant_owner_return(
@@ -188,7 +191,14 @@ impl PendingVariantOwnerEffects {
                 span,
             );
             if let Some(source) = applied_source {
-                applied_targets.entry(source).or_default().push(target);
+                let source_identity = available
+                    .get(index)
+                    .and_then(|availability| availability.source_identity.clone())
+                    .unwrap_or(AppliedOwnerSourceKey::Place(source.clone()));
+                applied_targets.push(AppliedOwnerTarget {
+                    source_identity,
+                    target,
+                });
             }
         }
     }
@@ -884,12 +894,16 @@ fn snapshot_return_availability(
         .iter()
         .map(|entry| {
             let source = pending_return_source(entry, raw_aliases);
+            let source_identity = source
+                .as_ref()
+                .map(|source| applied_owner_source_key(owners, raw_aliases, source));
             let transferable = source
                 .as_ref()
                 .map(|source| engine.has_transferable_owner(owners, raw_aliases, source))
                 .unwrap_or(true);
             PendingReturnAvailability {
                 source,
+                source_identity,
                 transferable,
             }
         })
@@ -898,7 +912,84 @@ fn snapshot_return_availability(
 
 struct PendingReturnAvailability {
     source: Option<Place>,
+    source_identity: Option<AppliedOwnerSourceKey>,
     transferable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum AppliedOwnerSourceKey {
+    OwnerSignature(Vec<(Vec<super::model::PlaceProjection>, OwnerSourceStateKey)>),
+    Place(Place),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum OwnerSourceStateKey {
+    Live(StorageId),
+    MaybeFreed(Option<StorageId>),
+    Reserved(Option<StorageId>),
+    Moved,
+    Freed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AppliedOwnerTarget {
+    source_identity: AppliedOwnerSourceKey,
+    target: Place,
+}
+
+fn applied_owner_source_key(
+    owners: &OwnerTable,
+    raw_aliases: &RawCellAddressAliases,
+    source: &Place,
+) -> AppliedOwnerSourceKey {
+    let resolved = resolve_owner_alias_place(owners, raw_aliases, source);
+    if let Some(signature) = owner_storage_signature(owners, &resolved) {
+        return AppliedOwnerSourceKey::OwnerSignature(signature);
+    }
+    AppliedOwnerSourceKey::Place(resolved)
+}
+
+fn owner_storage_signature(
+    owners: &OwnerTable,
+    source: &Place,
+) -> Option<Vec<(Vec<super::model::PlaceProjection>, OwnerSourceStateKey)>> {
+    let mut signature = Vec::new();
+    let mut has_transferable = false;
+    if let Some(state) = owners.state(source) {
+        if let Some(state) = owner_source_state_key(state) {
+            has_transferable |= matches!(
+                state,
+                OwnerSourceStateKey::Live(_) | OwnerSourceStateKey::MaybeFreed(Some(_))
+            );
+            signature.push((Vec::new(), state));
+        }
+    }
+    for entry in owners.descendant_entries(source) {
+        let Some(state) = owner_source_state_key(entry.state) else {
+            continue;
+        };
+        has_transferable |= matches!(
+            state,
+            OwnerSourceStateKey::Live(_) | OwnerSourceStateKey::MaybeFreed(Some(_))
+        );
+        let Some(suffix) = place_suffix_after_prefix(&entry.place, source) else {
+            continue;
+        };
+        signature.push((suffix, state));
+    }
+    signature.sort();
+    has_transferable.then_some(signature)
+}
+
+fn owner_source_state_key(state: OwnerState) -> Option<OwnerSourceStateKey> {
+    match state {
+        OwnerState::Live { storage, .. } => Some(OwnerSourceStateKey::Live(storage)),
+        OwnerState::MaybeFreed { storage } => Some(OwnerSourceStateKey::MaybeFreed(storage)),
+        OwnerState::Reserved { storage } => Some(OwnerSourceStateKey::Reserved(storage)),
+        OwnerState::Moved => Some(OwnerSourceStateKey::Moved),
+        OwnerState::Freed => Some(OwnerSourceStateKey::Freed),
+        OwnerState::NoFreeObligation => None,
+    }
 }
 
 fn should_skip_unavailable_alternative(
@@ -957,15 +1048,23 @@ fn places_are_mutually_exclusive(left: Option<&Place>, right: Option<&Place>) ->
     false
 }
 
-fn mutually_exclusive_applied_target<'a>(
-    applied_targets: &'a BTreeMap<Place, Vec<Place>>,
-    source: &Place,
+fn mutually_exclusive_applied_targets(
+    applied_targets: &[AppliedOwnerTarget],
+    source_identity: &AppliedOwnerSourceKey,
     target: &Place,
-) -> Option<&'a Place> {
+) -> Vec<Place> {
     applied_targets
-        .get(source)?
         .iter()
-        .find(|applied_target| places_are_mutually_exclusive(Some(applied_target), Some(target)))
+        .filter_map(|applied| {
+            if applied.source_identity == *source_identity
+                && applied.target.ty == target.ty
+                && places_are_mutually_exclusive(Some(&applied.target), Some(target))
+            {
+                return Some(applied.target.clone());
+            }
+            None
+        })
+        .collect()
 }
 
 fn copy_exclusive_applied_target(
@@ -976,17 +1075,73 @@ fn copy_exclusive_applied_target(
     source: &Place,
     target: &Place,
 ) -> bool {
-    if owners.has_tracked_state_under(target) || !owners.has_transferable_owner(source) {
+    if source.ty != target.ty {
         return false;
     }
-    let Some(state) = owners.state(source) else {
+    if target_has_nonreplaceable_state(owners, target) || !owners.has_transferable_owner(source) {
         return false;
-    };
-    owners.set_state(target, state);
-    raw_aliases.copy_alias_if_tracked_preserving_target(source, target);
-    raw_views.copy(source, target);
-    storage_origins.copy_origin(source, target);
+    }
+    let entries = transferable_entries_under(owners, source);
+    if entries.is_empty() {
+        return false;
+    }
+    if owners.state(source).is_some_and(|state| {
+        matches!(
+            state,
+            OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed
+        )
+    }) {
+        return false;
+    }
+    if owners.descendant_entries(source).iter().any(|unavailable| {
+        matches!(
+            unavailable.state,
+            OwnerState::Reserved { .. } | OwnerState::Moved | OwnerState::Freed
+        ) && entries.iter().any(|entry| {
+            !places_are_mutually_exclusive(Some(&unavailable.place), Some(&entry.place))
+        })
+    }) {
+        return false;
+    }
+    for entry in entries {
+        let Some(copied) = replace_place_prefix(&entry.place, source, target) else {
+            return false;
+        };
+        owners.set_state(&copied, entry.state);
+        raw_aliases.copy_exclusive_variant_facts(&entry.place, &copied);
+        raw_views.copy(&entry.place, &copied);
+        storage_origins.copy_origin(&entry.place, &copied);
+    }
     true
+}
+
+fn transferable_entries_under(
+    owners: &OwnerTable,
+    source: &Place,
+) -> Vec<super::model::OwnerStateEntry> {
+    owners
+        .live_entries_under(source)
+        .into_iter()
+        .filter(|entry| {
+            matches!(
+                entry.state,
+                OwnerState::Live { .. } | OwnerState::MaybeFreed { .. }
+            )
+        })
+        .collect()
+}
+
+fn target_has_nonreplaceable_state(owners: &OwnerTable, target: &Place) -> bool {
+    owners
+        .state(target)
+        .into_iter()
+        .chain(
+            owners
+                .descendant_entries(target)
+                .into_iter()
+                .map(|entry| entry.state),
+        )
+        .any(|state| !matches!(state, OwnerState::NoFreeObligation))
 }
 
 #[cfg(test)]
@@ -1019,16 +1174,137 @@ mod alternative_tests {
     }
 
     fn availability(variant: &str, transferable: bool) -> PendingReturnAvailability {
+        let source = place_with_suffix(
+            &Place::unknown(TypeId(2)),
+            &[super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from(variant),
+            }],
+            TypeId(1),
+        );
         PendingReturnAvailability {
-            source: Some(place_with_suffix(
-                &Place::unknown(TypeId(2)),
-                &[super::super::model::PlaceProjection::EnumPayload {
-                    variant: String::from(variant),
-                }],
-                TypeId(1),
-            )),
+            source: Some(source.clone()),
+            source_identity: Some(AppliedOwnerSourceKey::Place(source)),
             transferable,
         }
+    }
+
+    #[test]
+    fn exclusive_return_identity_collapses_raw_alias_forms() {
+        let canonical = Place::local(String::from("canonical"), TypeId(1));
+        let left_alias = Place::local(String::from("left_alias"), TypeId(1));
+        let right_alias = Place::local(String::from("right_alias"), TypeId(1));
+        let mut owners = OwnerTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        owners.allocate(&canonical);
+        raw_aliases.mark(&canonical);
+        raw_aliases.copy_alias_if_tracked(&canonical, &left_alias);
+        raw_aliases.copy_alias_if_tracked(&canonical, &right_alias);
+
+        let left_key = applied_owner_source_key(&owners, &raw_aliases, &left_alias);
+        let right_key = applied_owner_source_key(&owners, &raw_aliases, &right_alias);
+        assert_eq!(
+            left_key,
+            AppliedOwnerSourceKey::OwnerSignature(vec![(
+                Vec::new(),
+                OwnerSourceStateKey::Live(StorageId(0)),
+            )])
+        );
+        assert_eq!(left_key, right_key);
+
+        owners.set_state(&left_alias, OwnerState::NoFreeObligation);
+        let left_key = applied_owner_source_key(&owners, &raw_aliases, &left_alias);
+        let right_key = applied_owner_source_key(&owners, &raw_aliases, &right_alias);
+        assert_eq!(
+            left_key,
+            AppliedOwnerSourceKey::OwnerSignature(vec![(
+                Vec::new(),
+                OwnerSourceStateKey::Live(StorageId(0)),
+            )])
+        );
+        assert_eq!(left_key, right_key);
+
+        owners.set_state(&left_alias, OwnerState::Moved);
+        assert_eq!(
+            applied_owner_source_key(&owners, &raw_aliases, &left_alias),
+            AppliedOwnerSourceKey::Place(left_alias.clone())
+        );
+        owners.set_state(&left_alias, OwnerState::NoFreeObligation);
+
+        let left_aggregate = Place::local(String::from("left_aggregate"), TypeId(2));
+        let right_aggregate = Place::local(String::from("right_aggregate"), TypeId(2));
+        let left_leaf = place_with_suffix(
+            &left_aggregate,
+            &[super::super::model::PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }],
+            TypeId(1),
+        );
+        let right_leaf = replace_place_prefix(&left_leaf, &left_aggregate, &right_aggregate)
+            .expect("aggregate leaf prefix");
+        owners.set_state(
+            &left_leaf,
+            OwnerState::Live {
+                storage: StorageId(7),
+                extent: super::super::model::OwnerStorageExtent::Unknown,
+            },
+        );
+        owners.set_state(
+            &right_leaf,
+            OwnerState::Live {
+                storage: StorageId(7),
+                extent: super::super::model::OwnerStorageExtent::Unknown,
+            },
+        );
+        assert_eq!(
+            applied_owner_source_key(&owners, &raw_aliases, &left_aggregate),
+            applied_owner_source_key(&owners, &raw_aliases, &right_aggregate)
+        );
+
+        let swapped_left = Place::local(String::from("swapped_left"), TypeId(2));
+        let swapped_right = Place::local(String::from("swapped_right"), TypeId(2));
+        let field = |base: &Place, index: usize| {
+            place_with_suffix(
+                base,
+                &[super::super::model::PlaceProjection::Field {
+                    index,
+                    offset_bytes: index * 8,
+                }],
+                TypeId(1),
+            )
+        };
+        owners.set_state(
+            &field(&swapped_left, 0),
+            OwnerState::Live {
+                storage: StorageId(8),
+                extent: super::super::model::OwnerStorageExtent::Unknown,
+            },
+        );
+        owners.set_state(
+            &field(&swapped_left, 1),
+            OwnerState::Live {
+                storage: StorageId(9),
+                extent: super::super::model::OwnerStorageExtent::Unknown,
+            },
+        );
+        owners.set_state(
+            &field(&swapped_right, 0),
+            OwnerState::Live {
+                storage: StorageId(9),
+                extent: super::super::model::OwnerStorageExtent::Unknown,
+            },
+        );
+        owners.set_state(
+            &field(&swapped_right, 1),
+            OwnerState::Live {
+                storage: StorageId(8),
+                extent: super::super::model::OwnerStorageExtent::Unknown,
+            },
+        );
+        assert_ne!(
+            applied_owner_source_key(&owners, &raw_aliases, &swapped_left),
+            applied_owner_source_key(&owners, &raw_aliases, &swapped_right)
+        );
     }
 
     #[test]
@@ -1077,18 +1353,262 @@ mod alternative_tests {
             }],
             TypeId(1),
         );
-        let applied = BTreeMap::from([(source.clone(), vec![left.clone()])]);
+        let source_key = AppliedOwnerSourceKey::Place(source.clone());
+        let other_source_key = AppliedOwnerSourceKey::Place(other_source.clone());
+        let applied = vec![AppliedOwnerTarget {
+            source_identity: source_key.clone(),
+            target: left.clone(),
+        }];
         assert_eq!(
-            mutually_exclusive_applied_target(&applied, &source, &right),
-            Some(&left)
+            mutually_exclusive_applied_targets(&applied, &source_key, &right,),
+            vec![left.clone()]
         );
         assert_eq!(
-            mutually_exclusive_applied_target(&applied, &other_source, &right),
-            None
+            mutually_exclusive_applied_targets(&applied, &other_source_key, &right,),
+            Vec::new()
+        );
+        let mut wrong_type_right = right.clone();
+        wrong_type_right.ty = TypeId(4);
+        assert_eq!(
+            mutually_exclusive_applied_targets(&applied, &source_key, &wrong_type_right,),
+            Vec::new()
         );
         assert_eq!(
-            mutually_exclusive_applied_target(&applied, &source, &left),
-            None
+            mutually_exclusive_applied_targets(&applied, &source_key, &left,),
+            Vec::new()
+        );
+        let struct_root = Place::unknown(TypeId(5));
+        let first_field = place_with_suffix(
+            &struct_root,
+            &[super::super::model::PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }],
+            TypeId(1),
+        );
+        let second_field = place_with_suffix(
+            &struct_root,
+            &[super::super::model::PlaceProjection::Field {
+                index: 1,
+                offset_bytes: 8,
+            }],
+            TypeId(1),
+        );
+        let struct_applied = vec![AppliedOwnerTarget {
+            source_identity: source_key.clone(),
+            target: first_field,
+        }];
+        assert_eq!(
+            mutually_exclusive_applied_targets(&struct_applied, &source_key, &second_field),
+            Vec::new()
+        );
+    }
+
+    #[test]
+    fn exclusive_applied_targets_keep_sibling_owner_aliases_disjoint() {
+        let mut owners = OwnerTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        let mut raw_views = RawAddressViewTable::default();
+        let mut storage_origins = StorageOriginTable::default();
+        let source = Place::local(String::from("source"), TypeId(1));
+        let root = Place::local(String::from("result"), TypeId(2));
+        let left = place_with_suffix(
+            &root,
+            &[super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from("Left"),
+            }],
+            TypeId(1),
+        );
+        let right = place_with_suffix(
+            &root,
+            &[super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from("Right"),
+            }],
+            TypeId(1),
+        );
+        owners.allocate(&source);
+        raw_aliases.mark(&source);
+        owners.set_state(&left, super::super::model::OwnerState::NoFreeObligation);
+        owners.set_state(&right, super::super::model::OwnerState::NoFreeObligation);
+
+        assert!(copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &source,
+            &left,
+        ));
+        assert!(copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &left,
+            &right,
+        ));
+
+        assert_eq!(owners.state(&left), owners.state(&right));
+        assert!(!raw_aliases.aliases_for(&left).contains(&right));
+        assert!(!raw_aliases.aliases_for(&right).contains(&left));
+        assert!(raw_aliases.contains_marked_alias(&left));
+        assert!(raw_aliases.contains_marked_alias(&right));
+    }
+
+    #[test]
+    fn exclusive_applied_targets_copy_aggregate_owner_subtrees() {
+        let mut owners = OwnerTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        let mut raw_views = RawAddressViewTable::default();
+        let mut storage_origins = StorageOriginTable::default();
+        let source = Place::local(String::from("source"), TypeId(1));
+        let result = Place::local(String::from("result"), TypeId(2));
+        let left = place_with_suffix(
+            &result,
+            &[super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from("Left"),
+            }],
+            TypeId(1),
+        );
+        let right = place_with_suffix(
+            &result,
+            &[super::super::model::PlaceProjection::EnumPayload {
+                variant: String::from("Right"),
+            }],
+            TypeId(1),
+        );
+        let field = |base: &Place, index: usize| {
+            place_with_suffix(
+                base,
+                &[super::super::model::PlaceProjection::Field {
+                    index,
+                    offset_bytes: index * 8,
+                }],
+                TypeId(3),
+            )
+        };
+        let source_first = field(&source, 0);
+        let source_second = field(&source, 1);
+        let left_first = field(&left, 0);
+        let left_second = field(&left, 1);
+        let right_first = field(&right, 0);
+        let right_second = field(&right, 1);
+        owners.allocate(&source_first);
+        owners.allocate(&source_second);
+        raw_aliases.mark(&source_first);
+        raw_aliases.mark(&source_second);
+        owners.set_state(
+            &left_first,
+            super::super::model::OwnerState::NoFreeObligation,
+        );
+        owners.set_state(
+            &left_second,
+            super::super::model::OwnerState::NoFreeObligation,
+        );
+        owners.set_state(
+            &right_first,
+            super::super::model::OwnerState::NoFreeObligation,
+        );
+        owners.set_state(
+            &right_second,
+            super::super::model::OwnerState::NoFreeObligation,
+        );
+
+        assert!(copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &source,
+            &left,
+        ));
+        assert!(copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &left,
+            &right,
+        ));
+
+        assert_eq!(owners.state(&left_first), owners.state(&right_first));
+        assert_eq!(owners.state(&left_second), owners.state(&right_second));
+        assert!(!raw_aliases.aliases_for(&left_first).contains(&right_first));
+        assert!(!raw_aliases
+            .aliases_for(&left_second)
+            .contains(&right_second));
+
+        let blocked = Place::local(String::from("blocked"), TypeId(2));
+        let blocked_first = field(&blocked, 0);
+        let blocked_second = field(&blocked, 1);
+        owners.set_state(&source_first, OwnerState::Moved);
+        owners.set_state(&blocked_first, OwnerState::NoFreeObligation);
+        owners.set_state(&blocked_second, OwnerState::NoFreeObligation);
+        assert!(!copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &source,
+            &blocked,
+        ));
+        assert_eq!(
+            owners.state(&blocked_first),
+            Some(OwnerState::NoFreeObligation)
+        );
+        assert_eq!(
+            owners.state(&blocked_second),
+            Some(OwnerState::NoFreeObligation)
+        );
+    }
+
+    #[test]
+    fn exclusive_applied_target_allows_unavailable_enum_siblings() {
+        let mut owners = OwnerTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        let mut raw_views = RawAddressViewTable::default();
+        let mut storage_origins = StorageOriginTable::default();
+        let source = Place::local(String::from("source"), TypeId(2));
+        let target = Place::local(String::from("target"), TypeId(2));
+        let payload = |base: &Place, variant: &str| {
+            place_with_suffix(
+                base,
+                &[
+                    super::super::model::PlaceProjection::EnumPayload {
+                        variant: String::from(variant),
+                    },
+                    super::super::model::PlaceProjection::Field {
+                        index: 0,
+                        offset_bytes: 0,
+                    },
+                ],
+                TypeId(1),
+            )
+        };
+        let source_ready = payload(&source, "Ready");
+        let source_empty = payload(&source, "Empty");
+        let target_ready = payload(&target, "Ready");
+        let target_empty = payload(&target, "Empty");
+        owners.allocate(&source_ready);
+        owners.set_state(&source_empty, OwnerState::Moved);
+        owners.set_state(&target_ready, OwnerState::NoFreeObligation);
+        owners.set_state(&target_empty, OwnerState::NoFreeObligation);
+
+        assert!(copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &source,
+            &target,
+        ));
+        assert!(matches!(
+            owners.state(&target_ready),
+            Some(OwnerState::Live { .. })
+        ));
+        assert_eq!(
+            owners.state(&target_empty),
+            Some(OwnerState::NoFreeObligation)
         );
     }
 
@@ -1142,6 +1662,19 @@ mod alternative_tests {
         assert_eq!(
             owners.state(&occupied),
             Some(super::super::model::OwnerState::Moved)
+        );
+        owners.set_state(&occupied, super::super::model::OwnerState::Freed);
+        assert!(!copy_exclusive_applied_target(
+            &mut owners,
+            &mut raw_aliases,
+            &mut raw_views,
+            &mut storage_origins,
+            &source,
+            &occupied,
+        ));
+        assert_eq!(
+            owners.state(&occupied),
+            Some(super::super::model::OwnerState::Freed)
         );
     }
 }

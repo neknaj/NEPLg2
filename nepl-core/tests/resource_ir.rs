@@ -18310,6 +18310,457 @@ fn probe <(OwnerPair,bool,bool,bool,bool,bool)*>Result<Step,StepError>> (owner, 
 }
 
 #[test]
+fn resource_ir_owner_check_consumes_mutually_exclusive_nested_terminal_payloads() {
+    let source = r#"
+#entry main
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+#import "core/result" as *
+
+enum LeafState:
+    Ready <RegionToken<u8>>
+    Empty
+
+struct LeafOwner:
+    state <LeafState>
+
+struct CursorOwner:
+    first <LeafOwner>
+    second <LeafOwner>
+
+struct SegmentStep:
+    cursor <CursorOwner>
+
+enum CursorTerminal:
+    Completed <CursorOwner>
+    StateUpdated <CursorOwner>
+    LineSegment <SegmentStep>
+    QuadraticSegment <SegmentStep>
+
+fn route_terminal <(CursorOwner,i32)*>Result<CursorTerminal,i32>> (cursor, tag):
+    if:
+        eq tag 0
+        then:
+            Result<CursorTerminal,i32>::Ok CursorTerminal::Completed cursor
+        else if:
+            eq tag 1
+            then:
+                Result<CursorTerminal,i32>::Ok CursorTerminal::StateUpdated cursor
+            else if:
+                eq tag 2
+                then:
+                    Result<CursorTerminal,i32>::Ok CursorTerminal::LineSegment SegmentStep cursor
+                else:
+                    Result<CursorTerminal,i32>::Ok CursorTerminal::QuadraticSegment SegmentStep cursor
+
+fn free_leaf <(LeafOwner)*>()> (leaf):
+    match field::get leaf "state":
+        LeafState::Ready region:
+            match dealloc_region<u8> region:
+                Result::Ok _:
+                    ()
+                Result::Err _:
+                    #intrinsic "unreachable" <> ()
+        LeafState::Empty:
+            ()
+
+fn free_cursor <(CursorOwner)*>()> (cursor):
+    free_leaf field::get cursor "first"
+    free_leaf field::get cursor "second"
+
+fn cursor_step <(CursorOwner,i32,bool)*>Result<CursorTerminal,i32>> (cursor, tag, keep_owner):
+    if:
+        keep_owner
+        then:
+            route_terminal cursor tag
+        else:
+            free_cursor cursor
+            let empty <CursorOwner> CursorOwner (LeafOwner LeafState::Empty) (LeafOwner LeafState::Empty)
+            route_terminal empty tag
+
+enum DrainTerminal:
+    StateUpdated <CursorOwner>
+    MetricPushed <CursorOwner>
+    Completed <CursorOwner>
+
+fn drain_step <(CursorOwner,i32)*>Result<DrainTerminal,CursorOwner>> (cursor, tag):
+    if:
+        eq tag 0
+        then:
+            Result<DrainTerminal,CursorOwner>::Ok DrainTerminal::Completed cursor
+        else if:
+            eq tag 1
+            then:
+                Result<DrainTerminal,CursorOwner>::Ok DrainTerminal::StateUpdated cursor
+            else if:
+                eq tag 2
+                then:
+                    Result<DrainTerminal,CursorOwner>::Ok DrainTerminal::MetricPushed cursor
+                else:
+                    Result<DrainTerminal,CursorOwner>::Err cursor
+
+fn drain_to_complete <(CursorOwner,i32,i32)*>Result<CursorOwner,CursorOwner>> (cursor, tag, remaining):
+    if:
+        le remaining 0
+        then:
+            Result<CursorOwner,CursorOwner>::Err cursor
+        else:
+            match drain_step cursor tag:
+                Result::Err error_owner:
+                    Result<CursorOwner,CursorOwner>::Err error_owner
+                Result::Ok terminal:
+                    match terminal:
+                        DrainTerminal::StateUpdated next:
+                            drain_to_complete next 0 sub remaining 1
+                        DrainTerminal::MetricPushed next:
+                            drain_to_complete next 0 sub remaining 1
+                        DrainTerminal::Completed completed:
+                            Result<CursorOwner,CursorOwner>::Ok completed
+
+fn consume_step <(CursorOwner,i32)*>()> (cursor, tag):
+    match cursor_step cursor tag true:
+        Result::Err _:
+            #intrinsic "unreachable" <> ()
+        Result::Ok terminal:
+            match terminal:
+                CursorTerminal::Completed completed:
+                    free_cursor completed
+                CursorTerminal::StateUpdated next:
+                    free_cursor next
+                CursorTerminal::LineSegment step:
+                    free_cursor field::get step "cursor"
+                CursorTerminal::QuadraticSegment step:
+                    free_cursor field::get step "cursor"
+
+fn main <()*>()> ():
+    match alloc_region_bytes<u8> 1:
+        Result::Err _:
+            ()
+        Result::Ok first_region:
+            match alloc_region_bytes<u8> 1:
+                Result::Err _:
+                    free_leaf LeafOwner LeafState::Ready first_region
+                Result::Ok second_region:
+                    let cursor <CursorOwner> CursorOwner (LeafOwner LeafState::Ready first_region) (LeafOwner LeafState::Ready second_region)
+                    match drain_to_complete cursor 1 2:
+                        Result::Err error_owner:
+                            free_cursor error_owner
+                        Result::Ok completed:
+                            free_cursor completed
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/sfnt/nested_terminal_owner_regression.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "mutually exclusive terminal payloads must not become raw aliases of sibling variants: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join("alloc/gui/font/sfnt/nested_terminal_owner_regression.nepl"),
+    )
+    .expect("nested mutually exclusive terminal payloads must pass normal compilation");
+}
+
+#[test]
+fn resource_ir_owner_check_routes_recursive_drain_through_distinct_completed_owner() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+#import "core/result" as *
+
+enum VecStorage:
+    Empty
+    Owned <RegionToken<u8>>
+
+struct OwnedBuffer:
+    len <i32>
+    initialized_len <i32>
+    cap <i32>
+    storage <VecStorage>
+
+struct VecOwner:
+    buffer <OwnedBuffer>
+
+struct SinkOwner:
+    scalar_count <i32>
+    event_count <i32>
+    path_sink_scalars <VecOwner>
+    raster_mask_scalars <VecOwner>
+
+struct WriterOwner:
+    owner <SinkOwner>
+
+struct RequestOwner:
+    writer <WriterOwner>
+
+struct PlanOwner:
+    request <RequestOwner>
+
+struct CursorOwner:
+    plan <PlanOwner>
+    scalar_index <i32>
+
+struct CursorStep:
+    cursor <CursorOwner>
+
+enum CursorTerminal:
+    Completed <PlanOwner>
+    StateUpdated <CursorOwner>
+    Line <CursorStep>
+    Quadratic <CursorStep>
+
+struct CursorError:
+    cursor <CursorOwner>
+
+struct DrainOwner:
+    cursor <CursorOwner>
+    metrics <VecOwner>
+    progress <i32>
+
+struct CompletedOwner:
+    plan <PlanOwner>
+    metrics <VecOwner>
+    progress <i32>
+
+enum DrainTerminal:
+    StateUpdated <DrainOwner>
+    MetricPushed <DrainOwner>
+    Completed <CompletedOwner>
+
+enum DrainRecoveryOwner:
+    Cursor <CursorOwner>
+    Completed <PlanOwner>
+
+struct DrainError:
+    recovery_owner <DrainRecoveryOwner>
+    metrics <VecOwner>
+    progress <i32>
+
+enum BuildErrorPayload:
+    Step <DrainError>
+    Budget <DrainOwner>
+    Completed <CompletedOwner>
+
+struct BuildError:
+    payload <BuildErrorPayload>
+
+struct Checkpoint:
+    completed <CompletedOwner>
+
+fn sink_owner <(VecOwner,VecOwner)->SinkOwner> (path_sink_scalars, raster_mask_scalars):
+    SinkOwner 0 0 path_sink_scalars raster_mask_scalars
+
+fn writer_owner <(SinkOwner)->WriterOwner> (owner):
+    WriterOwner owner
+
+fn request_owner <(WriterOwner)->RequestOwner> (writer):
+    RequestOwner writer
+
+fn plan_owner <(RequestOwner)->PlanOwner> (request):
+    PlanOwner request
+
+fn cursor_owner <(PlanOwner,i32)->CursorOwner> (plan, scalar_index):
+    CursorOwner plan scalar_index
+
+fn drain_owner <(CursorOwner,VecOwner,i32)->DrainOwner> (cursor, metrics, progress):
+    DrainOwner cursor metrics progress
+
+fn drain_error_from_cursor <(CursorOwner,VecOwner,i32)->DrainError> (cursor, metrics, progress):
+    DrainError DrainRecoveryOwner::Cursor cursor metrics progress
+
+fn drain_error_from_completed <(CompletedOwner)->DrainError> (completed):
+    let plan <PlanOwner> field::get completed "plan"
+    let metrics <VecOwner> field::get completed "metrics"
+    let progress <i32> field::get completed "progress"
+    DrainError DrainRecoveryOwner::Completed plan metrics progress
+
+fn build_error <(BuildErrorPayload)->BuildError> (payload):
+    BuildError payload
+
+fn checkpoint_owner <(CompletedOwner)->Checkpoint> (completed):
+    Checkpoint completed
+
+fn cursor_invariants <(&CursorOwner)->Result<(),i32>> (cursor):
+    if:
+        ge *field::get_ref cursor "scalar_index" 0
+        then:
+            Result<(),i32>::Ok ()
+        else:
+            Result<(),i32>::Err 1
+
+fn cursor_state_step <(CursorOwner)*>Result<CursorTerminal,CursorError>> (cursor):
+    match cursor_invariants &cursor:
+        Result::Err _:
+            Result<CursorTerminal,CursorError>::Err CursorError cursor
+        Result::Ok _:
+            Result<CursorTerminal,CursorError>::Ok CursorTerminal::StateUpdated cursor
+
+fn cursor_line_step <(CursorOwner)*>Result<CursorTerminal,CursorError>> (cursor):
+    match cursor_invariants &cursor:
+        Result::Err _:
+            Result<CursorTerminal,CursorError>::Err CursorError cursor
+        Result::Ok _:
+            Result<CursorTerminal,CursorError>::Ok CursorTerminal::Line CursorStep cursor
+
+fn cursor_quadratic_step <(CursorOwner)*>Result<CursorTerminal,CursorError>> (cursor):
+    match cursor_invariants &cursor:
+        Result::Err _:
+            Result<CursorTerminal,CursorError>::Err CursorError cursor
+        Result::Ok _:
+            Result<CursorTerminal,CursorError>::Ok CursorTerminal::Quadratic CursorStep cursor
+
+fn cursor_step <(CursorOwner,i32)*>Result<CursorTerminal,CursorError>> (cursor, tag):
+    match cursor_invariants &cursor:
+        Result::Err _:
+            Result<CursorTerminal,CursorError>::Err CursorError cursor
+        Result::Ok _:
+            if:
+                eq tag 0
+                then:
+                    let plan <PlanOwner> field::get cursor "plan"
+                    Result<CursorTerminal,CursorError>::Ok CursorTerminal::Completed plan
+                else if:
+                    eq tag 1
+                    then:
+                        cursor_state_step cursor
+                    else if:
+                        eq tag 2
+                        then:
+                            cursor_line_step cursor
+                        else if:
+                            eq tag 3
+                            then:
+                                cursor_quadratic_step cursor
+                            else:
+                                Result<CursorTerminal,CursorError>::Err CursorError cursor
+
+fn drain_step <(DrainOwner,i32)*>Result<DrainTerminal,DrainError>> (owner, tag):
+    let cursor <CursorOwner> field::get owner "cursor"
+    let metrics <VecOwner> field::get owner "metrics"
+    let progress <i32> field::get owner "progress"
+    if:
+        eq tag 0
+        then:
+            match cursor_step cursor tag:
+                Result::Err lower:
+                    let returned_cursor <CursorOwner> field::get lower "cursor"
+                    Result<DrainTerminal,DrainError>::Err drain_error_from_cursor returned_cursor metrics progress
+                Result::Ok terminal:
+                    match terminal:
+                        CursorTerminal::Completed plan:
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::Completed CompletedOwner plan metrics progress
+                        CursorTerminal::StateUpdated next:
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::StateUpdated DrainOwner next metrics progress
+                        CursorTerminal::Line step:
+                            let next <CursorOwner> field::get step "cursor"
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::MetricPushed DrainOwner next metrics progress
+                        CursorTerminal::Quadratic step:
+                            let next <CursorOwner> field::get step "cursor"
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::MetricPushed DrainOwner next metrics progress
+        else:
+            match cursor_step cursor tag:
+                Result::Err lower:
+                    let returned_cursor <CursorOwner> field::get lower "cursor"
+                    Result<DrainTerminal,DrainError>::Err drain_error_from_cursor returned_cursor metrics progress
+                Result::Ok terminal:
+                    match terminal:
+                        CursorTerminal::Completed plan:
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::Completed CompletedOwner plan metrics progress
+                        CursorTerminal::StateUpdated next:
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::StateUpdated DrainOwner next metrics progress
+                        CursorTerminal::Line step:
+                            let next <CursorOwner> field::get step "cursor"
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::MetricPushed DrainOwner next metrics progress
+                        CursorTerminal::Quadratic step:
+                            let next <CursorOwner> field::get step "cursor"
+                            Result<DrainTerminal,DrainError>::Ok DrainTerminal::MetricPushed DrainOwner next metrics progress
+
+fn completed_invariants <(&CompletedOwner)->Result<(),i32>> (owner):
+    if:
+        ge *field::get_ref owner "progress" 0
+        then:
+            Result<(),i32>::Ok ()
+        else:
+            Result<(),i32>::Err 1
+
+fn drain_to_checkpoint <(DrainOwner,i32,i32,bool)*>Result<Checkpoint,BuildError>> (owner, remaining, tag, completed_valid):
+    if:
+        le remaining 0
+        then:
+            Result<Checkpoint,BuildError>::Err build_error BuildErrorPayload::Budget owner
+        else:
+            match drain_step owner tag:
+                Result::Err lower:
+                    Result<Checkpoint,BuildError>::Err build_error BuildErrorPayload::Step lower
+                Result::Ok terminal:
+                    match terminal:
+                        DrainTerminal::StateUpdated next:
+                            drain_to_checkpoint next sub remaining 1 0 completed_valid
+                        DrainTerminal::MetricPushed next:
+                            drain_to_checkpoint next sub remaining 1 0 completed_valid
+                        DrainTerminal::Completed completed:
+                            match completed_invariants &completed:
+                                Result::Err _:
+                                    Result<Checkpoint,BuildError>::Err build_error BuildErrorPayload::Step drain_error_from_completed completed
+                                Result::Ok _:
+                                    if:
+                                        completed_valid
+                                        then:
+                                            Result<Checkpoint,BuildError>::Ok checkpoint_owner completed
+                                        else:
+                                            Result<Checkpoint,BuildError>::Err build_error BuildErrorPayload::Step drain_error_from_completed completed
+
+fn probe <(VecOwner,VecOwner,VecOwner,i32,i32,bool)*>Result<Checkpoint,BuildError>> (path_sink_scalars, raster_mask_scalars, metrics, remaining, tag, completed_valid):
+    let sink <SinkOwner> sink_owner path_sink_scalars raster_mask_scalars
+    let writer <WriterOwner> writer_owner sink
+    let request <RequestOwner> request_owner writer
+    let plan <PlanOwner> plan_owner request
+    let cursor <CursorOwner> cursor_owner plan 0
+    let owner <DrainOwner> drain_owner cursor metrics 0
+    drain_to_checkpoint owner remaining tag completed_valid
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/sfnt/recursive_distinct_completed_owner_regression.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "recursive drain results must preserve both writer leaves across distinct completed and error wrappers: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
+    compile_resource_source_with_path(
+        source,
+        CompileTarget::Wasm,
+        stdlib_root().join("alloc/gui/font/sfnt/recursive_distinct_completed_owner_regression.nepl"),
+    )
+    .expect("recursive distinct completed owner must pass normal compilation");
+}
+
+#[test]
 fn resource_ir_owner_check_routes_production_shaped_five_owner_budget_variants() {
     let source = r#"
 #indent 4
