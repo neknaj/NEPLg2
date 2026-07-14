@@ -84131,3 +84131,10 @@ MERGE_APPROVED
 - 上記の「約29秒で実行完走」は、runnerがWASI warningを返した後もNode子processが継続していたため誤りだった。修正前後ともprocess終了を監視したactual direct doctestは180秒以内に完走せず、このruntime gateは未達として扱う。
 - native debug stackではshallow type arity preloadがpublic re-export cycleを不完全結果として捨て、同じsource scanとdependency path解決を反復していた。cacheをlocal hints / dependency paths / complete root closureへ分離し、空visitedから始まるroot DFSだけを完全閉包として再利用する。cycleとdiamondのprovider readを各source 1回へ固定するRust回帰テストは通過した。
 - `trunk build`は通過したが、修正版WASMのactual direct doctestも105秒時点で継続していたため停止した。次回は修正版WASMのCPU profileからarity preload後の支配的経路を特定し、actual processが終了コード0で消滅するまでruntime完了を主張しない。セルフホストコンパイラ全体も未完成である。
+
+## 2026-07-14 Match direct runtime Resource ownership repair
+
+- Linux filesystemへstdlibとfixtureを複製してWSLの`canonicalize` I/Oを除外したnative release検証により、direct fixtureはloaderの重複読込ではなくselfhost facade全体のResource解析を進み、最終的に`resource.cell.uninit`を3件報告することを確認した。従って未完走の根因は単なるrunner timeoutではなく、matched `Option` payload越しのnested span projectionにもあった。
+- enum variant spelling比較はmatched headerを値へコピーしてから`name_span`をコピーする。Match actual member connectorは既存`selfhost_match_actual_arm_spans`へprojectionを集約し、同helperが`field::get`で作るCopy spanだけをmember gateへ渡す。borrowed aggregateのnested fieldを直接投影しないResource ownership境界をcontractで固定した。
+- shallow arity closure cacheはcycle/diamondのsource再読を除去したが、full facadeのinitialized move解析はnativeでも支配的であり、性能問題は未解決である。actual direct gateの終了コードを確認するまでruntime完了とは扱わず、checked Match tree、arm body型統一、HIR / Resource輸送を含むセルフホストコンパイラ全体も未完成である。`plan.md`は変更していない。
+- 修正後の`trunk build`成果物でactual direct fixtureを再実行したが、600秒でprocessが終了せずtimeoutの終了コード124となった。contract、loader cycle/diamond 2/2、issues check、Playground editor CLI JSON 13/13は通過したが、全体整合reviewがactual runtimeを統合前Blockerと判定したため、このcheckpointは作業branchに留め、mainへ統合しない。

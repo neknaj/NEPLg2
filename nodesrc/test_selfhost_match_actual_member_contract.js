@@ -50,7 +50,8 @@ if (!consumer.includes("selfhost_exported_enum_origin_actual_context_result grap
 for (const needle of [
   "selfhost_match_context_from_vfs vfs path function_ordinal segment_ordinal",
   "selfhost_match_scrutinee_single_named_value_result selfhost_match_context_tokens &context",
-  "selfhost_match_variant_arm_direct_alias selfhost_match_context_arms &context arm",
+  "selfhost_match_actual_arm_spans &context arm_ordinal",
+  "spans.alias spans.enum_name spans.member",
   "selfhost_check_exported_enum_member_actual_context_result graph vfs order path",
 ]) {
   if (!composite.includes(needle)) throw new Error(`actual Match composite missing: ${needle}`);

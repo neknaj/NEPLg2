@@ -132,25 +132,20 @@ pub fn selfhost_check_match_single_named_value_actual_member_result %impure fn &
                     selfhost_type_constructor_table_free constructors
                     Result::Err SelfhostMatchActualMemberError::Scrutinee e
                 Result::Ok root:
-                    match selfhost_match_variant_arm_list_get selfhost_match_context_arms &context arm_ordinal:
-                        Option::None:
+                    match selfhost_match_actual_arm_spans &context arm_ordinal:
+                        Result::Err projection_error:
                             selfhost_match_context_free context
                             selfhost_type_arena_free arena
                             selfhost_type_constructor_table_free constructors
-                            Result::Err SelfhostMatchActualMemberError::ArmOutOfBounds
-                        Option::Some arm:
-                            match selfhost_match_variant_arm_direct_alias selfhost_match_context_arms &context arm:
-                                Option::None:
-                                    selfhost_match_context_free context
-                                    selfhost_type_arena_free arena
-                                    selfhost_type_constructor_table_free constructors
-                                    Result::Err SelfhostMatchActualMemberError::PatternNotDirectAlias
-                                Option::Some direct:
-                                    let checked %Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError selfhost_check_exported_enum_member_actual_context_result graph vfs order path direct.alias.span direct.enum_name.span direct.member.span arena constructors root.ty
-                                    selfhost_match_context_free context
-                                    match checked:
-                                        Result::Err e: Result::Err SelfhostMatchActualMemberError::Member e
-                                        Result::Ok result: Result::Ok result
+                            match projection_error:
+                                SelfhostMatchActualArmProjectionError::ArmOutOfBounds: Result::Err SelfhostMatchActualMemberError::ArmOutOfBounds
+                                SelfhostMatchActualArmProjectionError::PatternNotDirectAlias: Result::Err SelfhostMatchActualMemberError::PatternNotDirectAlias
+                        Result::Ok spans:
+                            let checked %Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError selfhost_check_exported_enum_member_actual_context_result graph vfs order path spans.alias spans.enum_name spans.member arena constructors root.ty
+                            selfhost_match_context_free context
+                            match checked:
+                                Result::Err e: Result::Err SelfhostMatchActualMemberError::Member e
+                                Result::Ok result: Result::Ok result
 
 //: selfhost_check_match_checked_actual_member_result: checked reduction rootをactual member gateへ接続する
 //:

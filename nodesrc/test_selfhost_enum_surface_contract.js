@@ -47,6 +47,8 @@ assert.doesNotMatch(source, /pub fn selfhost_resolved_enum_session_nominal_id/, 
 assert.doesNotMatch(source, /pub fn selfhost_resolved_enum_variant_name_eq/, "variant spelling must not be compared against an external source");
 const nameEq = topLevelBlock("fn", "selfhost_resolved_enum_session_variant_name_eq");
 assert.match(nameEq, /&SelfhostResolvedEnumSession[\s\S]*variant_idx[\s\S]*field::get_ref session "source"/, "variant spelling lookup must remain bound to the session-owned source and variant index");
+assert.match(nameEq, /let variant_value %SelfhostResolvedEnumVariantHeader variant[\s\S]*let name_span %SelfhostSourceSpan variant_value\.name_span/, "variant spelling lookup must copy the matched payload and nested span before projection");
+assert.doesNotMatch(nameEq, /variant\.name_span/, "variant spelling lookup must not project nested fields through the matched Option payload");
 const append = topLevelBlock("fn", "selfhost_resolved_enum_session_append_result");
 assert.match(append, /SelfhostModuleItemKind::EnumDecl[\s\S]*item\.declaration[\s\S]*item\.declaration_body[\s\S]*selfhost_resolved_enum_surface_materialize_header_result/, "session append must start from actual parser EnumDecl evidence");
 assert.doesNotMatch(append, /selfhost_named_type_id_new/, "session append must not forge a raw table-local nominal ID");

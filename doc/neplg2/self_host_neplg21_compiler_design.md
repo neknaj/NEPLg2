@@ -3825,6 +3825,8 @@ table validationはidentityのnon-placeholder / schema / range / dense ordinal m
 
 leading Match contextが所有するscrutinee rangeを既存body-line checkerへ渡し、`expected = None`の1回の検査で得たchecked treeのroot nodeからactual `SelfhostTypeId`を再取得する。今回actual VFSからmember identityまで実行確認するscrutineeはdirect callに限定し、通常のcall reduction経路を通す。明示ascriptionとpipeも同じbody-line入口へ接続されるが、actual Match connectorを横断する実行証拠は後続sliceで固定する。root nodeと型recordがそれぞれchecked treeと同じarenaに存在しない場合はtyped errorとしてfail closedにする。
 
+Match armとenum variantの名前spanは、matched `Option` payloadのborrowを保ったままnested fieldへ投影しない。Match connectorはarm projection helperが作るCopy span bundleを受け取り、enum sessionはvariant headerを値へコピーした後にspanをコピーする。これによりparser ownerの寿命をsemantic authorityへ昇格させず、Resource checkerが各spanを初期化済みの独立値として追跡できる。
+
 成功ownerはreduction、checked arguments、checked tree、root id、root typeとactual exported enum member contextを同時に保持する。arenaはscrutinee checkerからmember gateへmoveし、caller supplied range、span、TypeId、nominal、raw member nameをsemantic authorityにしない。scope、value evidence、signature、candidate、constructor tableが同じchecker phaseから来ることは現段階のpreconditionであり、このconnector単体はproduction checker authorityを発行しない。
 
 Rust checkerは最初のexpectedなし検査が失敗した場合、arm variant patternのqualified nameからexpected enum typeを導出し、diagnostic/type contextのcheckpointをrollbackしてscrutineeを再検査する。今回のsliceは最初の試行だけを接続し、arm-derived expected type推論、transaction rollback、overload再試行を実装済みと扱わない。checked Match tree、arm body型統一、payload bind、網羅性、HIR / Resource輸送も後続境界である。

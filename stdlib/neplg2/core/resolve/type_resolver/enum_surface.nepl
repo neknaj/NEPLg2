@@ -893,13 +893,15 @@ pub fn selfhost_resolved_enum_session_variant_name_eq %fn &SelfhostResolvedEnumS
     let variants %&Vec SelfhostResolvedEnumVariantHeader field::get_ref session "variants"
     match v::get variants variant_idx:
         Option::Some variant:
+            let variant_value %SelfhostResolvedEnumVariantHeader variant
+            let name_span %SelfhostSourceSpan variant_value.name_span
             if:
-                not eq sub variant.name_span.end variant.name_span.start string_access::len expected
+                not eq sub name_span.end name_span.start string_access::len expected
                 then:
                     false
                 else:
                     let source %str *field::get_ref session "source"
-                    selfhost_resolved_enum_surface_span_text_eq_loop source variant.name_span.start expected 0 string_access::len expected
+                    selfhost_resolved_enum_surface_span_text_eq_loop source name_span.start expected 0 string_access::len expected
         Option::None:
             false
 
