@@ -168162,3 +168162,10 @@ MERGE_APPROVED
 - Windows cross-targetのlib/test typecheckとnative `nepl-gui-native` 537 testsを通した。Windows実機でのjunction/symlink fixtureは未実施であり、cross-target compileを実機runtime evidenceとは扱わない。
 - Native GUI platform source-policyにWindowsの`NtCreateFile` root-relative segment walk、parent/final option、reparse拒否、case-sensitive object attributesを固定した。
 - bare/headless provider、layout、rasterization、render2d、presentationは未完了であり、このcheckpointをfont engineまたはGUI library全体の完成とは扱わない。`plan.md`は変更していない。
+
+## 2026-07-15 owner variant return leaf reuse
+
+- owner variant戻り値再走査をclone / nested path / replay / final effectへ分解し、nested leafでは`check_ops`よりrecord区間が支配することを確認した。前turnで試したsingleton replayのchunk化はA/Bで改善せず撤回済みである。
+- `record_variant_projection_returns`は同じresult typeの`owner_leaf_places`をprojectionごとに再計算していた。record呼出しの入口で一度だけ展開し、全projectionのexact suffix/type判定へ共有した。長寿命map cacheは追加せず、以前悪化したglobal cache管理費を避けた。
+- proof/check cache無効の交互A/B 2組はbaseline owner summary `19430ms / 15871ms`、変更後`17458ms / 15777ms`。pipelineはbaseline `77454ms / 68787ms`、変更後`73359ms / 74340ms`で他stageの揺れが残る。owner summary局所の平均は約5.9%短縮したが、selfhost compilerと0.5秒目標は未完成である。`plan.md`は変更していない。
+- `cargo check -p nepl-core`、owner summary 29件、nepl-core全876件、rustfmt、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。resource responsibility policyは今回未変更の`place_utils.rs`にmain既存の`rsplit("::")`があるため失敗し、HEAD内容でも同じ箇所を確認した。

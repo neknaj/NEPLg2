@@ -4219,3 +4219,8 @@ full selfhost Match direct fixtureでは`resource_initialized_function_checks`�
 mergeの入口でfirst-seen順の`Vec`とは別に`BTreeSet`を重複判定へ使い、入力の一意placeから作る出力は同じ順序で直接追加する。各pathにはexact state mapと、元のcell順を保ったinitialized/non-initialized viewを一度だけ構築する。availabilityの優先順位は、exact non-initialized、ancestor、descendant、raw-cell、exact initialized、initialized projection、untracked external、uninitializedの順を変えない。これは階層照合を含む完全な漸近索引ではなく、重複収集と出力挿入の二次走査を除き、exact lookupと候補partitionで実負荷を減らすcompile-local viewである。
 
 同じproof/check cache無効のnative release actual Match direct fixtureでは、直前のloggingなし値`resource_initialized_function_checks=41845ms`、`resource_initialized_moves=71930ms`、`resource_static_check=126571ms`、pipeline約136.1秒に対し、`19919ms`、`38911ms`、`63416ms`、pipeline約71.4秒となり、`Check successful`を維持した。NEPL source、Resource contract、proof key、diagnostic policyは変更していない。selfhost compiler全体と0.5秒目標は未完成であり、残るinitialized summary、owner summary、loader/typecheckを継続して削減する。
+## 2026-07-15 owner variant return のcompile-local leaf reuse
+
+Owner variant projection returnを記録する際、ownerを運べるprojectionかどうかはresult typeのowner leaf集合とのexact suffix/type照合で判定する。このowner leaf集合は同一record呼出し中の全projectionで不変なので、一度だけ展開して共有する。共有範囲はcompile-localな1回のrecord呼出しに限定し、TypeCtxを跨ぐglobal cacheやproof artifactには含めない。
+
+この再利用はprojectionの走査順、variant正規化、source condition、extent mergeを変更しない。owner leaf展開結果を長寿命cacheへ保持すると小さい関数でmap管理費が上回り得るため、関数固定点全体ではなく実際に重複が存在する局所境界だけを対象とする。

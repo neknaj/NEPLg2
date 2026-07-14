@@ -837,6 +837,12 @@ per-function timingではowner return summary worklistが同じrecursive call-re
 
 function summary全体で共有するpath accumulatorを追加し、同一variantの各return leafはexact intersection、異なるvariantは独立、factなしpathとvariant不明pathは明示的なempty observationとして扱うようにした。unknown pathは後から観測されるvariantにもfactを追加させない。矛盾pairの後処理やiteration capではなく、path境界を保持できるproducerで修正している。
 
+### 2026-07-15 owner variant return leaf reuse
+
+actual Match direct fixtureのowner variant戻り値収集を段階計測すると、state cloneやleaf pathの`check_ops`ではなく、各projectionのowner carrier判定を含むrecord区間が支配していた。`record_variant_projection_returns`は同じresult typeに対してprojectionごとに`owner_leaf_places`を再展開していたため、named / applied / enum payloadを再帰走査する不変計算がreturn leaf数だけ繰り返されていた。
+
+result typeのowner leaf集合をrecord呼出しごとに一度だけ構築し、全projectionのexact suffix/type照合で共有するようにした。判定条件、projection順序、dedup、extent merge、proof keyは変更していない。proof/check cache無効の交互2組では`resource_owner_summaries`がbaseline `19430ms / 15871ms`に対して変更後`17458ms / 15777ms`だった。全pipelineは他Resource stageの変動が大きいため、この局所改善だけで0.5秒目標達成とは扱わずissueはopenのままとする。
+
 native releaseのactual Match direct fixtureは `resource_owner_summary_recomputations=3958 summaries=2488`、`resource_owner_summaries=35866ms`、全 `resource_static_check=161698ms` で固定点を抜け、`Check successful` / exit 0になった。従来の300秒・600秒 exit 124は解消したが、selfhost compiler全体と当performance issueの0.5秒目標は未完了である。
 
 ### 2026-07-15 initialized path marker transfer

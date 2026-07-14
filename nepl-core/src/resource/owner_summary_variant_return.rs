@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId};
 
 use super::model::{Place, PlaceProjection};
-use super::owner_summary_leaf::owner_leaf_places;
+use super::owner_summary_leaf::{owner_leaf_places, OwnerLeafPlace};
 use super::owner_summary_record::{
     parameter_return_extent_for_source, OwnerParameterStorageSource,
 };
@@ -22,12 +22,17 @@ pub(super) fn record_variant_projection_returns(
     parameter_storage_sources: &[OwnerParameterStorageSource],
 ) -> Vec<OwnerProjectionSource> {
     let variant = normalize_variant_name(variant);
+    let mut owner_leaves = None;
     let mut ambiguous_parameter_sources = Vec::new();
     for projection in projection_returns {
         if !projection_targets_variant(projection, &variant) {
             continue;
         }
-        if !projection_can_carry_owner(types, result_ty, projection) {
+        let owner_leaves = owner_leaves.get_or_insert_with(|| {
+            let result = Place::unknown(result_ty);
+            owner_leaf_places(types, &result)
+        });
+        if !projection_can_carry_owner(owner_leaves, projection) {
             continue;
         }
         for parameter_index in &projection.parameter_indices {
@@ -111,12 +116,10 @@ pub(super) fn record_variant_projection_returns(
 }
 
 fn projection_can_carry_owner(
-    types: &TypeCtx,
-    result_ty: TypeId,
+    owner_leaves: &[OwnerLeafPlace],
     projection: &OwnerProjectionReturnSummary,
 ) -> bool {
-    let result = Place::unknown(result_ty);
-    owner_leaf_places(types, &result)
+    owner_leaves
         .iter()
         .any(|leaf| leaf.suffix == projection.suffix && leaf.place.ty == projection.ty)
 }
