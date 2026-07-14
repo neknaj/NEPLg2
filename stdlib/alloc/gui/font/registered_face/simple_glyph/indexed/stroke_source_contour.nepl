@@ -163,6 +163,10 @@ pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind:
     VariantMismatch
     CoordinateMismatch
     StrokeWidthMismatch
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind \kind: *kind
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind \kind: kind
 
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError:
     owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner
@@ -211,6 +215,10 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError:
 
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
     IndexOutOfRange
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind \kind: *kind
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind \kind: kind
 
 //: command_from_span: commandとindexed spanのidentityを一か所で検査します
 //:
