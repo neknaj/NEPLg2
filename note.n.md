@@ -84138,3 +84138,9 @@ MERGE_APPROVED
 - enum variant spelling比較はmatched headerを値へコピーしてから`name_span`をコピーする。Match actual member connectorは既存`selfhost_match_actual_arm_spans`へprojectionを集約し、同helperが`field::get`で作るCopy spanだけをmember gateへ渡す。borrowed aggregateのnested fieldを直接投影しないResource ownership境界をcontractで固定した。
 - shallow arity closure cacheはcycle/diamondのsource再読を除去したが、full facadeのinitialized move解析はnativeでも支配的であり、性能問題は未解決である。actual direct gateの終了コードを確認するまでruntime完了とは扱わず、checked Match tree、arm body型統一、HIR / Resource輸送を含むセルフホストコンパイラ全体も未完成である。`plan.md`は変更していない。
 - 修正後の`trunk build`成果物でactual direct fixtureを再実行したが、600秒でprocessが終了せずtimeoutの終了コード124となった。contract、loader cycle/diamond 2/2、issues check、Playground editor CLI JSON 13/13は通過したが、全体整合reviewがactual runtimeを統合前Blockerと判定したため、このcheckpointは作業branchに留め、mainへ統合しない。
+
+## 2026-07-15 selfhost reserved-name Resource path normalization
+
+- native per-function / op-level計測で、type parameter / constructorの予約名判定2関数がnested `if` 13段をResource path alternatives 1〜4で反復し、final initialized checkの約25秒を占めることを確認した。固定集合のstring比較はすべて純粋なので、short-circuit branch列をeagerな`or` call列へ正規化し、同じ13名を保ったままhelper自身のResource branchを生成しない。
+- Rust CellTable index化とcopy `EndScope` metadata退役も比較実装したが、full fixtureのfinal initialized checkを改善せず逆に悪化したため全て撤回した。推測によるRust変更は残していない。
+- CPU競合下のnative再検証は300秒でtimeoutし、actual runtime gateは引き続き未達である。このcheckpointを全体完成や統合可能状態とは扱わない。`plan.md`は変更していない。

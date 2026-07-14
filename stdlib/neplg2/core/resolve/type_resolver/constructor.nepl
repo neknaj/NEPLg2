@@ -633,60 +633,36 @@ pub fn selfhost_type_constructor_add_result_into_table %impure fn SelfhostTypeCo
 //:
 //: [計算量/けいさんりょう]:
 //: - primitive type 名の個数に対する固定長比較なので、現状は `O(1)` と扱います。
+//: - 各比較は副作用がないためeagerな`or`で合成し、Resource pathを予約語数ぶん生成しません。
 //:
 //: [type boundary]:
 //: - primitive type / marker と user-defined named type constructor の境界を切る helper です。`SelfhostTypeConstructorKind` はこの検査を通った名前にだけ付与します。
 fn selfhost_type_constructor_name_is_reserved %fn str bool \name:
-    if:
+    or:
         string_search::str_eq name "void"
-        then:
-            true
-        else if:
+        or:
             string_search::str_eq name "fn"
-            then:
-                true
-            else if:
+            or:
                 string_search::str_eq name "impure"
-                then:
-                    true
-                else if:
+                or:
                     string_search::str_eq name "unit"
-                    then:
-                        true
-                    else if:
+                    or:
                         string_search::str_eq name "bool"
-                        then:
-                            true
-                        else if:
+                        or:
                             string_search::str_eq name "i32"
-                            then:
-                                true
-                            else if:
+                            or:
                                 string_search::str_eq name "i64"
-                                then:
-                                    true
-                                else if:
+                                or:
                                     string_search::str_eq name "u8"
-                                    then:
-                                        true
-                                    else if:
+                                    or:
                                         string_search::str_eq name "char"
-                                        then:
-                                            true
-                                        else if:
+                                        or:
                                             string_search::str_eq name "str"
-                                            then:
-                                                true
-                                            else if:
+                                            or:
                                                 string_search::str_eq name "f32"
-                                                then:
-                                                    true
-                                                else if:
+                                                or:
                                                     string_search::str_eq name "f64"
-                                                    then:
-                                                        true
-                                                    else:
-                                                        string_search::str_eq name "never"
+                                                    string_search::str_eq name "never"
 
 //: selfhost_type_constructor_kind_from_arity_checked: source header の arity を checked kind に[変換/へんかん]する
 //:

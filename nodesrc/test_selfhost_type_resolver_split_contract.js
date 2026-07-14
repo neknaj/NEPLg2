@@ -39,4 +39,19 @@ for (const relPath of TYPE_RESOLVER_SPLIT_FILES) {
     );
 }
 
+const reservedNames = ["void", "fn", "impure", "unit", "bool", "i32", "i64", "u8", "char", "str", "f32", "f64", "never"];
+for (const [relPath, functionName] of [
+    ["stdlib/neplg2/core/resolve/type_resolver/constructor.nepl", "selfhost_type_constructor_name_is_reserved"],
+    ["stdlib/neplg2/core/resolve/type_resolver/typeparam/env.nepl", "selfhost_type_parameter_name_is_reserved"],
+]) {
+    const source = readRepoFile(repoRoot, relPath);
+    const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const body = source.match(new RegExp(`^fn ${escaped}\\b[\\s\\S]*?(?=\\n(?:pub )?fn |\\n(?:pub )?(?:struct|enum|impl) |(?![\\s\\S]))`, "m"))?.[0] ?? "";
+    assert.ok(body, `${relPath} must define ${functionName}`);
+    const comparedNames = [...body.matchAll(/string_search::str_eq name "([^"]+)"/g)].map((match) => match[1]);
+    assert.deepEqual(comparedNames, reservedNames, `${functionName} must compare exactly the reserved-name set once and in canonical order`);
+    assert.equal((body.match(/\bor:/g) ?? []).length, reservedNames.length - 1, `${functionName} must compose the pure comparisons with exactly twelve eager or calls`);
+    assert.doesNotMatch(body, /\b(?:if:|match\s)/, `${functionName} must not lower its fixed pure set to Resource control branches`);
+}
+
 console.log("selfhost type resolver split contract passed");

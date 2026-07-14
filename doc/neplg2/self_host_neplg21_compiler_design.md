@@ -3827,6 +3827,8 @@ leading Match contextが所有するscrutinee rangeを既存body-line checkerへ
 
 Match armとenum variantの名前spanは、matched `Option` payloadのborrowを保ったままnested fieldへ投影しない。Match connectorはarm projection helperが作るCopy span bundleを受け取り、enum sessionはvariant headerを値へコピーした後にspanをコピーする。これによりparser ownerの寿命をsemantic authorityへ昇格させず、Resource checkerが各spanを初期化済みの独立値として追跡できる。
 
+type parameterとtype constructorの予約名集合は同じ13個の純粋なstring比較で定義する。固定集合の各比較には副作用も短絡評価への依存もないため、nested control branchではなくeagerな`or` call列へ正規化する。これによりcheckerの判定結果を変えず、selfhost compiler自身をResource解析したときに予約語数に比例するpath alternativesを作らない。
+
 成功ownerはreduction、checked arguments、checked tree、root id、root typeとactual exported enum member contextを同時に保持する。arenaはscrutinee checkerからmember gateへmoveし、caller supplied range、span、TypeId、nominal、raw member nameをsemantic authorityにしない。scope、value evidence、signature、candidate、constructor tableが同じchecker phaseから来ることは現段階のpreconditionであり、このconnector単体はproduction checker authorityを発行しない。
 
 Rust checkerは最初のexpectedなし検査が失敗した場合、arm variant patternのqualified nameからexpected enum typeを導出し、diagnostic/type contextのcheckpointをrollbackしてscrutineeを再検査する。今回のsliceは最初の試行だけを接続し、arm-derived expected type推論、transaction rollback、overload再試行を実装済みと扱わない。checked Match tree、arm body型統一、payload bind、網羅性、HIR / Resource輸送も後続境界である。

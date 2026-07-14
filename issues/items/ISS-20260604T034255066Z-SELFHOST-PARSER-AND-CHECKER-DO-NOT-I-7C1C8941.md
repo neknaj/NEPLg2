@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-06-04
-updated: 2026-07-14
+updated: 2026-07-15
 target: "stdlib/neplg2/core/syntax/parser/module_parser.nepl, stdlib/neplg2/core/check/checker.nepl"
 ---
 
@@ -609,3 +609,4 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - direct call、ascription、pipeは同じreducerを使い、range/span/TypeId/nominal/raw member名をcaller authorityにしない。成功ownerはarenaを持つmember contextとchecked arguments/tree/rootを同時に保持する。
 - Rust同様のarm-derived expected type推論、diagnostic/type context rollback、再試行、checked Match tree / HIR / Resource輸送は後続sliceであり、セルフホストコンパイラ全体は未完成である。
 - actual VFSからchecked rootとmember identityまでのruntime gateについて、WASI warning後も子processが継続していた実行を約29秒の完走と誤認していた。終了コードを監視した再検証ではcompiler analysisに長時間を要した後、matchしたOption payload越しのnested span projectionが`resource.cell.uninit`を3件報告した。enum variant headerとMatch arm spanを明示的なCopy境界で取り出し、borrowed payload越しにnested fieldを投影しない形へ修正した。direct / ascription / pipe / ambiguityは既存reducer component runtimeとcontractで維持し、Rust同様のarm-derived expected type推論とrollback/retryは次sliceである。
+- performance追跡では、予約名の純粋な固定集合判定をnested `if`で書いた2関数だけがResource path replayを約25秒生成していた。同じ13比較をeagerな`or`へ正規化し、contractで集合とbranch不在を固定した。full actual fixtureはCPU競合下の300秒上限ではなお完走せず、runtime gateとセルフホスト全体は未完成である。
