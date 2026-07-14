@@ -838,3 +838,13 @@ per-function timingではowner return summary worklistが同じrecursive call-re
 function summary全体で共有するpath accumulatorを追加し、同一variantの各return leafはexact intersection、異なるvariantは独立、factなしpathとvariant不明pathは明示的なempty observationとして扱うようにした。unknown pathは後から観測されるvariantにもfactを追加させない。矛盾pairの後処理やiteration capではなく、path境界を保持できるproducerで修正している。
 
 native releaseのactual Match direct fixtureは `resource_owner_summary_recomputations=3958 summaries=2488`、`resource_owner_summaries=35866ms`、全 `resource_static_check=161698ms` で固定点を抜け、`Check successful` / exit 0になった。従来の300秒・600秒 exit 124は解消したが、selfhost compiler全体と当performance issueの0.5秒目標は未完了である。
+
+### 2026-07-15 initialized path marker transfer
+
+per-function / op-level計測では、`str_find`のLoop後に残る3 path alternativesへ、状態を変更しないHIR対応`Expr` markerまでpath別実行し、cell/raw alias等を毎回再mergeしていた。Loop markerと最終LocalRead markerだけで約3.1秒を使い、同じ構造がstdlib/selfhost全体にあった。
+
+initialized stateを変更しないmarkerと、fresh temporaryへ同一initialized factを追加するcontrol markerをpath-preserving transferへ分類した。fresh updateは既存merged stateと各alternativeへ同じ操作を配り、可換な更新後の全state再mergeを除いた。Deref/Intrinsic、local/projection outputなどpath固有factを持ち得るshapeは従来pathへ残す。
+
+actual fixtureは`resource_initialized_function_checks=48665ms`、`resource_initialized_moves=89740ms`、全check約161.6秒でexit 0だった。直前はそれぞれ約56.2秒、108.5秒、176.8秒である。`str_find`は約12.4秒から6.3秒へ低下した。0.5秒目標とselfhost compiler全体は未完了で、`str_line_end`等の残るpath-sensitive hotspotを継続する。
+
+最終predicate制約後のper-function loggingなし再計測も`resource_initialized_function_checks=41845ms`、`resource_initialized_moves=71930ms`、`resource_static_check=126571ms`、全pipeline約136.1秒で`Check successful`を維持した。logging有無で絶対値が変わるため、改善比較には上記の同条件値を用いる。

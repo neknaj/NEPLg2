@@ -32,7 +32,9 @@ use super::initialized_function_check_value_cache::{
     record_initialized_function_check_value_cache_candidate,
     replay_initialized_function_check_from_value_cache,
 };
-use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
+use super::initialized_path_state::{
+    merge_path_alternatives_into, ResourceCheckState, ResourcePathAlternatives,
+};
 use super::initialized_scalar_flow::{
     compute_i32_scalar_return_summaries, I32ScalarReturnSummaryIndex,
 };
@@ -382,12 +384,12 @@ pub(super) fn op_can_run_on_merged_path_state(_types: &TypeCtx, op: &ResourceOp)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PathPreservingFastOp {
     NoStateChange,
-    FreshLiteralExpr,
+    FreshInitializedExpr,
 }
 
 impl PathPreservingFastOp {
     fn changes_state(self) -> bool {
-        matches!(self, Self::FreshLiteralExpr)
+        matches!(self, Self::FreshInitializedExpr)
     }
 }
 
@@ -399,7 +401,7 @@ pub(super) fn apply_path_preserving_fast_op(
 ) -> bool {
     match path_preserving_fast_op(types, op) {
         Some(PathPreservingFastOp::NoStateChange) => true,
-        Some(PathPreservingFastOp::FreshLiteralExpr) => {
+        Some(PathPreservingFastOp::FreshInitializedExpr) => {
             let ResourceOp::Expr { kind, output, .. } = op else {
                 return false;
             };
@@ -412,8 +414,15 @@ pub(super) fn apply_path_preserving_fast_op(
                     cells.mark_initialized(output);
                     raw_aliases.set_i32_type_size(output, *ty);
                 }
-                ResourceExprKind::Literal => {
+                ResourceExprKind::Literal
+                | ResourceExprKind::Block
+                | ResourceExprKind::Let
+                | ResourceExprKind::Set
+                | ResourceExprKind::Drop
+                | ResourceExprKind::Loop => {
                     cells.mark_initialized(output);
+                    raw_aliases.clear(output);
+                    seed_str_storage_layout(types, cells, raw_aliases, output);
                 }
                 _ => return false,
             }
@@ -423,9 +432,37 @@ pub(super) fn apply_path_preserving_fast_op(
     }
 }
 
+fn apply_path_preserving_fast_op_to_paths(
+    types: &TypeCtx,
+    cells: &mut CellTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    alternatives: &mut [ResourceCheckState],
+    op: &ResourceOp,
+) {
+    apply_path_preserving_fast_op(types, cells, raw_aliases, op);
+    for state in alternatives {
+        apply_path_preserving_fast_op(types, &mut state.cells, &mut state.raw_aliases, op);
+    }
+}
+
 fn path_preserving_fast_op(types: &TypeCtx, op: &ResourceOp) -> Option<PathPreservingFastOp> {
     match op {
         ResourceOp::CallEffect { .. } | ResourceOp::StorageOrigin { .. } => {
+            Some(PathPreservingFastOp::NoStateChange)
+        }
+        ResourceOp::Expr { kind, output, .. }
+            if matches!(
+                kind,
+                ResourceExprKind::LocalRead
+                    | ResourceExprKind::FunctionValue
+                    | ResourceExprKind::Call
+                    | ResourceExprKind::IndirectCall
+                    | ResourceExprKind::Branch
+                    | ResourceExprKind::Match
+                    | ResourceExprKind::Construct
+                    | ResourceExprKind::Borrow
+            ) && expr_marker_has_fresh_output(output) =>
+        {
             Some(PathPreservingFastOp::NoStateChange)
         }
         ResourceOp::EndScope { locals, .. }
@@ -439,7 +476,7 @@ fn path_preserving_fast_op(types: &TypeCtx, op: &ResourceOp) -> Option<PathPrese
         ResourceOp::Expr { kind, output, .. }
             if expr_can_use_path_preserving_fast_op(*kind, output) =>
         {
-            Some(PathPreservingFastOp::FreshLiteralExpr)
+            Some(PathPreservingFastOp::FreshInitializedExpr)
         }
         _ => None,
     }
@@ -457,8 +494,16 @@ fn expr_can_use_path_preserving_fast_op(kind: ResourceExprKind, output: &Place) 
         ResourceExprKind::Literal
             | ResourceExprKind::LiteralI32(_)
             | ResourceExprKind::LayoutSizeOf(_)
-    ) && matches!(output.root, PlaceRoot::Temporary(_))
-        && output.projections.is_empty()
+            | ResourceExprKind::Block
+            | ResourceExprKind::Let
+            | ResourceExprKind::Set
+            | ResourceExprKind::Drop
+            | ResourceExprKind::Loop
+    ) && expr_marker_has_fresh_output(output)
+}
+
+fn expr_marker_has_fresh_output(output: &Place) -> bool {
+    matches!(output.root, PlaceRoot::Temporary(_)) && output.projections.is_empty()
 }
 
 fn function_needs_local_transform_range_certificates(function: &ResourceFunction) -> bool {
@@ -851,23 +896,12 @@ impl ResourceCheckEngine<'_> {
                             ResourcePathAlternatives::from_states(alternatives);
                     } else if let Some(fast_op) = path_preserving_fast_op(self.types, op) {
                         if fast_op.changes_state() {
-                            apply_path_preserving_fast_op(self.types, cells, raw_aliases, op);
-                            for state in &mut alternatives {
-                                apply_path_preserving_fast_op(
-                                    self.types,
-                                    &mut state.cells,
-                                    &mut state.raw_aliases,
-                                    op,
-                                );
-                            }
-                            merge_path_alternatives_into(
-                                &alternatives,
+                            apply_path_preserving_fast_op_to_paths(
+                                self.types,
                                 cells,
-                                collection_slots,
                                 raw_aliases,
-                                function_aliases,
-                                pending_reallocs,
-                                variant_initializations,
+                                &mut alternatives,
+                                op,
                             );
                         }
                         self.path_alternatives =
@@ -1084,7 +1118,8 @@ mod tests {
 
     use crate::ast::Effect;
     use crate::resource::model::{
-        EffectOp, PlaceProjection, PlaceRoot, ResourceId, ResourceMatchArm, ResourceMatchPattern,
+        CellState, EffectOp, PlaceProjection, PlaceRoot, ResourceId, ResourceMatchArm,
+        ResourceMatchPattern,
     };
     use crate::span::Span;
 
@@ -1236,6 +1271,168 @@ mod tests {
             &mut raw_aliases,
             &call_effect
         ));
+    }
+
+    #[test]
+    fn path_preserving_fast_op_accepts_fresh_control_markers() {
+        let types = TypeCtx::new();
+        for kind in [
+            ResourceExprKind::Block,
+            ResourceExprKind::Let,
+            ResourceExprKind::Set,
+            ResourceExprKind::Drop,
+            ResourceExprKind::Loop,
+        ] {
+            let op = ResourceOp::Expr {
+                kind,
+                output: temporary(0),
+                ty: TypeId(1),
+                span: Span::dummy(),
+            };
+            let mut cells = CellTable::default();
+            let mut raw_aliases = RawCellAddressAliases::default();
+            assert!(apply_path_preserving_fast_op(
+                &types,
+                &mut cells,
+                &mut raw_aliases,
+                &op
+            ));
+            assert!(matches!(
+                cells.availability_state_with_types(&types, &temporary(0)),
+                CellState::Initialized(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn path_preserving_fast_op_skips_state_free_expr_markers() {
+        let types = TypeCtx::new();
+        for kind in [
+            ResourceExprKind::LocalRead,
+            ResourceExprKind::FunctionValue,
+            ResourceExprKind::Call,
+            ResourceExprKind::IndirectCall,
+            ResourceExprKind::Branch,
+            ResourceExprKind::Match,
+            ResourceExprKind::Construct,
+            ResourceExprKind::Borrow,
+        ] {
+            let op = ResourceOp::Expr {
+                kind,
+                output: temporary(0),
+                ty: TypeId(1),
+                span: Span::dummy(),
+            };
+            assert!(matches!(
+                path_preserving_fast_op(&types, &op),
+                Some(PathPreservingFastOp::NoStateChange)
+            ));
+        }
+
+        for output in [
+            local("existing"),
+            temporary(0).with_projection(PlaceProjection::Deref, TypeId(1)),
+        ] {
+            let op = ResourceOp::Expr {
+                kind: ResourceExprKind::FunctionValue,
+                output,
+                ty: TypeId(1),
+                span: Span::dummy(),
+            };
+            assert!(path_preserving_fast_op(&types, &op).is_none());
+        }
+    }
+
+    #[test]
+    fn path_preserving_fast_update_commutes_with_alternative_merge() {
+        let types = TypeCtx::new();
+        let path_local = local("path_local");
+        let mut first_cells = CellTable::default();
+        first_cells.mark_initialized(&path_local);
+        let first = ResourceCheckState::new(
+            first_cells,
+            CollectionSlotStateTable::default(),
+            RawCellAddressAliases::default(),
+            FunctionAliasTable::default(),
+            PendingRawReallocs::default(),
+            PendingVariantRawCellInitializations::default(),
+        );
+        let second = ResourceCheckState::new(
+            CellTable::default(),
+            CollectionSlotStateTable::default(),
+            RawCellAddressAliases::default(),
+            FunctionAliasTable::default(),
+            PendingRawReallocs::default(),
+            PendingVariantRawCellInitializations::default(),
+        );
+        let original_alternatives = vec![first, second];
+        let mut alternatives = original_alternatives.clone();
+        let mut cells = CellTable::default();
+        let mut collection_slots = CollectionSlotStateTable::default();
+        let mut raw_aliases = RawCellAddressAliases::default();
+        let mut function_aliases = FunctionAliasTable::default();
+        let mut pending_reallocs = PendingRawReallocs::default();
+        let mut variant_initializations = PendingVariantRawCellInitializations::default();
+        merge_path_alternatives_into(
+            &alternatives,
+            &mut cells,
+            &mut collection_slots,
+            &mut raw_aliases,
+            &mut function_aliases,
+            &mut pending_reallocs,
+            &mut variant_initializations,
+        );
+        let op = ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(42),
+            output: temporary(9),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+
+        apply_path_preserving_fast_op_to_paths(
+            &types,
+            &mut cells,
+            &mut raw_aliases,
+            &mut alternatives,
+            &op,
+        );
+
+        assert_eq!(alternatives.len(), original_alternatives.len());
+        assert_ne!(alternatives[0].cells, alternatives[1].cells);
+        let mut expected_cells = CellTable::default();
+        let mut expected_collection_slots = CollectionSlotStateTable::default();
+        let mut expected_raw_aliases = RawCellAddressAliases::default();
+        let mut expected_function_aliases = FunctionAliasTable::default();
+        let mut expected_pending_reallocs = PendingRawReallocs::default();
+        let mut expected_variant_initializations = PendingVariantRawCellInitializations::default();
+        merge_path_alternatives_into(
+            &alternatives,
+            &mut expected_cells,
+            &mut expected_collection_slots,
+            &mut expected_raw_aliases,
+            &mut expected_function_aliases,
+            &mut expected_pending_reallocs,
+            &mut expected_variant_initializations,
+        );
+        assert_eq!(cells, expected_cells);
+        assert_eq!(raw_aliases, expected_raw_aliases);
+        assert_eq!(collection_slots, expected_collection_slots);
+        assert_eq!(function_aliases, expected_function_aliases);
+        assert_eq!(pending_reallocs, expected_pending_reallocs);
+        assert_eq!(variant_initializations, expected_variant_initializations);
+
+        let before_noop = alternatives.clone();
+        let noop = ResourceOp::Expr {
+            kind: ResourceExprKind::LocalRead,
+            output: temporary(9),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+        assert!(matches!(
+            path_preserving_fast_op(&types, &noop),
+            Some(PathPreservingFastOp::NoStateChange)
+        ));
+        assert!(alternatives == before_noop);
     }
 
     fn literal_op(output: &str) -> ResourceOp {

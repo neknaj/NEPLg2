@@ -4203,3 +4203,11 @@ control merge 固定費、stdio read/write raw buffer 境界、loader dependency
 - [ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B](../../issues/items/ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B.md)
 - [ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61](../../issues/items/ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61.md)
 - [ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91](../../issues/items/ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91.md)
+
+## 2026-07-15 initialized path marker transfer
+
+Resource IR lowering は実処理を表す `Read` / `Call` / `Loop` などに加えて、元の HIR expression と coverage を対応させる `Expr` marker を生成する。initialized checker がpath alternativesを保持している場合、旧実装は状態を変更しないmarkerも各pathで再実行し、各operation後にcell、raw alias、collection slot等の全stateをmergeしていた。
+
+`Expr` markerのうち、`LocalRead` / function value / call / branch / match / construct / borrowはinitialized stateを変更しない。Block / Let / Set / Drop / Loopのfresh temporary markerは既存placeを読まず、全pathへ同じinitialized factだけを追加する。この2分類をpath-preserving transferとして扱い、後者は既存merged stateと各alternativeへ同一更新を配るため、更新後の全state再mergeを行わない。どちらもprojectionなしtemporary outputだけに限定し、localやprojection付きoutput、Deref、Intrinsicはpath固有aliasやscalar factを持ち得るため対象外とする。
+
+full selfhost Match direct fixtureでは`resource_initialized_function_checks`が約56.2秒から48.7秒、`resource_initialized_moves`が約108.5秒から89.7秒へ低下し、全checkはexit 0を維持した。これはproof cacheやdiagnosticを省略する変更ではなく、loweringがco-produceするmarkerの状態遷移がmergeと可換である場合だけ重複mergeを除く。

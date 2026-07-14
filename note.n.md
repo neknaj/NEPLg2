@@ -84166,3 +84166,12 @@ MERGE_APPROVED
 - accumulatorのcommon fact、variant独立+empty path、unknown path順序独立のRust unit 3/3に加え、実際のNEPL sourceをloweringしてzero/positive branchの共通`NonNegative`だけを残し、unknown `Ok` pathでfactsを空にするcollector-level回帰も通過した。差分reviewと全体整合reviewはいずれも、canonicalizerで矛盾だけを消す案ではpath境界を復元できず、producerでintersectionすべきと確認した。
 - rebuilt native release actual Match direct fixtureは`resource_owner_summary_recomputations=3958 summaries=2488`、`resource_owner_summaries=35866ms`で固定点を完了し、全checkは約176.8秒で`Check successful` / exit 0になった。従来の300秒・600秒 exit 124は解消した。
 - これはactual runtime gateの重要な前進だが、selfhost compiler全体もperformance issueの0.5秒目標も未完成である。`resource_initialized_moves=108473ms`など残る支配経路は次sliceで継続する。`plan.md`は変更していない。
+
+## 2026-07-15 initialized path marker transfer
+
+- actual fixtureのper-function / op timingで、`str_find`はLoop後の3 path alternativesに対し、Loop結果markerと最終LocalRead markerを各path実行して全stateを再mergeし、markerだけで約3.1秒を使っていた。
+- `LocalRead` / function value / call / branch / match / construct / borrowの`Expr` markerはinitialized stateを変更しない。Block / Let / Set / Drop / Loopのfresh temporary markerは既存placeを読まず、全pathへ同一initialized factを配る。この2群をpath-preserving fast transferへ接続し、fresh更新後の冗長なmergeを除いた。
+- local/projection output、Deref、Intrinsicなどpath固有alias/scalar factを持ち得るshapeは対象外にした。literal/layout-sizeを含むfresh updateはmerged stateと各alternativeの双方へ適用するため、path evidence自体は保持する。
+- fast pathは状態を変えないmarkerもprojectionなしtemporary outputに限定し、将来のlowering driftや手組Resource IRで既存placeに単独markerが現れた場合は通常経路へ戻す。focused Rust fast-op testsは5/5、initialized関連105/105、nepl-core全857/857、playground editor JSONは13/13通過した。rebuilt native actual Match direct fixtureは`resource_initialized_function_checks=48665ms`、`resource_initialized_moves=89740ms`、全check約161.6秒で`Check successful` / exit 0だった。直前は約56.2秒、108.5秒、176.8秒で、`str_find`単体は約12.4秒から6.3秒へ低下した。
+- selfhost compiler全体と0.5秒目標は未完成である。次は約8.5秒残る`str_line_end`など、marker以外のpath-sensitive state transferを計測する。`plan.md`は変更していない。
+- 最終predicate制約後のper-function loggingなしactual再計測も`resource_initialized_function_checks=41845ms`、`resource_initialized_moves=71930ms`、`resource_static_check=126571ms`、全pipeline約136.1秒で`Check successful`を維持した。logging有無で絶対値が変わるため、改善比較は同条件の値を使う。
