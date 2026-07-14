@@ -158,3 +158,4 @@ pub #import "./name_resolver/scope" as *
 pub #import "./name_resolver/hoist" as *
 pub #import "./name_resolver/stage0" as *
 pub #import "./name_resolver/qualified_enum_import" as *
+pub #import "./name_resolver/module_order" as *

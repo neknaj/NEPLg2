@@ -1,0 +1,472 @@
+#indent 4
+
+//: # name_resolver/module_order
+//: import graph から検証済みの child-first module 順序を所有するモジュールです。
+//:
+//: [目的/もくてき]:
+//: - graph の node 配列順を意味のある順序として信用せず、import 先を import 元より先に並べます。
+//: - path/file の一意性、edge endpoint、cycle、exact edge の一意性を検証し、後続の export 合成へ安定した入力を渡します。
+//:
+//: [実装/じっそう]:
+//: - node index の昇順を DFS の root 順にだけ使い、各 edge の `from -> to` を辿った帰りがけに node を追加します。
+//: - active stack の再訪問を cycle とし、完了済み order の再訪問は共有 dependency として一度だけ残します。
+//: - order entry は graph node の index、file_id、path を Copy 値として保存します。path の lifetime は元 graph と検証に使った VFS の両方に従います。
+//:
+//: [注意/ちゅうい]:
+//: - `SelfhostModuleOrder` は内部 `Vec` を所有します。利用後は `selfhost_module_order_free` で解放してください。
+//: - 構築後に entry を追加する公開 API はありません。
+//:
+//: [計算量/けいさんりょう]:
+//: - node 数 n、edge 数 e に対し、一意性検証と線形 lookup を含めて O(n^2 + e^2 + ne)、追加領域は O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "alloc/string/search" as string_search
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn add_node %impure fn SelfhostModuleGraph impure fn str impure fn i32 Result SelfhostModuleGraph SelfhostModuleOrderErrorKind \graph\path\file_id:
+//:     match selfhost_module_graph_push_node graph (selfhost_module_graph_node_new path file_id SelfhostModuleGraphNodeStatus::Done 0) (source_span_empty_unchecked file_id 0):
+//:         Result::Ok next: Result::Ok next
+//:         Result::Err _diag: Result::Err SelfhostModuleOrderErrorKind::OutOfMemory
+//: fn make_vfs %impure fn void Result SelfhostVirtualFileSystem i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "root" "":
+//:                 Result::Ok v1:
+//:                     match selfhost_vfs_add v1 "left" "":
+//:                         Result::Ok v2:
+//:                             match selfhost_vfs_add v2 "right" "":
+//:                                 Result::Ok v3:
+//:                                     match selfhost_vfs_add v3 "shared" "":
+//:                                         Result::Ok v4: Result::Ok v4
+//:                                         Result::Err _e: Result::Err 1
+//:                                 Result::Err _e: Result::Err 1
+//:                         Result::Err _e: Result::Err 1
+//:                 Result::Err _e: Result::Err 1
+//:         Result::Err _e: Result::Err 1
+//: fn add_edge %impure fn SelfhostModuleGraph impure fn str impure fn str impure fn i32 Result SelfhostModuleGraph SelfhostModuleOrderErrorKind \graph\from\to\start:
+//:     match selfhost_module_graph_push_edge graph (selfhost_module_graph_edge_new from to (source_span_new_unchecked 0 start add start 1)) (source_span_new_unchecked 0 start add start 1):
+//:         Result::Ok next: Result::Ok next
+//:         Result::Err _diag: Result::Err SelfhostModuleOrderErrorKind::OutOfMemory
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_module_graph_new:
+//:         Result::Ok g0:
+//:             match add_node g0 "root" 0:
+//:                 Result::Ok g1:
+//:                     match add_node g1 "left" 1:
+//:                         Result::Ok g2:
+//:                             match add_node g2 "right" 2:
+//:                                 Result::Ok g3:
+//:                                     match add_node g3 "shared" 3:
+//:                                         Result::Ok g4:
+//:                                             match add_edge g4 "root" "left" 1:
+//:                                                 Result::Ok g5:
+//:                                                     match add_edge g5 "root" "right" 2:
+//:                                                         Result::Ok g6:
+//:                                                             match add_edge g6 "left" "shared" 3:
+//:                                                                 Result::Ok g7:
+//:                                                                     match add_edge g7 "right" "shared" 4:
+//:                                                                         Result::Ok dag:
+//:                                                                             match make_vfs:
+//:                                                                                 Result::Ok vfs:
+//:                                                                                     match selfhost_module_order_build &dag &vfs:
+//:                                                                                         Result::Ok order:
+//:                                                                                             let ok_len %bool eq selfhost_module_order_len &order 4
+//:                                                                                             let ok_first %bool match selfhost_module_order_get &order 0:
+//:                                                                                                 Option::Some entry: and eq entry.module_node_index 3 and eq entry.module_file_id 3 string_search::str_eq entry.module_path "shared"
+//:                                                                                                 Option::None: false
+//:                                                                                             let ok_last %bool match selfhost_module_order_get &order 3:
+//:                                                                                                 Option::Some entry: eq entry.module_node_index 0
+//:                                                                                                 Option::None: false
+//:                                                                                             selfhost_module_order_free order
+//:                                                                                             selfhost_module_graph_free dag
+//:                                                                                             selfhost_vfs_free vfs
+//:                                                                                             if and and ok_len ok_first ok_last 0 1
+//:                                                                                         Result::Err _e:
+//:                                                                                             selfhost_module_graph_free dag
+//:                                                                                             selfhost_vfs_free vfs
+//:                                                                                             1
+//:                                                                                 Result::Err _e:
+//:                                                                                     selfhost_module_graph_free dag
+//:                                                                                     1
+//:                                                                         Result::Err _e: 1
+//:                                                                 Result::Err _e: 1
+//:                                                         Result::Err _e: 1
+//:                                                 Result::Err _e: 1
+//:                                         Result::Err _e: 1
+//:                                 Result::Err _e: 1
+//:                         Result::Err _e: 1
+//:                 Result::Err _e: 1
+//:         Result::Err _e: 1
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn node %impure fn SelfhostModuleGraph impure fn str impure fn i32 Result SelfhostModuleGraph i32 \graph\path\file_id:
+//:     match selfhost_module_graph_push_node graph (selfhost_module_graph_node_new path file_id SelfhostModuleGraphNodeStatus::Done 0) (source_span_empty_unchecked file_id 0):
+//:         Result::Ok next: Result::Ok next
+//:         Result::Err _diag: Result::Err 1
+//: fn vfs_a_b %impure fn void Result SelfhostVirtualFileSystem i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "a" "":
+//:                 Result::Ok v1:
+//:                     match selfhost_vfs_add v1 "b" "":
+//:                         Result::Ok v2: Result::Ok v2
+//:                         Result::Err _e: Result::Err 1
+//:                 Result::Err _e: Result::Err 1
+//:         Result::Err _e: Result::Err 1
+//: fn vfs_a %impure fn void Result SelfhostVirtualFileSystem i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "a" "":
+//:                 Result::Ok v1: Result::Ok v1
+//:                 Result::Err _e: Result::Err 1
+//:         Result::Err _e: Result::Err 1
+//: fn edge %impure fn SelfhostModuleGraph impure fn str impure fn str impure fn i32 Result SelfhostModuleGraph i32 \graph\from\to\start:
+//:     let span %SelfhostSourceSpan source_span_new_unchecked 0 start add start 1
+//:     match selfhost_module_graph_push_edge graph (selfhost_module_graph_edge_new from to span) span:
+//:         Result::Ok next: Result::Ok next
+//:         Result::Err _diag: Result::Err 1
+//: fn cycle_rejected %impure fn void bool \void:
+//:     match selfhost_module_graph_new:
+//:         Result::Ok g0:
+//:             match node g0 "a" 0:
+//:                 Result::Ok g1:
+//:                     match node g1 "b" 1:
+//:                         Result::Ok g2:
+//:                             match edge g2 "a" "b" 1:
+//:                                 Result::Ok g3:
+//:                                     match edge g3 "b" "a" 2:
+//:                                         Result::Ok graph:
+//:                                             match vfs_a_b:
+//:                                                 Result::Ok vfs:
+//:                                                     let rejected %bool match selfhost_module_order_build &graph &vfs:
+//:                                                         Result::Err error:
+//:                                                             match error:
+//:                                                                 SelfhostModuleOrderErrorKind::Cycle: true
+//:                                                                 _: false
+//:                                                         _: false
+//:                                                     selfhost_module_graph_free graph
+//:                                                     selfhost_vfs_free vfs
+//:                                                     rejected
+//:                                                 Result::Err _e: false
+//:                                         Result::Err _e: false
+//:                                 Result::Err _e: false
+//:                         Result::Err _e: false
+//:                 Result::Err _e: false
+//:         Result::Err _e: false
+//: fn dangling_rejected %impure fn void bool \void:
+//:     match selfhost_module_graph_new:
+//:         Result::Ok g0:
+//:             match node g0 "a" 0:
+//:                 Result::Ok g1:
+//:                     match edge g1 "a" "missing" 1:
+//:                         Result::Ok graph:
+//:                             match vfs_a:
+//:                                 Result::Ok vfs:
+//:                                     let rejected %bool match selfhost_module_order_build &graph &vfs:
+//:                                         Result::Err error:
+//:                                             match error:
+//:                                                 SelfhostModuleOrderErrorKind::DanglingEdgeTo: true
+//:                                                 _: false
+//:                                         _: false
+//:                                     selfhost_module_graph_free graph
+//:                                     selfhost_vfs_free vfs
+//:                                     rejected
+//:                                 Result::Err _e: false
+//:                         Result::Err _e: false
+//:                 Result::Err _e: false
+//:         Result::Err _e: false
+//: fn duplicate_rejected %impure fn void bool \void:
+//:     match selfhost_module_graph_new:
+//:         Result::Ok g0:
+//:             match node g0 "same" 1:
+//:                 Result::Ok g1:
+//:                     match node g1 "same" 2:
+//:                         Result::Ok graph:
+//:                             match selfhost_vfs_new:
+//:                                 Result::Ok vfs:
+//:                                     let rejected %bool match selfhost_module_order_build &graph &vfs:
+//:                                         Result::Err error:
+//:                                             match error:
+//:                                                 SelfhostModuleOrderErrorKind::DuplicateNodePath: true
+//:                                                 _: false
+//:                                         _: false
+//:                                     selfhost_module_graph_free graph
+//:                                     selfhost_vfs_free vfs
+//:                                     rejected
+//:                                 Result::Err _e: false
+//:                         Result::Err _e: false
+//:                 Result::Err _e: false
+//:         Result::Err _e: false
+//: fn main %impure fn void i32 \void:
+//:     if and and cycle_rejected dangling_rejected duplicate_rejected 0 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/search" as string_search
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/vfs" as *
+
+//: SelfhostModuleOrderEntry: child-first 順序に保存する graph node identity
+pub struct SelfhostModuleOrderEntry:
+    module_node_index %i32
+    module_file_id %i32
+    module_path %str
+
+impl Clone for SelfhostModuleOrderEntry:
+    fn clone %fn &SelfhostModuleOrderEntry SelfhostModuleOrderEntry \self: *self
+
+impl Copy for SelfhostModuleOrderEntry:
+    fn copy_mark %fn SelfhostModuleOrderEntry SelfhostModuleOrderEntry \self: self
+
+//: SelfhostModuleOrderErrorKind: graph 検証または order 所有領域の失敗理由
+pub enum SelfhostModuleOrderErrorKind:
+    DuplicateNodePath
+    DuplicateNodeFile
+    SourceFileMissing
+    SourceFileDuplicate
+    SourceFileIdMismatch
+    DanglingEdgeFrom
+    DanglingEdgeTo
+    SelfEdge
+    Cycle
+    DuplicateExactEdge
+    GraphInvariant
+    OutOfMemory
+
+impl Clone for SelfhostModuleOrderErrorKind:
+    fn clone %fn &SelfhostModuleOrderErrorKind SelfhostModuleOrderErrorKind \self: *self
+
+impl Copy for SelfhostModuleOrderErrorKind:
+    fn copy_mark %fn SelfhostModuleOrderErrorKind SelfhostModuleOrderErrorKind \self: self
+
+pub struct SelfhostModuleOrder:
+    entries %Vec SelfhostModuleOrderEntry
+
+struct SelfhostModuleOrderDfsState:
+    active %Vec i32
+    entries %Vec SelfhostModuleOrderEntry
+
+fn selfhost_module_order_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
+    and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
+
+fn selfhost_module_order_node_duplicates %fn &SelfhostModuleGraph fn i32 fn i32 Option SelfhostModuleOrderErrorKind \graph\left\right:
+    if:
+        ge left selfhost_module_graph_node_len graph
+        then: none
+        else if:
+            ge right selfhost_module_graph_node_len graph
+            then: selfhost_module_order_node_duplicates graph add left 1 add left 2
+            else:
+                match selfhost_module_graph_node_at graph left:
+                    Option::Some a:
+                        match selfhost_module_graph_node_at graph right:
+                            Option::Some b:
+                                if string_search::str_eq a.path b.path some SelfhostModuleOrderErrorKind::DuplicateNodePath if eq a.file_id b.file_id some SelfhostModuleOrderErrorKind::DuplicateNodeFile selfhost_module_order_node_duplicates graph left add right 1
+                            Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                    Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+
+fn selfhost_module_order_edge_duplicates %fn &SelfhostModuleGraph fn i32 fn i32 Option SelfhostModuleOrderErrorKind \graph\left\right:
+    if:
+        ge left selfhost_module_graph_edge_len graph
+        then: none
+        else if:
+            ge right selfhost_module_graph_edge_len graph
+            then: selfhost_module_order_edge_duplicates graph add left 1 add left 2
+            else:
+                match selfhost_module_graph_edge_at graph left:
+                    Option::Some a:
+                        match selfhost_module_graph_edge_at graph right:
+                            Option::Some b:
+                                if and and string_search::str_eq a.from b.from string_search::str_eq a.to b.to selfhost_module_order_span_eq a.span b.span some SelfhostModuleOrderErrorKind::DuplicateExactEdge selfhost_module_order_edge_duplicates graph left add right 1
+                            Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                    Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+
+fn selfhost_module_order_validate_edges %fn &SelfhostModuleGraph fn i32 Option SelfhostModuleOrderErrorKind \graph\idx:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: selfhost_module_order_edge_duplicates graph 0 1
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::Some edge:
+                    if:
+                        string_search::str_eq edge.from edge.to
+                        then: some SelfhostModuleOrderErrorKind::SelfEdge
+                        else match selfhost_module_graph_find_node graph edge.from:
+                            Option::None: some SelfhostModuleOrderErrorKind::DanglingEdgeFrom
+                            Option::Some _from_idx:
+                                match selfhost_module_graph_find_node graph edge.to:
+                                    Option::None: some SelfhostModuleOrderErrorKind::DanglingEdgeTo
+                                    Option::Some _to_idx: selfhost_module_order_validate_edges graph add idx 1
+                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+
+fn selfhost_module_order_vfs_path_count %fn &SelfhostVirtualFileSystem fn str fn i32 fn i32 i32 \vfs\path\idx\count:
+    if ge idx selfhost_vfs_len vfs count match selfhost_vfs_get vfs idx:
+        Option::Some file: selfhost_module_order_vfs_path_count vfs path add idx 1 if string_search::str_eq file.path path add count 1 count
+        Option::None: count
+
+fn selfhost_module_order_vfs_path_find %fn &SelfhostVirtualFileSystem fn str fn i32 Option SelfhostVirtualFile \vfs\path\idx:
+    if ge idx selfhost_vfs_len vfs none match selfhost_vfs_get vfs idx:
+        Option::Some file: if string_search::str_eq file.path path some file selfhost_module_order_vfs_path_find vfs path add idx 1
+        Option::None: none
+
+fn selfhost_module_order_validate_vfs %fn &SelfhostModuleGraph fn &SelfhostVirtualFileSystem fn i32 Option SelfhostModuleOrderErrorKind \graph\vfs\idx:
+    if:
+        ge idx selfhost_module_graph_node_len graph
+        then: none
+        else:
+            match selfhost_module_graph_node_at graph idx:
+                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                Option::Some node:
+                    let count %i32 selfhost_module_order_vfs_path_count vfs node.path 0 0
+                    if:
+                        eq count 0
+                        then: some SelfhostModuleOrderErrorKind::SourceFileMissing
+                        else if:
+                            gt count 1
+                            then: some SelfhostModuleOrderErrorKind::SourceFileDuplicate
+                            else match selfhost_module_order_vfs_path_find vfs node.path 0:
+                                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                                Option::Some file: if ne file.file_id node.file_id some SelfhostModuleOrderErrorKind::SourceFileIdMismatch selfhost_module_order_validate_vfs graph vfs add idx 1
+
+fn selfhost_module_order_i32_contains %fn &Vec i32 fn i32 fn i32 bool \items\wanted\idx:
+    if ge idx v::len items false match v::get items idx:
+        Option::Some item: if eq item wanted true selfhost_module_order_i32_contains items wanted add idx 1
+        Option::None: false
+
+fn selfhost_module_order_entry_contains %fn &Vec SelfhostModuleOrderEntry fn i32 fn i32 bool \items\wanted\idx:
+    if ge idx v::len items false match v::get items idx:
+        Option::Some item: if eq item.module_node_index wanted true selfhost_module_order_entry_contains items wanted add idx 1
+        Option::None: false
+
+fn selfhost_module_order_fail_state %impure fn SelfhostModuleOrderDfsState impure fn SelfhostModuleOrderErrorKind Result SelfhostModuleOrderDfsState SelfhostModuleOrderErrorKind \state\error:
+    v::free field::get state "active"
+    v::free field::get state "entries"
+    Result::Err error
+
+fn selfhost_module_order_visit_edges %impure fn &SelfhostModuleGraph impure fn i32 impure fn i32 impure fn SelfhostModuleOrderDfsState Result SelfhostModuleOrderDfsState SelfhostModuleOrderErrorKind \graph\node_idx\edge_idx\state:
+    if:
+        ge edge_idx selfhost_module_graph_edge_len graph
+        then: Result::Ok state
+        else:
+            match selfhost_module_graph_node_at graph node_idx:
+                Option::Some node:
+                    match selfhost_module_graph_edge_at graph edge_idx:
+                        Option::Some edge:
+                            if:
+                                string_search::str_eq edge.from node.path
+                                then:
+                                    match selfhost_module_graph_find_node graph edge.to:
+                                        Option::Some target_idx:
+                                            match selfhost_module_order_visit graph target_idx state:
+                                                Result::Ok next: selfhost_module_order_visit_edges graph node_idx add edge_idx 1 next
+                                                Result::Err error: Result::Err error
+                                        Option::None: selfhost_module_order_fail_state state SelfhostModuleOrderErrorKind::DanglingEdgeTo
+                                else: selfhost_module_order_visit_edges graph node_idx add edge_idx 1 state
+                        Option::None: selfhost_module_order_fail_state state SelfhostModuleOrderErrorKind::GraphInvariant
+                Option::None: selfhost_module_order_fail_state state SelfhostModuleOrderErrorKind::GraphInvariant
+
+fn selfhost_module_order_visit %impure fn &SelfhostModuleGraph impure fn i32 impure fn SelfhostModuleOrderDfsState Result SelfhostModuleOrderDfsState SelfhostModuleOrderErrorKind \graph\node_idx\state:
+    let active_ref %&Vec i32 field::get_ref &state "active"
+    let entries_ref %&Vec SelfhostModuleOrderEntry field::get_ref &state "entries"
+    if:
+        selfhost_module_order_i32_contains active_ref node_idx 0
+        then: selfhost_module_order_fail_state state SelfhostModuleOrderErrorKind::Cycle
+        else if:
+            selfhost_module_order_entry_contains entries_ref node_idx 0
+            then: Result::Ok state
+            else:
+                let active %Vec i32 field::get state "active"
+                let entries %Vec SelfhostModuleOrderEntry field::get state "entries"
+                match v::push active node_idx:
+                    Result::Err rejected:
+                        v::free v::vec_push_error_vec rejected
+                        v::free entries
+                        Result::Err SelfhostModuleOrderErrorKind::OutOfMemory
+                    Result::Ok next_active:
+                        match selfhost_module_order_visit_edges graph node_idx 0 SelfhostModuleOrderDfsState next_active entries:
+                            Result::Err error: Result::Err error
+                            Result::Ok visited:
+                                let popped %VecPop i32 v::pop field::get visited "active"
+                                let inactive %Vec i32 v::vec_pop_vec popped
+                                let visited_entries %Vec SelfhostModuleOrderEntry field::get visited "entries"
+                                match selfhost_module_graph_node_at graph node_idx:
+                                    Option::Some node:
+                                        match v::push visited_entries SelfhostModuleOrderEntry node_idx node.file_id node.path:
+                                            Result::Ok next_entries: Result::Ok SelfhostModuleOrderDfsState inactive next_entries
+                                            Result::Err rejected:
+                                                v::free inactive
+                                                v::free v::vec_push_error_vec rejected
+                                                Result::Err SelfhostModuleOrderErrorKind::OutOfMemory
+                                    Option::None:
+                                        v::free inactive
+                                        v::free visited_entries
+                                        Result::Err SelfhostModuleOrderErrorKind::GraphInvariant
+
+fn selfhost_module_order_visit_roots %impure fn &SelfhostModuleGraph impure fn i32 impure fn SelfhostModuleOrderDfsState Result SelfhostModuleOrderDfsState SelfhostModuleOrderErrorKind \graph\idx\state:
+    if ge idx selfhost_module_graph_node_len graph Result::Ok state match selfhost_module_order_visit graph idx state:
+        Result::Ok next: selfhost_module_order_visit_roots graph add idx 1 next
+        Result::Err error: Result::Err error
+
+//: graphを検証し、import先が必ず先に現れる所有orderを構築します。
+pub fn selfhost_module_order_build %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem Result SelfhostModuleOrder SelfhostModuleOrderErrorKind \graph\vfs:
+    match selfhost_module_order_node_duplicates graph 0 1:
+        Option::Some error: Result::Err error
+        Option::None:
+            match selfhost_module_order_validate_vfs graph vfs 0:
+                Option::Some error: Result::Err error
+                Option::None:
+                    match selfhost_module_order_validate_edges graph 0:
+                        Option::Some error: Result::Err error
+                        Option::None:
+                            let active_result %Result Vec i32 StdErrorKind v::new
+                            match active_result:
+                                Result::Err _e: Result::Err SelfhostModuleOrderErrorKind::OutOfMemory
+                                Result::Ok active:
+                                    let entries_result %Result Vec SelfhostModuleOrderEntry StdErrorKind v::new
+                                    match entries_result:
+                                        Result::Err _e:
+                                            v::free active
+                                            Result::Err SelfhostModuleOrderErrorKind::OutOfMemory
+                                        Result::Ok entries:
+                                            match selfhost_module_order_visit_roots graph 0 SelfhostModuleOrderDfsState active entries:
+                                                Result::Err error: Result::Err error
+                                                Result::Ok state:
+                                                    v::free field::get state "active"
+                                                    Result::Ok SelfhostModuleOrder field::get state "entries"
+
+//: orderが所有するbufferを解放します。
+pub fn selfhost_module_order_free %impure fn SelfhostModuleOrder unit \order:
+    v::free field::get order "entries"
+
+//: order entry数をO(1)で返します。
+pub fn selfhost_module_order_len %fn &SelfhostModuleOrder i32 \order:
+    v::len field::get_ref order "entries"
+
+//: child-first位置のentryをO(1)で返します。
+pub fn selfhost_module_order_get %fn &SelfhostModuleOrder fn i32 Option SelfhostModuleOrderEntry \order\idx:
+    v::get field::get_ref order "entries" idx
