@@ -55,6 +55,112 @@
 //:             1
 //: ```
 
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/module/import_scan" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_scan_module_imports_with_file_id "pub  #import \"lib\" as *\n" 9:
+//:         Result::Ok records:
+//:             let visibility_ok %bool match v::get &records 0:
+//:                 Option::Some record:
+//:                     let full_span %SelfhostSourceSpan selfhost_import_record_span &record
+//:                     let import_span %SelfhostSourceSpan selfhost_import_record_import_span &record
+//:                     let clause_ok %bool match selfhost_import_record_clause &record:
+//:                         SelfhostImportClauseKind::Open: true
+//:                         _: false
+//:                     let vis_span_ok %bool match selfhost_import_record_visibility_span &record:
+//:                         Option::Some span: and and eq span.file_id 9 eq span.start 0 eq span.end 3
+//:                         Option::None: false
+//:                     and and and and and selfhost_import_record_is_public &record eq full_span.start 0 eq full_span.end 23 eq import_span.start 5 vis_span_ok clause_ok
+//:                 Option::None: false
+//:             v::free records
+//:             if visibility_ok 0 1
+//:         Result::Err _e: 1
+//: ```
+
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/module/import_scan" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_scan_module_imports "#import \"a\" as a\npub  #import \"b\" as @merge\n":
+//:         Result::Ok records:
+//:             let private_alias %bool match v::get &records 0:
+//:                 Option::Some record:
+//:                     let private_vis %bool not selfhost_import_record_is_public &record
+//:                     let no_vis_span %bool match selfhost_import_record_visibility_span &record:
+//:                         Option::None: true
+//:                         Option::Some _span: false
+//:                     let alias_clause %bool match selfhost_import_record_clause &record:
+//:                         SelfhostImportClauseKind::Alias: true
+//:                         _: false
+//:                     and and private_vis no_vis_span alias_clause
+//:                 Option::None: false
+//:             let public_merge %bool match v::get &records 1:
+//:                 Option::Some record:
+//:                     let merge_clause %bool match selfhost_import_record_clause &record:
+//:                         SelfhostImportClauseKind::Merge: true
+//:                         _: false
+//:                     and selfhost_import_record_is_public &record merge_clause
+//:                 Option::None: false
+//:             v::free records
+//:             let selective_rejected %bool match selfhost_scan_module_imports "pub #import \"c\" as { x }\n":
+//:                 Result::Err _diag: true
+//:                 Result::Ok bad:
+//:                     v::free bad
+//:                     false
+//:             if and and private_alias public_merge selective_rejected 0 1
+//:         Result::Err _diag: 1
+//: ```
+
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/search" as string_search
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok vfs0:
+//:             match selfhost_vfs_add vfs0 "main.nepl" "pub #import \"lib.nepl\" as *\n":
+//:                 Result::Ok vfs1:
+//:                     match selfhost_vfs_add vfs1 "lib.nepl" "pub enum E:\n    A\n":
+//:                         Result::Ok vfs2:
+//:                             match selfhost_build_module_graph &vfs2 "main.nepl":
+//:                                 Result::Ok graph:
+//:                                     let edge_ok %bool match selfhost_module_graph_edge_at &graph 0:
+//:                                         Option::Some edge: and and eq edge.span.start 0 eq edge.span.end 27 string_search::str_eq edge.to "lib.nepl"
+//:                                         Option::None: false
+//:                                     let size_ok %bool and eq selfhost_module_graph_node_len &graph 2 eq selfhost_module_graph_edge_len &graph 1
+//:                                     selfhost_module_graph_free graph
+//:                                     selfhost_vfs_free vfs2
+//:                                     if and edge_ok size_ok 0 1
+//:                                 Result::Err _diag:
+//:                                     selfhost_vfs_free vfs2
+//:                                     1
+//:                         Result::Err _e: 1
+//:                 Result::Err _e: 1
+//:         Result::Err _e: 1
+//: ```
+
 #import "alloc/collections/vec" as v
 #import "alloc/string/access" as string_access
 #import "alloc/string/byte_index" as string_byte_index
@@ -77,6 +183,30 @@ fn selfhost_import_scan_byte_or_end %fn str fn i32 i32 \source\idx:
         Option::None:
             -1
 
+//: SelfhostImportVisibility: import directiveのsource-backed visibility
+pub enum SelfhostImportVisibility:
+    Private
+    Public
+
+impl Clone for SelfhostImportVisibility:
+    fn clone %fn &SelfhostImportVisibility SelfhostImportVisibility \self: *self
+
+impl Copy for SelfhostImportVisibility:
+    fn copy_mark %fn SelfhostImportVisibility SelfhostImportVisibility \self: self
+
+//: SelfhostImportClauseKind: export/import scopeが扱うclosed import clause分類
+//: [制約/せいやく]: selective clauseは現parserで未対応のためscan errorとなり、このenumへ偽装しません。
+pub enum SelfhostImportClauseKind:
+    Alias
+    Open
+    Merge
+
+impl Clone for SelfhostImportClauseKind:
+    fn clone %fn &SelfhostImportClauseKind SelfhostImportClauseKind \self: *self
+
+impl Copy for SelfhostImportClauseKind:
+    fn copy_mark %fn SelfhostImportClauseKind SelfhostImportClauseKind \self: self
+
 //: SelfhostImportRecord: graph 構築に必要な import directive 情報
 //:
 //: [目的/もくてき]:
@@ -84,6 +214,10 @@ fn selfhost_import_scan_byte_or_end %fn str fn i32 i32 \source\idx:
 //: - graph stage は AST item index ではなくこの record を使うため、module parser へ依存しません。
 pub struct SelfhostImportRecord:
     span %SelfhostSourceSpan
+    import_span %SelfhostSourceSpan
+    visibility %SelfhostImportVisibility
+    visibility_span %Option SelfhostSourceSpan
+    clause %SelfhostImportClauseKind
     path %str
     alias %str
     alias_span %SelfhostSourceSpan
@@ -98,13 +232,37 @@ impl Copy for SelfhostImportRecord:
         self
 
 //: selfhost_import_record_new: import record を[作/つく]る
+pub fn selfhost_import_record_new_with_visibility %fn SelfhostSourceSpan fn SelfhostSourceSpan fn SelfhostImportVisibility fn Option SelfhostSourceSpan fn SelfhostImportClauseKind fn str fn str fn SelfhostSourceSpan fn bool SelfhostImportRecord \span\import_span\visibility\visibility_span\clause\path\alias\alias_span\is_wildcard:
+    SelfhostImportRecord span import_span visibility visibility_span clause path alias alias_span is_wildcard
+
+//: selfhost_import_record_new: private import record互換constructor
+//: [制約/せいやく]: spanをfull/import spanの両方に使い、visibilityはPrivate、clauseはwildcardならOpen、それ以外はAliasです。
 pub fn selfhost_import_record_new %fn SelfhostSourceSpan fn str fn str fn SelfhostSourceSpan fn bool SelfhostImportRecord \span\path\alias\alias_span\is_wildcard:
-    SelfhostImportRecord span path alias alias_span is_wildcard
+    selfhost_import_record_new_with_visibility span span SelfhostImportVisibility::Private none if is_wildcard SelfhostImportClauseKind::Open SelfhostImportClauseKind::Alias path alias alias_span is_wildcard
 
 //: selfhost_import_record_span: borrowed recordからdirective spanを[返/かえ]す
 //: [契約/けいやく]: Copy payloadだけを返し、record単体をresolver authorityへ昇格させません。
 pub fn selfhost_import_record_span %fn &SelfhostImportRecord SelfhostSourceSpan \record:
     *field::get_ref record "span"
+
+//: selfhost_import_record_import_span: import keywordから行末までの絶対spanを返す
+pub fn selfhost_import_record_import_span %fn &SelfhostImportRecord SelfhostSourceSpan \record:
+    *field::get_ref record "import_span"
+
+//: selfhost_import_record_is_public: importがpublic re-export宣言か返す
+//: [契約/けいやく]: scannerが行頭のpublic importを構造検査した結果だけを返し、callerの推測を受け取りません。
+pub fn selfhost_import_record_is_public %fn &SelfhostImportRecord bool \record:
+    match *field::get_ref record "visibility":
+        SelfhostImportVisibility::Public: true
+        SelfhostImportVisibility::Private: false
+
+//: selfhost_import_record_visibility_span: public modifierの絶対spanを返す
+pub fn selfhost_import_record_visibility_span %fn &SelfhostImportRecord Option SelfhostSourceSpan \record:
+    *field::get_ref record "visibility_span"
+
+//: selfhost_import_record_clause: source-backed closed clause分類を返す
+pub fn selfhost_import_record_clause %fn &SelfhostImportRecord SelfhostImportClauseKind \record:
+    *field::get_ref record "clause"
 
 //: selfhost_import_scan_oom_diag: import scan 中の allocation failure を diagnostic にする
 pub fn selfhost_import_scan_oom_diag %fn SelfhostSourceSpan SelfhostDiagnostic \span:
@@ -152,13 +310,33 @@ pub fn selfhost_import_scan_next_line %fn str fn i32 fn i32 i32 \source\n\idx:
                             selfhost_import_scan_next_line source n add idx 1
 
 //: selfhost_import_scan_is_import_line: 行頭から `#import` directive が始まるか[返/かえ]す
-pub fn selfhost_import_scan_is_import_line %fn str fn i32 fn i32 bool \source\line_start\line_end:
+fn selfhost_import_scan_skip_inline_space %fn str fn i32 fn i32 i32 \source\idx\line_end:
     if:
-        not string_search::str_starts_with_at source line_start "#import"
+        ge idx line_end
+        then: idx
+        else:
+            let ch %i32 selfhost_import_scan_byte_or_end source idx
+            if or eq ch ' ' eq ch '\t' selfhost_import_scan_skip_inline_space source add idx 1 line_end idx
+
+fn selfhost_import_scan_public_directive_start %fn str fn i32 fn i32 Option i32 \source\line_start\line_end:
+    if:
+        not string_search::str_starts_with_at source line_start "pub"
+        then: none
+        else:
+            let after_pub %i32 add line_start 3
+            let directive_start %i32 selfhost_import_scan_skip_inline_space source after_pub line_end
+            if and gt directive_start after_pub string_search::str_starts_with_at source directive_start "#import" some directive_start none
+
+pub fn selfhost_import_scan_is_import_line %fn str fn i32 fn i32 bool \source\line_start\line_end:
+    let directive_start %i32 match selfhost_import_scan_public_directive_start source line_start line_end:
+        Option::Some start: start
+        Option::None: line_start
+    if:
+        not string_search::str_starts_with_at source directive_start "#import"
         then:
             false
         else:
-            let after %i32 add line_start 7
+            let after %i32 add directive_start 7
             if:
                 ge after line_end
                 then:
@@ -169,15 +347,26 @@ pub fn selfhost_import_scan_is_import_line %fn str fn i32 fn i32 bool \source\li
 
 //: selfhost_import_record_from_line: top-level import directive 行から record を[作/つく]る
 pub fn selfhost_import_record_from_line %impure fn str impure fn i32 impure fn i32 impure fn i32 Result SelfhostImportRecord SelfhostDiagnostic \source\file_id\line_start\line_end:
+    let public_start %Option i32 selfhost_import_scan_public_directive_start source line_start line_end
+    let is_public %bool match public_start:
+        Option::Some _start: true
+        Option::None: false
+    let directive_start %i32 match public_start:
+        Option::Some start: start
+        Option::None: line_start
     let span %SelfhostSourceSpan source_span_new_unchecked file_id line_start line_end
-    let lexeme %str string_slice::str_slice source line_start line_end
-    match selfhost_import_spec_parse_lexeme_with_item_index span lexeme 0:
+    let import_span %SelfhostSourceSpan source_span_new_unchecked file_id directive_start line_end
+    let visibility %SelfhostImportVisibility if is_public SelfhostImportVisibility::Public SelfhostImportVisibility::Private
+    let visibility_span %Option SelfhostSourceSpan if is_public some source_span_new_unchecked file_id line_start add line_start 3 none
+    let lexeme %str string_slice::str_slice source directive_start line_end
+    match selfhost_import_spec_parse_lexeme_with_item_index import_span lexeme 0:
         Result::Ok spec:
             let path %str selfhost_import_spec_path lexeme spec
             let alias %str selfhost_import_spec_alias lexeme spec
+            let clause %SelfhostImportClauseKind if selfhost_import_spec_is_wildcard spec SelfhostImportClauseKind::Open if string_search::str_eq alias "@merge" SelfhostImportClauseKind::Merge SelfhostImportClauseKind::Alias
             match selfhost_import_spec_alias_span spec:
                 Option::Some alias_span:
-                    Result::Ok selfhost_import_record_new selfhost_import_spec_span spec path alias alias_span selfhost_import_spec_is_wildcard spec
+                    Result::Ok selfhost_import_record_new_with_visibility span selfhost_import_spec_span spec visibility visibility_span clause path alias alias_span selfhost_import_spec_is_wildcard spec
                 Option::None:
                     Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAstIndex "import alias span was outside its directive" "scanner/parser alias origin mismatch"
         Result::Err diag:

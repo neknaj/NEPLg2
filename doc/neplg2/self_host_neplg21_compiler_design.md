@@ -3784,6 +3784,8 @@ qualified import の original definition projection は、aliasを裸の`Selfhos
 
 direct qualified enum import sessionは、exact-VFS graph上の1つのexplicit aliasについてgraph node、VFS file、scan record、graph edgeをexactly-oneで再結合し、target sourceのASTとmodule-local scopeを同じmove-only ownerに保持する。lookupはimporter source上のmember spanとtarget declaration name bytesを比較し、ASTの`Public` + `Enum` evidence、全named declarationを含むhoist順DefId、scope bindingのkind/span/nameを検証して、`{module node, file ID, module-local DefId, name span}`を返す。path-map graphはraw import specとresolved edge targetを混同せず`ResolvedTargetUnsupported`へ閉じ、path-map evidenceを受ける後続resolverへ残す。`as *`、同名alias、private/non-enum、重複node/file/edge/definitionはfail closedとし、re-export/selective/open/mergeは後続full export tableへ残す。このCopy originはnominal IDやchecker-session capabilityではない。
 
+public export tableの前提として、import scanはprivate `#import`とpublic `pub #import`を同じtop-level graph inputとして認識し、directive全体span、`#import` span、typed visibility、public modifier span、closed clause kind（Alias / Open / Merge）を同じCopy recordへco-produceする。selective clauseはAliasへ偽装せずtrailing-text diagnostic、DefaultAliasはImportAsExpected diagnosticへ閉じ、対応variantを追加するまでexport inputにしない。graph edgeはこのrecordのdirective全体spanを使うため、後続export builderはsource prefixを再走査せずrecordとedgeをexact joinする。
+
 ただし、qualified / alias prefixからtyped nominal ownerを作るresolver evidence、TypeArenaとenum sessionの共通origin witness、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
 
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite

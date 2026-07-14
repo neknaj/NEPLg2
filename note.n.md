@@ -84043,3 +84043,10 @@ MERGE_APPROVED
 - wildcard、同名alias、private enum、non-enum、missing/duplicate node/file/edge/definitionはfail closedである。re-export/selective/open/mergeをdirect declarationとして偽装せず、full public export tableとenum session/TypeArena common-originは後続に残す。Copy origin単体はcapabilityでもproduction originでもなく、セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
 - subagent reviewで検出したauthority欠陥を修正した。VFSはlogical path exactly-one、edgeはfrom/to/directive span exactly-one、member/alias spanはUTF-8境界、同名宣言はvisibility/kindを問わずduplicate判定する。
 - focused contract、issues check、diff check、3本のfocused doctest（happy/private、duplicate VFS path、cross-kind DefinitionDuplicate）、trunk build、Playground editor CLI JSON 13/13は通過した。source-policyは新しいqualified enum contractを通過後、clean main既存のdocumentation baseline `2790 > 2756`だけで停止した。subagentの最終差分reviewと全体整合reviewはいずれもblocking 0で承認された。
+
+## 2026-07-14 selfhost public import visibility prerequisite
+
+- Rust ExportTableとselfhost graph/parserを再監査し、現import scannerが`pub #import`を無視しvisibility/clauseを保持しないため、full export closureを安全に構築できない根本原因を確認した。
+- import recordへdirective全体span、import span、typed Private/Public visibility、public modifier span、closed Alias/Open/Merge clauseをco-produceする。private/public importは同じgraph inputになり、selective/default aliasは未対応のtyped parser diagnosticへ閉じる。`plan.md`は変更していない。
+- 複数inline空白を含むpublic Open、private Alias、public Merge、Selective拒否、public importからのgraph edge生成を実行doctestで検査した。既存constructorはprivate Alias/Open互換を維持し、DefaultAliasは`ImportAsExpected`、Selectiveは`ImportTrailingText`へfail closedとした。full child-first export closure、exported/original name、duplicate namespace、path-map producer、common-originは未実装であり、セルフホストコンパイラ全体も未完成である。
+- 修正後の差分reviewと全体整合reviewはBlocker / Major / Minor 0で承認された。focused contract、qualified import prerequisite contract、issues check、`git diff --check`、import scan doctest 4/4、graph doctest 1/1、`trunk build`、Playground editor CLI JSON 13/13は最終差分で通過した。source-policy全体は新contract通過後、main既存のstdlib documentation baseline `2790 > 2756`だけで停止した。
