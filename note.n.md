@@ -84029,3 +84029,10 @@ MERGE_APPROVED
 - enum definitionはdeclaration全体spanに加えてname spanを保持する。mapping producerはscope上のDefId membership、binding identity、Enum kind、session内nominal exactly-one、definition kind、name span identity、session source上のname byte一致を検査し、成功時だけDefId / nominal / declaration name spanを返す。public Copy mapping単体はcapabilityではなく、成功control-flowまたはscope/sessionへの再validationがauthorityである。
 - import alias DefIdからoriginal declarationへのprojection、TypeArena common origin witness、qualifier evidence、checked Match / HIR / Resource輸送は未接続でありproduction originは発行しない。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
 - 修正後の差分reviewと全体整合reviewはBlocker / Majorなしで承認された。definition binding contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。focused doctestは追加matrixのparse後、clean mainでも再現する既存`enum_surface` impl doccomment parser baselineで停止した。source-policy全体は新contract通過後、既存stdlib documentation baseline `2790 > 2756`だけで停止した。
+
+## 2026-07-14 selfhost qualified import origin prerequisite
+
+- Rust resolver監査により、qualified aliasはmodule namespaceでありDefIdはmodule-localであるため、aliasから裸DefIdを返す設計を退けた。今後はalias→target moduleとtarget module public export→original DefIdの2段tableを作り、module node/file originを保持する。
+- 最初のprerequisiteとして`SelfhostImportRecord`へaliasの絶対source spanを追加した。spanはparserが持つdirective spanとlexeme相対alias rangeから生成し、file IDを保持する。graphにはfrom path、resolved target path、directive spanがexactly oneで一致するときだけedgeを返す再結合APIを追加した。
+- このcheckpointはoriginal definition projectionやcommon origin witnessをまだ発行せず、セルフホストコンパイラ全体も未完成である。次はgraph/VFS/visibility/local scopeを共同検証する2段qualified import definition tableを実装する。`plan.md`は変更していない。
+- review指摘によりalias span生成を検査付き`Option`へ変更し、record-aware edge lookupを`Missing` / `Duplicate` / `Invariant` / `Found`へ分類した。実行doctestはfound、target/from/span mismatch、duplicateを検査して通過した。focused contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13も通過した。source-policy全体は新contract通過後、既存stdlib documentation baseline `2790 > 2756`だけで停止した。

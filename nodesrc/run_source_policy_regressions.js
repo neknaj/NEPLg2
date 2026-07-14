@@ -185,6 +185,7 @@ const checks = [
     "nodesrc/test_monomorphize_unresolved_api_policy.js",
     "nodesrc/test_resource_ir_test_harness_policy.js",
     "nodesrc/test_selfhost_outcome_no_raw_result_cell.js",
+    "nodesrc/test_selfhost_qualified_import_origin_prerequisite_contract.js",
     "nodesrc/test_selfhost_cli_args_types_split.js",
     "nodesrc/test_selfhost_cli_args_doc_report_contract.js",
     "nodesrc/test_selfhost_cli_args_no_owner_field_reads.js",

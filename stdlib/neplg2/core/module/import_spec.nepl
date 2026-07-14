@@ -100,6 +100,24 @@ pub fn selfhost_import_spec_span %fn SelfhostImportSpec SelfhostSourceSpan \spec
 pub fn selfhost_import_spec_item_index %fn SelfhostImportSpec i32 \spec:
     spec.item_index
 
+//: selfhost_import_spec_alias_span: alias の source span を[返/かえ]す
+//:
+//: [契約/けいやく]: spec の alias range は directive lexeme 相対です。非空range、directive内包含、i32加算可能性を検査し、元 source と同じ file_id の絶対 byte rangeへ変換します。
+pub fn selfhost_import_spec_alias_span %fn SelfhostImportSpec Option SelfhostSourceSpan \spec:
+    let directive_len %i32 sub spec.span.end spec.span.start
+    let span_invalid %bool not source_span_is_valid spec.span
+    let alias_start_invalid %bool lt spec.alias_start 0
+    let alias_range_invalid %bool le spec.alias_end spec.alias_start
+    let alias_outside_directive %bool gt spec.alias_end directive_len
+    let alias_end_overflows %bool gt spec.alias_end sub 2147483647 spec.span.start
+    let invalid %bool or span_invalid or alias_start_invalid or alias_range_invalid or alias_outside_directive alias_end_overflows
+    if:
+        invalid
+        then:
+            none
+        else:
+            some source_span_new_unchecked spec.span.file_id add spec.span.start spec.alias_start add spec.span.start spec.alias_end
+
 //: selfhost_import_spec_path: 元 lexeme から path 文字列を[切/き]り[出/だ]す
 //:
 //: [目的/もくてき]:

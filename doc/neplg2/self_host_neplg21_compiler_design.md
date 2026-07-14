@@ -3780,6 +3780,8 @@ checker connectorはscrutinee TypeIdをTypeArena membershipへ戻し、Namedな�
 
 definition binding prerequisiteでは、enum definitionへparser由来のdeclaration name spanを保持し、`SelfhostNameScope`の実bindingを`SelfhostResolvedEnumSession`へ再結合する。producerはDefId membership、binding内DefId一致、`DefKind::Enum`、nominal definition exactly-one、definition kind、name span identity、session source上のname byte一致を検査し、caller supplied DefIdとnominal IDを単に包んだ値をauthorityにしない。mappingはpublic Copy recordなので単体をcapabilityとせず、producer成功control-flow内で使うかscope/session/DefIdへ再validationする。これはlocal/original declaration mappingであり、import alias DefIdからoriginal declarationへのprojectionとTypeArena common originは後続である。
 
+qualified import の original definition projection は、aliasを裸の`SelfhostDefId`へ変換しない。Rust実装と同じくaliasからtarget moduleを選ぶ表と、target moduleのpublic export名からmodule-local DefIdを選ぶ表を分け、結果identityはmodule node/file IDとDefIdの組にする。その前提としてimport scanはalias文字列と同時に絶対source spanを保持し、graph側はfrom path、resolved target path、directive spanが一致するedgeがexactly oneの場合だけrecordとedgeを再結合する。`SelfhostImportRecord`はpublic Copy payloadなので単体をcapabilityとせず、scan成功経路で使うかsource/spec/graphへ再validationする。pathだけのfirst-winsやalias文字列だけのwrapperはresolver authorityにしない。
+
 ただし、qualified / alias prefixからtyped nominal ownerを作るresolver evidence、TypeArenaとenum sessionの共通origin witness、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
 
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite

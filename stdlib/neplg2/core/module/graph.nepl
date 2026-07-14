@@ -148,6 +148,51 @@ pub fn selfhost_module_graph_edge_at %fn &SelfhostModuleGraph fn i32 Option Self
     let edges %&Vec SelfhostModuleGraphEdge field::get_ref graph "edges"
     v::get edges idx
 
+//: SelfhostModuleGraphImportEdgeLookup: import recordとedgeのexact照合結果
+pub enum SelfhostModuleGraphImportEdgeLookup:
+    Missing
+    Duplicate
+    Invariant
+    Found %SelfhostModuleGraphEdge
+
+//: selfhost_module_graph_import_edge_exact_loop: import recordに一致するedgeをexactly-oneで[探/さが]す
+//:
+//: [目的/もくてき]: qualified import tableがalias recordとgraph targetを再結合するとき、pathだけのfirst-winsを避けます。
+//: [契約/けいやく]: from path、resolved target path、directive spanがすべて一致するedgeがちょうど1件の場合だけ返します。
+fn selfhost_module_graph_import_edge_exact_loop %fn &SelfhostModuleGraph fn str fn str fn SelfhostSourceSpan fn i32 fn i32 fn Option SelfhostModuleGraphEdge SelfhostModuleGraphImportEdgeLookup \graph\from\to\span\idx\count\found:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then:
+            if:
+                eq count 0
+                then:
+                    SelfhostModuleGraphImportEdgeLookup::Missing
+                else if:
+                    eq count 1
+                    then:
+                        match found:
+                            Option::Some edge:
+                                SelfhostModuleGraphImportEdgeLookup::Found edge
+                            Option::None:
+                                SelfhostModuleGraphImportEdgeLookup::Invariant
+                    else:
+                        SelfhostModuleGraphImportEdgeLookup::Duplicate
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::Some edge:
+                    let same_span %bool and and eq edge.span.file_id span.file_id eq edge.span.start span.start eq edge.span.end span.end
+                    let matches %bool and and string_search::str_eq edge.from from string_search::str_eq edge.to to same_span
+                    selfhost_module_graph_import_edge_exact_loop graph from to span add idx 1 if matches add count 1 count if matches some edge found
+                Option::None:
+                    SelfhostModuleGraphImportEdgeLookup::Invariant
+
+//: selfhost_module_graph_import_edge_exact: scan recordとgraph edgeをexactly-oneで[再結合/さいけつごう]する
+//:
+//: [注意/ちゅうい]: alias spellingはこの関数のauthorityではありません。callerは同じrecordのalias spanをsourceへ検証してから使います。
+//: [計算量/けいさんりょう]: edge数をeとしてO(e)です。
+pub fn selfhost_module_graph_import_edge_exact %fn &SelfhostModuleGraph fn str fn str fn &SelfhostImportRecord SelfhostModuleGraphImportEdgeLookup \graph\from\resolved_to\record:
+    selfhost_module_graph_import_edge_exact_loop graph from resolved_to selfhost_import_record_span record 0 0 none
+
 //: selfhost_module_graph_find_node_loop: path に一致する node index を[探/さが]す
 pub fn selfhost_module_graph_find_node_loop %fn &SelfhostModuleGraph fn str fn i32 fn i32 Option i32 \graph\path\n\idx:
     if:
@@ -424,9 +469,52 @@ pub fn selfhost_module_graph_stage0 %impure fn void i32 \void:
                                 Result::Ok graph:
                                     let n %i32 selfhost_module_graph_node_len &graph
                                     let e %i32 selfhost_module_graph_edge_len &graph
-                                    selfhost_module_graph_free graph
-                                    selfhost_vfs_free vfs2
-                                    if and eq n 2 eq e 1 0 1
+                                    match selfhost_scan_module_imports_with_file_id "#import \"util.nepl\" as util\nfn main %fn void i32 \\void:\n    0\n" 0:
+                                        Result::Ok records:
+                                            match v::get &records 0:
+                                                Option::Some record:
+                                                    let wrong_span_record %SelfhostImportRecord selfhost_import_record_new (source_span_new_unchecked 0 1 27) "util.nepl" "util" (source_span_new_unchecked 0 23 27) false
+                                                    let found %bool match selfhost_module_graph_import_edge_exact &graph "main.nepl" "util.nepl" &record:
+                                                        SelfhostModuleGraphImportEdgeLookup::Found _edge: true
+                                                        _: false
+                                                    let missing %bool match selfhost_module_graph_import_edge_exact &graph "main.nepl" "other.nepl" &record:
+                                                        SelfhostModuleGraphImportEdgeLookup::Missing: true
+                                                        _: false
+                                                    let wrong_from %bool match selfhost_module_graph_import_edge_exact &graph "other.nepl" "util.nepl" &record:
+                                                        SelfhostModuleGraphImportEdgeLookup::Missing: true
+                                                        _: false
+                                                    let wrong_span %bool match selfhost_module_graph_import_edge_exact &graph "main.nepl" "util.nepl" &wrong_span_record:
+                                                        SelfhostModuleGraphImportEdgeLookup::Missing: true
+                                                        _: false
+                                                    match selfhost_module_graph_edge_at &graph 0:
+                                                        Option::Some edge:
+                                                            match selfhost_module_graph_push_edge graph edge record.span:
+                                                                Result::Ok duplicate_graph:
+                                                                    let duplicate %bool match selfhost_module_graph_import_edge_exact &duplicate_graph "main.nepl" "util.nepl" &record:
+                                                                        SelfhostModuleGraphImportEdgeLookup::Duplicate: true
+                                                                        _: false
+                                                                    selfhost_module_graph_free duplicate_graph
+                                                                    v::free records
+                                                                    selfhost_vfs_free vfs2
+                                                                    if and and and and and and eq n 2 eq e 1 found missing wrong_from wrong_span duplicate 0 1
+                                                                Result::Err _diag:
+                                                                    v::free records
+                                                                    selfhost_vfs_free vfs2
+                                                                    1
+                                                        Option::None:
+                                                            selfhost_module_graph_free graph
+                                                            v::free records
+                                                            selfhost_vfs_free vfs2
+                                                            1
+                                                Option::None:
+                                                    selfhost_module_graph_free graph
+                                                    v::free records
+                                                    selfhost_vfs_free vfs2
+                                                    1
+                                        Result::Err _diag:
+                                            selfhost_module_graph_free graph
+                                            selfhost_vfs_free vfs2
+                                            1
                                 Result::Err _diag:
                                     selfhost_vfs_free vfs2
                                     1

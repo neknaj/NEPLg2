@@ -8,7 +8,7 @@
 
 2026-07-13 selfhost Resource recursive control payload
 
-- enum session、`ResolvedEnumMemberId` producer、cross-source lookup、Named / Applied scrutinee nominal、local DefIdとparser enum definitionを再結合するdefinition binding mapping、resolver済みqualifier ownerをlookup前に照合するchecker connectorは実装済み。次はqualified / import alias DefIdからoriginal definition bindingへのtyped projectionと同一checker-session origin witnessを接続し、checked Match tree / HIR / Resourceへidentityを輸送する。続いてreference-to-enumのDeref projectionとcross-session canonical type keyを接続し、その後actual `ResourceFunction`からtopology / kind / span / sparse payload ownerを同時生成するco-production authorityとproduction originを接続する
+- enum session、`ResolvedEnumMemberId` producer、cross-source lookup、Named / Applied scrutinee nominal、local DefIdとparser enum definitionを再結合するdefinition binding mapping、resolver済みqualifier ownerをlookup前に照合するchecker connector、import aliasの絶対source span保持とgraph edge exactly-one再結合prerequisiteは実装済み。次はqualified alias→target moduleとtarget module public export→module-local original DefIdの2段typed tableをco-produceし、module/file origin付きdefinition refを同一checker-session origin witnessへ接続する。その後checked Match tree / HIR / Resourceへidentityを輸送し、reference-to-enumのDeref projectionとcross-session canonical type keyを接続する。最後にactual `ResourceFunction`からtopology / kind / span / sparse payload ownerを同時生成するco-production authorityとproduction originを接続する
 
 2026-06-01 GUI/TUI standard library
 

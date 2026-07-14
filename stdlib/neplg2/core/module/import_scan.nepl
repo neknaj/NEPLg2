@@ -16,6 +16,7 @@
 //: - この scanner は full parser ではありません。import graph の root closure に必要な top-level import directive だけを読む専用経路です。
 //: - indented block 内や raw backend block 内の `#import` 文字列は top-level directive ではないため無視します。
 //: - 返された `SelfhostImportRecord.path` / `alias` は source slice に由来します。caller は VFS source の lifetime を graph 構築中に保ってください。
+//: - recordはpublic Copy payloadであり単体をresolver capabilityにしません。scan成功経路で使うか、source/spec/graphへ再validationしてください。
 //: - 成功時の `Vec SelfhostImportRecord` は caller が `v::free` で[解放/かいほう]します。
 //:
 //: [計算量/けいさんりょう]:
@@ -23,7 +24,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
-//: stdout: "test_report name=\"selfhost_import_scan_basic\" count=3 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"count\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"first\" expected=\"./util\" actual=\"./util\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"second\" expected=\"core/result\" actual=\"core/result\" message=\"\"\n"
+//: stdout: "test_report name=\"selfhost_import_scan_basic\" count=7 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"count\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"first\" expected=\"./util\" actual=\"./util\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"second\" expected=\"core/result\" actual=\"core/result\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"first alias file\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"first alias start\" expected=\"20\" actual=\"20\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"first alias end\" expected=\"24\" actual=\"24\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"wildcard alias start\" expected=\"50\" actual=\"50\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -36,7 +37,7 @@
 //:     unwrap v::get records idx
 //:
 //: fn main %impure fn void i32 \void:
-//:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn void i32 \\void:\n    0\n" 0:
+//:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn void i32 \\void:\n    0\n" 7:
 //:         Result::Ok records:
 //:             let r0 %SelfhostImportRecord record_at &records 0
 //:             let r1 %SelfhostImportRecord record_at &records 1
@@ -44,8 +45,12 @@
 //:             let report1 %TestReport test_report_push report0 assert_eq_i32 "count" 2 v::len &records
 //:             let report2 %TestReport test_report_push report1 assert_str_eq "first" "./util" r0.path
 //:             let report3 %TestReport test_report_push report2 assert_str_eq "second" "core/result" r1.path
+//:             let report4 %TestReport test_report_push report3 assert_eq_i32 "first alias file" 7 r0.alias_span.file_id
+//:             let report5 %TestReport test_report_push report4 assert_eq_i32 "first alias start" 20 r0.alias_span.start
+//:             let report6 %TestReport test_report_push report5 assert_eq_i32 "first alias end" 24 r0.alias_span.end
+//:             let report7 %TestReport test_report_push report6 assert_eq_i32 "wildcard alias start" 50 r1.alias_span.start
 //:             v::free records
-//:             test_report_exit_code test_report_print_stdout report3
+//:             test_report_exit_code test_report_print_stdout report7
 //:         Result::Err _diag:
 //:             1
 //: ```
@@ -75,12 +80,13 @@ fn selfhost_import_scan_byte_or_end %fn str fn i32 i32 \source\idx:
 //: SelfhostImportRecord: graph 構築に必要な import directive 情報
 //:
 //: [目的/もくてき]:
-//: - import directive の span、解決対象 path、alias、wildcard かどうかを[保持/ほじ]します。
+//: - import directive の span、解決対象 path、alias とその絶対 source span、wildcard かどうかを[保持/ほじ]します。
 //: - graph stage は AST item index ではなくこの record を使うため、module parser へ依存しません。
 pub struct SelfhostImportRecord:
     span %SelfhostSourceSpan
     path %str
     alias %str
+    alias_span %SelfhostSourceSpan
     is_wildcard %bool
 
 impl Clone for SelfhostImportRecord:
@@ -92,8 +98,13 @@ impl Copy for SelfhostImportRecord:
         self
 
 //: selfhost_import_record_new: import record を[作/つく]る
-pub fn selfhost_import_record_new %fn SelfhostSourceSpan fn str fn str fn bool SelfhostImportRecord \span\path\alias\is_wildcard:
-    SelfhostImportRecord span path alias is_wildcard
+pub fn selfhost_import_record_new %fn SelfhostSourceSpan fn str fn str fn SelfhostSourceSpan fn bool SelfhostImportRecord \span\path\alias\alias_span\is_wildcard:
+    SelfhostImportRecord span path alias alias_span is_wildcard
+
+//: selfhost_import_record_span: borrowed recordからdirective spanを[返/かえ]す
+//: [契約/けいやく]: Copy payloadだけを返し、record単体をresolver authorityへ昇格させません。
+pub fn selfhost_import_record_span %fn &SelfhostImportRecord SelfhostSourceSpan \record:
+    *field::get_ref record "span"
 
 //: selfhost_import_scan_oom_diag: import scan 中の allocation failure を diagnostic にする
 pub fn selfhost_import_scan_oom_diag %fn SelfhostSourceSpan SelfhostDiagnostic \span:
@@ -164,7 +175,11 @@ pub fn selfhost_import_record_from_line %impure fn str impure fn i32 impure fn i
         Result::Ok spec:
             let path %str selfhost_import_spec_path lexeme spec
             let alias %str selfhost_import_spec_alias lexeme spec
-            Result::Ok selfhost_import_record_new selfhost_import_spec_span spec path alias selfhost_import_spec_is_wildcard spec
+            match selfhost_import_spec_alias_span spec:
+                Option::Some alias_span:
+                    Result::Ok selfhost_import_record_new selfhost_import_spec_span spec path alias alias_span selfhost_import_spec_is_wildcard spec
+                Option::None:
+                    Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAstIndex "import alias span was outside its directive" "scanner/parser alias origin mismatch"
         Result::Err diag:
             Result::Err diag
 
