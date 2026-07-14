@@ -18755,7 +18755,8 @@ fn probe <(VecOwner,VecOwner,VecOwner,i32,i32,bool)*>Result<Checkpoint,BuildErro
     compile_resource_source_with_path(
         source,
         CompileTarget::Wasm,
-        stdlib_root().join("alloc/gui/font/sfnt/recursive_distinct_completed_owner_regression.nepl"),
+        stdlib_root()
+            .join("alloc/gui/font/sfnt/recursive_distinct_completed_owner_regression.nepl"),
     )
     .expect("recursive distinct completed owner must pass normal compilation");
 }
@@ -19037,6 +19038,171 @@ fn probe <(OwnerBag,bool,bool)*>Result<Step,StepError>> (owner, ok_path, direct_
             .expect("the largest deep owner leaf scale control must pass normal compile");
         }
     }
+}
+
+#[test]
+fn resource_ir_owner_check_recovers_and_resteps_asymmetric_seven_leaf_join_owner() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/field" as field
+#import "core/mem" as *
+#import "core/mem/internal" as *
+#import "core/mem/allocator" as *
+#import "core/math" as *
+#import "core/result" as *
+
+struct LeafOwner:
+    region <RegionToken<u8>>
+
+struct ProvenanceOwner:
+    leaf <LeafOwner>
+
+struct SourceInner:
+    first <LeafOwner>
+    second <LeafOwner>
+
+struct SourceOwner:
+    inner <SourceInner>
+    third <LeafOwner>
+
+struct PlanInner:
+    first <LeafOwner>
+    second <LeafOwner>
+
+struct PlanOwner:
+    inner <PlanInner>
+
+struct CheckpointOwner:
+    plan <PlanOwner>
+    metrics <LeafOwner>
+
+struct ActualOwner:
+    source <SourceOwner>
+    checkpoint <CheckpointOwner>
+
+struct JoinOwner:
+    provenance <ProvenanceOwner>
+    actual <ActualOwner>
+    cursor <i32>
+
+struct JoinedRecord:
+    metric_index <i32>
+
+struct JoinStep:
+    owner <JoinOwner>
+    joined <JoinedRecord>
+
+struct JoinError:
+    owner <JoinOwner>
+    kind <i32>
+
+fn free_leaf <(LeafOwner)*>()> (owner):
+    match dealloc_region<u8> field::get owner "region":
+        Result::Ok _:
+            ()
+        Result::Err _:
+            #intrinsic "unreachable" <> ()
+
+fn free_source <(SourceOwner)*>()> (owner):
+    let inner <SourceInner> field::get owner "inner"
+    free_leaf field::get inner "first"
+    free_leaf field::get inner "second"
+    free_leaf field::get owner "third"
+
+fn free_checkpoint <(CheckpointOwner)*>()> (owner):
+    let plan <PlanOwner> field::get owner "plan"
+    let inner <PlanInner> field::get plan "inner"
+    free_leaf field::get inner "first"
+    free_leaf field::get inner "second"
+    free_leaf field::get owner "metrics"
+
+fn free_join <(JoinOwner)*>()> (owner):
+    let provenance <ProvenanceOwner> field::get owner "provenance"
+    free_leaf field::get provenance "leaf"
+    let actual <ActualOwner> field::get owner "actual"
+    free_source field::get actual "source"
+    free_checkpoint field::get actual "checkpoint"
+
+fn borrowed_provenance_read <(&ProvenanceOwner,i32)->Result<i32,i32>> (owner, index):
+    if:
+        ge index 0
+        then:
+            Result<i32,i32>::Ok index
+        else:
+            Result<i32,i32>::Err 1
+
+fn borrowed_actual_read <(&ActualOwner,i32)->Result<i32,i32>> (owner, index):
+    if:
+        ge index 0
+        then:
+            Result<i32,i32>::Ok index
+        else:
+            Result<i32,i32>::Err 2
+
+fn join_error <(JoinOwner,i32)->Result<JoinStep,JoinError>> (owner, kind):
+    Result<JoinStep,JoinError>::Err JoinError owner kind
+
+fn join_step <(JoinOwner,i32)->Result<JoinStep,JoinError>> (owner, budget):
+    let cursor <i32> *field::get_ref &owner "cursor"
+    if:
+        le budget 0
+        then:
+            Result<JoinStep,JoinError>::Ok JoinStep owner (JoinedRecord sub 0 1)
+        else:
+            match borrowed_provenance_read field::get_ref &owner "provenance" cursor:
+                Result::Err kind:
+                    join_error owner kind
+                Result::Ok provenance:
+                    match borrowed_actual_read field::get_ref &owner "actual" cursor:
+                        Result::Err kind:
+                            join_error owner kind
+                        Result::Ok actual:
+                            Result<JoinStep,JoinError>::Ok JoinStep owner (JoinedRecord add provenance actual)
+
+fn force_mismatch <(JoinOwner)->JoinError> (owner):
+    JoinError owner 3
+
+fn step_owner <(JoinStep)->JoinOwner> (step):
+    field::get step "owner"
+
+fn error_owner <(JoinError)->JoinOwner> (error):
+    field::get error "owner"
+
+fn run_join <(JoinOwner)*>bool> (owner):
+    match join_step owner 0:
+        Result::Err error:
+            free_join error_owner error
+            false
+        Result::Ok budget_step:
+            let forced <JoinError> force_mismatch step_owner budget_step
+            match join_step error_owner forced 1:
+                Result::Err error:
+                    free_join error_owner error
+                    false
+                Result::Ok first_step:
+                    match join_step step_owner first_step 1:
+                        Result::Err error:
+                            free_join error_owner error
+                            false
+                        Result::Ok second_step:
+                            free_join step_owner second_step
+                            true
+"#;
+
+    let (module, types) = typecheck_resource_stdlib_source(
+        source,
+        "alloc/gui/font/registered_face/simple_glyph/indexed/seven_leaf_join_owner.nepl",
+        CompileTarget::Wasm,
+    );
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert!(
+        report.diagnostics.is_empty(),
+        "the asymmetric seven-leaf join owner must survive budget return, forced recovery, and repeated borrowed steps: {:#?}\nresource:\n{}",
+        report.diagnostics,
+        resource.dump_text()
+    );
 }
 
 #[test]

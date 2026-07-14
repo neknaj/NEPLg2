@@ -14,6 +14,7 @@ exit_code: 0
 
 #import "alloc/gui/font" as *
 #import "alloc/io" as *
+#import "core/cast" as *
 #import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
@@ -432,6 +433,130 @@ fn join_stroke_metric_provenance_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexed
             let value gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value &command
             and eq metric_index gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_metric_index &provenance and eq command_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value eq tag_scalar gui_sfnt_simple_glyph_path_command_tag_scalar_value &(gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value)
 
+fn join_stroke_metric_joined_provenance_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined fn i32 fn i32 fn i32 bool \joined\metric_index\command_index\tag_scalar:
+    let provenance gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_provenance joined
+    let command gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_command &provenance
+    let value gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value &command
+    and eq metric_index gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_metric_index &provenance and eq command_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value eq tag_scalar gui_sfnt_simple_glyph_path_command_tag_scalar_value &(gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value)
+
+fn join_stroke_metric_joined_first_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined bool \joined:
+    let actual gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_actual joined
+    match actual:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Quadratic _quadratic: false
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line line:
+            and join_stroke_metric_joined_provenance_ok joined 0 1 2 and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_segment_index &line and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_x2 &line and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_y2 &line and eq 20 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_x2 &line and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_y2 &line and eq 4 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_stroke_width &line and eq gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_dx &line %i64 cast 20 and eq gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_dy &line %i64 cast 0 eq gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_length_squared &line %i64 cast 400
+
+fn join_stroke_metric_joined_second_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined bool \joined:
+    let actual gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_actual joined
+    match actual:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line _line: false
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Quadratic quadratic:
+            and join_stroke_metric_joined_provenance_ok joined 1 3 3 and eq 1 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_segment_index &quadratic and eq 20 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_x2 &quadratic and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_y2 &quadratic and eq 30 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_x2 &quadratic and eq 10 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_y2 &quadratic and eq 40 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_end_x2 &quadratic and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_end_y2 &quadratic and eq 4 gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_stroke_width &quadratic and eq gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_control_dx &quadratic %i64 cast 10 and eq gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_control_dy &quadratic %i64 cast 10 and eq gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_end_dx &quadratic %i64 cast 10 and eq gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_end_dy &quadratic %i64 cast -10 and eq gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_control_length_squared &quadratic %i64 cast 200 eq gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_end_length_squared &quadratic %i64 cast 200
+
+fn join_stroke_metric_joined_third_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined bool \joined:
+    let actual gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_actual joined
+    match actual:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Quadratic _quadratic: false
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line line:
+            and join_stroke_metric_joined_provenance_ok joined 2 7 2 and eq 2 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_segment_index &line and eq 40 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_x2 &line and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_y2 &line and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_x2 &line and eq 0 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_y2 &line and eq 4 gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_stroke_width &line and eq gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_dx &line %i64 cast -40 and eq gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_dy &line %i64 cast 0 eq gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_length_squared &line %i64 cast 1600
+
+fn join_stroke_metric_joined_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined fn i32 bool \joined\metric_index:
+    if eq metric_index 0:
+        then join_stroke_metric_joined_first_ok joined
+        else if eq metric_index 1:
+            then join_stroke_metric_joined_second_ok joined
+            else join_stroke_metric_joined_third_ok joined
+
+fn join_stroke_metric_join_step_record_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep fn i32 bool \step\metric_index:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_status step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Joined:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_joined step:
+                Option::None: false
+                Option::Some record: join_stroke_metric_joined_ok &record metric_index
+        _: false
+
+fn join_stroke_metric_join_step_terminal_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep bool \step:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_status step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Completed:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_joined step:
+                Option::None: true
+                Option::Some _record: false
+        _: false
+
+fn join_stroke_metric_join_step_budget_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep bool \step:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_status step:
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::StepBudgetExhausted:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_joined step:
+                Option::None: true
+                Option::Some _record: false
+        _: false
+
+fn join_stroke_metric_join_run %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner bool \owner:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step owner 0:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner error
+            false
+        Result::Ok budget_step:
+            let budget_ok %bool join_stroke_metric_join_step_budget_ok &budget_step
+            let budget_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner budget_step
+            let budget_cursor_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &budget_owner
+            let forced gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_test_force_metric_index_mismatch budget_owner
+            let mismatch_ok %bool match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_kind &forced:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch: true
+                _: false
+            let recovered gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner forced
+            let recovery_cursor_ok %bool eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &recovered
+            match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step recovered 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner error
+                    false
+                Result::Ok first_step:
+                    let first_ok %bool join_stroke_metric_join_step_record_ok &first_step 0
+                    let first_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner first_step
+                    let first_cursor_ok %bool eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &first_owner
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step first_owner 1:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner error
+                            false
+                        Result::Ok second_step:
+                            let second_ok %bool join_stroke_metric_join_step_record_ok &second_step 1
+                            let second_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner second_step
+                            let second_cursor_ok %bool eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &second_owner
+                            match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step second_owner 1:
+                                Result::Err error:
+                                    gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner error
+                                    false
+                                Result::Ok third_step:
+                                    let third_ok %bool join_stroke_metric_join_step_record_ok &third_step 2
+                                    let third_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner third_step
+                                    let third_cursor_ok %bool eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &third_owner
+                                    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step third_owner 0:
+                                        Result::Err error:
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner error
+                                            false
+                                        Result::Ok terminal_step:
+                                            let terminal_ok %bool join_stroke_metric_join_step_terminal_ok &terminal_step
+                                            let terminal_owner gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner terminal_step
+                                            let terminal_cursor_ok %bool eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &terminal_owner
+                                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free terminal_owner
+                                            and budget_ok and budget_cursor_ok and mismatch_ok and recovery_cursor_ok and first_ok and first_cursor_ok and second_ok and second_cursor_ok and third_ok and third_cursor_ok and terminal_ok terminal_cursor_ok
+
+fn join_stroke_metric_join_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner bool \completed:
+    let full %u8 cast 255
+    let zero %u8 cast 0
+    let color %Rgba8888 rgba8888_new full zero zero full
+    let stroke %GuiStroke unwrap_ok gui_stroke_new color 4 GuiStrokeCap::Butt GuiStrokeJoin::Miter 4.0 GuiStrokeDash::Solid
+    let paint %GuiGlyphPaint unwrap_ok gui_glyph_paint_result none (some stroke) gui_shadow_ref_none GuiBlendMode::SourceOver
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start completed (gui_point_new 3 sub 0 2) paint:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error_free error
+            false
+        Result::Ok owner:
+            let origin gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_origin &owner
+            let summary_ok %bool and eq 8 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_command_count &owner and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_metric_count &owner and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_line_count &owner and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_quadratic_count &owner and eq 0 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &owner and eq 4 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_stroke_width &owner and eq 3 gui_point_x &origin eq sub 0 2 gui_point_y &origin
+            let joined_ok %bool join_stroke_metric_join_run owner
+            and summary_ok joined_ok
+
 fn join_stroke_metric_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner bool \owner:
     match gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_budget owner 1:
         Result::Err error:
@@ -450,8 +575,7 @@ fn join_stroke_metric_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedSt
                         Result::Ok completed:
                             let counts_ok %bool and eq 8 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_command_count &completed and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_metric_count &completed and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_move_count &completed and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_line_count &completed and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_quadratic_count &completed and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_skip_count &completed eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_storage_cap &completed
                             let provenance_ok %bool and join_stroke_metric_provenance_ok &completed 0 1 2 and join_stroke_metric_provenance_ok &completed 1 3 3 join_stroke_metric_provenance_ok &completed 2 7 2
-                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_free completed
-                            and counts_ok provenance_ok
+                            and counts_ok and provenance_ok join_stroke_metric_join_start completed
                 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::StepBudgetExhausted:
                     gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free next
                     false

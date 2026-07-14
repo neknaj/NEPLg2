@@ -1,7 +1,7 @@
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{OwnerState, Place};
 use super::owner_state::OwnerTable;
-use super::place_utils::should_track;
+use super::place_utils::{places_are_mutually_exclusive_enum_paths, should_track};
 use super::storage_origin::StorageOriginTable;
 
 pub(super) fn transfer_owner_state(
@@ -65,7 +65,11 @@ fn retire_transferred_aliases(
     target: &Place,
 ) {
     for alias in raw_aliases.aliases_for(source) {
-        if same_owner_path(&alias, source) || same_owner_path(&alias, target) {
+        if same_owner_path(&alias, source)
+            || same_owner_path(&alias, target)
+            || places_are_mutually_exclusive_enum_paths(&alias, source)
+            || places_are_mutually_exclusive_enum_paths(&alias, target)
+        {
             continue;
         }
         match owners.state(&alias) {

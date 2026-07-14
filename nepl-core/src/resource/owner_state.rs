@@ -4,7 +4,10 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::model::{
     OwnerState, OwnerStateEntry, OwnerStorageExtent, Place, PlaceProjection, StorageId,
 };
-use super::place_utils::{place_suffix_after_prefix, replace_place_prefix, should_track};
+use super::place_utils::{
+    place_suffix_after_prefix, places_are_mutually_exclusive_enum_paths, replace_place_prefix,
+    should_track,
+};
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct OwnerTable {
@@ -225,13 +228,24 @@ impl OwnerTable {
         entry: &OwnerStateEntry,
         aliases: Vec<Place>,
     ) -> Place {
+        if aliases
+            .iter()
+            .any(|alias| places_are_mutually_exclusive_enum_paths(&entry.place, alias))
+        {
+            return entry.place.clone();
+        }
         if let Some(alias) = best_available_owner_alias(self, &aliases) {
             return alias;
         }
         if owner_state_is_transferable_or_reserved(&entry.state) {
             return entry.place.clone();
         }
-        raw_aliases.canonicalize_owner_cell_address(&entry.place)
+        let canonical = raw_aliases.canonicalize_owner_cell_address(&entry.place);
+        if places_are_mutually_exclusive_enum_paths(&entry.place, &canonical) {
+            entry.place.clone()
+        } else {
+            canonical
+        }
     }
 
     fn state_for_variant_merge(&self, place: &Place) -> Option<OwnerState> {
@@ -436,5 +450,45 @@ fn merge_owner_extents(left: OwnerStorageExtent, right: OwnerStorageExtent) -> O
         left
     } else {
         OwnerStorageExtent::Unknown
+    }
+}
+
+#[cfg(test)]
+mod canonical_alias_tests {
+    use super::*;
+    use crate::resource::model::ResourceId;
+    use crate::types::TypeId;
+    use alloc::string::String;
+
+    fn payload(variant: &str) -> Place {
+        Place::temporary(ResourceId(1), TypeId(1)).with_projection(
+            PlaceProjection::EnumPayload {
+                variant: String::from(variant),
+            },
+            TypeId(2),
+        )
+    }
+
+    #[test]
+    fn exclusive_payloads_do_not_fold_through_a_common_raw_alias() {
+        let ok = payload("Result::Ok");
+        let err = payload("Result::Err");
+        let common = Place::temporary(ResourceId(2), TypeId(2));
+        let mut aliases = RawCellAddressAliases::default();
+        aliases.copy_explicit_raw_address_alias(&ok, &common);
+        aliases.copy_explicit_raw_address_alias_preserving_target(&err, &common);
+
+        let mut owners = OwnerTable::default();
+        owners.set_state(&ok, OwnerState::NoFreeObligation);
+        owners.set_state(&err, OwnerState::NoFreeObligation);
+        owners.allocate(&common);
+
+        let canonical = owners.canonicalize_raw_owner_aliases(&aliases);
+        assert_eq!(canonical.state(&ok), Some(OwnerState::NoFreeObligation));
+        assert_eq!(canonical.state(&err), Some(OwnerState::NoFreeObligation));
+        assert!(matches!(
+            canonical.state(&common),
+            Some(OwnerState::Live { .. })
+        ));
     }
 }

@@ -19,6 +19,37 @@ pub(super) fn should_track(place: &Place) -> bool {
     !matches!(place.root, PlaceRoot::Unknown)
 }
 
+pub(super) fn places_are_mutually_exclusive_enum_paths(left: &Place, right: &Place) -> bool {
+    if left.root != right.root {
+        return false;
+    }
+    for (left, right) in left.projections.iter().zip(&right.projections) {
+        if left == right {
+            continue;
+        }
+        let (
+            PlaceProjection::EnumPayload { variant: left },
+            PlaceProjection::EnumPayload { variant: right },
+        ) = (left, right)
+        else {
+            return false;
+        };
+        let left_family = enum_variant_family(left);
+        let right_family = enum_variant_family(right);
+        if matches!((left_family, right_family), (Some(left), Some(right)) if left != right) {
+            return false;
+        }
+        return normalize_variant_name(left) != normalize_variant_name(right);
+    }
+    false
+}
+
+fn enum_variant_family(variant: &str) -> Option<&str> {
+    let (family, _) = variant.rsplit_once("::")?;
+    let family = family.split_once('<').map_or(family, |(base, _)| base);
+    Some(family.rsplit("::").next().unwrap_or(family))
+}
+
 pub(super) fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {
     address.clone().with_projection(PlaceProjection::Deref, ty)
 }
@@ -507,5 +538,81 @@ pub(super) fn push_unique_place(places: &mut Vec<Place>, place: &Place) {
 pub(super) fn push_unique_usize(values: &mut Vec<usize>, value: usize) {
     if !values.contains(&value) {
         values.push(value);
+    }
+}
+
+#[cfg(test)]
+mod exclusive_enum_path_tests {
+    use super::*;
+    use crate::resource::model::ResourceId;
+
+    fn payload(variant: &str) -> Place {
+        Place::temporary(ResourceId(1), TypeId(1)).with_projection(
+            PlaceProjection::EnumPayload {
+                variant: String::from(variant),
+            },
+            TypeId(2),
+        )
+    }
+
+    #[test]
+    fn sibling_enum_payloads_are_mutually_exclusive() {
+        assert!(places_are_mutually_exclusive_enum_paths(
+            &payload("Result::Ok"),
+            &payload("Err"),
+        ));
+        assert!(!places_are_mutually_exclusive_enum_paths(
+            &payload("Result::Ok"),
+            &payload("Option::Some"),
+        ));
+        assert!(places_are_mutually_exclusive_enum_paths(
+            &payload("Result<core::Foo,str>::Ok"),
+            &payload("core::Result::Err"),
+        ));
+    }
+
+    #[test]
+    fn different_roots_and_struct_siblings_are_not_mutually_exclusive() {
+        let different_root = Place::temporary(ResourceId(2), TypeId(1)).with_projection(
+            PlaceProjection::EnumPayload {
+                variant: String::from("Err"),
+            },
+            TypeId(2),
+        );
+        assert!(!places_are_mutually_exclusive_enum_paths(
+            &payload("Ok"),
+            &different_root,
+        ));
+        let left = Place::temporary(ResourceId(1), TypeId(1)).with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            TypeId(2),
+        );
+        let right = Place::temporary(ResourceId(1), TypeId(1)).with_projection(
+            PlaceProjection::Field {
+                index: 1,
+                offset_bytes: 8,
+            },
+            TypeId(2),
+        );
+        assert!(!places_are_mutually_exclusive_enum_paths(&left, &right));
+        let nested_left = left.with_projection(
+            PlaceProjection::EnumPayload {
+                variant: String::from("Left"),
+            },
+            TypeId(3),
+        );
+        let nested_right = right.with_projection(
+            PlaceProjection::EnumPayload {
+                variant: String::from("Right"),
+            },
+            TypeId(3),
+        );
+        assert!(!places_are_mutually_exclusive_enum_paths(
+            &nested_left,
+            &nested_right,
+        ));
     }
 }
