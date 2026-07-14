@@ -3786,6 +3786,8 @@ direct qualified enum import sessionは、exact-VFS graph上の1つのexplicit a
 
 public export tableの前提として、import scanはprivate `#import`とpublic `pub #import`を同じtop-level graph inputとして認識し、directive全体span、`#import` span、typed visibility、public modifier span、closed clause kind（Alias / Open / Merge）を同じCopy recordへco-produceする。selective clauseはAliasへ偽装せずtrailing-text diagnostic、DefaultAliasはImportAsExpected diagnosticへ閉じ、対応variantを追加するまでexport inputにしない。graph edgeはこのrecordのdirective全体spanを使うため、後続export builderはsource prefixを再走査せずrecordとedgeをexact joinする。
 
+exact-VFS public export closureは、graphのnode配列順をtopological authorityとせず、graph/VFS path・file identity、edge endpoint、cycle、duplicateを検証しながらchild-first orderをco-produceする。各moduleはその順序でparse/hoistし、Public Function / Struct / Enumを全named declaration順のmodule-local DefIdへ再結合する。Public Alias / Open / Mergeは完成済みchild exportを全件伝播し、private importは伝播しない。entryはvisible nameとoriginal nameを分け、multi-hopでもoriginal module node/file、DefId、name span、kindを維持しつつ、直近re-exportのdirective span、clause、child nodeも保持する。同名はlocal/local、local/re-export、re-export/re-exportのいずれもfirst-winsにせず拒否する。Selective / rename / glob、DefaultAlias、path-map target evidenceはこの表へ偽装せず後続schemaへ残す。
+
 ただし、qualified / alias prefixからtyped nominal ownerを作るresolver evidence、TypeArenaとenum sessionの共通origin witness、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
 
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite

@@ -470,3 +470,82 @@ pub fn selfhost_module_order_len %fn &SelfhostModuleOrder i32 \order:
 //: child-first位置のentryをO(1)で返します。
 pub fn selfhost_module_order_get %fn &SelfhostModuleOrder fn i32 Option SelfhostModuleOrderEntry \order\idx:
     v::get field::get_ref order "entries" idx
+
+fn selfhost_module_order_node_entry_count_loop %fn &SelfhostModuleOrder fn i32 fn i32 fn i32 i32 \order\node\idx\count:
+    if:
+        ge idx selfhost_module_order_len order
+        then: count
+        else:
+            match selfhost_module_order_get order idx:
+                Option::Some entry: selfhost_module_order_node_entry_count_loop order node add idx 1 if eq entry.module_node_index node add count 1 count
+                Option::None: selfhost_module_order_node_entry_count_loop order node add idx 1 count
+
+fn selfhost_module_order_validate_current_loop %fn &SelfhostModuleGraph fn &SelfhostVirtualFileSystem fn &SelfhostModuleOrder fn i32 Option SelfhostModuleOrderErrorKind \graph\vfs\order\idx:
+    if:
+        ge idx selfhost_module_order_len order
+        then: none
+        else:
+            match selfhost_module_order_get order idx:
+                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                Option::Some entry:
+                    if:
+                        ne selfhost_module_order_node_entry_count_loop order entry.module_node_index 0 0 1
+                        then: some SelfhostModuleOrderErrorKind::GraphInvariant
+                        else:
+                            match selfhost_module_graph_node_at graph entry.module_node_index:
+                                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                                Option::Some node:
+                                    if:
+                                        not and and eq node.file_id entry.module_file_id string_search::str_eq node.path entry.module_path eq selfhost_module_order_vfs_path_count vfs entry.module_path 0 0 1
+                                        then: some SelfhostModuleOrderErrorKind::GraphInvariant
+                                        else:
+                                            match selfhost_module_order_vfs_path_find vfs entry.module_path 0:
+                                                Option::None: some SelfhostModuleOrderErrorKind::SourceFileMissing
+                                                Option::Some file: if ne file.file_id entry.module_file_id some SelfhostModuleOrderErrorKind::SourceFileIdMismatch selfhost_module_order_validate_current_loop graph vfs order add idx 1
+
+fn selfhost_module_order_position_loop %fn &SelfhostModuleOrder fn i32 fn i32 Option i32 \order\node\idx:
+    if ge idx selfhost_module_order_len order none match selfhost_module_order_get order idx:
+        Option::Some entry: if eq entry.module_node_index node some idx selfhost_module_order_position_loop order node add idx 1
+        Option::None: none
+
+fn selfhost_module_order_validate_current_edges %fn &SelfhostModuleGraph fn &SelfhostModuleOrder fn i32 Option SelfhostModuleOrderErrorKind \graph\order\idx:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: none
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                Option::Some edge:
+                    match selfhost_module_graph_find_node graph edge.from:
+                        Option::None: some SelfhostModuleOrderErrorKind::DanglingEdgeFrom
+                        Option::Some from_node:
+                            match selfhost_module_graph_find_node graph edge.to:
+                                Option::None: some SelfhostModuleOrderErrorKind::DanglingEdgeTo
+                                Option::Some to_node:
+                                    match selfhost_module_order_position_loop order from_node 0:
+                                        Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                                        Option::Some from_position:
+                                            match selfhost_module_order_position_loop order to_node 0:
+                                                Option::None: some SelfhostModuleOrderErrorKind::GraphInvariant
+                                                Option::Some to_position: if ge to_position from_position some SelfhostModuleOrderErrorKind::Cycle selfhost_module_order_validate_current_edges graph order add idx 1
+
+//: selfhost_module_order_validate_against: 保存済みorderが現在のgraph/VFSと同じclosureを表すか再検証する
+//:
+//: [契約/けいやく]: entry数、node exactly-once、path/file identity、VFS path exactly-onceを検査し、stale・truncated orderを拒否します。
+pub fn selfhost_module_order_validate_against %fn &SelfhostModuleGraph fn &SelfhostVirtualFileSystem fn &SelfhostModuleOrder Option SelfhostModuleOrderErrorKind \graph\vfs\order:
+    if:
+        ne selfhost_module_order_len order selfhost_module_graph_node_len graph
+        then: some SelfhostModuleOrderErrorKind::GraphInvariant
+        else:
+            match selfhost_module_order_node_duplicates graph 0 1:
+                Option::Some e: some e
+                Option::None:
+                    match selfhost_module_order_validate_vfs graph vfs 0:
+                        Option::Some e: some e
+                        Option::None:
+                            match selfhost_module_order_validate_edges graph 0:
+                                Option::Some e: some e
+                                Option::None:
+                                    match selfhost_module_order_validate_current_loop graph vfs order 0:
+                                        Option::Some e: some e
+                                        Option::None: selfhost_module_order_validate_current_edges graph order 0

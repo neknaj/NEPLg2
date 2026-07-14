@@ -1,0 +1,774 @@
+#indent 4
+
+//: # name_resolver/public_export_table
+//: 検証済み module order から public 定義と public re-export の閉包を作るモジュールです。
+//:
+//: [目的/もくてき]:
+//: - 各 module を child-first に parse / hoist し、公開 Function / Struct / Enum を module ごとの export 表へ追加します。
+//: - public な Alias / Open / Merge import は、完成済み child 表を現在 module へ複写します。複写後も定義元 module、file、module-local DefId、元名 span は変えません。
+//: - visible name の重複、scan record と graph edge の不一致、order に無い import 先を fail closed にします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostPublicExportTable` は内部 buffer を単独所有します。利用後は `selfhost_public_export_table_free` で一度だけ解放してください。build は失敗時に途中 owner を閉じます。
+//: - table を外部から追加できる API はありません。count/get/lookup は観測だけを行い、table 内容を変更する capability を返しません。
+//: - entry の `str` と span は VFS source / file identity を参照するため、table を解放するまで graph と VFS を保持してください。
+//: - owner identity は現在 entry が見える module、origin identity は最初の直接宣言、provenance は現在 hop が direct か re-export かを表します。
+//: - Rust `ExportKind` parity に合わせ、Trait と private 宣言はexport entryにもpublic export衝突候補にもしません。公開 Function / Struct / Enum のvisible nameだけを重複検査します。
+//: - 現 checkpoint は exact VFS path を使います。path map、selective / rename import は後続 slice です。
+//:
+//: [計算量/けいさんりょう]:
+//: - module 数 m、全宣言数 d、全 export 数 x、edge 数 e に対し、線形 table lookup と hop ごとのsnapshotを用いるため O(d² + x² + ex) 時間、O(x) 一時領域です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/search" as string_search
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn add_sources %impure fn void Result SelfhostVirtualFileSystem i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Err _e: Result::Err 1
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "C" "pub fn leaf %fn void i32 \\void:\n    0\npub trait leaf:\nfn hidden %fn void i32 \\void:\n    0\n":
+//:                 Result::Err _e: Result::Err 1
+//:                 Result::Ok v1:
+//:                     match selfhost_vfs_add v1 "B" "pub #import \"C\" as c\npub struct Local:\n    value %i32\n":
+//:                         Result::Err _e: Result::Err 1
+//:                         Result::Ok v2:
+//:                             match selfhost_vfs_add v2 "D" "pub fn private_only %fn void i32 \\void:\n    0\n":
+//:                                 Result::Err _e: Result::Err 1
+//:                                 Result::Ok v3:
+//:                                     match selfhost_vfs_add v3 "A" "pub #import \"B\" as *\n#import \"D\" as private_d\npub enum Choice:\n    One\n":
+//:                                         Result::Err _e: Result::Err 1
+//:                                         Result::Ok v4:
+//:                                             match selfhost_vfs_add v4 "Root" "pub #import \"A\" as @merge\n":
+//:                                                 Result::Ok v5: Result::Ok v5
+//:                                                 Result::Err _e: Result::Err 1
+//: fn closure_ok %impure fn void bool \void:
+//:     match add_sources:
+//:         Result::Err _e: false
+//:         Result::Ok vfs:
+//:             match selfhost_build_module_graph &vfs "Root":
+//:                 Result::Err _diag:
+//:                     selfhost_vfs_free vfs
+//:                     false
+//:                 Result::Ok graph:
+//:                     match selfhost_module_order_build &graph &vfs:
+//:                         Result::Err _e:
+//:                             selfhost_module_graph_free graph
+//:                             selfhost_vfs_free vfs
+//:                             false
+//:                         Result::Ok order:
+//:                             match selfhost_public_export_table_build &graph &vfs &order:
+//:                                 Result::Err _e:
+//:                                     selfhost_module_order_free order
+//:                                     selfhost_module_graph_free graph
+//:                                     selfhost_vfs_free vfs
+//:                                     false
+//:                                 Result::Ok table:
+//:                                     let root_node %i32 unwrap selfhost_module_graph_find_node &graph "Root"
+//:                                     let c_node %i32 unwrap selfhost_module_graph_find_node &graph "C"
+//:                                     let b_node %i32 unwrap selfhost_module_graph_find_node &graph "B"
+//:                                     let a_node %i32 unwrap selfhost_module_graph_find_node &graph "A"
+//:                                     let leaf_ok %bool match selfhost_public_export_table_lookup &table root_node "leaf":
+//:                                         Option::Some entry:
+//:                                             let identity_ok %bool and and and eq entry.origin_module_node_index c_node eq entry.origin_module_file_id 0 eq entry.origin_def_id.index 0 string_search::str_eq entry.original_name "leaf"
+//:                                             let clause_ok %bool match entry.reexport_clause:
+//:                                                 Option::Some clause:
+//:                                                     match clause:
+//:                                                         SelfhostImportClauseKind::Merge: true
+//:                                                         _: false
+//:                                                 Option::None: false
+//:                                             let child_ok %bool match entry.immediate_child_module_node_index:
+//:                                                 Option::Some child: eq child a_node
+//:                                                 Option::None: false
+//:                                             let span_ok %bool match entry.reexport_directive_span:
+//:                                                     Option::Some span: and eq span.file_id 4 eq span.start 0
+//:                                                     Option::None: false
+//:                                             let hop_ok %bool and child_ok span_ok
+//:                                             and and identity_ok clause_ok hop_ok
+//:                                         Option::None: false
+//:                                     let alias_ok %bool match selfhost_public_export_table_lookup &table b_node "leaf":
+//:                                         Option::Some entry:
+//:                                             let clause_ok %bool match entry.reexport_clause:
+//:                                                 Option::Some clause:
+//:                                                     match clause:
+//:                                                         SelfhostImportClauseKind::Alias: true
+//:                                                         _: false
+//:                                                 Option::None: false
+//:                                             let child_ok %bool match entry.immediate_child_module_node_index:
+//:                                                 Option::Some child: eq child c_node
+//:                                                 Option::None: false
+//:                                             let span_ok %bool match entry.reexport_directive_span:
+//:                                                     Option::Some span: and eq span.file_id 1 eq span.start 0
+//:                                                     Option::None: false
+//:                                             and and clause_ok child_ok span_ok
+//:                                         Option::None: false
+//:                                     let open_ok %bool match selfhost_public_export_table_lookup &table a_node "leaf":
+//:                                         Option::Some entry:
+//:                                             let clause_ok %bool match entry.reexport_clause:
+//:                                                 Option::Some clause:
+//:                                                     match clause:
+//:                                                         SelfhostImportClauseKind::Open: true
+//:                                                         _: false
+//:                                                 Option::None: false
+//:                                             let child_ok %bool match entry.immediate_child_module_node_index:
+//:                                                 Option::Some child: eq child b_node
+//:                                                 Option::None: false
+//:                                             let span_ok %bool match entry.reexport_directive_span:
+//:                                                     Option::Some span: and eq span.file_id 3 eq span.start 0
+//:                                                     Option::None: false
+//:                                             and and clause_ok child_ok span_ok
+//:                                         Option::None: false
+//:                                     let local_ok %bool match selfhost_public_export_table_lookup &table root_node "Local":
+//:                                         Option::Some _entry: true
+//:                                         Option::None: false
+//:                                     let choice_ok %bool match selfhost_public_export_table_lookup &table root_node "Choice":
+//:                                         Option::Some _entry: true
+//:                                         Option::None: false
+//:                                     let hidden_absent %bool match selfhost_public_export_table_lookup &table root_node "hidden":
+//:                                         Option::Some _entry: false
+//:                                         Option::None: true
+//:                                     let private_absent %bool match selfhost_public_export_table_lookup &table root_node "private_only":
+//:                                         Option::Some _entry: false
+//:                                         Option::None: true
+//:                                     selfhost_public_export_table_free table
+//:                                     selfhost_module_order_free order
+//:                                     selfhost_module_graph_free graph
+//:                                     selfhost_vfs_free vfs
+//:                                     and and and and and and leaf_ok alias_ok open_ok local_ok choice_ok hidden_absent private_absent
+//: fn duplicate_rejected %impure fn void bool \void:
+//:     match selfhost_vfs_new:
+//:         Result::Err _e: false
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "Child" "pub fn same %fn void i32 \\void:\n    0\n":
+//:                 Result::Err _e: false
+//:                 Result::Ok v1:
+//:                     match selfhost_vfs_add v1 "Parent" "pub #import \"Child\" as *\npub struct same:\n    value %i32\n":
+//:                         Result::Err _e: false
+//:                         Result::Ok vfs:
+//:                             match selfhost_build_module_graph &vfs "Parent":
+//:                                 Result::Err _diag:
+//:                                     selfhost_vfs_free vfs
+//:                                     false
+//:                                 Result::Ok graph:
+//:                                     match selfhost_module_order_build &graph &vfs:
+//:                                         Result::Err _e:
+//:                                             selfhost_module_graph_free graph
+//:                                             selfhost_vfs_free vfs
+//:                                             false
+//:                                         Result::Ok order:
+//:                                             let rejected %bool match selfhost_public_export_table_build &graph &vfs &order:
+//:                                                 Result::Err e:
+//:                                                     match e:
+//:                                                         SelfhostPublicExportTableErrorKind::DuplicateVisibleName: true
+//:                                                         _: false
+//:                                                 Result::Ok table:
+//:                                                     selfhost_public_export_table_free table
+//:                                                     false
+//:                                             selfhost_module_order_free order
+//:                                             selfhost_module_graph_free graph
+//:                                             selfhost_vfs_free vfs
+//:                                             rejected
+//: fn stale_order_rejected %impure fn void bool \void:
+//:     match selfhost_vfs_new:
+//:         Result::Err _e: false
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "First" "":
+//:                 Result::Err _e: false
+//:                 Result::Ok v1:
+//:                     match selfhost_vfs_add v1 "Second" "":
+//:                         Result::Err _e: false
+//:                         Result::Ok vfs:
+//:                             match selfhost_module_graph_new:
+//:                                 Result::Err _e:
+//:                                     selfhost_vfs_free vfs
+//:                                     false
+//:                                 Result::Ok g0:
+//:                                     match selfhost_module_graph_push_node g0 (selfhost_module_graph_node_new "First" 0 SelfhostModuleGraphNodeStatus::Done 0) (source_span_empty_unchecked 0 0):
+//:                                         Result::Err _e:
+//:                                             selfhost_vfs_free vfs
+//:                                             false
+//:                                         Result::Ok g1:
+//:                                             match selfhost_module_graph_push_node g1 (selfhost_module_graph_node_new "Second" 1 SelfhostModuleGraphNodeStatus::Done 0) (source_span_empty_unchecked 1 0):
+//:                                                 Result::Err _e:
+//:                                                     selfhost_vfs_free vfs
+//:                                                     false
+//:                                                 Result::Ok graph0:
+//:                                                     match selfhost_module_order_build &graph0 &vfs:
+//:                                                         Result::Err _e:
+//:                                                             selfhost_module_graph_free graph0
+//:                                                             selfhost_vfs_free vfs
+//:                                                             false
+//:                                                         Result::Ok order:
+//:                                                             let edge_span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+//:                                                             match selfhost_module_graph_push_edge graph0 (selfhost_module_graph_edge_new "First" "Second" edge_span) edge_span:
+//:                                                                 Result::Err _e:
+//:                                                                     selfhost_module_order_free order
+//:                                                                     selfhost_vfs_free vfs
+//:                                                                     false
+//:                                                                 Result::Ok graph:
+//:                                                                     let rejected %bool match selfhost_public_export_table_build &graph &vfs &order:
+//:                                                                         Result::Err e:
+//:                                                                             match e:
+//:                                                                                 SelfhostPublicExportTableErrorKind::OrderInvariant: true
+//:                                                                                 _: false
+//:                                                                         Result::Ok table:
+//:                                                                             selfhost_public_export_table_free table
+//:                                                                             false
+//:                                                                     selfhost_module_order_free order
+//:                                                                     selfhost_module_graph_free graph
+//:                                                                     selfhost_vfs_free vfs
+//:                                                                     rejected
+//: fn duplicate_vfs_rejected %impure fn void bool \void:
+//:     match selfhost_vfs_new:
+//:         Result::Err _e: false
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "Only" "":
+//:                 Result::Err _e: false
+//:                 Result::Ok vfs0:
+//:                     match selfhost_module_graph_new:
+//:                         Result::Err _e:
+//:                             selfhost_vfs_free vfs0
+//:                             false
+//:                         Result::Ok g0:
+//:                             match selfhost_module_graph_push_node g0 (selfhost_module_graph_node_new "Only" 0 SelfhostModuleGraphNodeStatus::Done 0) (source_span_empty_unchecked 0 0):
+//:                                 Result::Err _e:
+//:                                     selfhost_vfs_free vfs0
+//:                                     false
+//:                                 Result::Ok graph:
+//:                                     match selfhost_module_order_build &graph &vfs0:
+//:                                         Result::Err _e:
+//:                                             selfhost_module_graph_free graph
+//:                                             selfhost_vfs_free vfs0
+//:                                             false
+//:                                         Result::Ok order:
+//:                                             match selfhost_vfs_add vfs0 "Only" "":
+//:                                                 Result::Err _e:
+//:                                                     selfhost_module_order_free order
+//:                                                     selfhost_module_graph_free graph
+//:                                                     false
+//:                                                 Result::Ok vfs:
+//:                                                     let rejected %bool match selfhost_public_export_table_build &graph &vfs &order:
+//:                                                         Result::Err e:
+//:                                                             match e:
+//:                                                                 SelfhostPublicExportTableErrorKind::OrderInvariant: true
+//:                                                                 _: false
+//:                                                         Result::Ok table:
+//:                                                             selfhost_public_export_table_free table
+//:                                                             false
+//:                                                     selfhost_module_order_free order
+//:                                                     selfhost_module_graph_free graph
+//:                                                     selfhost_vfs_free vfs
+//:                                                     rejected
+//: fn duplicate_directive_edge_rejected %impure fn void bool \void:
+//:     match selfhost_vfs_new:
+//:         Result::Err _e: false
+//:         Result::Ok v0:
+//:             match selfhost_vfs_add v0 "First" "":
+//:                 Result::Err _e: false
+//:                 Result::Ok v1:
+//:                     match selfhost_vfs_add v1 "Second" "":
+//:                         Result::Err _e: false
+//:                         Result::Ok v2:
+//:                             match selfhost_vfs_add v2 "Parent" "pub #import \"First\" as *\npub #import \"Second\" as *\n":
+//:                                 Result::Err _e: false
+//:                                 Result::Ok vfs:
+//:                                     match selfhost_build_module_graph &vfs "Parent":
+//:                                         Result::Err _diag:
+//:                                             selfhost_vfs_free vfs
+//:                                             false
+//:                                         Result::Ok graph0:
+//:                                             match selfhost_module_order_build &graph0 &vfs:
+//:                                                 Result::Err _e:
+//:                                                     selfhost_module_graph_free graph0
+//:                                                     selfhost_vfs_free vfs
+//:                                                     false
+//:                                                 Result::Ok order:
+//:                                                     let first_edge %SelfhostModuleGraphEdge unwrap selfhost_module_graph_edge_at &graph0 0
+//:                                                     match selfhost_module_graph_push_edge graph0 (selfhost_module_graph_edge_new "Parent" "Second" first_edge.span) first_edge.span:
+//:                                                         Result::Err _e:
+//:                                                             selfhost_module_order_free order
+//:                                                             selfhost_vfs_free vfs
+//:                                                             false
+//:                                                         Result::Ok graph:
+//:                                                             let rejected %bool match selfhost_public_export_table_build &graph &vfs &order:
+//:                                                                 Result::Err e:
+//:                                                                     match e:
+//:                                                                         SelfhostPublicExportTableErrorKind::ImportDirectiveEdgeDuplicate: true
+//:                                                                         _: false
+//:                                                                 Result::Ok table:
+//:                                                                     selfhost_public_export_table_free table
+//:                                                                     false
+//:                                                             selfhost_module_order_free order
+//:                                                             selfhost_module_graph_free graph
+//:                                                             selfhost_vfs_free vfs
+//:                                                             rejected
+//: fn main %impure fn void i32 \void:
+//:     if and and and and closure_ok duplicate_rejected stale_order_rejected duplicate_vfs_rejected duplicate_directive_edge_rejected 0 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/import_scan" as *
+#import "neplg2/core/module/vfs" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "./binding" as *
+#import "./hoist" as *
+#import "./id" as *
+#import "./kind" as *
+#import "./module_order" as *
+#import "./scope" as *
+
+//: SelfhostPublicExportKind: Rust ExportKind と一致する公開定義分類
+pub enum SelfhostPublicExportKind:
+    Function
+    Struct
+    Enum
+
+//: SelfhostPublicExportProvenance: entry が直接宣言か public re-export かを示す
+pub enum SelfhostPublicExportProvenance:
+    Direct
+    ReExport
+
+impl Clone for SelfhostPublicExportProvenance:
+    fn clone %fn &SelfhostPublicExportProvenance SelfhostPublicExportProvenance \self: *self
+
+impl Copy for SelfhostPublicExportProvenance:
+    fn copy_mark %fn SelfhostPublicExportProvenance SelfhostPublicExportProvenance \self: self
+
+impl Clone for SelfhostPublicExportKind:
+    fn clone %fn &SelfhostPublicExportKind SelfhostPublicExportKind \self: *self
+
+impl Copy for SelfhostPublicExportKind:
+    fn copy_mark %fn SelfhostPublicExportKind SelfhostPublicExportKind \self: self
+
+//: SelfhostPublicExportEntry: visible name と元定義 identity を保持する export record
+pub struct SelfhostPublicExportEntry:
+    owner_module_node_index %i32
+    visible_name %str
+    original_name %str
+    original_name_span %SelfhostSourceSpan
+    origin_module_node_index %i32
+    origin_module_file_id %i32
+    origin_def_id %SelfhostDefId
+    kind %SelfhostPublicExportKind
+    provenance %SelfhostPublicExportProvenance
+    reexport_directive_span %Option SelfhostSourceSpan
+    reexport_clause %Option SelfhostImportClauseKind
+    immediate_child_module_node_index %Option i32
+
+impl Clone for SelfhostPublicExportEntry:
+    fn clone %fn &SelfhostPublicExportEntry SelfhostPublicExportEntry \self: *self
+
+impl Copy for SelfhostPublicExportEntry:
+    fn copy_mark %fn SelfhostPublicExportEntry SelfhostPublicExportEntry \self: self
+
+//: SelfhostPublicExportTable: module ごとの entry を flat buffer で所有する表
+pub struct SelfhostPublicExportTable:
+    entries %Vec SelfhostPublicExportEntry
+
+//: SelfhostPublicExportTableErrorKind: export closure を構築できない理由
+pub enum SelfhostPublicExportTableErrorKind:
+    OrderInvariant
+    SourceMissing
+    SourceIdentityMismatch
+    ParseFailed
+    HoistFailed
+    ImportScanFailed
+    PathMapUnsupported
+    ImportEdgeMissing
+    ImportDirectiveEdgeDuplicate
+    ImportEdgeDuplicate
+    ImportEdgeInvariant
+    ImportTargetMissingFromOrder
+    ImportTargetNotCompleted
+    DuplicateVisibleName
+    BindingInvariant
+    OutOfMemory
+
+fn selfhost_public_export_kind_from_def_kind %fn SelfhostDefKind Option SelfhostPublicExportKind \kind:
+    match kind:
+        SelfhostDefKind::Function: some SelfhostPublicExportKind::Function
+        SelfhostDefKind::Struct: some SelfhostPublicExportKind::Struct
+        SelfhostDefKind::Enum: some SelfhostPublicExportKind::Enum
+        _: none
+
+fn selfhost_public_export_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
+    and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
+
+fn selfhost_public_export_header_name %fn str fn SelfhostModuleDeclarationHeader Option str \source\header:
+    match header.head:
+        Option::Some head:
+            match head.kind:
+                SelfhostModuleDeclarationHeadKind::Name: some string_slice::str_slice source head.span.start head.span.end
+                SelfhostModuleDeclarationHeadKind::TypeLabel: none
+        Option::None: none
+
+fn selfhost_public_export_header_is_public_export %fn SelfhostModuleDeclarationHeader bool \header:
+    let public %bool match header.visibility:
+        SelfhostModuleDeclarationVisibility::Public: true
+        SelfhostModuleDeclarationVisibility::Private: false
+    let exportable %bool match header.kind:
+        SelfhostModuleDeclarationKind::Function: true
+        SelfhostModuleDeclarationKind::Struct: true
+        SelfhostModuleDeclarationKind::Enum: true
+        SelfhostModuleDeclarationKind::Trait: false
+        SelfhostModuleDeclarationKind::Impl: false
+    and public exportable
+
+fn selfhost_public_export_ast_has_public_export_name_loop %fn str fn &SelfhostModuleAst fn str fn i32 bool \source\ast\name\idx:
+    if:
+        ge idx selfhost_module_ast_len ast
+        then: false
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::None: false
+                Option::Some item:
+                    match item.declaration:
+                        Option::None: selfhost_public_export_ast_has_public_export_name_loop source ast name add idx 1
+                        Option::Some header:
+                            if:
+                                selfhost_public_export_header_is_public_export header
+                                then:
+                                    match selfhost_public_export_header_name source header:
+                                        Option::Some local_name: if string_search::str_eq name local_name true selfhost_public_export_ast_has_public_export_name_loop source ast name add idx 1
+                                        Option::None: selfhost_public_export_ast_has_public_export_name_loop source ast name add idx 1
+                                else: selfhost_public_export_ast_has_public_export_name_loop source ast name add idx 1
+
+fn selfhost_public_export_binding_for_span_loop %fn &SelfhostNameScope fn SelfhostSourceSpan fn i32 Option SelfhostNameBinding \scope\expected_span\idx:
+    if:
+        ge idx selfhost_name_scope_len scope
+        then: none
+        else:
+            match selfhost_name_scope_get scope selfhost_def_id_new idx:
+                Option::Some binding:
+                    if selfhost_public_export_span_eq binding.span expected_span some binding selfhost_public_export_binding_for_span_loop scope expected_span add idx 1
+                Option::None: none
+
+fn selfhost_public_export_binding_for_header %fn &SelfhostNameScope fn SelfhostModuleDeclarationHeader Option SelfhostNameBinding \scope\header:
+    match header.head:
+        Option::Some head: selfhost_public_export_binding_for_span_loop scope head.span 0
+        Option::None: none
+
+fn selfhost_public_export_duplicate_loop %fn &Vec SelfhostPublicExportEntry fn i32 fn str fn i32 bool \entries\owner\name\idx:
+    if:
+        ge idx v::len entries
+        then: false
+        else:
+            match v::get entries idx:
+                Option::Some entry:
+                    if and eq entry.owner_module_node_index owner string_search::str_eq entry.visible_name name true selfhost_public_export_duplicate_loop entries owner name add idx 1
+                Option::None: true
+
+fn selfhost_public_export_push %impure fn Vec SelfhostPublicExportEntry impure fn SelfhostPublicExportEntry Result Vec SelfhostPublicExportEntry SelfhostPublicExportTableErrorKind \entries\entry:
+    if:
+        selfhost_public_export_duplicate_loop &entries entry.owner_module_node_index entry.visible_name 0
+        then:
+            v::free entries
+            Result::Err SelfhostPublicExportTableErrorKind::DuplicateVisibleName
+        else:
+            match v::push entries entry:
+                Result::Ok next: Result::Ok next
+                Result::Err e:
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostPublicExportTableErrorKind::OutOfMemory
+
+fn selfhost_public_export_add_local_items %impure fn str impure fn &SelfhostModuleAst impure fn &SelfhostNameScope impure fn SelfhostModuleOrderEntry impure fn i32 impure fn Vec SelfhostPublicExportEntry Result Vec SelfhostPublicExportEntry SelfhostPublicExportTableErrorKind \source\ast\scope\module\idx\entries:
+    if:
+        ge idx selfhost_module_ast_len ast
+        then: Result::Ok entries
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::None:
+                    v::free entries
+                    Result::Err SelfhostPublicExportTableErrorKind::OrderInvariant
+                Option::Some item:
+                    match item.declaration:
+                        Option::None: selfhost_public_export_add_local_items source ast scope module add idx 1 entries
+                        Option::Some header:
+                            if:
+                                not selfhost_public_export_header_is_public_export header
+                                then: selfhost_public_export_add_local_items source ast scope module add idx 1 entries
+                                else:
+                                    match header.head:
+                                        Option::None: selfhost_public_export_add_local_items source ast scope module add idx 1 entries
+                                        Option::Some head:
+                                            match head.kind:
+                                                SelfhostModuleDeclarationHeadKind::TypeLabel: selfhost_public_export_add_local_items source ast scope module add idx 1 entries
+                                                SelfhostModuleDeclarationHeadKind::Name:
+                                                    let name %str string_slice::str_slice source head.span.start head.span.end
+                                                    let duplicate %bool selfhost_public_export_duplicate_loop &entries module.module_node_index name 0
+                                                    if:
+                                                        duplicate
+                                                        then:
+                                                            v::free entries
+                                                            Result::Err SelfhostPublicExportTableErrorKind::DuplicateVisibleName
+                                                        else:
+                                                            match selfhost_public_export_binding_for_header scope header:
+                                                                Option::None:
+                                                                    v::free entries
+                                                                    Result::Err SelfhostPublicExportTableErrorKind::BindingInvariant
+                                                                Option::Some binding:
+                                                                    match selfhost_public_export_kind_from_def_kind binding.kind:
+                                                                        Option::None:
+                                                                            v::free entries
+                                                                            Result::Err SelfhostPublicExportTableErrorKind::BindingInvariant
+                                                                        Option::Some export_kind:
+                                                                            match binding.def_id:
+                                                                                Option::None:
+                                                                                    v::free entries
+                                                                                    Result::Err SelfhostPublicExportTableErrorKind::BindingInvariant
+                                                                                Option::Some def_id:
+                                                                                    let entry %SelfhostPublicExportEntry SelfhostPublicExportEntry module.module_node_index name name head.span module.module_node_index module.module_file_id def_id export_kind SelfhostPublicExportProvenance::Direct none none none
+                                                                                    match selfhost_public_export_push entries entry:
+                                                                                        Result::Err e: Result::Err e
+                                                                                        Result::Ok next: selfhost_public_export_add_local_items source ast scope module add idx 1 next
+
+fn selfhost_public_export_order_position_loop %fn &SelfhostModuleOrder fn i32 fn i32 Option i32 \order\node\idx:
+    if:
+        ge idx selfhost_module_order_len order
+        then: none
+        else:
+            match selfhost_module_order_get order idx:
+                Option::Some entry: if eq entry.module_node_index node some idx selfhost_public_export_order_position_loop order node add idx 1
+                Option::None: none
+
+fn selfhost_public_export_snapshot_child_loop %impure fn &Vec SelfhostPublicExportEntry impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostPublicExportEntry Result Vec SelfhostPublicExportEntry SelfhostPublicExportTableErrorKind \source_entries\source_len\child\idx\snapshot:
+    if:
+        ge idx source_len
+        then: Result::Ok snapshot
+        else:
+            match v::get source_entries idx:
+                Option::None:
+                    v::free snapshot
+                    Result::Err SelfhostPublicExportTableErrorKind::OrderInvariant
+                Option::Some entry:
+                    if:
+                        eq entry.owner_module_node_index child
+                        then:
+                            match v::push snapshot entry:
+                                Result::Ok next: selfhost_public_export_snapshot_child_loop source_entries source_len child add idx 1 next
+                                Result::Err e:
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err SelfhostPublicExportTableErrorKind::OutOfMemory
+                        else: selfhost_public_export_snapshot_child_loop source_entries source_len child add idx 1 snapshot
+
+fn selfhost_public_export_append_snapshot_loop %impure fn str impure fn &SelfhostModuleAst impure fn &Vec SelfhostPublicExportEntry impure fn i32 impure fn i32 impure fn SelfhostSourceSpan impure fn SelfhostImportClauseKind impure fn i32 impure fn Vec SelfhostPublicExportEntry Result Vec SelfhostPublicExportEntry SelfhostPublicExportTableErrorKind \owner_source\owner_ast\snapshot\owner\child\directive_span\clause\idx\out:
+    if:
+        ge idx v::len snapshot
+        then: Result::Ok out
+        else:
+            match v::get snapshot idx:
+                Option::None:
+                    v::free out
+                    Result::Err SelfhostPublicExportTableErrorKind::OrderInvariant
+                Option::Some entry:
+                    if:
+                        selfhost_public_export_ast_has_public_export_name_loop owner_source owner_ast entry.visible_name 0
+                        then:
+                            v::free out
+                            Result::Err SelfhostPublicExportTableErrorKind::DuplicateVisibleName
+                        else:
+                            let copied %SelfhostPublicExportEntry SelfhostPublicExportEntry owner entry.visible_name entry.original_name entry.original_name_span entry.origin_module_node_index entry.origin_module_file_id entry.origin_def_id entry.kind SelfhostPublicExportProvenance::ReExport some directive_span some clause some child
+                            match selfhost_public_export_push out copied:
+                                Result::Ok next: selfhost_public_export_append_snapshot_loop owner_source owner_ast snapshot owner child directive_span clause add idx 1 next
+                                Result::Err e: Result::Err e
+
+fn selfhost_public_export_has_resolved_edge %fn &SelfhostModuleGraph fn str fn SelfhostSourceSpan fn i32 bool \graph\from\span\idx:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: false
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::None: false
+                Option::Some edge:
+                    if and string_search::str_eq edge.from from selfhost_public_export_span_eq edge.span span true selfhost_public_export_has_resolved_edge graph from span add idx 1
+
+fn selfhost_public_export_directive_edge_count_loop %fn &SelfhostModuleGraph fn str fn SelfhostSourceSpan fn i32 fn i32 i32 \graph\from\span\idx\count:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: count
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::None: count
+                Option::Some edge:
+                    let matches %bool and string_search::str_eq edge.from from selfhost_public_export_span_eq edge.span span
+                    selfhost_public_export_directive_edge_count_loop graph from span add idx 1 if matches add count 1 count
+
+fn selfhost_public_export_process_imports_loop %impure fn &SelfhostModuleGraph impure fn &SelfhostModuleOrder impure fn str impure fn &SelfhostModuleAst impure fn SelfhostModuleOrderEntry impure fn i32 impure fn &Vec SelfhostImportRecord impure fn i32 impure fn Vec SelfhostPublicExportEntry Result Vec SelfhostPublicExportEntry SelfhostPublicExportTableErrorKind \graph\order\source\ast\module\order_position\records\idx\entries:
+    if:
+        ge idx v::len records
+        then: Result::Ok entries
+        else:
+            match v::get records idx:
+                Option::None:
+                    v::free entries
+                    Result::Err SelfhostPublicExportTableErrorKind::OrderInvariant
+                Option::Some record:
+                    let directive_edge_count %i32 selfhost_public_export_directive_edge_count_loop graph module.module_path (selfhost_import_record_span &record) 0 0
+                    if:
+                        ne directive_edge_count 1
+                        then:
+                            v::free entries
+                            Result::Err if gt directive_edge_count 1 SelfhostPublicExportTableErrorKind::ImportDirectiveEdgeDuplicate SelfhostPublicExportTableErrorKind::ImportEdgeMissing
+                        else:
+                            match selfhost_module_graph_import_edge_exact graph module.module_path record.path &record:
+                                SelfhostModuleGraphImportEdgeLookup::Missing:
+                                    v::free entries
+                                    Result::Err if selfhost_public_export_has_resolved_edge graph module.module_path (selfhost_import_record_span &record) 0 SelfhostPublicExportTableErrorKind::PathMapUnsupported SelfhostPublicExportTableErrorKind::ImportEdgeMissing
+                                SelfhostModuleGraphImportEdgeLookup::Duplicate:
+                                    v::free entries
+                                    Result::Err SelfhostPublicExportTableErrorKind::ImportEdgeDuplicate
+                                SelfhostModuleGraphImportEdgeLookup::Invariant:
+                                    v::free entries
+                                    Result::Err SelfhostPublicExportTableErrorKind::ImportEdgeInvariant
+                                SelfhostModuleGraphImportEdgeLookup::Found edge:
+                                    match selfhost_module_graph_find_node graph edge.to:
+                                        Option::None:
+                                            v::free entries
+                                            Result::Err SelfhostPublicExportTableErrorKind::ImportEdgeInvariant
+                                        Option::Some target_node:
+                                            match selfhost_public_export_order_position_loop order target_node 0:
+                                                Option::None:
+                                                    v::free entries
+                                                    Result::Err SelfhostPublicExportTableErrorKind::ImportTargetMissingFromOrder
+                                                Option::Some target_position:
+                                                    if:
+                                                        ge target_position order_position
+                                                        then:
+                                                            v::free entries
+                                                            Result::Err SelfhostPublicExportTableErrorKind::ImportTargetNotCompleted
+                                                        else if:
+                                                            selfhost_import_record_is_public &record
+                                                            then:
+                                                                let snapshot_result %Result Vec SelfhostPublicExportEntry StdErrorKind v::new
+                                                                match snapshot_result:
+                                                                    Result::Err _e:
+                                                                        v::free entries
+                                                                        Result::Err SelfhostPublicExportTableErrorKind::OutOfMemory
+                                                                    Result::Ok snapshot0:
+                                                                        match selfhost_public_export_snapshot_child_loop &entries (v::len &entries) target_node 0 snapshot0:
+                                                                            Result::Err e:
+                                                                                v::free entries
+                                                                                Result::Err e
+                                                                            Result::Ok snapshot:
+                                                                                match selfhost_public_export_append_snapshot_loop source ast &snapshot module.module_node_index target_node (selfhost_import_record_span &record) (selfhost_import_record_clause &record) 0 entries:
+                                                                                    Result::Err e:
+                                                                                        v::free snapshot
+                                                                                        Result::Err e
+                                                                                    Result::Ok next:
+                                                                                        v::free snapshot
+                                                                                        selfhost_public_export_process_imports_loop graph order source ast module order_position records add idx 1 next
+                                                            else:
+                                                                selfhost_public_export_process_imports_loop graph order source ast module order_position records add idx 1 entries
+
+fn selfhost_public_export_build_modules %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn i32 impure fn Vec SelfhostPublicExportEntry Result Vec SelfhostPublicExportEntry SelfhostPublicExportTableErrorKind \graph\vfs\order\idx\entries:
+    if:
+        ge idx selfhost_module_order_len order
+        then: Result::Ok entries
+        else:
+            match selfhost_module_order_get order idx:
+                Option::None:
+                    v::free entries
+                    Result::Err SelfhostPublicExportTableErrorKind::OrderInvariant
+                Option::Some module:
+                    match selfhost_vfs_find vfs module.module_path:
+                        Option::None:
+                            v::free entries
+                            Result::Err SelfhostPublicExportTableErrorKind::SourceMissing
+                        Option::Some file:
+                            if:
+                                not eq file.file_id module.module_file_id
+                                then:
+                                    v::free entries
+                                    Result::Err SelfhostPublicExportTableErrorKind::SourceIdentityMismatch
+                                else:
+                                    match selfhost_parse_module_source_with_file_id file.source file.file_id:
+                                        Result::Err _diag:
+                                            v::free entries
+                                            Result::Err SelfhostPublicExportTableErrorKind::ParseFailed
+                                        Result::Ok ast:
+                                            match selfhost_name_scope_hoist_module_declarations file.source &ast:
+                                                Result::Err _e:
+                                                    selfhost_module_ast_free ast
+                                                    v::free entries
+                                                    Result::Err SelfhostPublicExportTableErrorKind::HoistFailed
+                                                Result::Ok scope:
+                                                    match selfhost_public_export_add_local_items file.source &ast &scope module 0 entries:
+                                                        Result::Err e:
+                                                            selfhost_name_scope_free scope
+                                                            selfhost_module_ast_free ast
+                                                            Result::Err e
+                                                        Result::Ok locals:
+                                                            match selfhost_scan_module_imports_with_file_id file.source file.file_id:
+                                                                Result::Err _diag:
+                                                                    selfhost_name_scope_free scope
+                                                                    selfhost_module_ast_free ast
+                                                                    v::free locals
+                                                                    Result::Err SelfhostPublicExportTableErrorKind::ImportScanFailed
+                                                                Result::Ok records:
+                                                                    match selfhost_public_export_process_imports_loop graph order file.source &ast module idx &records 0 locals:
+                                                                        Result::Err e:
+                                                                            v::free records
+                                                                            selfhost_name_scope_free scope
+                                                                            selfhost_module_ast_free ast
+                                                                            Result::Err e
+                                                                        Result::Ok next:
+                                                                            v::free records
+                                                                            selfhost_name_scope_free scope
+                                                                            selfhost_module_ast_free ast
+                                                                            selfhost_public_export_build_modules graph vfs order add idx 1 next
+
+//: selfhost_public_export_table_build: exact VFS closure の public export 表を child-first に構築する
+pub fn selfhost_public_export_table_build %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder Result SelfhostPublicExportTable SelfhostPublicExportTableErrorKind \graph\vfs\order:
+    match selfhost_module_order_validate_against graph vfs order:
+        Option::Some _error: Result::Err SelfhostPublicExportTableErrorKind::OrderInvariant
+        Option::None:
+            let entries_result %Result Vec SelfhostPublicExportEntry StdErrorKind v::new
+            match entries_result:
+                Result::Err _e: Result::Err SelfhostPublicExportTableErrorKind::OutOfMemory
+                Result::Ok entries:
+                    match selfhost_public_export_build_modules graph vfs order 0 entries:
+                        Result::Err e: Result::Err e
+                        Result::Ok built: Result::Ok SelfhostPublicExportTable built
+
+//: selfhost_public_export_table_free: table の所有 buffer を解放する
+pub fn selfhost_public_export_table_free %impure fn SelfhostPublicExportTable unit \table:
+    v::free field::get table "entries"
+
+//: selfhost_public_export_table_count: 全 module の export entry 数を返す
+pub fn selfhost_public_export_table_count %fn &SelfhostPublicExportTable i32 \table:
+    v::len field::get_ref table "entries"
+
+//: selfhost_public_export_table_get: flat index の export entry を返す
+pub fn selfhost_public_export_table_get %fn &SelfhostPublicExportTable fn i32 Option SelfhostPublicExportEntry \table\idx:
+    v::get field::get_ref table "entries" idx
+
+fn selfhost_public_export_table_lookup_loop %fn &SelfhostPublicExportTable fn i32 fn str fn i32 Option SelfhostPublicExportEntry \table\module_node_index\visible_name\idx:
+    if:
+        ge idx selfhost_public_export_table_count table
+        then: none
+        else:
+            match selfhost_public_export_table_get table idx:
+                Option::Some entry: if and eq entry.owner_module_node_index module_node_index string_search::str_eq entry.visible_name visible_name some entry selfhost_public_export_table_lookup_loop table module_node_index visible_name add idx 1
+                Option::None: none
+
+//: selfhost_public_export_table_lookup: module と visible name の exact export を返す
+pub fn selfhost_public_export_table_lookup %fn &SelfhostPublicExportTable fn i32 fn str Option SelfhostPublicExportEntry \table\module_node_index\visible_name:
+    selfhost_public_export_table_lookup_loop table module_node_index visible_name 0
