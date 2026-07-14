@@ -544,6 +544,7 @@ pub struct SelfhostResolvedEnumDefinition:
     kind %SelfhostResolvedNominalDeclarationKind
     nominal_id %SelfhostNamedTypeId
     declaration_span %SelfhostSourceSpan
+    name_span %SelfhostSourceSpan
     variant_start %i32
     variant_count %i32
 
@@ -1070,7 +1071,7 @@ fn selfhost_resolved_enum_surface_finish %impure fn SelfhostResolvedEnumSession 
                 Result::Ok added:
                     let nominal_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &added
                     let next_constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table added
-                    let definition %SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition SelfhostResolvedNominalDeclarationKind::Enum nominal_id declaration_span variant_start variant_count
+                    let definition %SelfhostResolvedEnumDefinition SelfhostResolvedEnumDefinition SelfhostResolvedNominalDeclarationKind::Enum nominal_id declaration_span name_span variant_start variant_count
                     match v::push definitions definition:
                         Result::Ok next_definitions:
                             Result::Ok SelfhostResolvedEnumSession source tokens next_constructors next_definitions next_variants
@@ -1318,6 +1319,17 @@ pub fn selfhost_resolved_enum_session_definition_len %fn &SelfhostResolvedEnumSe
 pub fn selfhost_resolved_enum_session_definition_get %fn &SelfhostResolvedEnumSession fn i32 Option SelfhostResolvedEnumDefinition \session\idx:
     let definitions %&Vec SelfhostResolvedEnumDefinition field::get_ref session "definitions"
     v::get definitions idx
+
+//: selfhost_resolved_enum_session_definition_name_eq: definition name spanと文字列をsession source上で比較する
+//: [契約/けいやく]: spanがdefinition declaration内の有効なUTF-8 rangeで、byte列が完全一致する場合だけtrueです。
+pub fn selfhost_resolved_enum_session_definition_name_eq %fn &SelfhostResolvedEnumSession fn SelfhostResolvedEnumDefinition fn str bool \session\definition\expected:
+    let source %str *field::get_ref session "source"
+    if:
+        or or or or or or or or not source_span_is_valid definition.declaration_span gt definition.declaration_span.end string_access::len source not selfhost_resolved_enum_surface_utf8_boundary source definition.declaration_span.start not selfhost_resolved_enum_surface_utf8_boundary source definition.declaration_span.end not source_span_is_valid definition.name_span ge definition.name_span.start definition.name_span.end not selfhost_resolved_enum_surface_span_inside definition.declaration_span definition.name_span gt definition.name_span.end string_access::len source not selfhost_resolved_enum_surface_utf8_boundary source definition.name_span.start not selfhost_resolved_enum_surface_utf8_boundary source definition.name_span.end
+        then:
+            false
+        else:
+            and eq sub definition.name_span.end definition.name_span.start string_access::len expected selfhost_resolved_enum_surface_span_text_eq_loop source definition.name_span.start expected 0 string_access::len expected
 
 //: selfhost_resolved_enum_session_source: session が所有する parser source を借用する
 //: [契約/けいやく]: session lifetime を越えない参照を返し、owner は移動しません。計算量は O(1) です。

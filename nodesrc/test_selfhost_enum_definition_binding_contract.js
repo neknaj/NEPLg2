@@ -1,0 +1,20 @@
+#!/usr/bin/env node
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.resolve(__dirname, "..");
+const binding = fs.readFileSync(path.join(root, "stdlib/neplg2/core/resolve/type_resolver/enum_binding.nepl"), "utf8").replace(/\r\n/g, "\n");
+const surface = fs.readFileSync(path.join(root, "stdlib/neplg2/core/resolve/type_resolver/enum_surface.nepl"), "utf8").replace(/\r\n/g, "\n");
+const facade = fs.readFileSync(path.join(root, "stdlib/neplg2/core/resolve/type_resolver.nepl"), "utf8").replace(/\r\n/g, "\n");
+assert.match(facade, /pub #import "\.\/type_resolver\/enum_binding" as \*/, "facade must export enum definition binding mapping");
+assert.match(surface, /pub struct SelfhostResolvedEnumDefinition:[\s\S]*declaration_span %SelfhostSourceSpan\n    name_span %SelfhostSourceSpan\n    variant_start/, "enum definition must retain its parser-derived declaration name span");
+assert.match(binding, /selfhost_name_scope_get scope definition_id[\s\S]*selfhost_name_binding_def_id_eq[\s\S]*SelfhostDefKind::Enum/, "producer must rejoin DefId membership and enum kind");
+assert.match(binding, /eq count 0[\s\S]*ne count 1[\s\S]*DefinitionDuplicate/, "producer must reject missing and duplicate nominal definitions");
+assert.match(binding, /selfhost_enum_binding_span_eq binding\.span definition\.name_span[\s\S]*selfhost_resolved_enum_session_definition_name_eq session definition binding\.name/, "producer must bind declaration span and source spelling");
+assert.match(binding, /wrong_kind[\s\S]*wrong_origin[\s\S]*wrong_name[\s\S]*wrong_nominal/, "runtime fixture must cover kind, origin, name, and nominal rejection");
+assert.match(binding, /public Copy record単体はcapabilityではありません/, "mapping record must not be documented as a standalone capability");
+assert.match(binding, /selfhost_resolved_enum_session_constructor_kind session definition_idx/, "producer must rejoin the same-session constructor table");
+assert.doesNotMatch(binding, /split_qualified|member_tail|string_slice/, "producer must not reconstruct identity from use spelling");
+assert.doesNotMatch(binding, /#import .*\/(?:check|hir|resource|codegen)/, "resolver mapping must not depend on downstream stages");
+console.log("selfhost enum definition binding contract passed");

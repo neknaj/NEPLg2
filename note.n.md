@@ -84023,3 +84023,9 @@ MERGE_APPROVED
 - connector成功payloadはscrutinee TypeId、`SelfhostResolvedEnumMemberId`、diagnostic spanだけを保持し、raw qualifier/member spellingをsemantic authorityへ戻さない。Named、Applied、unqualified、matching qualifier、wrong owner、primitive、missing TypeIdを実行doctestで検査する。
 - Rust現行Match checkerはqualifier prefixを捨ててtailだけを検索するため`WrongEnum::Ok`を受理し得る。selfhostはこれを先行修正するが、Rust側へのowner検査反映、qualified / alias resolver evidence、TypeArenaとenum sessionの共通origin witness、checked Match tree / HIR / Resource輸送、Deref、stable keyは未接続である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
 - 差分reviewと全体整合reviewは修正後にBlocker / Major / Minorなしで承認された。checker contract、focused doctest 1/1、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は最終差分で通過した。source-policy全体は当sliceのcontract群を通過後、main既存のstdlib documentation baseline `2790 > 2756`だけで停止した。
+## 2026-07-14 selfhost enum definition binding mapping prerequisite
+
+- 単なるpublic qualifier wrapperがresolver selectionを証明しないBlockerを受け、name scopeの実bindingとparser enum definitionを再結合する前提mappingを実装した。
+- enum definitionはdeclaration全体spanに加えてname spanを保持する。mapping producerはscope上のDefId membership、binding identity、Enum kind、session内nominal exactly-one、definition kind、name span identity、session source上のname byte一致を検査し、成功時だけDefId / nominal / declaration name spanを返す。public Copy mapping単体はcapabilityではなく、成功control-flowまたはscope/sessionへの再validationがauthorityである。
+- import alias DefIdからoriginal declarationへのprojection、TypeArena common origin witness、qualifier evidence、checked Match / HIR / Resource輸送は未接続でありproduction originは発行しない。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
+- 修正後の差分reviewと全体整合reviewはBlocker / Majorなしで承認された。definition binding contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。focused doctestは追加matrixのparse後、clean mainでも再現する既存`enum_surface` impl doccomment parser baselineで停止した。source-policy全体は新contract通過後、既存stdlib documentation baseline `2790 > 2756`だけで停止した。

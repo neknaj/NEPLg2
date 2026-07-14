@@ -1,0 +1,206 @@
+#indent 4
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "./enum_surface" as *
+
+//: # type_resolver/enum_binding
+//: name resolverの実bindingとparser由来enum definitionを同じ宣言span/nameで再結合します。
+//:
+//: [authority boundary]: caller supplied DefIdやnominal IDだけを信用せず、scope membership、Enum kind、binding DefId、session definition、name span、source spellingをすべて照合します。
+//: [未接続/みせつぞく]: import alias DefIdのoriginal declaration projectionとTypeArena common origin witnessは後続sliceです。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/resolve/type_resolver" as *
+//: fn check_reject %impure fn &SelfhostResolvedEnumSession impure fn SelfhostResolvedEnumDefinition impure fn str impure fn SelfhostDefKind impure fn SelfhostSourceSpan impure fn SelfhostNamedTypeId impure fn i32 bool \session\definition\name\kind\span\nominal_id\mode:
+//:     match selfhost_name_scope_new:
+//:         Result::Ok scope0:
+//:             match selfhost_name_scope_add_binding scope0 selfhost_name_binding_pending name kind span:
+//:                 Result::Ok added:
+//:                     let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &added
+//:                     let scope %SelfhostNameScope selfhost_name_scope_add_result_into_scope added
+//:                     let rejected %bool match selfhost_resolved_enum_definition_binding_result &scope def_id session nominal_id:
+//:                         Result::Err e:
+//:                             match e:
+//:                                 SelfhostResolvedEnumDefinitionBindingErrorKind::BindingKindMismatch: eq mode 0
+//:                                 SelfhostResolvedEnumDefinitionBindingErrorKind::DeclarationOriginMismatch: eq mode 1
+//:                                 SelfhostResolvedEnumDefinitionBindingErrorKind::DeclarationNameMismatch: eq mode 2
+//:                                 SelfhostResolvedEnumDefinitionBindingErrorKind::DefinitionMissing: eq mode 3
+//:                                 _: false
+//:                         Result::Ok _mapped: false
+//:                     selfhost_name_scope_free scope
+//:                     rejected
+//:                 Result::Err _e: false
+//:         Result::Err _e: false
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_type_constructor_table_new:
+//:         Result::Ok constructors:
+//:             match selfhost_resolved_enum_module_session_materialize_result constructors "enum Result:\n    Ok\n":
+//:                 Result::Ok session:
+//:                     match selfhost_resolved_enum_session_definition_get &session 0:
+//:                         Option::Some definition:
+//:                             match selfhost_name_scope_new:
+//:                                 Result::Ok scope0:
+//:                                     let binding %SelfhostNameBinding selfhost_name_binding_pending "Result" SelfhostDefKind::Enum definition.name_span
+//:                                     match selfhost_name_scope_add_binding scope0 binding:
+//:                                         Result::Ok added:
+//:                                             let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &added
+//:                                             let scope %SelfhostNameScope selfhost_name_scope_add_result_into_scope added
+//:                                             let valid %bool match selfhost_resolved_enum_definition_binding_result &scope def_id &session definition.nominal_id:
+//:                                                 Result::Ok mapped:
+//:                                                     and selfhost_def_id_eq mapped.definition_id def_id selfhost_named_type_id_eq mapped.nominal_id definition.nominal_id
+//:                                                 Result::Err _e:
+//:                                                     false
+//:                                             let missing %bool match selfhost_resolved_enum_definition_binding_result &scope selfhost_def_id_new 9 &session definition.nominal_id:
+//:                                                 Result::Err e:
+//:                                                     match e:
+//:                                                         SelfhostResolvedEnumDefinitionBindingErrorKind::BindingMissing:
+//:                                                             true
+//:                                                         _:
+//:                                                             false
+//:                                                 Result::Ok _m:
+//:                                                     false
+//:                                             let wrong_span %SelfhostSourceSpan source_span_new_unchecked definition.name_span.file_id definition.name_span.start add definition.name_span.end 1
+//:                                             let wrong_kind %bool check_reject &session definition "Result" SelfhostDefKind::Struct definition.name_span definition.nominal_id 0
+//:                                             let wrong_origin %bool check_reject &session definition "Result" SelfhostDefKind::Enum wrong_span definition.nominal_id 1
+//:                                             let wrong_name %bool check_reject &session definition "Other" SelfhostDefKind::Enum definition.name_span definition.nominal_id 2
+//:                                             let wrong_nominal %bool check_reject &session definition "Result" SelfhostDefKind::Enum definition.name_span selfhost_named_type_id_new 99 3
+//:                                             selfhost_name_scope_free scope
+//:                                             selfhost_resolved_enum_session_free session
+//:                                             if and and and and and valid missing wrong_kind wrong_origin wrong_name wrong_nominal 0 1
+//:                                         Result::Err _e:
+//:                                             selfhost_resolved_enum_session_free session
+//:                                             1
+//:                                 Result::Err _e:
+//:                                     selfhost_resolved_enum_session_free session
+//:                                     1
+//:                         Option::None:
+//:                             selfhost_resolved_enum_session_free session
+//:                             1
+//:                 Result::Err _e: 1
+//:         Result::Err _e: 1
+//: ```
+
+//: SelfhostResolvedEnumDefinitionBinding: name scopeとenum sessionを再結合したdefinition mapping
+//: [authority boundary]: public Copy record単体はcapabilityではありません。consumerはこの値だけを信用せず、producerの`Result::Ok` control-flow内で使うか、scope/session/DefIdへ再validationしてください。
+pub struct SelfhostResolvedEnumDefinitionBinding:
+    definition_id %SelfhostDefId
+    nominal_id %SelfhostNamedTypeId
+    declaration_name_span %SelfhostSourceSpan
+
+impl Clone for SelfhostResolvedEnumDefinitionBinding:
+    fn clone %fn &SelfhostResolvedEnumDefinitionBinding SelfhostResolvedEnumDefinitionBinding \self: *self
+
+impl Copy for SelfhostResolvedEnumDefinitionBinding:
+    fn copy_mark %fn SelfhostResolvedEnumDefinitionBinding SelfhostResolvedEnumDefinitionBinding \self: self
+
+//: SelfhostResolvedEnumDefinitionBindingErrorKind: mapping producerの失敗分類
+pub enum SelfhostResolvedEnumDefinitionBindingErrorKind:
+    BindingMissing
+    BindingIdentityMismatch
+    BindingKindMismatch
+    DefinitionMissing
+    DefinitionDuplicate
+    DefinitionKindMismatch
+    ConstructorMissing
+    DeclarationOriginMismatch
+    DeclarationNameMismatch
+    SessionInvariant
+
+impl Clone for SelfhostResolvedEnumDefinitionBindingErrorKind:
+    fn clone %fn &SelfhostResolvedEnumDefinitionBindingErrorKind SelfhostResolvedEnumDefinitionBindingErrorKind \self: *self
+
+impl Copy for SelfhostResolvedEnumDefinitionBindingErrorKind:
+    fn copy_mark %fn SelfhostResolvedEnumDefinitionBindingErrorKind SelfhostResolvedEnumDefinitionBindingErrorKind \self: self
+
+//: selfhost_resolved_enum_definition_binding_result: scope DefIdとenum nominalを実宣言へ再結合する
+//: [契約/けいやく]: nominal definitionがexactly 1件で、bindingとdefinitionのname span/source spellingが一致する場合だけmappingを返します。
+//: [計算量/けいさんりょう]: definition数をnとしてO(n)です。
+pub fn selfhost_resolved_enum_definition_binding_result %fn &SelfhostNameScope fn SelfhostDefId fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId Result SelfhostResolvedEnumDefinitionBinding SelfhostResolvedEnumDefinitionBindingErrorKind \scope\definition_id\session\nominal_id:
+    match selfhost_name_scope_get scope definition_id:
+        Option::Some binding:
+            if:
+                not selfhost_name_binding_def_id_eq binding definition_id
+                then:
+                    Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::BindingIdentityMismatch
+                else if:
+                    not selfhost_def_kind_eq binding.kind SelfhostDefKind::Enum
+                    then:
+                        Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::BindingKindMismatch
+                    else:
+                        let count %i32 selfhost_resolved_enum_definition_binding_count session nominal_id 0 0
+                        if:
+                            eq count 0
+                            then:
+                                Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::DefinitionMissing
+                            else if:
+                                ne count 1
+                                then:
+                                    Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::DefinitionDuplicate
+                                else:
+                                    match selfhost_resolved_enum_definition_binding_find_index session nominal_id 0:
+                                        Option::Some definition_idx:
+                                            match selfhost_resolved_enum_session_definition_get session definition_idx:
+                                                Option::Some definition:
+                                                    match selfhost_resolved_enum_session_constructor_kind session definition_idx:
+                                                        Option::Some _constructor_kind:
+                                                            selfhost_resolved_enum_definition_binding_finish definition_id nominal_id binding definition session
+                                                        Option::None:
+                                                            Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::ConstructorMissing
+                                                Option::None:
+                                                    Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::SessionInvariant
+                                        Option::None:
+                                            Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::SessionInvariant
+        Option::None:
+            Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::BindingMissing
+
+fn selfhost_resolved_enum_definition_binding_finish %fn SelfhostDefId fn SelfhostNamedTypeId fn SelfhostNameBinding fn SelfhostResolvedEnumDefinition fn &SelfhostResolvedEnumSession Result SelfhostResolvedEnumDefinitionBinding SelfhostResolvedEnumDefinitionBindingErrorKind \definition_id\nominal_id\binding\definition\session:
+    match definition.kind:
+        SelfhostResolvedNominalDeclarationKind::Enum:
+            if:
+                not selfhost_enum_binding_span_eq binding.span definition.name_span
+                then:
+                    Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::DeclarationOriginMismatch
+                else if:
+                    not selfhost_resolved_enum_session_definition_name_eq session definition binding.name
+                    then:
+                        Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::DeclarationNameMismatch
+                    else:
+                        Result::Ok SelfhostResolvedEnumDefinitionBinding definition_id nominal_id definition.name_span
+        _:
+            Result::Err SelfhostResolvedEnumDefinitionBindingErrorKind::DefinitionKindMismatch
+
+fn selfhost_enum_binding_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
+    and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
+
+fn selfhost_resolved_enum_definition_binding_count %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn i32 fn i32 i32 \session\nominal_id\idx\count:
+    if:
+        ge idx selfhost_resolved_enum_session_definition_len session
+        then:
+            count
+        else:
+            match selfhost_resolved_enum_session_definition_get session idx:
+                Option::Some definition:
+                    selfhost_resolved_enum_definition_binding_count session nominal_id add idx 1 if selfhost_named_type_id_eq definition.nominal_id nominal_id add count 1 count
+                Option::None:
+                    count
+
+fn selfhost_resolved_enum_definition_binding_find_index %fn &SelfhostResolvedEnumSession fn SelfhostNamedTypeId fn i32 Option i32 \session\nominal_id\idx:
+    if:
+        ge idx selfhost_resolved_enum_session_definition_len session
+        then:
+            none
+        else:
+            match selfhost_resolved_enum_session_definition_get session idx:
+                Option::Some definition:
+                    if selfhost_named_type_id_eq definition.nominal_id nominal_id some idx selfhost_resolved_enum_definition_binding_find_index session nominal_id add idx 1
+                Option::None:
+                    none
