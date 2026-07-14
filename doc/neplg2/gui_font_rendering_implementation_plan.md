@@ -6629,6 +6629,7 @@ owner / state契約:
 - F5ku actual metric ownerはopaque public authorityとし、raw metric Vec、plan owner、constructor、takeは公開しない。公開面はcount summary、owner-bound O(1) indexed Copy metric read、single freeに限定する。
 - F5nxk sealed provenance ownerとactual metric ownerをmove-only join ownerへ束ねるproduction bridgeを追加し、metric count、line/quadratic count、len/capを照合してから走査を開始する。
 - join stepはterminal、budget、provenance read、actual metric read、metric index、variant、checked curve座標、stroke widthの順に検査し、全検査成功後だけcursorを進める。新しいmetric Vecやfull command scanは作らない。
+- join startはF5nxk completed ownerを一度だけ消費し、owning module内でnested sink completedをほどいて既存actual checkpoint bridgeへ渡す。sealed provenance Vecとregistered sourceをactual checkpoint ownerへ再結合し、metric / line / quadratic count、len、capを照合する。originとbuild入力paint由来のcanonical positive stroke widthをjoin ownerへ保持し、actual metricから期待widthを逆生成しない。
 - LineとQuadraticを含むregistered drawable fixtureでmetric indexとpath command indexを区別し、座標、delta、squared length、typed mismatch、owner recoveryを検査する。既存8 Skip fixtureはzero-draw edge caseとして残す。
 - actual metric ownerを作るproduction checkpoint bridgeとdrawable runtime gateが揃うまでF5nxl完了とは扱わず、offset geometry以降へ進まない。
 
