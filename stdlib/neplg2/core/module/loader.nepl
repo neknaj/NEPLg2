@@ -118,6 +118,10 @@ pub fn selfhost_loaded_module_tokens_free %impure fn SelfhostLoadedModuleTokens 
     v::free field::get module "tokens"
     selfhost_module_ast_free field::get module "ast"
 
+//: selfhost_loaded_module_tokens_tokens: ownerの寿命内でtoken streamを借用する
+pub fn selfhost_loaded_module_tokens_tokens %fn &SelfhostLoadedModuleTokens &Vec SelfhostToken \module:
+    field::get_ref module "tokens"
+
 //: selfhost_loader_file_not_found_diag: VFS lookup 失敗 diagnostic を[作/つく]る
 pub fn selfhost_loader_file_not_found_diag %fn str SelfhostDiagnostic \path:
     let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::FileNotFound "source file is not registered in self-host VFS"

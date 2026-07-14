@@ -1,0 +1,120 @@
+#indent 4
+
+//: # check/expr/match_checked_scrutinee
+//: current Match contextのscrutinee rangeを通常expression checkerへ接続し、actual checked-tree rootを所有します。
+//:
+//: [目的/もくてき]:
+//: - direct call、明示ascription、pipeをbody-line checkerと同じ規則で検査します。
+//: - root TypeIdはchecked tree nodeから再取得し、同じarenaにrecordが存在する場合だけ成功させます。
+//:
+//: [owner boundary]:
+//: - arenaを消費し、成功時はpartsがarena、checked arguments、checked treeを所有します。
+//: - tokens、source、scope、value evidence、signature、candidate列は借用します。
+//: - 失敗時は委譲先またはこのmoduleが到達済みownerを解放します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/match_checked_scrutinee" as *
+//: fn main %fn void i32 \void:
+//:     match SelfhostMatchCheckedScrutineeError::RootMissing:
+//:         SelfhostMatchCheckedScrutineeError::RootMissing: 0
+//:         _: 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
+#import "neplg2/core/syntax/parser/match_context" as *
+#import "neplg2/core/check/expr/body_line" as *
+#import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/checked_tree" as *
+#import "neplg2/core/check/expr/checked_tree_id" as *
+#import "neplg2/core/check/expr/model" as *
+#import "neplg2/core/check/expr/value_evidence" as *
+#import "neplg2/core/resolve/name_resolver/scope" as *
+#import "neplg2/core/resolve/type_resolver/constructor" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
+
+pub enum SelfhostMatchCheckedScrutineeError:
+    ExpressionCheck %SelfhostExpressionLineCheckError
+    RootMissing
+    RootTypeMissing
+
+pub struct SelfhostMatchCheckedScrutineeParts:
+    arena %SelfhostTypeArena
+    result %SelfhostCallReduceResult
+    checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
+    root_type %SelfhostTypeId
+
+pub struct SelfhostMatchCheckedScrutineeOwnedParts:
+    arena %SelfhostTypeArena
+    result %SelfhostCallReduceResult
+    checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
+    root_type %SelfhostTypeId
+
+pub fn selfhost_match_checked_scrutinee_parts_into_owned %impure fn SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeOwnedParts \parts:
+    let arena %SelfhostTypeArena field::get parts "arena"
+    let result %SelfhostCallReduceResult field::get parts "result"
+    let checked_arguments %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
+    let checked_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
+    let root_expr %SelfhostCheckedExprId field::get parts "root_expr"
+    let root_type %SelfhostTypeId field::get parts "root_type"
+    SelfhostMatchCheckedScrutineeOwnedParts arena result checked_arguments checked_tree root_expr root_type
+
+fn selfhost_match_checked_scrutinee_validate_success %impure fn SelfhostExpressionLineCheckSuccess Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError \success:
+    let parts %SelfhostExpressionLineCheckSuccessParts selfhost_expression_line_check_success_into_parts success
+    let arena %SelfhostTypeArena field::get parts "arena"
+    let result %SelfhostCallReduceResult field::get parts "result"
+    let checked_arguments %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
+    let checked_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
+    let root_expr %SelfhostCheckedExprId field::get parts "root_expr"
+    match selfhost_checked_expr_tree_get_node &checked_tree root_expr:
+        Option::None:
+            selfhost_type_arena_free arena
+            v::free checked_arguments
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err SelfhostMatchCheckedScrutineeError::RootMissing
+        Option::Some node:
+            let root_type %SelfhostTypeId *field::get_ref &node "ty"
+            match selfhost_type_arena_get_record &arena root_type:
+                Option::None:
+                    selfhost_type_arena_free arena
+                    v::free checked_arguments
+                    selfhost_checked_expr_tree_free checked_tree
+                    Result::Err SelfhostMatchCheckedScrutineeError::RootTypeMissing
+                Option::Some _record:
+                    Result::Ok SelfhostMatchCheckedScrutineeParts arena result checked_arguments checked_tree root_expr root_type
+
+//: selfhost_match_checked_scrutinee_result: Match scrutineeをactual expression rootへ検査する
+pub fn selfhost_match_checked_scrutinee_result %impure fn &SelfhostMatchContext impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate Result SelfhostMatchCheckedScrutineeParts SelfhostMatchCheckedScrutineeError \context\constructors\arena\scope\value_types\signatures\candidates:
+    let range %SelfhostSyntaxRange selfhost_match_context_scrutinee_range context
+    let segment %SelfhostBodySegment selfhost_body_segment_expression_line_from_range range
+    match selfhost_check_expr_reduce_body_segment_with_constructors_and_arena selfhost_match_context_tokens context selfhost_match_context_source context segment constructors arena scope value_types signatures candidates none:
+        Result::Err e:
+            Result::Err SelfhostMatchCheckedScrutineeError::ExpressionCheck e
+        Result::Ok success:
+            selfhost_match_checked_scrutinee_validate_success success
+
+//: selfhost_match_checked_scrutinee_parts_free: checked scrutinee ownerを閉じる
+pub fn selfhost_match_checked_scrutinee_parts_free %impure fn SelfhostMatchCheckedScrutineeParts unit \parts:
+    selfhost_type_arena_free field::get parts "arena"
+    v::free field::get parts "checked_arguments"
+    selfhost_checked_expr_tree_free field::get parts "checked_tree"
+
+pub fn selfhost_match_checked_scrutinee_parts_tree %fn &SelfhostMatchCheckedScrutineeParts &SelfhostCheckedExprTree \parts:
+    field::get_ref parts "checked_tree"
+
+pub fn selfhost_match_checked_scrutinee_parts_root_expr %fn &SelfhostMatchCheckedScrutineeParts SelfhostCheckedExprId \parts:
+    *field::get_ref parts "root_expr"
+
+pub fn selfhost_match_checked_scrutinee_parts_root_type %fn &SelfhostMatchCheckedScrutineeParts SelfhostTypeId \parts:
+    *field::get_ref parts "root_type"

@@ -9,18 +9,39 @@
 //: - variantは選択armのexact 3-segment AST projectionだけを使い、actual arenaへsynthetic typeを追加しません。
 //: - scope、value evidence、arena、constructor tableが選択functionと同じchecker phaseから作られたことは、この段階ではcaller preconditionです。production authorityへの昇格にはmodule checker environmentとのco-productionが必要です。
 //:
-//: [制約/せいやく]: direct-call root、reference deref、payload typing、exhaustiveness、arm body型統一は後続sliceです。
+//: [制約/せいやく]: checked-root入口はexpected type無しの1回だけ検査します。arm由来expected type retry、reference deref、payload typing、exhaustiveness、arm body型統一は後続sliceです。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/match_actual_member" as *
+//: fn main %fn void i32 \void:
+//:     match SelfhostMatchCheckedActualMemberError::ArmOutOfBounds:
+//:         SelfhostMatchCheckedActualMemberError::ArmOutOfBounds: 0
+//:         _: 1
+//: ```
 
+#import "alloc/collections/vec" as v
+#import "core/field" as field
 #import "core/option" as *
 #import "core/result" as *
+#import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/checked_tree" as *
+#import "neplg2/core/check/expr/checked_tree_id" as *
 #import "neplg2/core/check/expr/exported_enum_member" as *
+#import "neplg2/core/check/expr/match_checked_scrutinee" as *
 #import "neplg2/core/check/expr/match_scrutinee" as *
+#import "neplg2/core/check/expr/model" as *
 #import "neplg2/core/check/expr/value_evidence" as *
+#import "neplg2/core/infra/span" as *
 #import "neplg2/core/module/graph" as *
-#import "neplg2/core/resolve/name_resolver" as *
-#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/resolve/name_resolver/scope" as *
+#import "neplg2/core/resolve/type_resolver/constructor" as *
+#import "neplg2/core/syntax/parser/match_arm_segmenter" as *
 #import "neplg2/core/syntax/parser/match_context" as *
-#import "neplg2/core/ty/ty" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
 
 pub enum SelfhostMatchActualMemberError:
     Context %SelfhostMatchContextErrorKind
@@ -28,6 +49,62 @@ pub enum SelfhostMatchActualMemberError:
     ArmOutOfBounds
     PatternNotDirectAlias
     Member %SelfhostCheckedExportedEnumMemberError
+
+//: SelfhostMatchCheckedActualMemberContext: checked scrutinee treeとactual enum member ownerを同時に保持する
+//:
+//: [owner boundary]: member contextがarena/enum sessionを所有し、このcontextがchecked argument列とchecked treeを所有します。
+//: [type boundary]: root_typeはmember contextへ渡したactual TypeIdと同じ値で、root_exprは同じchecked tree内でだけ有効です。
+pub struct SelfhostMatchCheckedActualMemberContext:
+    member %SelfhostCheckedExportedEnumMemberContext
+    reduction %SelfhostCallReduceResult
+    checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
+    root_type %SelfhostTypeId
+
+pub enum SelfhostMatchCheckedActualMemberError:
+    Context %SelfhostMatchContextErrorKind
+    Scrutinee %SelfhostMatchCheckedScrutineeError
+    ArmOutOfBounds
+    PatternNotDirectAlias
+    Member %SelfhostCheckedExportedEnumMemberError
+
+struct SelfhostMatchActualArmSpans:
+    alias %SelfhostSourceSpan
+    enum_name %SelfhostSourceSpan
+    member %SelfhostSourceSpan
+
+enum SelfhostMatchActualArmProjectionError:
+    ArmOutOfBounds
+    PatternNotDirectAlias
+
+fn selfhost_match_actual_arm_spans %fn &SelfhostMatchContext fn i32 Result SelfhostMatchActualArmSpans SelfhostMatchActualArmProjectionError \context\arm_ordinal:
+    match selfhost_match_variant_arm_list_get selfhost_match_context_arms context arm_ordinal:
+        Option::None: Result::Err SelfhostMatchActualArmProjectionError::ArmOutOfBounds
+        Option::Some arm:
+            match selfhost_match_variant_arm_direct_alias selfhost_match_context_arms context arm:
+                Option::None: Result::Err SelfhostMatchActualArmProjectionError::PatternNotDirectAlias
+                Option::Some direct:
+                    let alias_segment %SelfhostMatchPatternSegment field::get direct "alias"
+                    let enum_name_segment %SelfhostMatchPatternSegment field::get direct "enum_name"
+                    let member_segment %SelfhostMatchPatternSegment field::get direct "member"
+                    Result::Ok SelfhostMatchActualArmSpans alias_segment.span enum_name_segment.span member_segment.span
+
+fn selfhost_match_checked_actual_member_connect %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostMatchActualArmSpans impure fn SelfhostMatchCheckedScrutineeParts impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\spans\checked_root\constructors:
+    let parts %SelfhostMatchCheckedScrutineeOwnedParts selfhost_match_checked_scrutinee_parts_into_owned checked_root
+    let arena %SelfhostTypeArena field::get parts "arena"
+    let reduction %SelfhostCallReduceResult field::get parts "result"
+    let checked_arguments %Vec SelfhostCheckedArgument field::get parts "checked_arguments"
+    let checked_tree %SelfhostCheckedExprTree field::get parts "checked_tree"
+    let root_expr %SelfhostCheckedExprId field::get parts "root_expr"
+    let root_type %SelfhostTypeId field::get parts "root_type"
+    match selfhost_check_exported_enum_member_actual_context_result graph vfs order path spans.alias spans.enum_name spans.member arena constructors root_type:
+        Result::Err e:
+            v::free checked_arguments
+            selfhost_checked_expr_tree_free checked_tree
+            Result::Err SelfhostMatchCheckedActualMemberError::Member e
+        Result::Ok member:
+            Result::Ok SelfhostMatchCheckedActualMemberContext member reduction checked_arguments checked_tree root_expr root_type
 
 //: selfhost_check_match_single_named_value_actual_member_result: VFS authorityからactual checked memberを生成する
 //:
@@ -74,3 +151,51 @@ pub fn selfhost_check_match_single_named_value_actual_member_result %impure fn &
                                     match checked:
                                         Result::Err e: Result::Err SelfhostMatchActualMemberError::Member e
                                         Result::Ok result: Result::Ok result
+
+//: selfhost_check_match_checked_actual_member_result: checked reduction rootをactual member gateへ接続する
+//:
+//: [契約/けいやく]: scrutineeは既存body-line reducerでexpected type無しに1回だけ検査します。direct call、明示ascription、pipeのroot node型をtreeから再取得し、型を再割当しません。
+//: [authority boundary]: range/span/TypeId/nominal/raw member名をcallerから受けず、current VFS contextとchecked rootだけを使います。scope/value/signature/candidate/arena/constructorの同一checker phase由来はcaller preconditionです。
+//: [owner boundary]: arenaはscrutinee checkerからmember gateへmoveし、成功contextはmember ownerとchecked treeを同時に保持します。全失敗経路で到達済みownerを閉じます。
+pub fn selfhost_check_match_checked_actual_member_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError \graph\vfs\order\path\function_ordinal\segment_ordinal\arm_ordinal\scope\value_types\signatures\candidates\arena\constructors:
+    match selfhost_match_context_from_vfs vfs path function_ordinal segment_ordinal:
+        Result::Err e:
+            selfhost_type_arena_free arena
+            selfhost_type_constructor_table_free constructors
+            Result::Err SelfhostMatchCheckedActualMemberError::Context e
+        Result::Ok context:
+            match selfhost_match_actual_arm_spans &context arm_ordinal:
+                Result::Err projection_error:
+                    selfhost_match_context_free context
+                    selfhost_type_arena_free arena
+                    selfhost_type_constructor_table_free constructors
+                    match projection_error:
+                        SelfhostMatchActualArmProjectionError::ArmOutOfBounds: Result::Err SelfhostMatchCheckedActualMemberError::ArmOutOfBounds
+                        SelfhostMatchActualArmProjectionError::PatternNotDirectAlias: Result::Err SelfhostMatchCheckedActualMemberError::PatternNotDirectAlias
+                Result::Ok spans:
+                    match selfhost_match_checked_scrutinee_result &context &constructors arena scope value_types signatures candidates:
+                        Result::Err e:
+                            selfhost_match_context_free context
+                            selfhost_type_constructor_table_free constructors
+                            Result::Err SelfhostMatchCheckedActualMemberError::Scrutinee e
+                        Result::Ok checked_root:
+                            selfhost_match_context_free context
+                            selfhost_match_checked_actual_member_connect graph vfs order path spans checked_root constructors
+
+//: selfhost_match_checked_actual_member_context_free: member ownerとchecked scrutinee treeを一度だけ閉じる
+pub fn selfhost_match_checked_actual_member_context_free %impure fn SelfhostMatchCheckedActualMemberContext unit \context:
+    v::free field::get context "checked_arguments"
+    selfhost_checked_expr_tree_free field::get context "checked_tree"
+    selfhost_checked_exported_enum_member_context_free field::get context "member"
+
+pub fn selfhost_match_checked_actual_member_context_member %fn &SelfhostMatchCheckedActualMemberContext SelfhostCheckedEnumMember \context:
+    selfhost_checked_exported_enum_member_context_checked field::get_ref context "member"
+
+pub fn selfhost_match_checked_actual_member_context_tree %fn &SelfhostMatchCheckedActualMemberContext &SelfhostCheckedExprTree \context:
+    field::get_ref context "checked_tree"
+
+pub fn selfhost_match_checked_actual_member_context_root_expr %fn &SelfhostMatchCheckedActualMemberContext SelfhostCheckedExprId \context:
+    *field::get_ref context "root_expr"
+
+pub fn selfhost_match_checked_actual_member_context_root_type %fn &SelfhostMatchCheckedActualMemberContext SelfhostTypeId \context:
+    *field::get_ref context "root_type"

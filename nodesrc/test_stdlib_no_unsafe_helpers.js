@@ -32,6 +32,11 @@ const allowances = [
         relPath: 'stdlib/core/test.nepl',
         line: /#intrinsic\s+"unreachable"/,
     },
+    {
+        id: 'selfhost-match-stage1-direct-fixture-result-unwraps',
+        relPath: 'stdlib/neplg2/core/check/expr/stage1_match_actual_direct_fixture.nepl',
+        line: /\bunwrap_ok\b/,
+    },
 ];
 
 function relFromRoot(filePath) {

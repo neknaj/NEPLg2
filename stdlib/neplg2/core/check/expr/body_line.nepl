@@ -28,6 +28,7 @@
 #import "core/result" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/resolve/type_resolver/constructor" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/syntax/ast/prefix_expr" as *
 #import "neplg2/core/syntax/parser/body_segmenter" as *
@@ -76,6 +77,16 @@ pub struct SelfhostExpressionLineCheckSuccess:
     checked_tree %SelfhostCheckedExprTree
     root_expr %SelfhostCheckedExprId
 
+//: SelfhostExpressionLineCheckSuccessParts: expression line成功ownerを後続checkerへ移す分解結果
+//:
+//: [owner boundary]: arena、checked argument列、checked treeをまとめて保持します。`into_parts`で元successを消費した後だけ生成されます。
+pub struct SelfhostExpressionLineCheckSuccessParts:
+    arena %SelfhostTypeArena
+    result %SelfhostCallReduceResult
+    checked_arguments %Vec SelfhostCheckedArgument
+    checked_tree %SelfhostCheckedExprTree
+    root_expr %SelfhostCheckedExprId
+
 //: SelfhostAscriptionExpectedTypeConflict: 明示 ascription と外側 expected type の衝突 evidence
 //:
 //: [目的/もくてき]:
@@ -118,6 +129,15 @@ pub fn selfhost_expression_line_check_success_checked_tree %fn &SelfhostExpressi
 //: selfhost_expression_line_check_success_root_expr: success 全体の root expression id を[返/かえ]す
 pub fn selfhost_expression_line_check_success_root_expr %fn &SelfhostExpressionLineCheckSuccess SelfhostCheckedExprId \success:
     *field::get_ref success "root_expr"
+
+//: selfhost_expression_line_check_success_into_parts: successを全owner fieldへ一度だけ分解する
+pub fn selfhost_expression_line_check_success_into_parts %impure fn SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckSuccessParts \success:
+    let arena %SelfhostTypeArena field::get success "arena"
+    let result %SelfhostCallReduceResult field::get success "result"
+    let checked_arguments %Vec SelfhostCheckedArgument field::get success "checked_arguments"
+    let checked_tree %SelfhostCheckedExprTree field::get success "checked_tree"
+    let root_expr %SelfhostCheckedExprId field::get success "root_expr"
+    SelfhostExpressionLineCheckSuccessParts arena result checked_arguments checked_tree root_expr
 
 //: selfhost_expression_line_check_success_into_arena: 成功 payload を消費して arena owner を[取/と]り[出/だ]す
 //:
@@ -480,6 +500,26 @@ pub fn selfhost_check_expr_reduce_body_segment_with_arena %impure fn &Vec Selfho
                 selfhost_check_expr_head_starts_with_percent tokens segment.head
                 then:
                     match selfhost_expr_ascription_project_expectation tokens source arena segment.head:
+                        Result::Ok projection:
+                            selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection scope value_types signatures candidates expected
+                        Result::Err e:
+                            Result::Err SelfhostExpressionLineCheckError::AscriptionFailed e
+                else:
+                    selfhost_check_expr_reduce_expression_line_prefix_with_arena tokens source segment.head arena scope value_types signatures candidates expected
+        SelfhostBodySegmentKind::BlockIntro:
+            selfhost_type_arena_free arena
+            Result::Err SelfhostExpressionLineCheckError::NotExpressionLine selfhost_check_expr_body_segment_head_span segment
+
+//: selfhost_check_expr_reduce_body_segment_with_constructors_and_arena: named constructorを使う明示ascription付きexpressionを検査する
+//:
+//: [owner boundary]: constructorsは借用し、arenaだけを消費します。ascription以外は通常owner connectorと同じ経路です。
+pub fn selfhost_check_expr_reduce_body_segment_with_constructors_and_arena %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment impure fn &SelfhostTypeConstructorTable impure fn SelfhostTypeArena impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostCallableSignatureTable impure fn &Vec SelfhostCallableCandidate impure fn Option SelfhostTypeExpectation Result SelfhostExpressionLineCheckSuccess SelfhostExpressionLineCheckError \tokens\source\segment\constructors\arena\scope\value_types\signatures\candidates\expected:
+    match segment.kind:
+        SelfhostBodySegmentKind::ExpressionLine:
+            if:
+                selfhost_check_expr_head_starts_with_percent tokens segment.head
+                then:
+                    match selfhost_expr_ascription_project_expectation_with_constructors tokens source constructors arena segment.head:
                         Result::Ok projection:
                             selfhost_check_expr_reduce_body_segment_with_projected_ascription tokens source projection scope value_types signatures candidates expected
                         Result::Err e:

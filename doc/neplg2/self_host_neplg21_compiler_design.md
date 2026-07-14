@@ -3821,3 +3821,10 @@ table validationはidentityのnon-placeholder / schema / range / dense ordinal m
 - `stdlib/neplg2/` の既存 skeleton を活かしつつ、古い NEPLg2.0 記述を NEPLg2.1 へ更新する道筋が明確である。
 
 2026-07-12 Resource IR usize narrowing checkpointでは、Rust側がusizeで持つField / TupleFieldのindexとbyte offset、Known offset、ScaledSymbolic / ScaledOffsetのscaleを、producer-facing i64からselfhost supported range `0..2147483647`へ縮小する。縮小後だけvariant-native i32 payloadを構築し、負値と上限超過はfield固有typed errorにする。i64はRust usize全域を保持する代替表現ではない。この境界はnonproduction modelの入力制約であり、actual lowering co-productionやproduction originを証明しない。
+## Match scrutinee checked-tree root connector
+
+leading Match contextが所有するscrutinee rangeを既存body-line checkerへ渡し、`expected = None`の1回の検査で得たchecked treeのroot nodeからactual `SelfhostTypeId`を再取得する。今回actual VFSからmember identityまで実行確認するscrutineeはdirect callに限定し、通常のcall reduction経路を通す。明示ascriptionとpipeも同じbody-line入口へ接続されるが、actual Match connectorを横断する実行証拠は後続sliceで固定する。root nodeと型recordがそれぞれchecked treeと同じarenaに存在しない場合はtyped errorとしてfail closedにする。
+
+成功ownerはreduction、checked arguments、checked tree、root id、root typeとactual exported enum member contextを同時に保持する。arenaはscrutinee checkerからmember gateへmoveし、caller supplied range、span、TypeId、nominal、raw member nameをsemantic authorityにしない。scope、value evidence、signature、candidate、constructor tableが同じchecker phaseから来ることは現段階のpreconditionであり、このconnector単体はproduction checker authorityを発行しない。
+
+Rust checkerは最初のexpectedなし検査が失敗した場合、arm variant patternのqualified nameからexpected enum typeを導出し、diagnostic/type contextのcheckpointをrollbackしてscrutineeを再検査する。今回のsliceは最初の試行だけを接続し、arm-derived expected type推論、transaction rollback、overload再試行を実装済みと扱わない。checked Match tree、arm body型統一、payload bind、網羅性、HIR / Resource輸送も後続境界である。

@@ -132,6 +132,11 @@ impl Clone for SelfhostCheckedEnumMemberError:
 impl Copy for SelfhostCheckedEnumMemberError:
     fn copy_mark %fn SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberError \self: self
 
+fn selfhost_enum_member_qualifier_matches %fn Option SelfhostNamedTypeId fn SelfhostNamedTypeId bool \qualifier_owner\scrutinee_nominal:
+    match qualifier_owner:
+        Option::Some qualifier_nominal: selfhost_named_type_id_eq qualifier_nominal scrutinee_nominal
+        Option::None: true
+
 //: selfhost_check_enum_member_resolve_result: scrutinee nominalとqualifier ownerを照合してmember identityを確定する
 //: [契約/けいやく]: qualifier Noneはunqualified pattern、Someはresolver済みownerです。Someがscrutinee base nominalと異なる場合はlookup前にOwnerMismatchを返します。
 //: [計算量/けいさんりょう]: arena projectionはO(1)、member lookupはenum definition / variant数に比例します。
@@ -144,17 +149,16 @@ pub fn selfhost_check_enum_member_resolve_result %fn &SelfhostTypeArena fn Selfh
                 _: Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::ScrutineeNotNominal query_span
             match scrutinee_nominal_result:
                 Result::Ok scrutinee_nominal:
-                    let owner_matches %bool match qualifier_owner: Option::Some qualifier_nominal: selfhost_named_type_id_eq qualifier_nominal scrutinee_nominal Option::None: true
                     if:
-                        not owner_matches
+                        selfhost_enum_member_qualifier_matches qualifier_owner scrutinee_nominal
                         then:
-                            Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::OwnerMismatch query_span
-                        else:
                             match selfhost_resolved_enum_session_member_lookup_result session scrutinee_nominal query_text query_span:
                                 Result::Ok member_id:
                                     Result::Ok SelfhostCheckedEnumMember scrutinee_type member_id query_span
                                 Result::Err e:
                                     Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::Lookup e.kind e.span
+                        else:
+                            Result::Err SelfhostCheckedEnumMemberError SelfhostCheckedEnumMemberErrorKind::OwnerMismatch query_span
                 Result::Err e:
                     Result::Err e
         Option::None:

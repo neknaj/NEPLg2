@@ -1,0 +1,93 @@
+#indent 4
+
+//: # check/expr/stage1_match_actual_direct_fixture
+//: actual VFS Match の引数なし direct call だけを検証するstage1専用fixtureです。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/stage1_match_actual_direct_fixture" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_check_expr_stage1_fixture_match_actual_direct_only:
+//:         true: 0
+//:         false: 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/result" as *
+#import "core/math/bool" as *
+#import "neplg2/core/check/expr/call_candidate" as *
+#import "neplg2/core/check/expr/candidate_collection" as *
+#import "neplg2/core/check/expr/match_actual_member" as *
+#import "neplg2/core/check/expr/value_evidence" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/vfs" as *
+#import "neplg2/core/resolve/name_resolver/binding" as *
+#import "neplg2/core/resolve/name_resolver/kind" as *
+#import "neplg2/core/resolve/name_resolver/module_order" as *
+#import "neplg2/core/resolve/name_resolver/scope" as *
+#import "neplg2/core/resolve/type_resolver/constructor" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/eq" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/kind/model" as *
+
+pub fn selfhost_check_expr_stage1_fixture_match_actual_direct_only %impure fn void bool \void:
+    let span %SelfhostSourceSpan source_span_empty_unchecked 0 0
+    let constructors0 %SelfhostTypeConstructorTable unwrap_ok selfhost_type_constructor_table_new
+    let constructor_added %SelfhostTypeConstructorAddResult unwrap_ok selfhost_type_constructor_table_add_checked constructors0 "Choice" 1 span
+    let choice_id %SelfhostNamedTypeId selfhost_type_constructor_add_result_nominal_id &constructor_added
+    let constructors %SelfhostTypeConstructorTable selfhost_type_constructor_add_result_into_table constructor_added
+    let arena0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_new
+    let primitive_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32
+    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &primitive_alloc
+    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena primitive_alloc
+    let type_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let type_args %Vec SelfhostTypeId unwrap_ok v::push type_args0 i32_type
+    let applied_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named arena1 choice_id type_args
+    let applied_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+    let params %Vec SelfhostTypeId unwrap_ok v::new
+    let function_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function arena2 params applied_type
+    let function_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &function_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_alloc
+    let scope0 %SelfhostNameScope unwrap_ok selfhost_name_scope_new
+    let binding %SelfhostNameBinding selfhost_name_binding_pending "make" SelfhostDefKind::Function span
+    let binding_added %SelfhostNameScopeAddResult unwrap_ok selfhost_name_scope_add_binding scope0 binding
+    let def_id %SelfhostDefId selfhost_name_scope_add_result_def_id &binding_added
+    let scope %SelfhostNameScope selfhost_name_scope_add_result_into_scope binding_added
+    let signatures0 %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_new
+    let signature %SelfhostCallableSignature selfhost_callable_signature_new def_id function_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+    let signatures %SelfhostCallableSignatureTable unwrap_ok selfhost_callable_signature_table_add signatures0 signature
+    let value_types %SelfhostValueTypeEvidenceTable unwrap_ok selfhost_value_type_evidence_table_new
+    let candidates0 %Vec SelfhostCallableCandidate unwrap_ok v::new
+    let candidate %SelfhostCallableCandidate selfhost_callable_candidate_new "make" def_id function_type SelfhostEffectKind::Pure SelfhostGenericInferenceState::NoneRequired span
+    let candidates %Vec SelfhostCallableCandidate unwrap_ok v::push candidates0 candidate
+    let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
+    let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "Child" "pub enum Choice<.T>:\n    First %.T\n    Last\n"
+    let source "pub #import \"Child\" as child\nfn choose %fn void i32 \\void:\n    match make:\n        child::Choice::First:\n            0\n        child::Choice::Last:\n            1\n"
+    let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs1 "Root" source
+    let graph %SelfhostModuleGraph unwrap_ok selfhost_build_module_graph &vfs "Root"
+    let order %SelfhostModuleOrder unwrap_ok selfhost_module_order_build &graph &vfs
+    let checked %Result SelfhostMatchCheckedActualMemberContext SelfhostMatchCheckedActualMemberError selfhost_check_match_checked_actual_member_result &graph &vfs &order "Root" 0 0 0 &scope &value_types &signatures &candidates arena constructors
+    let ok %bool match checked:
+        Result::Ok context:
+            let root_type %SelfhostTypeId selfhost_match_checked_actual_member_context_root_type &context
+            let member %SelfhostCheckedEnumMember selfhost_match_checked_actual_member_context_member &context
+            let root_preserved %bool selfhost_type_id_eq root_type applied_type
+            let member_preserved %bool selfhost_type_id_eq member.scrutinee_type applied_type
+            let preserved %bool and root_preserved member_preserved
+            selfhost_match_checked_actual_member_context_free context
+            preserved
+        Result::Err _: false
+    v::free candidates
+    selfhost_value_type_evidence_table_free value_types
+    selfhost_callable_signature_table_free signatures
+    selfhost_name_scope_free scope
+    selfhost_module_order_free order
+    selfhost_module_graph_free graph
+    selfhost_vfs_free vfs
+    ok

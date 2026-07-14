@@ -1526,16 +1526,17 @@ fn selfhost_resolved_enum_member_query_lookup_loop %fn &SelfhostResolvedEnumSess
             else:
                 match selfhost_resolved_enum_session_variant_get session add definition.variant_start ordinal:
                     Option::Some variant:
+                        let variant_name_span %SelfhostSourceSpan variant.name_span
                         let query_source %str *field::get_ref query_text "source"
                         let query_len %i32 sub query_span.end query_span.start
-                        let declaration_len %i32 sub variant.name_span.end variant.name_span.start
+                        let declaration_len %i32 sub variant_name_span.end variant_name_span.start
                         let declaration_source %str *field::get_ref session "source"
                         if:
-                            or or or or or or or or or not source_span_is_valid definition.declaration_span gt definition.declaration_span.end string_access::len declaration_source not selfhost_resolved_enum_surface_utf8_boundary declaration_source definition.declaration_span.start not selfhost_resolved_enum_surface_utf8_boundary declaration_source definition.declaration_span.end not source_span_is_valid variant.name_span not selfhost_resolved_enum_surface_span_inside definition.declaration_span variant.name_span ge variant.name_span.start variant.name_span.end gt variant.name_span.end string_access::len declaration_source not selfhost_resolved_enum_surface_utf8_boundary declaration_source variant.name_span.start not selfhost_resolved_enum_surface_utf8_boundary declaration_source variant.name_span.end
+                            or or or or or or or or or not source_span_is_valid definition.declaration_span gt definition.declaration_span.end string_access::len declaration_source not selfhost_resolved_enum_surface_utf8_boundary declaration_source definition.declaration_span.start not selfhost_resolved_enum_surface_utf8_boundary declaration_source definition.declaration_span.end not source_span_is_valid variant_name_span not selfhost_resolved_enum_surface_span_inside definition.declaration_span variant_name_span ge variant_name_span.start variant_name_span.end gt variant_name_span.end string_access::len declaration_source not selfhost_resolved_enum_surface_utf8_boundary declaration_source variant_name_span.start not selfhost_resolved_enum_surface_utf8_boundary declaration_source variant_name_span.end
                             then:
                                 Result::Err selfhost_resolved_enum_member_lookup_error_new SelfhostResolvedEnumMemberLookupErrorKind::SessionRangeInvalid query_span
                             else if:
-                                and eq query_len declaration_len selfhost_resolved_enum_member_query_eq_loop declaration_source variant.name_span.start query_source query_span.start query_len
+                                and eq query_len declaration_len selfhost_resolved_enum_member_query_eq_loop declaration_source variant_name_span.start query_source query_span.start query_len
                                 then:
                                     match selfhost_resolved_enum_session_member_id session definition_idx ordinal:
                                         Option::Some member_id:

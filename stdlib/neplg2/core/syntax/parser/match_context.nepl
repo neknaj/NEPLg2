@@ -315,8 +315,7 @@ pub fn selfhost_match_context_source %fn &SelfhostMatchContext str \context:
 
 //: selfhost_match_context_tokens: current lexer token streamを借用する
 pub fn selfhost_match_context_tokens %fn &SelfhostMatchContext &Vec SelfhostToken \context:
-    let loaded %&SelfhostLoadedModuleTokens field::get_ref context "loaded"
-    field::get_ref loaded "tokens"
+    selfhost_loaded_module_tokens_tokens field::get_ref context "loaded"
 
 //: selfhost_match_context_scrutinee_range: parserが確定したscrutinee rangeを返す
 pub fn selfhost_match_context_scrutinee_range %fn &SelfhostMatchContext SelfhostSyntaxRange \context:

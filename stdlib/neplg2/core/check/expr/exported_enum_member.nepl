@@ -20,6 +20,7 @@
 #import "neplg2/core/module/graph" as *
 #import "neplg2/core/module/vfs" as *
 #import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/resolve/type_resolver/constructor" as *
 #import "neplg2/core/resolve/type_resolver/exported_enum_origin" as *
 #import "neplg2/core/ty/ty" as *
 

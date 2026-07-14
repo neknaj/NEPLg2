@@ -84118,3 +84118,10 @@ MERGE_APPROVED
 - このcontextはactual source-backed syntax evidenceでありsemantic capabilityではない。prefix内部・nested block内Matchの探索、actual scrutinee Named / Applied TypeId、scalar/wildcard、checked Match / HIR / Resource輸送は後続で、セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
 - reviewで、lexer / parser / body segmenter / arm segmenterのOOMがstage failureへ潰れる問題、負function ordinalのtaxonomy、borrowed source backingの寿命説明不足を検出した。全段のOOMを専用分類へ保持し、negative function / segment ordinalを分離し、VFSとsource backingがcontextより長生きする非semantic借用契約を型・設計文書へ明記した。
 - 修正後の差分reviewと全体整合reviewはBlocker / Major / Minorなしで承認された。current-VFS Match contract、focused doctest 1/1、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。full source-policyは新contractを含むselfhost群を通過後、main既存のstdlib documentation baseline `2790 > 2756`だけで停止した。
+## 2026-07-14 selfhost Match checked scrutinee root
+
+- current-VFS leading Match contextが所有するscrutinee rangeを既存body-line checkerへ接続し、direct callをexpectedなしで検査したchecked treeのroot nodeからactual TypeIdを取得する境界を追加した。ascription / pipeは同じbody-line入口に到達するが、actual connector横断runtimeは後続に残す。
+- checked successをarena、reduction、checked arguments、tree、root idへ一度だけ分解するmove-only ownerを追加した。combined ownerはarenaをactual exported enum member contextへmoveし、checked treeとroot identityを同じ寿命で保持する。失敗経路は到達済みownerを一度だけ解放する。
+- caller supplied range、span、TypeId、nominal、raw member名はauthorityにしない。scope/value/signature/candidate/constructorが同一checker phase由来であることはまだpreconditionで、production authorityは発行しない。
+- Rustのarm-derived expected type推論、diagnostic/type context checkpoint rollbackと再試行、checked Match tree、arm body型統一、HIR / Resource輸送は未実装である。小さなcheckpointを全体完成とは扱わず、`plan.md`は変更していない。
+- actual VFS compositeのruntime fixtureは固定direct callだけの独立moduleへ縮退させ、約29秒で実行完走した。direct / ascription / pipe / ambiguityを一つの汎化owner bundleへ集約した旧fixtureは、各固定caseへ分けてもdirect以外が数分以上compileを継続したため恒久suiteから除いた。ascription / pipe / ambiguityのreducer component runtimeとstatic contractを維持し、このsliceの新しいactual VFS→checked root→member identity境界はdirect composite runtimeで検査する。これはfixture集約によるcompiler state探索の性能病理であり、semantic失敗とは区別する。
