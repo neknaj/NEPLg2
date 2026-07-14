@@ -1198,3 +1198,8 @@ variant payload の scalar condition は、variant を選択した後に必ず�
 5. raw memory primitive は public pure surface から閉じられ、必要な内部効果だけが surface pure へ fold される。
 6. stdlib collection / string / self-host buffer が safe public discipline と compiler Resource IR の責務分割に従う。
 7. 旧 HIR 個別 summary を削除しても、既存 memory safety / type safety / effect safety regression が通る。
+## Resource enum variant family normalization
+
+Resource IRのenum payload placeはcell、owner、borrow、raw alias、raw viewの共通keyである。variant member tailだけでなく、排他的sibling判定に使うfamily tailも`resource/variant_name.rs`へ集約し、qualified separatorの解釈は`qualified_name` helperを経由する。
+
+familyが明示された両辺ではcanonical family tailが異なれば排他的siblingとみなさない。一方がunqualified memberだけの場合は、既存のmember tail比較を用いて同じenum path上の異variantとして扱う。この規則を各consumerで再実装してはならない。

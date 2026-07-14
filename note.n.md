@@ -168169,3 +168169,11 @@ MERGE_APPROVED
 - `record_variant_projection_returns`は同じresult typeの`owner_leaf_places`をprojectionごとに再計算していた。record呼出しの入口で一度だけ展開し、全projectionのexact suffix/type判定へ共有した。長寿命map cacheは追加せず、以前悪化したglobal cache管理費を避けた。
 - proof/check cache無効の交互A/B 2組はbaseline owner summary `19430ms / 15871ms`、変更後`17458ms / 15777ms`。pipelineはbaseline `77454ms / 68787ms`、変更後`73359ms / 74340ms`で他stageの揺れが残る。owner summary局所の平均は約5.9%短縮したが、selfhost compilerと0.5秒目標は未完成である。`plan.md`は変更していない。
 - `cargo check -p nepl-core`、owner summary 29件、nepl-core全876件、rustfmt、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。resource responsibility policyは今回未変更の`place_utils.rs`にmain既存の`rsplit("::")`があるため失敗し、HEAD内容でも同じ箇所を確認した。
+
+## 2026-07-15 Resource variant family normalization regression restoration
+
+- exclusive enum sibling owner fixで追加されたfamily抽出が`place_utils.rs`へlocal `rsplit`を再導入し、fixed issueのshared variant-name責務とsource policyを回帰させていた。
+- `variant_name::variant_family_name`へqualified / generic family tail抽出を集約した。`qualified_name::split_member_tail`と`member_tail`だけがseparatorを解釈し、place utilityはcanonical family比較を消費する。
+- same/different family、generic内qualified name、qualified family、unqualified memberの既存意味論をunit回帰で固定した。owner alias/exclusive siblingのproof契約は変更していない。セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
+- subagent全体整合レビューを受け、local split禁止に加えて`place_utils.rs`がshared `variant_family_name`を使用するpositive responsibility assertionを追加した。
+- focused 6件、nepl-core全877件、`cargo check -p nepl-core`、resource responsibility policy、rustfmt、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13を通過した。

@@ -2102,6 +2102,12 @@ assertUsesResourceModuleSymbol(
     'variant_names_match',
     'place_utils.rs',
 );
+assertUsesResourceModuleSymbol(
+    placeUtils,
+    'variant_name',
+    'variant_family_name',
+    'place_utils.rs',
+);
 assertContains(
     readResource('variant_name.rs'),
     'crate::qualified_name::member_tail',

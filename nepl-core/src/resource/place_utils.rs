@@ -12,7 +12,7 @@ use super::model::{
     ResourceMatchBindMode, ResourceMatchPattern, ResourceOffset,
 };
 use super::variant_name::{
-    match_pattern_variant_name, normalize_variant_name, variant_names_match,
+    match_pattern_variant_name, normalize_variant_name, variant_family_name, variant_names_match,
 };
 
 pub(super) fn should_track(place: &Place) -> bool {
@@ -34,20 +34,14 @@ pub(super) fn places_are_mutually_exclusive_enum_paths(left: &Place, right: &Pla
         else {
             return false;
         };
-        let left_family = enum_variant_family(left);
-        let right_family = enum_variant_family(right);
+        let left_family = variant_family_name(left);
+        let right_family = variant_family_name(right);
         if matches!((left_family, right_family), (Some(left), Some(right)) if left != right) {
             return false;
         }
         return normalize_variant_name(left) != normalize_variant_name(right);
     }
     false
-}
-
-fn enum_variant_family(variant: &str) -> Option<&str> {
-    let (family, _) = variant.rsplit_once("::")?;
-    let family = family.split_once('<').map_or(family, |(base, _)| base);
-    Some(family.rsplit("::").next().unwrap_or(family))
 }
 
 pub(super) fn raw_memory_cell_place(address: &Place, ty: TypeId) -> Place {

@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: architecture
 created: 2026-05-12
-updated: 2026-05-12
+updated: 2026-07-15
 target: "nepl-core/src/resource/place_utils.rs; nepl-core/src/resource/variant_name.rs"
 ---
 
@@ -55,3 +55,11 @@ Route enum payload place construction and match-bind payload extraction through 
 - match arm payload 名の抽出を `variant_name::match_pattern_variant_name` へ移行し、`match_bind_payload_place` と inactive sibling payload 判定が同じ canonical name を使うようにした。
 - enum payload type lookup も `variant_name::variant_names_match` へ移行し、`place_utils.rs` から variant 名比較の local 規則を取り除いた。
 - `nodesrc/test_resource_checker_responsibility.js` に `place_utils.rs` が shared variant utility を import すること、local `canonical_variant_name` を再導入しないことを追加した。
+
+## 2026-07-15 regression restoration
+
+exclusive enum payload sibling判定の追加時、qualified / generic variantのfamily tail抽出が`place_utils.rs`のlocal `rsplit`として再導入され、shared variant-name responsibility policyが再び失敗していた。family抽出を`variant_name::variant_family_name`へ移し、`qualified_name`の共有split/tail境界だけが`::`を解釈する構造へ戻した。
+
+`Result::Ok`、generic引数内にqualified nameを持つ`Result<core::Foo,str>::Ok`、qualified familyの`core::Result::Err`、unqualified `Err`をunit回帰で固定した。exclusive sibling判定のsame-family/different-family契約と既存owner alias修正は変更していない。
+
+responsibility policyにはlocal `rsplit`禁止だけでなく、`place_utils.rs`がshared `variant_family_name`をimportして使用するpositive assertionも追加した。別形式のlocal family splitへ置換して責務境界を迂回する変更も検出する。

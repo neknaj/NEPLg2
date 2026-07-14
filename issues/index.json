@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-07-14T22:46:41.806Z",
+  "generated_at": "2026-07-14T23:26:43.505Z",
   "counts": {
     "total": 1374,
     "open": 60,
@@ -6588,7 +6588,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-12",
-      "updated": "2026-05-12",
+      "updated": "2026-07-15",
       "target": "nepl-core/src/resource/place_utils.rs; nepl-core/src/resource/variant_name.rs",
       "legacy_id": "",
       "source": "",

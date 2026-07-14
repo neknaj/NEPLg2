@@ -16,6 +16,12 @@ pub(super) fn variant_names_match(left: &str, right: &str) -> bool {
     variant_name_tail(left) == variant_name_tail(right)
 }
 
+pub(super) fn variant_family_name(variant: &str) -> Option<&str> {
+    let (family, _) = crate::qualified_name::split_member_tail(variant)?;
+    let family = family.split_once('<').map_or(family, |(base, _)| base);
+    Some(crate::qualified_name::member_tail(family))
+}
+
 pub(super) fn match_pattern_variant_name(pattern: &ResourceMatchPattern) -> Option<String> {
     let ResourceMatchPattern::Variant(variant) = pattern else {
         return None;
@@ -38,5 +44,16 @@ mod tests {
         assert!(variant_names_match("Result::Ok", "Ok"));
         assert!(variant_names_match("Result<i32,str>::Ok", "Result::Ok"));
         assert!(!variant_names_match("Result::Ok", "Result::Err"));
+    }
+
+    #[test]
+    fn variant_family_name_uses_canonical_generic_family_tail() {
+        assert_eq!(variant_family_name("Result::Ok"), Some("Result"));
+        assert_eq!(
+            variant_family_name("Result<core::Foo,str>::Ok"),
+            Some("Result")
+        );
+        assert_eq!(variant_family_name("core::Result::Err"), Some("Result"));
+        assert_eq!(variant_family_name("Err"), None);
     }
 }
