@@ -429,15 +429,22 @@ fn join_contour_endpoint_complete %impure fn GuiFontRegisteredFaceSimpleGlyphInd
                                     and eq 0 gui_sfnt_simple_glyph_contour_endpoint_slot_contour_index &endpoint eq 3 gui_sfnt_simple_glyph_contour_endpoint_slot_end_point_index &endpoint
                                 _: false
                             let owner1 %GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointOwner gui_font_registered_face_simple_glyph_indexed_contour_endpoint_budget_step_take_owner step
+                            let endpoint_ok %bool match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_previous_endpoint &owner1:
+                                Option::Some endpoint: eq 3 endpoint
+                                Option::None: false
+                            let progress_ok %bool match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_progress_kind &owner1:
+                                GuiFontRegisteredFaceSimpleGlyphIndexedContourEndpointProgressKind::Completed: true
+                                _: false
+                            let storage_ok %bool eq 1 gui_font_registered_face_simple_glyph_indexed_contour_endpoint_owner_storage_len &owner1
                             match gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_completed owner1:
                                 Result::Err error:
                                     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_seal_error_free error
                                     false
                                 Result::Ok sealed:
                                     gui_font_registered_face_simple_glyph_indexed_contour_endpoint_completed_owner_free sealed
-                                    pushed_ok
+                                    and pushed_ok and endpoint_ok and progress_ok storage_ok
 
-fn join_action_summary_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner impure fn i32 bool \owner\applied_count:
+fn join_action_summary_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner bool \owner:
     match gui_font_registered_face_simple_glyph_indexed_action_summary_drain_budget owner 1:
         Result::Err error:
             gui_font_registered_face_simple_glyph_indexed_action_summary_error_free error
@@ -447,14 +454,16 @@ fn join_action_summary_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedA
             let next %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner gui_font_registered_face_simple_glyph_indexed_action_summary_budget_step_take_owner step
             match status:
                 GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::Applied _apply_status:
-                    join_action_summary_drain next add applied_count 1
+                    join_action_summary_drain next
                 GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryBudgetStatus::Completed:
                     match gui_font_registered_face_simple_glyph_indexed_action_summary_seal_completed next:
                         Result::Err error:
                             gui_font_registered_face_simple_glyph_indexed_action_summary_seal_error_free error
                             false
                         Result::Ok completed:
-                            and eq 8 applied_count join_contour_endpoint_complete completed
+                            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_font_registered_face_simple_glyph_indexed_action_summary_completed_owner_apply_state &completed
+                            let counts_ok %bool and eq 8 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &apply_state and eq 0 gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count &apply_state and eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_close_contour_count &apply_state eq 7 gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &apply_state
+                            and counts_ok join_contour_endpoint_complete completed
                 _:
                     gui_font_registered_face_simple_glyph_indexed_action_summary_owner_free next
                     false
@@ -462,7 +471,7 @@ fn join_action_summary_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedA
 fn join_indexed_phase_chain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedOwner bool \indexed:
     let policy %GuiSfntSimpleGlyphPathSinkPolicy gui_sfnt_simple_glyph_path_sink_policy GuiSfntSimpleGlyphPathOffCurveStartPolicy::KeepTypedSkip GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent
     let summary %GuiFontRegisteredFaceSimpleGlyphIndexedActionSummaryOwner gui_font_registered_face_simple_glyph_indexed_action_summary_start indexed &policy
-    join_action_summary_drain summary 0
+    join_action_summary_drain summary
 
 fn join_span_index_complete %impure fn &GuiFontRegisteredFaceTableEntry impure fn GuiFontRegisteredFaceSimpleGlyphCollectedOwner bool \entry\collected:
     let limit %GuiSfntSimpleGlyphContourSpanIndexLimit gui_sfnt_simple_glyph_contour_span_index_limit 1
