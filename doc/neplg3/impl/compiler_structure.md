@@ -511,6 +511,8 @@ Match variant patternの構文evidenceはRust parserと同じ`Ident (:: Ident)*`
 
 variant-only Match arm segmenterは、enclosing body parserが作った`match` BlockIntroについてouter colon直後の`Newline → Indent`をRust parserどおり専用検証する。各armのordered pattern segments、optional bind、pattern span、colon span、body envelopeを同じ走査でco-produceする。move-only patternをVecへ直接格納せず、Copy arm metadataと共有segment bufferを一つのownerに束ねる。scalar/wildcardは有効なRust構文だが、このenum consumer checkpointではtyped unsupportedとして保持し、variantへ偽装しない。
 
+current-VFS Match contextはlogical pathをexactly-oneで引き、VFS ordinalとfile IDの一致を検査してから、そのsourceを`lex_all_with_file_id`へ一度だけ渡す。loader contextは同じtoken bufferをmodule parserと後続body parserの双方に貸し、ASTとtokensを同時所有する一方、source/pathとAST lexemeはVFS source backingを借用するためVFS backingをcontextより長生きさせる。actual FunctionDecl body直下のleading `match` BlockIntroから、nonempty scrutinee rangeとvariant arm ownerを同じ成功経路で生成する。現checkpointはtop-level leading Matchだけを対象とし、prefix argument内やnested block内のMatchを網羅したとは扱わない。scrutinee rangeはsyntax evidenceであってTypeIdではなく、Named / Applied checker接続は次段で行う。lexer/parser/body/armのallocation failureは一般構文失敗へ潰さずOOM分類を保持する。
+
 各ステージは独立した `Result<_, Vec<Diagnostic>>` を返す。エラーがあっても可能な限り後段まで続行して診断をまとめる（エラー回復）。
 
 ---

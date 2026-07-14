@@ -22,6 +22,7 @@ const checks = [
     "nodesrc/test_selfhost_exported_enum_member_contract.js",
     "nodesrc/test_selfhost_match_pattern_evidence_contract.js",
     "nodesrc/test_selfhost_match_arm_segmenter_contract.js",
+    "nodesrc/test_selfhost_match_context_contract.js",
     "nodesrc/test_stdlib_match_decision_trees.js",
     "nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_fs_report_contract.js",

@@ -1,0 +1,341 @@
+#indent 4
+
+//: # parser/match_context
+//: current VFS の function body からtop-level `match`のbuffer ownerとborrowed source evidenceを構築します。
+//:
+//: [目的/もくてき]:
+//: - 公開入口を VFS、logical path、function ordinal、body segment ordinal に限定し、caller が token range や file_id を偽造できないようにします。
+//: - exact-path lookup、file_id 付き lexer、module parser、body segmenter、match arm segmenter を一つの current-source chain として接続します。
+//:
+//: [制約/せいやく]:
+//: - 現段階では function declaration body 直下の、head 先頭が `KwMatch` である `BlockIntro` だけを対象にします。
+//: - scrutinee は token range evidence であり、actual `TypeId` は生成しません。
+//: - function ordinal は FunctionDecl だけを数え、segment ordinal は選択 function の top-level body segment 全体を数えます。
+//: - contextのsource/path/AST lexemeはVFSのsource backingを借用します。VFSとそのsource backingはcontext解放まで生存させます。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/module/loader" as *
+//:| #import "neplg2/core/syntax/parser/match_context" as *
+//:| fn main %impure fn void i32 \void:
+//:|     match selfhost_vfs_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok v0:
+//:|             match selfhost_vfs_add v0 "padding.nepl" "fn pad %fn void i32 \\void:\n    0\n":
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok v1:
+//:|                     let source "fn choose %fn void i32 \\void:\n    match value:\n        Enum::A:\n            1\n        Enum::B x:\n            2\n"
+//:|                     match selfhost_vfs_add v1 "main.nepl" source:
+//:|                         Result::Err _e: 1
+//:|                         Result::Ok vfs:
+//:|                             let code %i32 match selfhost_match_context_from_vfs &vfs "main.nepl" 0 0:
+//:|                                 Result::Err _e: 1
+//:|                                 Result::Ok context:
+//:|                                     let valid and eq selfhost_match_context_file_id &context 1 and selfhost_match_context_scrutinee_is_nonempty &context and selfhost_match_context_spans_use_current_file &context eq selfhost_match_context_arm_len &context 2
+//:|                                     selfhost_match_context_free context
+//:|                                     if valid 0 1
+//:|                             selfhost_vfs_free vfs
+//:|                             code
+//: ```
+//:
+//: neplg2:example
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/field" as field
+//:| #import "core/result" as *
+//:| #import "neplg2/core/module/loader" as *
+//:| #import "neplg2/core/syntax/parser/match_context" as *
+//:| fn is_missing %fn SelfhostMatchContextErrorKind bool \e:
+//:|  match e:
+//:|   SelfhostMatchContextErrorKind::SourceMissing: true
+//:|   _: false
+//:| fn is_duplicate %fn SelfhostMatchContextErrorKind bool \e:
+//:|  match e:
+//:|   SelfhostMatchContextErrorKind::SourceDuplicate: true
+//:|   _: false
+//:| fn is_forged %fn SelfhostMatchContextErrorKind bool \e:
+//:|  match e:
+//:|   SelfhostMatchContextErrorKind::FileIdOrdinalMismatch: true
+//:|   _: false
+//:| fn is_nonmatch %fn SelfhostMatchContextErrorKind bool \e:
+//:|  match e:
+//:|   SelfhostMatchContextErrorKind::SelectedSegmentNotMatch: true
+//:|   _: false
+//:| fn main %impure fn void i32 \void:
+//:|  match selfhost_vfs_new:
+//:|   Result::Err _e: 1
+//:|   Result::Ok empty:
+//:|    let missing %bool match selfhost_match_context_from_vfs &empty "missing.nepl" 0 0:
+//:|     Result::Ok context:
+//:|      selfhost_match_context_free context
+//:|      false
+//:|     Result::Err e: is_missing e
+//:|    selfhost_vfs_free empty
+//:|    match selfhost_vfs_new:
+//:|     Result::Err _e: 1
+//:|     Result::Ok d0:
+//:|      match selfhost_vfs_add d0 "same.nepl" "fn a %fn void i32 \\void:\n 0\n":
+//:|       Result::Err _e: 1
+//:|       Result::Ok d1:
+//:|        match selfhost_vfs_add d1 "same.nepl" "fn b %fn void i32 \\void:\n 0\n":
+//:|         Result::Err _e: 1
+//:|         Result::Ok duplicate_vfs:
+//:|          let duplicate %bool match selfhost_match_context_from_vfs &duplicate_vfs "same.nepl" 0 0:
+//:|           Result::Ok context:
+//:|            selfhost_match_context_free context
+//:|            false
+//:|           Result::Err e: is_duplicate e
+//:|          selfhost_vfs_free duplicate_vfs
+//:|          let files_result %Result Vec SelfhostVirtualFile StdErrorKind v::new
+//:|          match files_result:
+//:|           Result::Err _e: 1
+//:|           Result::Ok files0:
+//:|            match v::push files0 selfhost_vfs_file_new 7 "forged.nepl" "fn f %fn void i32 \\void:\n 0\n":
+//:|             Result::Err e:
+//:|              v::free v::vec_push_error_vec e
+//:|              1
+//:|             Result::Ok files:
+//:|              let forged_vfs SelfhostVirtualFileSystem files
+//:|              let forged %bool match selfhost_match_context_from_vfs &forged_vfs "forged.nepl" 0 0:
+//:|               Result::Ok context:
+//:|                selfhost_match_context_free context
+//:|                false
+//:|               Result::Err e: is_forged e
+//:|              selfhost_vfs_free forged_vfs
+//:|              match selfhost_vfs_new:
+//:|               Result::Err _e: 1
+//:|               Result::Ok n0:
+//:|                match selfhost_vfs_add n0 "plain.nepl" "fn f %fn void i32 \\void:\n 0\n":
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok nonmatch_vfs:
+//:|                  let nonmatch %bool match selfhost_match_context_from_vfs &nonmatch_vfs "plain.nepl" 0 0:
+//:|                   Result::Ok context:
+//:|                    selfhost_match_context_free context
+//:|                    false
+//:|                   Result::Err e: is_nonmatch e
+//:|                  selfhost_vfs_free nonmatch_vfs
+//:|                  if and and missing duplicate and forged nonmatch 0 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/module/loader" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/body_segmenter" as *
+#import "neplg2/core/syntax/parser/match_arm_segmenter" as *
+#import "neplg2/core/syntax/parser/range" as *
+#import "neplg2/core/syntax/token" as *
+
+//: SelfhostMatchContextErrorKind: current-source Match context 構築の失敗分類
+pub enum SelfhostMatchContextErrorKind:
+    SourceMissing
+    SourceDuplicate
+    FileIdOrdinalMismatch
+    LexFailed
+    ParseFailed
+    FunctionNotFound
+    FunctionBodyMissing
+    BodySegmentationFailed
+    SegmentNotFound
+    SelectedSegmentNotMatch
+    EmptyScrutinee
+    ArmSegmentationFailed
+    OutOfMemory
+
+impl Clone for SelfhostMatchContextErrorKind:
+    fn clone %fn &SelfhostMatchContextErrorKind SelfhostMatchContextErrorKind \self:
+        *self
+
+impl Copy for SelfhostMatchContextErrorKind:
+    fn copy_mark %fn SelfhostMatchContextErrorKind SelfhostMatchContextErrorKind \self:
+        self
+
+//: SelfhostMatchContext: current-source buffer ownerとVFSから借用した選択Matchの構文evidence
+pub struct SelfhostMatchContext:
+    loaded %SelfhostLoadedModuleTokens
+    intro %SelfhostBodySegment
+    scrutinee %SelfhostSyntaxRange
+    arms %SelfhostMatchVariantArmList
+
+fn selfhost_match_context_load_error %fn SelfhostLoadedModuleTokensErrorKind SelfhostMatchContextErrorKind \e:
+    match e:
+        SelfhostLoadedModuleTokensErrorKind::MissingPath: SelfhostMatchContextErrorKind::SourceMissing
+        SelfhostLoadedModuleTokensErrorKind::DuplicatePath: SelfhostMatchContextErrorKind::SourceDuplicate
+        SelfhostLoadedModuleTokensErrorKind::FileIdOrdinalMismatch: SelfhostMatchContextErrorKind::FileIdOrdinalMismatch
+        SelfhostLoadedModuleTokensErrorKind::LexFailed: SelfhostMatchContextErrorKind::LexFailed
+        SelfhostLoadedModuleTokensErrorKind::ParseFailed: SelfhostMatchContextErrorKind::ParseFailed
+        SelfhostLoadedModuleTokensErrorKind::OutOfMemory: SelfhostMatchContextErrorKind::OutOfMemory
+
+fn selfhost_match_context_function_loop %fn &SelfhostModuleAst fn i32 fn i32 fn i32 Option SelfhostModuleItem \ast\n\idx\remaining:
+    if:
+        ge idx n
+        then: none
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::None: none
+                Option::Some item:
+                    match item.kind:
+                        SelfhostModuleItemKind::FunctionDecl:
+                            if eq remaining 0 some item selfhost_match_context_function_loop ast n add idx 1 sub remaining 1
+                        _:
+                            selfhost_match_context_function_loop ast n add idx 1 remaining
+
+fn selfhost_match_context_scrutinee %fn &Vec SelfhostToken fn SelfhostBodySegment Option SelfhostSyntaxRange \tokens\intro:
+    match intro.head:
+        SelfhostSyntaxRange::Empty: none
+        SelfhostSyntaxRange::Range head:
+            if:
+                le head.token_count 1
+                then: none
+                else:
+                    let first add head.first_token 1
+                    let after add head.first_token head.token_count
+                    match selfhost_parser_syntax_range_from_indices tokens v::len tokens first after:
+                        SelfhostSyntaxRange::Empty: none
+                        SelfhostSyntaxRange::Range range: some SelfhostSyntaxRange::Range range
+
+fn selfhost_match_context_selected_is_match %fn &Vec SelfhostToken fn SelfhostBodySegment bool \tokens\segment:
+    match segment.kind:
+        SelfhostBodySegmentKind::ExpressionLine: false
+        SelfhostBodySegmentKind::BlockIntro:
+            match segment.head:
+                SelfhostSyntaxRange::Empty: false
+                SelfhostSyntaxRange::Range head:
+                    match v::get tokens head.first_token:
+                        Option::None: false
+                        Option::Some token:
+                            match token.kind:
+                                TokenKind::KwMatch: true
+                                _: false
+
+fn selfhost_match_context_from_loaded %impure fn SelfhostLoadedModuleTokens impure fn i32 impure fn i32 Result SelfhostMatchContext SelfhostMatchContextErrorKind \loaded\function_ordinal\segment_ordinal:
+    let ast %&SelfhostModuleAst field::get_ref &loaded "ast"
+    match selfhost_match_context_function_loop ast selfhost_module_ast_len ast 0 function_ordinal:
+        Option::None:
+            selfhost_loaded_module_tokens_free loaded
+            Result::Err SelfhostMatchContextErrorKind::FunctionNotFound
+        Option::Some item:
+            match item.declaration_body:
+                Option::None:
+                    selfhost_loaded_module_tokens_free loaded
+                    Result::Err SelfhostMatchContextErrorKind::FunctionBodyMissing
+                Option::Some body:
+                    match body.envelope:
+                        SelfhostSyntaxRange::Empty:
+                            selfhost_loaded_module_tokens_free loaded
+                            Result::Err SelfhostMatchContextErrorKind::FunctionBodyMissing
+                        _:
+                            let tokens %&Vec SelfhostToken field::get_ref &loaded "tokens"
+                            match selfhost_body_segment_list_from_envelope tokens body.envelope:
+                                Result::Err e:
+                                    selfhost_loaded_module_tokens_free loaded
+                                    match e.kind:
+                                        SelfhostBodySegmentErrorKind::OutOfMemory: Result::Err SelfhostMatchContextErrorKind::OutOfMemory
+                                        _: Result::Err SelfhostMatchContextErrorKind::BodySegmentationFailed
+                                Result::Ok segments:
+                                    match selfhost_body_segment_list_get &segments segment_ordinal:
+                                        Option::None:
+                                            selfhost_body_segment_list_free segments
+                                            selfhost_loaded_module_tokens_free loaded
+                                            Result::Err SelfhostMatchContextErrorKind::SegmentNotFound
+                                        Option::Some intro:
+                                            if:
+                                                not selfhost_match_context_selected_is_match tokens intro
+                                                then:
+                                                    selfhost_body_segment_list_free segments
+                                                    selfhost_loaded_module_tokens_free loaded
+                                                    Result::Err SelfhostMatchContextErrorKind::SelectedSegmentNotMatch
+                                                else:
+                                                    match selfhost_match_context_scrutinee tokens intro:
+                                                        Option::None:
+                                                            selfhost_body_segment_list_free segments
+                                                            selfhost_loaded_module_tokens_free loaded
+                                                            Result::Err SelfhostMatchContextErrorKind::EmptyScrutinee
+                                                        Option::Some scrutinee:
+                                                            let source *field::get_ref &loaded "source"
+                                                            match selfhost_match_variant_arm_list_from_intro tokens source intro:
+                                                                Result::Err e:
+                                                                    selfhost_body_segment_list_free segments
+                                                                    selfhost_loaded_module_tokens_free loaded
+                                                                    match e.kind:
+                                                                        SelfhostMatchArmSegmentErrorKind::OutOfMemory: Result::Err SelfhostMatchContextErrorKind::OutOfMemory
+                                                                        _: Result::Err SelfhostMatchContextErrorKind::ArmSegmentationFailed
+                                                                Result::Ok arms:
+                                                                    selfhost_body_segment_list_free segments
+                                                                    Result::Ok SelfhostMatchContext loaded intro scrutinee arms
+
+//: selfhost_match_context_from_vfs: VFS authority だけから top-level Match context を構築する
+pub fn selfhost_match_context_from_vfs %impure fn &SelfhostVirtualFileSystem impure fn str impure fn i32 impure fn i32 Result SelfhostMatchContext SelfhostMatchContextErrorKind \vfs\path\function_ordinal\segment_ordinal:
+    if:
+        lt function_ordinal 0
+        then:
+            Result::Err SelfhostMatchContextErrorKind::FunctionNotFound
+        else:
+            if:
+                lt segment_ordinal 0
+                then:
+                    Result::Err SelfhostMatchContextErrorKind::SegmentNotFound
+                else:
+                    match selfhost_load_module_tokens vfs path:
+                        Result::Err e: Result::Err selfhost_match_context_load_error e
+                        Result::Ok loaded: selfhost_match_context_from_loaded loaded function_ordinal segment_ordinal
+
+//: selfhost_match_context_file_id: current VFS entry の file_id を返す
+pub fn selfhost_match_context_file_id %fn &SelfhostMatchContext i32 \context:
+    let loaded %&SelfhostLoadedModuleTokens field::get_ref context "loaded"
+    *field::get_ref loaded "file_id"
+
+//: selfhost_match_context_scrutinee_is_nonempty: scrutinee range が存在するか返す
+pub fn selfhost_match_context_scrutinee_is_nonempty %fn &SelfhostMatchContext bool \context:
+    selfhost_syntax_range_is_nonempty *field::get_ref context "scrutinee"
+
+//: selfhost_match_context_arms: variant arm owner を借用する
+pub fn selfhost_match_context_arms %fn &SelfhostMatchContext &SelfhostMatchVariantArmList \context:
+    field::get_ref context "arms"
+
+//: selfhost_match_context_arm_len: 選択 Match の variant arm 数を返す
+pub fn selfhost_match_context_arm_len %fn &SelfhostMatchContext i32 \context:
+    selfhost_match_variant_arm_list_len selfhost_match_context_arms context
+
+fn selfhost_match_context_arm_spans_loop %fn &SelfhostMatchContext fn i32 fn i32 fn i32 bool \context\file_id\n\idx:
+    if:
+        ge idx n
+        then: true
+        else:
+            match selfhost_match_variant_arm_list_get selfhost_match_context_arms context idx:
+                Option::None: false
+                Option::Some arm:
+                    let pattern_ok eq arm.pattern_span.file_id file_id
+                    let body_ok %bool match arm.body:
+                        SelfhostSyntaxRange::Empty: false
+                        SelfhostSyntaxRange::Range range: eq range.span.file_id file_id
+                    and and pattern_ok body_ok and eq arm.colon_span.file_id file_id selfhost_match_context_arm_spans_loop context file_id n add idx 1
+
+//: selfhost_match_context_spans_use_current_file: scrutinee、intro、全arm span が current file_id を使うか検証する
+pub fn selfhost_match_context_spans_use_current_file %fn &SelfhostMatchContext bool \context:
+    let file_id selfhost_match_context_file_id context
+    let scrutinee_ok %bool match *field::get_ref context "scrutinee":
+        SelfhostSyntaxRange::Empty: false
+        SelfhostSyntaxRange::Range range: eq range.span.file_id file_id
+    let intro %SelfhostBodySegment *field::get_ref context "intro"
+    let intro_ok %bool match intro.head:
+        SelfhostSyntaxRange::Empty: false
+        SelfhostSyntaxRange::Range range: eq range.span.file_id file_id
+    let n selfhost_match_context_arm_len context
+    and and scrutinee_ok intro_ok selfhost_match_context_arm_spans_loop context file_id n 0
+
+//: selfhost_match_context_free: arms、tokens、AST の全 owner buffer を解放する
+pub fn selfhost_match_context_free %impure fn SelfhostMatchContext unit \context:
+    selfhost_match_variant_arm_list_free field::get context "arms"
+    selfhost_loaded_module_tokens_free field::get context "loaded"

@@ -85,6 +85,20 @@ impl Copy for SelfhostVirtualFile:
 pub struct SelfhostVirtualFileSystem:
     files %Vec SelfhostVirtualFile
 
+//: SelfhostVfsExactLookupErrorKind: exact-path lookup が失敗した理由
+pub enum SelfhostVfsExactLookupErrorKind:
+    Missing
+    Duplicate
+    FileIdOrdinalMismatch
+
+impl Clone for SelfhostVfsExactLookupErrorKind:
+    fn clone %fn &SelfhostVfsExactLookupErrorKind SelfhostVfsExactLookupErrorKind \self:
+        *self
+
+impl Copy for SelfhostVfsExactLookupErrorKind:
+    fn copy_mark %fn SelfhostVfsExactLookupErrorKind SelfhostVfsExactLookupErrorKind \self:
+        self
+
 //: selfhost_vfs_file_new: VFS entry を[作/つく]る
 pub fn selfhost_vfs_file_new %fn i32 fn str fn str SelfhostVirtualFile \file_id\path\source:
     SelfhostVirtualFile file_id path source
@@ -144,6 +158,39 @@ pub fn selfhost_vfs_find_loop %fn &SelfhostVirtualFileSystem fn str fn i32 fn i3
 //: selfhost_vfs_find: path が[一致/いっち]する entry を[返/かえ]す
 pub fn selfhost_vfs_find %fn &SelfhostVirtualFileSystem fn str Option SelfhostVirtualFile \vfs\path:
     selfhost_vfs_find_loop vfs path selfhost_vfs_len vfs 0
+
+//: selfhost_vfs_find_exact_loop: path の唯一性と file_id の追加順不変条件を同時に検査する
+fn selfhost_vfs_find_exact_loop %fn &SelfhostVirtualFileSystem fn str fn i32 fn i32 fn Option SelfhostVirtualFile Result SelfhostVirtualFile SelfhostVfsExactLookupErrorKind \vfs\path\n\idx\found:
+    if:
+        ge idx n
+        then:
+            match found:
+                Option::None: Result::Err SelfhostVfsExactLookupErrorKind::Missing
+                Option::Some file: Result::Ok file
+        else:
+            match selfhost_vfs_get vfs idx:
+                Option::None: Result::Err SelfhostVfsExactLookupErrorKind::FileIdOrdinalMismatch
+                Option::Some file:
+                    if:
+                        not eq file.file_id idx
+                        then:
+                            Result::Err SelfhostVfsExactLookupErrorKind::FileIdOrdinalMismatch
+                        else:
+                            if:
+                                string_search::str_eq file.path path
+                                then:
+                                    match found:
+                                        Option::Some _prior: Result::Err SelfhostVfsExactLookupErrorKind::Duplicate
+                                        Option::None: selfhost_vfs_find_exact_loop vfs path n add idx 1 some file
+                                else:
+                                    selfhost_vfs_find_exact_loop vfs path n add idx 1 found
+
+//: selfhost_vfs_find_exact: current VFS から唯一の exact-path entry を検証して返す
+//:
+//: [注意/ちゅうい]:
+//: - path 重複と、entry の file_id が Vec ordinal と異なる状態を typed error にします。
+pub fn selfhost_vfs_find_exact %fn &SelfhostVirtualFileSystem fn str Result SelfhostVirtualFile SelfhostVfsExactLookupErrorKind \vfs\path:
+    selfhost_vfs_find_exact_loop vfs path selfhost_vfs_len vfs 0 none
 
 //: selfhost_vfs_free: VFS の file entry buffer を[解放/かいほう]する
 pub fn selfhost_vfs_free %impure fn SelfhostVirtualFileSystem unit \vfs:

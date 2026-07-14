@@ -585,6 +585,13 @@ Add normal tests for prefix argument extent, %TypeExpr extent, nested block argu
 - focused doctest verification: `node nodesrc/tests.js -i tests/stdlib/neplg2_call_reduce.n.md --no-tree --assert-io -j 1 -o tmp/selfhost-f32-literal-call-reduce.json` は total 6 中 5 pass。追加した `literal_f32_payload_decode` は pass したが、既存 `expression_line_segment_connects_to_call_reduction` 相当の doctest#5 が compile timeout 60s で errored。今回の f32 payload correctness ではなく、`check/expr` facade全体を読む既存 heavy compile path として継続監視する。
 - 残件: numeric suffix language design、`NestedDirectCall` / `BlockResult` checked tree payload、既存 heavy doctest timeout の高速化 / focused test分割。
 
+2026-07-14 current-VFS leading Match context checkpoint:
+
+- VFS exact-path lookupはmissing / duplicate / file ID ordinal mismatchをtypedに拒否し、first-wins lookupをparser authorityにしない。
+- loaderは選択sourceをそのfile IDで一度だけlexし、同じtoken bufferからmodule ASTを作ってtokens / ASTを一つのownerに保持する。
+- 公開Match context入口はVFS、path、FunctionDecl ordinal、top-level body segment ordinalだけを受け、actual FunctionDecl bodyのleading Matchからscrutinee rangeとvariant armsを同時生成する。
+- prefix内部・nested block内Match、actual scrutinee Named / Applied TypeId、checked Match / HIR / Resource輸送は未接続であり、production authorityは発行しない。
+
 2026-06-06 block body sequence checked tree checkpoint:
 
 - `SelfhostCheckedExprTree` に block body child root id 専用の `exprs %Vec SelfhostCheckedExprId` を追加し、`BlockSequence` は `SelfhostCheckedExprRange` でその範囲を参照する。node id の連続範囲は nested call / nested block node の挿入で body expression list と一致しないため、block sequence の authority には使わない。

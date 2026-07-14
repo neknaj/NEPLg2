@@ -84087,3 +84087,12 @@ MERGE_APPROVED
 - 1/2/3/4+ pathとbindをruntime fixtureで検査する。scalar/wildcardはRustでは有効だがvariant-only checkpointではtyped unsupportedであり、current VFS file-id lexer、actual scrutinee Named / Applied checker、checked Match/HIR/Resource接続は後続である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
 - reviewで、head rangeの加算overflow、下位allocation failureの分類消失、各armの改行後Indent未検査、token spanのsource外参照、runtime assertion不足を検出した。減算型bounds、pattern token全span/file整合、下位OOM保持、inlineまたは`Newline → Indent`の専用arm layout検証へ修正し、segment数・bind・direct alias・bodyとwildcard/scalar/trailing/layout拒否を2本の実行doctestで固定した。
 - 最終差分reviewと全体整合reviewはBlocker / Major / Minorなしで承認された。focused doctest 2/2、Match arm contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。full source-policyは新contractを含むselfhost群を通過後、main既存のstdlib documentation baseline `2790 > 2756`だけで停止した。
+
+## 2026-07-14 selfhost current-VFS leading Match context
+
+- current VFSのlogical pathをexactly-oneで選び、missing / duplicateと全entryのfile ID ordinal不一致をtypedに拒否するlookupを追加した。従来のfirst-wins `selfhost_vfs_find`はこのauthority入口で使わない。
+- loaderは選択sourceをcurrent file IDで一度だけlexし、同じtoken bufferからmodule ASTを作り、tokens / ASTを一つのmove-only ownerとして保持する。parse失敗ではtokensを解放し、成功ownerはASTとtokensを共に閉じる。
+- Match contextの公開producerはVFS / path / FunctionDecl ordinal / top-level body segment ordinalだけを受ける。actual FunctionDecl body envelopeのleading `KwMatch` BlockIntroからnonempty scrutinee syntax rangeとvariant arm ownerを同じ成功経路で生成する。
+- このcontextはactual source-backed syntax evidenceでありsemantic capabilityではない。prefix内部・nested block内Matchの探索、actual scrutinee Named / Applied TypeId、scalar/wildcard、checked Match / HIR / Resource輸送は後続で、セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
+- reviewで、lexer / parser / body segmenter / arm segmenterのOOMがstage failureへ潰れる問題、負function ordinalのtaxonomy、borrowed source backingの寿命説明不足を検出した。全段のOOMを専用分類へ保持し、negative function / segment ordinalを分離し、VFSとsource backingがcontextより長生きする非semantic借用契約を型・設計文書へ明記した。
+- 修正後の差分reviewと全体整合reviewはBlocker / Major / Minorなしで承認された。current-VFS Match contract、focused doctest 1/1、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。full source-policyは新contractを含むselfhost群を通過後、main既存のstdlib documentation baseline `2790 > 2756`だけで停止した。

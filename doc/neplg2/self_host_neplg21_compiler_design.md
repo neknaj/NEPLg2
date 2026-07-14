@@ -3796,6 +3796,8 @@ RustのMatch pattern parserは1/2/3/4+ segmentを区別せず`Ident (:: Ident)*`
 
 actual Match arm構文への次段としてvariant-only arm segmenterを追加する。汎用body segmenterの緩いcolon layoutをauthorityにせず、match outer colon直後のNewlineとIndentを専用検証する。各armはvariant pattern、colon、body envelopeを別々のcaller入力から組み立てず同時生成し、path segmentsはlist共有buffer、arm範囲はCopy metadataとして所有する。scalar/wildcardはRustで有効だがenum export consumerへ流さずtyped unsupportedに閉じる。current VFS file identity、actual scrutinee checker、scalar checkerへの接続は後続である。
 
+current VFS接続では従来のfirst-wins path lookupをauthorityにせず、対象pathのmissing / duplicateと全entryのfile ID ordinal不一致をtypedに拒否する。選択sourceをfile ID付きでlexし、そのtoken ownerを解放せず同じbufferからmodule AST、FunctionDecl body envelope、top-level leading Match BlockIntro、scrutinee syntax range、variant armsを順に生成する。成功contextはtokens / AST / armsを一括所有するが、source/pathとAST lexemeはVFS backingを借用するためcontext解放までVFS sourceを生存させる。caller supplied source / file ID / token range / BlockIntroを入口に持たず、各段のOOMを一般構文失敗へ潰さない。これはactual source-backed syntax checkpointでありsemantic capabilityではない。Rustが許すprefix内部・nested block内Matchの完全探索、actual scrutineeのNamed / Applied TypeId、checked Match / HIR / Resource identity輸送は後続である。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。

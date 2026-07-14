@@ -38,6 +38,9 @@ pub #import "neplg2/core/module/vfs" as *
 #import "neplg2/core/syntax/parser/module_parser" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "alloc/collections/vec" as v
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/token" as *
 
 //: SelfhostLoadedModule: parse 済み module と logical path
 //:
@@ -46,6 +49,74 @@ pub #import "neplg2/core/module/vfs" as *
 pub struct SelfhostLoadedModule:
     path %str
     ast %SelfhostModuleAst
+
+//: SelfhostLoadedModuleTokens: current VFS source の token stream と AST を同時に所有する
+//:
+//: [注意/ちゅうい]:
+//: - source/path は VFS から借用し、tokens と ast の buffer はこの値が所有します。
+//: - VFSとsource backingはこの値の解放後まで生存させます。この値単独はsource bytesを所有しません。
+pub struct SelfhostLoadedModuleTokens:
+    path %str
+    source %str
+    file_id %i32
+    tokens %(Vec SelfhostToken)
+    ast %SelfhostModuleAst
+
+//: SelfhostLoadedModuleTokensErrorKind: exact lookup、lex、parse の失敗分類
+pub enum SelfhostLoadedModuleTokensErrorKind:
+    MissingPath
+    DuplicatePath
+    FileIdOrdinalMismatch
+    LexFailed
+    ParseFailed
+    OutOfMemory
+
+impl Clone for SelfhostLoadedModuleTokensErrorKind:
+    fn clone %fn &SelfhostLoadedModuleTokensErrorKind SelfhostLoadedModuleTokensErrorKind \self:
+        *self
+
+impl Copy for SelfhostLoadedModuleTokensErrorKind:
+    fn copy_mark %fn SelfhostLoadedModuleTokensErrorKind SelfhostLoadedModuleTokensErrorKind \self:
+        self
+
+//: selfhost_loaded_module_tokens_lex_error: lexer OOMを通常の構文失敗へ潰さず写像する
+fn selfhost_loaded_module_tokens_lex_error %fn LexDiagnostic SelfhostLoadedModuleTokensErrorKind \diag:
+    match diag.code:
+        SelfhostLexerDiagnosticCode::OutOfMemory: SelfhostLoadedModuleTokensErrorKind::OutOfMemory
+        _: SelfhostLoadedModuleTokensErrorKind::LexFailed
+
+//: selfhost_loaded_module_tokens_parse_error: parser OOMを通常の構文失敗へ潰さず写像する
+fn selfhost_loaded_module_tokens_parse_error %fn SelfhostDiagnostic SelfhostLoadedModuleTokensErrorKind \diag:
+    match diag.code:
+        SelfhostDiagnosticCode::Parser code:
+            match code:
+                SelfhostParserDiagnosticCode::OutOfMemory: SelfhostLoadedModuleTokensErrorKind::OutOfMemory
+                _: SelfhostLoadedModuleTokensErrorKind::ParseFailed
+        _: SelfhostLoadedModuleTokensErrorKind::ParseFailed
+
+//: selfhost_load_module_tokens: exact-path current VFS source を lex し、tokens と AST を同時所有する
+pub fn selfhost_load_module_tokens %impure fn &SelfhostVirtualFileSystem impure fn str Result SelfhostLoadedModuleTokens SelfhostLoadedModuleTokensErrorKind \vfs\path:
+    match selfhost_vfs_find_exact vfs path:
+        Result::Err e:
+            match e:
+                SelfhostVfsExactLookupErrorKind::Missing: Result::Err SelfhostLoadedModuleTokensErrorKind::MissingPath
+                SelfhostVfsExactLookupErrorKind::Duplicate: Result::Err SelfhostLoadedModuleTokensErrorKind::DuplicatePath
+                SelfhostVfsExactLookupErrorKind::FileIdOrdinalMismatch: Result::Err SelfhostLoadedModuleTokensErrorKind::FileIdOrdinalMismatch
+        Result::Ok file:
+            match lex_all_with_file_id file.source file.file_id:
+                Result::Err diag: Result::Err selfhost_loaded_module_tokens_lex_error diag
+                Result::Ok tokens:
+                    match selfhost_parse_module_tokens file.source &tokens:
+                        Result::Err diag:
+                            v::free tokens
+                            Result::Err selfhost_loaded_module_tokens_parse_error diag
+                        Result::Ok ast:
+                            Result::Ok SelfhostLoadedModuleTokens file.path file.source file.file_id tokens ast
+
+//: selfhost_loaded_module_tokens_free: token stream と AST buffer を両方解放する
+pub fn selfhost_loaded_module_tokens_free %impure fn SelfhostLoadedModuleTokens unit \module:
+    v::free field::get module "tokens"
+    selfhost_module_ast_free field::get module "ast"
 
 //: selfhost_loader_file_not_found_diag: VFS lookup 失敗 diagnostic を[作/つく]る
 pub fn selfhost_loader_file_not_found_diag %fn str SelfhostDiagnostic \path:
