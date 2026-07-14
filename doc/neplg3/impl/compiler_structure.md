@@ -507,6 +507,8 @@ exact-VFS public export の enum entry は、visible name から元定義の mod
 
 qualified enum member consumer は、caller からこの context や export entry、nominal ID、TypeId、SourceText を受け取らない。current graph/VFS/order、importer path、expression parserが渡すalias・enum name・member tail spanを入口にし、qualified import table、target export origin、query source textを内部で再生成して既存enum member checkerへ渡す。alias spanはimport recordへ再結合するが、残る2 spanが同じqualified pattern ASTに属する保証はactual expression parser接続までcaller preconditionである。したがってこのconsumer単独はproduction capabilityではない。成功ownerがorigin contextとchecked memberを同時に保持するため、checked identityのarena/sessionはowner解放まで生存する。この段階のscrutineeはproducerが作るdirect Named TypeIdであり、actual Match scrutineeのNamed/Applied TypeIdとの接続は次段で行う。
 
+Match variant patternの構文evidenceはRust parserと同じ`Ident (:: Ident)*`を任意長のordered segment spanとして保持し、直後のoptional bindと消費後token cursorを同時生成する。raw qualified spellingはASTに保存しない。`alias::Enum::Member`は一般文法ではなく現direct-alias resolver subsetなので、exactly 3 segment projectionだけを専用adapterに分離し、1/2/4+ segmentを一般parserで拒否しない。borrowed token列とCopy spanはsemantic capabilityではなく、current VFSからのlexとactual Match arm parser成功経路への接続は次段のauthority境界である。
+
 各ステージは独立した `Result<_, Vec<Diagnostic>>` を返す。エラーがあっても可能な限り後段まで続行して診断をまとめる（エラー回復）。
 
 ---

@@ -84071,3 +84071,11 @@ MERGE_APPROVED
 - importer source/file identityはqualified import buildの検証済みtableから借用し、enum/member spanのfile/range/UTF-8境界を再検査する。query SourceTextは同じcurrent VFS sourceから内部生成し、成功ownerがorigin arena/sessionとchecked memberを同時に保持する。失敗時はqualified table、query text、origin context、入力arena/constructorを生成段階に応じて一度だけ閉じる。
 - このgateのscrutinee TypeIdはorigin producerが作るdirect Namedのnonproduction checkpointである。actual Match scrutineeのNamed / Applied TypeId、checked Match tree / HIR / Resourceへのidentity輸送、Deref projection、cross-session stable key、Selective / DefaultAlias / path-mapは未接続であり、セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
 - focused consumer/origin contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。full source-policyは新consumer contractを含むselfhost群を通過し、main既存のstdlib documentation baseline `2790 > 2756`を確認した後、長時間の無関係Web harness部分を打ち切った。対象fileのfocused doctestはrunnable test未追加のため収集0であり、runtime compileは既知の`enum_surface.nepl` impl DocComment parser baseline解消後に再実行する。
+
+## 2026-07-14 selfhost Match variant ordered pattern evidence
+
+- Rust `parse_match_pattern`と同じ任意長`Ident (:: Ident)*`を、raw spellingを持たないordered segment token-index/span ownerとして実装した。optional bindと消費後token cursorを同時生成し、path separator後のidentifier欠落とallocation失敗をtyped errorへ分ける。
+- exactly 3 segmentの`alias::Enum::Member`は現direct alias export subset専用のCopy projectionであり、一般parserは1/2/4+ segmentを拒否しない。focused runtime matrixは1/2/3/4 segment、3 segment bind/cursor、trailing separator拒否を検査する。
+- borrowed token buffer / Copy spanはsemantic capabilityではない。current VFS file-id lexer、actual Match arm parser、consumer gate、actual scrutinee Named / Applied TypeIdへの接続は次sliceであり、production checker/HIR/Resource authorityは発行しない。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
+- reviewでoptional bindまでaggregate pattern spanを広げるRust parity差を検出し、path/name spanは末尾segmentまで、bind spanは独立fieldに維持した。AST/parser contractはcomment-stripped実装を検査する。修正後の差分reviewと全体整合reviewはBlocker / Major 0で統合承認された。
+- focused runtime doctest 1/1、pattern/consumer contracts、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。初回buildはC:残量238MBによるLLVM I/O errorで停止したため生成済みcargo targetだけをcleanし、`CARGO_TARGET_DIR=/tmp/nepl-trunk-target`で再実行して通過した。

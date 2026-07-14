@@ -1,0 +1,130 @@
+#indent 4
+
+//: # match_pattern
+//: match arm の qualified variant pattern を token spelling から独立した evidence として保持します。
+//:
+//: [目的/もくてき]:
+//: - `Ident (:: Ident)*` の各 identifier を source 順の token index / span として保持します。
+//: - optional payload bind は path segment と分離し、resolver が qualifier、enum、member の境界を後から判断できるようにします。
+//:
+//: [契約/けいやく]:
+//: - raw spelling や結合済み qualified name は保存しません。名前が必要な consumer は元 source と span から切り出します。
+//: - owner は move-only です。利用後は `selfhost_match_variant_pattern_free` で segment buffer を解放します。
+//: - token cursor は parser が消費した直後の token index であり、byte offset ではありません。
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+
+//: SelfhostMatchPatternSegment: qualified path を構成する一つの identifier evidence
+pub struct SelfhostMatchPatternSegment:
+    token_index %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostMatchPatternSegment:
+    fn clone %fn &SelfhostMatchPatternSegment SelfhostMatchPatternSegment \self:
+        *self
+
+impl Copy for SelfhostMatchPatternSegment:
+    fn copy_mark %fn SelfhostMatchPatternSegment SelfhostMatchPatternSegment \self:
+        self
+
+//: SelfhostMatchPatternBind: variant payload の optional bind evidence
+pub struct SelfhostMatchPatternBind:
+    token_index %i32
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostMatchPatternBind:
+    fn clone %fn &SelfhostMatchPatternBind SelfhostMatchPatternBind \self:
+        *self
+
+impl Copy for SelfhostMatchPatternBind:
+    fn copy_mark %fn SelfhostMatchPatternBind SelfhostMatchPatternBind \self:
+        self
+
+//: SelfhostMatchVariantPattern: source 順 segment と optional bind を所有する variant pattern
+pub struct SelfhostMatchVariantPattern:
+    segments %(Vec SelfhostMatchPatternSegment)
+    bind %(Option SelfhostMatchPatternBind)
+    span %SelfhostSourceSpan
+    next_token %i32
+
+//: SelfhostDirectAliasEnumMemberPattern: `alias::Enum::Member` subset の明示 projection
+//:
+//: [注意/ちゅうい]:
+//: - 一般 parser は segment 数を制限しません。この adapter だけがちょうど三 segment を要求します。
+pub struct SelfhostDirectAliasEnumMemberPattern:
+    alias %SelfhostMatchPatternSegment
+    enum_name %SelfhostMatchPatternSegment
+    member %SelfhostMatchPatternSegment
+    bind %(Option SelfhostMatchPatternBind)
+
+impl Clone for SelfhostDirectAliasEnumMemberPattern:
+    fn clone %fn &SelfhostDirectAliasEnumMemberPattern SelfhostDirectAliasEnumMemberPattern \self:
+        *self
+
+impl Copy for SelfhostDirectAliasEnumMemberPattern:
+    fn copy_mark %fn SelfhostDirectAliasEnumMemberPattern SelfhostDirectAliasEnumMemberPattern \self:
+        self
+
+pub fn selfhost_match_pattern_segment_new %fn i32 fn SelfhostSourceSpan SelfhostMatchPatternSegment \token_index\span:
+    SelfhostMatchPatternSegment token_index span
+
+pub fn selfhost_match_pattern_bind_new %fn i32 fn SelfhostSourceSpan SelfhostMatchPatternBind \token_index\span:
+    SelfhostMatchPatternBind token_index span
+
+pub fn selfhost_match_variant_pattern_new %fn Vec SelfhostMatchPatternSegment fn Option SelfhostMatchPatternBind fn SelfhostSourceSpan fn i32 SelfhostMatchVariantPattern \segments\bind\span\next_token:
+    SelfhostMatchVariantPattern segments bind span next_token
+
+pub fn selfhost_match_variant_pattern_len %fn &SelfhostMatchVariantPattern i32 \pattern:
+    v::len field::get_ref pattern "segments"
+
+pub fn selfhost_match_variant_pattern_segment %fn &SelfhostMatchVariantPattern fn i32 Option SelfhostMatchPatternSegment \pattern\index:
+    match v::get field::get_ref pattern "segments" index:
+        Option::Some segment:
+            some segment
+        Option::None:
+            none
+
+pub fn selfhost_match_variant_pattern_bind %fn &SelfhostMatchVariantPattern Option SelfhostMatchPatternBind \pattern:
+    let bind %&Option SelfhostMatchPatternBind field::get_ref pattern "bind"
+    *bind
+
+pub fn selfhost_match_variant_pattern_span %fn &SelfhostMatchVariantPattern SelfhostSourceSpan \pattern:
+    let span %&SelfhostSourceSpan field::get_ref pattern "span"
+    *span
+
+pub fn selfhost_match_variant_pattern_next_token %fn &SelfhostMatchVariantPattern i32 \pattern:
+    let next_token %&i32 field::get_ref pattern "next_token"
+    *next_token
+
+pub fn selfhost_match_variant_pattern_free %impure fn SelfhostMatchVariantPattern unit \pattern:
+    v::free field::get pattern "segments"
+
+//: selfhost_match_variant_pattern_direct_alias: 三 segment の direct alias subset へ射影する
+//:
+//: [戻/もど]り[値/ち]:
+//: - segment が `alias::Enum::Member` の三つなら span-only projection を返します。
+//: - 一、二、四以上の segment は一般 AST として有効なまま `None` になります。
+pub fn selfhost_match_variant_pattern_direct_alias %fn &SelfhostMatchVariantPattern Option SelfhostDirectAliasEnumMemberPattern \pattern:
+    if:
+        not eq selfhost_match_variant_pattern_len pattern 3
+        then:
+            none
+        else:
+            match selfhost_match_variant_pattern_segment pattern 0:
+                Option::Some alias:
+                    match selfhost_match_variant_pattern_segment pattern 1:
+                        Option::Some enum_name:
+                            match selfhost_match_variant_pattern_segment pattern 2:
+                                Option::Some member:
+                                    some SelfhostDirectAliasEnumMemberPattern alias enum_name member selfhost_match_variant_pattern_bind pattern
+                                Option::None:
+                                    none
+                        Option::None:
+                            none
+                Option::None:
+                    none

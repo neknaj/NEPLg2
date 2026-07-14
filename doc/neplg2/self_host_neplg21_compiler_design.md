@@ -3792,6 +3792,8 @@ public enum origin connectorはcaller supplied export tableを受けず、curren
 
 same-session contextをqualified member lookupへ渡すconsumer gateは、current graph/VFS/orderを再検証し、parser由来alias spanからtarget nodeを選び、importer source上のenum name spanをvisible export名としてorigin producerへ渡す。caller supplied context / export entry / source text / nominal / TypeId / raw visible nameは受けず、query source textもcurrent VFS sourceから内部生成する。成功ownerはorigin contextとchecked memberを同時に保持する。このcheckpointのscrutineeはorigin producerが作るdirect Named TypeIdであり、actual Match scrutineeのNamed / Applied TypeId、checked tree/HIR Match、Resource enum membership sidecarへのidentity輸送、reference-to-enum Deref、cross-session stable keyはまだ未接続である。Rust HIR/Resourceが現在もvariant source spellingをStringで保持し、backendが宣言順positionを再探索するlegacyも残る。したがってproduction Resource originやexhaustiveness authorityは発行しない。
 
+RustのMatch pattern parserは1/2/3/4+ segmentを区別せず`Ident (:: Ident)*`として受理するため、selfhostもordered segment span owner、optional bind、消費後token cursorをco-produceする。結合済みpath文字列は保持せず、resolverがowner prefixとmember tailを構造から導出する。exactly 3 segmentの`alias::Enum::Member` projectionは現direct alias export subset専用であり言語文法ではない。token列単体は偽造可能なので、この構文ownerをsemantic authorityへ昇格するのはcurrent VFS lexerとactual Match arm parserが同じ成功control-flowで生成し、consumerがgraph/VFS/orderへ再検証する後続orchestrationに限定する。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。

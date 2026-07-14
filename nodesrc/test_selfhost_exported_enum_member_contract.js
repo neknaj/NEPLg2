@@ -32,7 +32,7 @@ if (!consumer.includes("actual Match scrutinee")) {
   throw new Error("nonproduction actual Match boundary documentation missing");
 }
 
-const publicSignature = implementation.match(/pub fn selfhost_check_exported_enum_member_context_result[^\n]*/)?.[0];
+const publicSignature = implementation.match(/pub fn selfhost_check_exported_enum_member_context_result[^\n]*/)?.[0].trimEnd();
 const expectedPublicSignature = "pub fn selfhost_check_exported_enum_member_context_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \\graph\\vfs\\order\\source_path\\alias_span\\enum_name_span\\member_span\\arena\\constructors:";
 if (publicSignature !== expectedPublicSignature) {
   throw new Error(`exported enum member public producer signature drifted: ${publicSignature}`);

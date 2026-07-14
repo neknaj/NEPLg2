@@ -1,0 +1,186 @@
+#indent 4
+
+//: # parser/match_pattern
+//: match variant pattern の ordered segment span evidence を token stream から構築します。
+//:
+//: [目的/もくてき]:
+//: - Rust parser と同じ `Ident (:: Ident)*` と、その直後の optional bind identifier を読みます。
+//: - spelling を結合せず token index cursor を進め、任意長 path を一般 AST に保持します。
+//:
+//: [authority boundary]:
+//: - public parser が借用する token buffer は semantic capability ではありません。lexer/parser が同じ current source から成功 control-flow 上で渡すことを前提にした構文 evidence です。
+//: - token span と current VFS source の同一性はこの slice では再検証しません。semantic consumer へ接続する後続 orchestration が current graph / VFS / order と source span を再検証します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 消費 token 数を n として O(n)、segment buffer は O(n) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/syntax/ast/match_pattern" as *
+//:| #import "neplg2/core/syntax/lexer" as *
+//:| #import "neplg2/core/syntax/parser/match_pattern" as *
+//:| #import "neplg2/core/syntax/token" as *
+//:| fn push %impure fn Vec SelfhostToken impure fn TokenKind impure fn i32 impure fn i32 Vec SelfhostToken \tokens\kind\start\end:
+//:|     match v::push tokens selfhost_token_new kind source_span_new_unchecked 7 start end:
+//:|         Result::Ok next: next
+//:|         Result::Err e: v::vec_push_error_vec e
+//:| fn path_ok %impure fn str impure fn i32 impure fn bool bool \source\expected_len\expected_direct:
+//:|     match lex_all_with_file_id source 9:
+//:|         Result::Err _e: false
+//:|         Result::Ok tokens:
+//:|             match selfhost_parse_match_variant_pattern &tokens 0:
+//:|                 Result::Err _e:
+//:|                     v::free tokens
+//:|                     false
+//:|                 Result::Ok pattern:
+//:|                     let direct %bool match selfhost_match_variant_pattern_direct_alias &pattern:
+//:|                         Option::Some _value: true
+//:|                         Option::None: false
+//:|                     let direct_ok %bool or and direct expected_direct and not direct not expected_direct
+//:|                     let path_valid %bool and eq selfhost_match_variant_pattern_len &pattern expected_len direct_ok
+//:|                     selfhost_match_variant_pattern_free pattern
+//:|                     v::free tokens
+//:|                     path_valid
+//:| fn missing_rejected %impure fn void bool \void:
+//:|     match lex_all "a::":
+//:|         Result::Err _e: false
+//:|         Result::Ok tokens:
+//:|             let rejected %bool match selfhost_parse_match_variant_pattern &tokens 0:
+//:|                 Result::Err e:
+//:|                     match e.kind:
+//:|                         SelfhostMatchPatternParseErrorKind::ExpectedIdentifierAfterPathSeparator: true
+//:|                         _: false
+//:|                 Result::Ok pattern:
+//:|                     selfhost_match_variant_pattern_free pattern
+//:|                     false
+//:|             v::free tokens
+//:|             rejected
+//:| fn main %impure fn void i32 \void:
+//:|     let matrix %bool and and and and path_ok "Member" 1 false path_ok "Enum::Member" 2 false path_ok "dep::Enum::Member" 3 true path_ok "root::dep::Enum::Member" 4 false missing_rejected
+//:|     let tokens_result %Result Vec SelfhostToken StdErrorKind v::new
+//:|     match tokens_result:
+//:|         Result::Ok tokens0:
+//:|             let tokens1 push tokens0 TokenKind::Ident 0 1
+//:|             let tokens2 push tokens1 TokenKind::PathSep 1 3
+//:|             let tokens3 push tokens2 TokenKind::Ident 3 4
+//:|             let tokens4 push tokens3 TokenKind::PathSep 4 6
+//:|             let tokens5 push tokens4 TokenKind::Ident 6 7
+//:|             let tokens6 push tokens5 TokenKind::Ident 8 9
+//:|             match selfhost_parse_match_variant_pattern &tokens6 0:
+//:|                 Result::Ok pattern:
+//:|                     let cursor_ok and eq selfhost_match_variant_pattern_len &pattern 3 eq selfhost_match_variant_pattern_next_token &pattern 6
+//:|                     let direct selfhost_match_variant_pattern_direct_alias &pattern
+//:|                     selfhost_match_variant_pattern_free pattern
+//:|                     v::free tokens6
+//:|                     match direct:
+//:|                         Option::Some _e: if and cursor_ok matrix 0 1
+//:|                         Option::None: 1
+//:|                 Result::Err _e:
+//:|                     v::free tokens6
+//:|                     1
+//:|         Result::Err _e: 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/match_pattern" as *
+#import "neplg2/core/syntax/token" as *
+
+//: SelfhostMatchPatternParseErrorKind: variant path 構築の typed failure
+pub enum SelfhostMatchPatternParseErrorKind:
+    TokenOutOfBounds
+    ExpectedIdentifier
+    ExpectedIdentifierAfterPathSeparator
+    SegmentAllocationFailed
+
+//: SelfhostMatchPatternParseError: failure kind と原因 token の span
+pub struct SelfhostMatchPatternParseError:
+    kind %SelfhostMatchPatternParseErrorKind
+    span %SelfhostSourceSpan
+    token_index %i32
+
+pub fn selfhost_match_pattern_parse_error_new %fn SelfhostMatchPatternParseErrorKind fn SelfhostSourceSpan fn i32 SelfhostMatchPatternParseError \kind\span\token_index:
+    SelfhostMatchPatternParseError kind span token_index
+
+fn selfhost_match_pattern_error_span %fn &Vec SelfhostToken fn i32 SelfhostSourceSpan \tokens\index:
+    match v::get tokens index:
+        Option::Some token:
+            token.span
+        Option::None:
+            source_span_empty_unchecked 0 0
+
+fn selfhost_match_pattern_push_segment %impure fn Vec SelfhostMatchPatternSegment impure fn SelfhostMatchPatternSegment Result Vec SelfhostMatchPatternSegment SelfhostMatchPatternParseError \segments\segment:
+    match v::push segments segment:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            v::free v::vec_push_error_vec e
+            Result::Err selfhost_match_pattern_parse_error_new SelfhostMatchPatternParseErrorKind::SegmentAllocationFailed segment.span segment.token_index
+
+fn selfhost_parse_match_variant_pattern_tail %impure fn &Vec SelfhostToken impure fn i32 impure fn Vec SelfhostMatchPatternSegment impure fn SelfhostSourceSpan Result SelfhostMatchVariantPattern SelfhostMatchPatternParseError \tokens\cursor\segments\path_span:
+    match v::get tokens cursor:
+        Option::Some token:
+            match token.kind:
+                TokenKind::PathSep:
+                    let ident_index add cursor 1
+                    match v::get tokens ident_index:
+                        Option::Some ident:
+                            match ident.kind:
+                                TokenKind::Ident:
+                                    let segment selfhost_match_pattern_segment_new ident_index ident.span
+                                    match selfhost_match_pattern_push_segment segments segment:
+                                        Result::Ok next_segments:
+                                            let next_span source_span_new_unchecked path_span.file_id path_span.start ident.span.end
+                                            selfhost_parse_match_variant_pattern_tail tokens add ident_index 1 next_segments next_span
+                                        Result::Err e:
+                                            Result::Err e
+                                _:
+                                    v::free segments
+                                    Result::Err selfhost_match_pattern_parse_error_new SelfhostMatchPatternParseErrorKind::ExpectedIdentifierAfterPathSeparator ident.span ident_index
+                        Option::None:
+                            v::free segments
+                            Result::Err selfhost_match_pattern_parse_error_new SelfhostMatchPatternParseErrorKind::ExpectedIdentifierAfterPathSeparator token.span ident_index
+                TokenKind::Ident:
+                    let bind some selfhost_match_pattern_bind_new cursor token.span
+                    Result::Ok selfhost_match_variant_pattern_new segments bind path_span add cursor 1
+                _:
+                    Result::Ok selfhost_match_variant_pattern_new segments none path_span cursor
+        Option::None:
+            Result::Ok selfhost_match_variant_pattern_new segments none path_span cursor
+
+//: selfhost_parse_match_variant_pattern: current token から variant pattern を読む
+//:
+//: [契約/けいやく]:
+//: - `first_token` は最初の `Ident` を指します。成功時 cursor は path と optional bind の直後です。
+//: - `PathSep` 後の identifier 欠落、範囲外開始、allocation failure は区別した typed error です。
+//: - 一、二、四以上の segment も拒否しません。direct alias consumer は AST の三 segment adapter を明示的に使います。
+pub fn selfhost_parse_match_variant_pattern %impure fn &Vec SelfhostToken impure fn i32 Result SelfhostMatchVariantPattern SelfhostMatchPatternParseError \tokens\first_token:
+    match v::get tokens first_token:
+        Option::Some first:
+            match first.kind:
+                TokenKind::Ident:
+                    let segments_result %Result Vec SelfhostMatchPatternSegment StdErrorKind v::new
+                    match segments_result:
+                        Result::Ok segments:
+                            let first_segment selfhost_match_pattern_segment_new first_token first.span
+                            match selfhost_match_pattern_push_segment segments first_segment:
+                                Result::Ok first_segments:
+                                    selfhost_parse_match_variant_pattern_tail tokens add first_token 1 first_segments first.span
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err _e:
+                            Result::Err selfhost_match_pattern_parse_error_new SelfhostMatchPatternParseErrorKind::SegmentAllocationFailed first.span first_token
+                _:
+                    Result::Err selfhost_match_pattern_parse_error_new SelfhostMatchPatternParseErrorKind::ExpectedIdentifier first.span first_token
+        Option::None:
+            Result::Err selfhost_match_pattern_parse_error_new SelfhostMatchPatternParseErrorKind::TokenOutOfBounds selfhost_match_pattern_error_span tokens first_token first_token
