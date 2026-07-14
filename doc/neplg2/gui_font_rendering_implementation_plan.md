@@ -6039,6 +6039,12 @@ plan review:
 - providerはhost byte lengthを検査して`ByteBuf` storageを確保し、session closeとexact-fill確認後に共通expected-hash検査を通した場合だけ`GuiFontResourceSource::FileSystem` ownerを返す。close importは成否にかかわらずhandleを消費し、statusはfinalization結果だけを表す。allocation/read/close/hash失敗時はhandle/storageをexactly once閉じる。nodesrc default importはprovider未設定をfail-closedに返す。
 - このfollow-upはnative host filesystem adapter、resource-root configuration、bare embedded blob、headless fixture provider、registry/layout/raster/presentationの完成ではない。
 
+### F5nn Bare / Headless resource provider follow-up
+
+- Bareはcanonical pathとdecode policyをsnapshot host ABIへ渡し、exact fill、close、expected hashを通したowned bytesだけを`EmbeddedBlob`として返す。既定host importはunsupportedを返す。
+- Headlessはborrowed fixture pathとcaller-owned bytesを受けるhost-free boundaryとし、exact path、`SfntOnly`、non-empty、expected hashを順に検査する。全error pathでbytesをexactly once解放する。
+- semantic runtime fixture、Bare injected-host lifecycle fixture、source-policy、normal compile回帰を同時に通す。このfollow-upはparser、layout、rasterization、native/GUI表示の完成ではない。
+
 ### F5nn native configured-root host adapter follow-up
 
 - `nepl-gui-native`にexplicit configured root directory handleとopen snapshot tableを所有するhost adapterを追加する。Linuxでは`openat2` beneath/no-symlink resolutionを使い、canonical relative pathのsegment検査とatomic root containmentを両方通したexact fileだけを開く。macOS / Windowsはsecure handle-relative backendが来るまでfail-closedにする。

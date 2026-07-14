@@ -112,6 +112,7 @@ const checks = [
     "nodesrc/test_gui_font_registered_outline_storage_normal_compile.js",
     "nodesrc/test_gui_font_registered_contour_endpoint_normal_compile.js",
     "nodesrc/test_web_gui_font_resource_vfs_behavior.js",
+    "nodesrc/test_gui_font_bare_headless_resource_contract.js",
     "nodesrc/test_web_gui_shared_event_queue.js",
     "nodesrc/test_web_gui_example_button_helper_contract.js",
     "nodesrc/test_web_gui_paint_model_contract.js",

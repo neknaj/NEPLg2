@@ -1,0 +1,42 @@
+//: # platforms/gui/headless/font_resource_provider
+//: Headless / offscreen test の explicit font fixture provider boundary
+//:
+//: caller の borrowed canonical path と owned bytes だけを使い、host APIへfallbackしません。
+//: neplg2:test[skip]
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui" as *
+
+fn gui_headless_font_resource_discard_bytes %fn ByteBuf fn GuiFontResourceProviderErrorKind Result GuiFontResourceBytes GuiFontResourceProviderErrorKind \bytes\kind:
+    io_bytebuf_free bytes
+    Result::Err kind
+
+//: gui_headless_font_resource_request_bytes: explicit fixture bytes を font resource owner にする
+//: neplg2:test[skip]
+pub fn gui_headless_font_resource_request_bytes %fn &GuiFontResourceRequest fn str fn ByteBuf Result GuiFontResourceBytes GuiFontResourceProviderErrorKind \request\fixture_path\bytes:
+    let requested_path %GuiFontResourcePath gui_font_resource_request_path request
+    let requested_text %str gui_font_resource_path_value &requested_path
+    if not str_eq requested_text fixture_path:
+        then:
+            gui_headless_font_resource_discard_bytes bytes GuiFontResourceProviderErrorKind::MissingResource
+        else:
+            let policy %GuiFontDecodePolicy gui_font_resource_request_decode_policy request
+            if ne gui_font_decode_policy_raw policy 1:
+                then:
+                    gui_headless_font_resource_discard_bytes bytes GuiFontResourceProviderErrorKind::UnsupportedDecodePolicy
+                else:
+                    if le io_bytebuf_len &bytes 0:
+                        then:
+                            gui_headless_font_resource_discard_bytes bytes GuiFontResourceProviderErrorKind::PayloadNotBinary
+                        else:
+                            match gui_font_resource_validate_request_bytes_hash request &bytes:
+                                Result::Err kind:
+                                    gui_headless_font_resource_discard_bytes bytes kind
+                                Result::Ok _:
+                                    let request_value %GuiFontResourceRequest *request
+                                    Result::Ok gui_font_resource_bytes_new request_value GuiFontResourceSource::EmbeddedBlob bytes

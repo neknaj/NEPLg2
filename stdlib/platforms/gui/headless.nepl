@@ -12,3 +12,4 @@
 #indent 4
 
 pub #import "./headless/clock" as @merge
+pub #import "./headless/font_resource_provider" as @merge

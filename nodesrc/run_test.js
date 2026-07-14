@@ -160,6 +160,10 @@ function defaultNeplGuiNativeImports() {
 function defaultNeplGuiBareImports() {
     return {
         monotonic_clock_ms: () => -1,
+        font_resource_open: () => -1,
+        font_resource_byte_len: () => -1,
+        font_resource_read_bytes: () => -1,
+        font_resource_close: () => -1,
         display_presenter_session_begin: () => -1,
         display_presenter_session_run: () => -1,
         display_presenter_session_end: () => -1,

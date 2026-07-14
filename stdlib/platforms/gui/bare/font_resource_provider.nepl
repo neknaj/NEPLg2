@@ -1,0 +1,116 @@
+//: # platforms/gui/bare/font_resource_provider
+//: Bare embedding host の embedded blob から formal font resource bytes を取得する provider boundary
+//:
+//: open、byte length、read、close は同じ immutable snapshot handle に結合します。
+//: neplg2:test[skip]
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string" as string
+#import "alloc/string/storage" as string_storage
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/internal" as mem_internal
+#import "core/result" as *
+#import "std/gui" as *
+
+#extern "nepl_gui_bare" "font_resource_open" fn gui_bare_font_resource_open_raw %impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_bare" "font_resource_byte_len" fn gui_bare_font_resource_byte_len_raw %impure fn i32 i32
+#extern "nepl_gui_bare" "font_resource_read_bytes" fn gui_bare_font_resource_read_bytes_raw %impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_bare" "font_resource_close" fn gui_bare_font_resource_close_raw %impure fn i32 i32
+
+fn gui_bare_font_resource_status_error %fn i32 GuiFontResourceProviderErrorKind \status:
+    if eq status -1:
+        then GuiFontResourceProviderErrorKind::UnsupportedProvider
+        else:
+            if eq status -2:
+                then GuiFontResourceProviderErrorKind::InvalidPath
+                else:
+                    if eq status -3:
+                        then GuiFontResourceProviderErrorKind::MissingResource
+                        else:
+                            if eq status -4:
+                                then GuiFontResourceProviderErrorKind::PayloadNotBinary
+                                else:
+                                    if eq status -5:
+                                        then GuiFontResourceProviderErrorKind::UnsupportedDecodePolicy
+                                        else:
+                                            if eq status -6:
+                                                then GuiFontResourceProviderErrorKind::ResourceExhausted
+                                                else GuiFontResourceProviderErrorKind::BackendFailure
+
+fn gui_bare_font_resource_discard_region %impure fn RegionToken u8 impure fn GuiFontResourceProviderErrorKind Result GuiFontResourceBytes GuiFontResourceProviderErrorKind \region\kind:
+    match dealloc_region<u8> region:
+        Result::Ok _:
+            unit
+        Result::Err _:
+            unit
+    Result::Err kind
+
+fn gui_bare_font_resource_request_path_raw %fn &GuiFontResourceRequest i32 \request:
+    let path %GuiFontResourcePath gui_font_resource_request_path request
+    let text %str gui_font_resource_path_value &path
+    mem_internal::mem_ptr_addr string_storage::string_data_ptr text
+
+fn gui_bare_font_resource_request_path_len %fn &GuiFontResourceRequest i32 \request:
+    let path %GuiFontResourcePath gui_font_resource_request_path request
+    let text %str gui_font_resource_path_value &path
+    string::len text
+
+fn gui_bare_font_resource_request_policy_raw %fn &GuiFontResourceRequest i32 \request:
+    let policy %GuiFontDecodePolicy gui_font_resource_request_decode_policy request
+    gui_font_decode_policy_raw policy
+
+fn gui_bare_font_resource_close_ignoring_status %impure fn i32 unit \handle:
+    let _status %i32 gui_bare_font_resource_close_raw handle
+    unit
+
+//: gui_bare_font_resource_request_bytes: embedding host の embedded font blob snapshot を読む
+//:
+//: handle は exactly once close し、read、close、hash failure では storage を解放します。
+//: neplg2:test[skip]
+pub fn gui_bare_font_resource_request_bytes %impure fn &GuiFontResourceRequest Result GuiFontResourceBytes GuiFontResourceProviderErrorKind \request:
+    let request_value %GuiFontResourceRequest *request
+    let path_ptr %i32 gui_bare_font_resource_request_path_raw request
+    let path_len %i32 gui_bare_font_resource_request_path_len request
+    let policy_raw %i32 gui_bare_font_resource_request_policy_raw request
+    let handle %i32 gui_bare_font_resource_open_raw path_ptr path_len policy_raw
+    if le handle 0:
+        then:
+            Result::Err gui_bare_font_resource_status_error handle
+        else:
+            let byte_len %i32 gui_bare_font_resource_byte_len_raw handle
+            if le byte_len 0:
+                then:
+                    gui_bare_font_resource_close_ignoring_status handle
+                    Result::Err gui_bare_font_resource_status_error byte_len
+                else:
+                    match io_bytebuf_alloc_region byte_len:
+                        Result::Err _e:
+                            gui_bare_font_resource_close_ignoring_status handle
+                            Result::Err GuiFontResourceProviderErrorKind::OutOfMemory
+                        Result::Ok region:
+                            let dst %MemPtr u8 io_bytebuf_region_ptr &region
+                            let dst_raw %i32 mem_internal::mem_ptr_addr dst
+                            let written %i32 gui_bare_font_resource_read_bytes_raw handle dst_raw byte_len
+                            let close_status %i32 gui_bare_font_resource_close_raw handle
+                            if ne close_status 0:
+                                then:
+                                    gui_bare_font_resource_discard_region region GuiFontResourceProviderErrorKind::BackendFailure
+                                else:
+                                    if lt written 0:
+                                        then:
+                                            gui_bare_font_resource_discard_region region gui_bare_font_resource_status_error written
+                                        else:
+                                            if ne written byte_len:
+                                                then:
+                                                    gui_bare_font_resource_discard_region region GuiFontResourceProviderErrorKind::BackendFailure
+                                                else:
+                                                    let bytes %ByteBuf io_bytebuf_finish_region region byte_len
+                                                    match gui_font_resource_validate_request_bytes_hash request &bytes:
+                                                        Result::Err kind:
+                                                            io_bytebuf_free bytes
+                                                            Result::Err kind
+                                                        Result::Ok _:
+                                                            Result::Ok gui_font_resource_bytes_new request_value GuiFontResourceSource::EmbeddedBlob bytes

@@ -150,7 +150,7 @@ Native では packaged resource directory または configured resource root か
 
 Native provider の filesystem lookup は configured root の open handle を authority とする。Linux は `openat2` の beneath / no-symlink 制約、macOS は segment 単位の `openat`、Windows は `NtCreateFile` の `OBJECT_ATTRIBUTES.RootDirectory` を使って canonical path の各 segment を順に開く。Linux / macOS は path 検査時の identity と opened handle の identity を照合する。Windows は reparse point を開いたまま検査できる単一の root handle を取得して以後その handle 自体を authority として保持し、path から再openしない。各 segment は symlink / reparse point を辿らず、最終 resource は通常 file だけを受理する。Windows lookup は `OBJ_CASE_INSENSITIVE` を付けず、他 platform と同じ canonical segment spelling を要求する。
 
-Bare では embedded blob table を provider とする。Blob table が未設定の環境では filesystem probing を行わず unsupported を返す。Blob table に canonical path が存在しない場合は missing resource error を返す。Headless / offscreen tests は explicit fixture resource provider を渡し、host font API には依存しない。
+Bare では embedded blob table を provider とする。Blob table が未設定の環境では filesystem probing を行わず unsupported を返す。open / byte length / read / close は同じ immutable snapshot handle に結合し、length取得後のpayload差し替えを許さない。Headless / offscreen tests は borrowed canonical fixture path `str` とowned `ByteBuf`を明示的に渡し、request path exact match、`SfntOnly`、non-empty、expected hashの順に検査する。fixture用の別owned pathは作らず、host font APIには依存しない。両providerのsuccess sourceは`EmbeddedBlob`とする。
 
 ## Decode policy
 

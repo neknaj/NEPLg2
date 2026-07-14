@@ -33,3 +33,4 @@ pub #import "./bare/display_presenter_input" as @merge
 pub #import "./bare/display_present_readiness" as @merge
 pub #import "./bare/display_surface_readiness" as @merge
 pub #import "./bare/display_flush_completion" as @merge
+pub #import "./bare/font_resource_provider" as @merge
