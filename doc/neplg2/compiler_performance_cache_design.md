@@ -4211,3 +4211,11 @@ Resource IR lowering は実処理を表す `Read` / `Call` / `Loop` などに加
 `Expr` markerのうち、`LocalRead` / function value / call / branch / match / construct / borrowはinitialized stateを変更しない。Block / Let / Set / Drop / Loopのfresh temporary markerは既存placeを読まず、全pathへ同じinitialized factだけを追加する。この2分類をpath-preserving transferとして扱い、後者は既存merged stateと各alternativeへ同一更新を配るため、更新後の全state再mergeを行わない。どちらもprojectionなしtemporary outputだけに限定し、localやprojection付きoutput、Deref、Intrinsicはpath固有aliasやscalar factを持ち得るため対象外とする。
 
 full selfhost Match direct fixtureでは`resource_initialized_function_checks`が約56.2秒から48.7秒、`resource_initialized_moves`が約108.5秒から89.7秒へ低下し、全checkはexit 0を維持した。これはproof cacheやdiagnosticを省略する変更ではなく、loweringがco-produceするmarkerの状態遷移がmergeと可換である場合だけ重複mergeを除く。
+
+## 2026-07-15 initialized cell path merge index
+
+`str_line_end` の control merge を分解すると、raw alias のjoinではなく `CellTable` のjoinが支配していた。旧実装は各pathのcellをfirst-seen順に集める際に重複判定を線形走査し、各merged placeの出力にも`set_state`の線形探索を行っていた。さらに各placeと各pathの組に対して、exact stateとinitialized/non-initialized候補を同じcell列から毎回探索していた。
+
+mergeの入口でfirst-seen順の`Vec`とは別に`BTreeSet`を重複判定へ使い、入力の一意placeから作る出力は同じ順序で直接追加する。各pathにはexact state mapと、元のcell順を保ったinitialized/non-initialized viewを一度だけ構築する。availabilityの優先順位は、exact non-initialized、ancestor、descendant、raw-cell、exact initialized、initialized projection、untracked external、uninitializedの順を変えない。これは階層照合を含む完全な漸近索引ではなく、重複収集と出力挿入の二次走査を除き、exact lookupと候補partitionで実負荷を減らすcompile-local viewである。
+
+同じproof/check cache無効のnative release actual Match direct fixtureでは、直前のloggingなし値`resource_initialized_function_checks=41845ms`、`resource_initialized_moves=71930ms`、`resource_static_check=126571ms`、pipeline約136.1秒に対し、`19919ms`、`38911ms`、`63416ms`、pipeline約71.4秒となり、`Check successful`を維持した。NEPL source、Resource contract、proof key、diagnostic policyは変更していない。selfhost compiler全体と0.5秒目標は未完成であり、残るinitialized summary、owner summary、loader/typecheckを継続して削減する。

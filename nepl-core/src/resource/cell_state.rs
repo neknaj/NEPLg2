@@ -1,3 +1,4 @@
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use crate::layout::aggregate_fields_with_offsets;
@@ -304,9 +305,12 @@ impl CellTable {
     pub(super) fn merge_path_refs(paths: &[&CellTable]) -> Self {
         let mut out = CellTable::default();
         let mut places = Vec::new();
+        let mut seen_places = BTreeSet::new();
         for path in paths {
             for entry in &path.cells {
-                push_unique_place(&mut places, &entry.place);
+                if seen_places.insert(entry.place.clone()) {
+                    places.push(entry.place.clone());
+                }
             }
             for root in &path.owned_raw_storage_roots {
                 push_unique_place(&mut out.owned_raw_storage_roots, root);
@@ -317,13 +321,22 @@ impl CellTable {
         }
         out.initialized_raw_byte_ranges = merge_initialized_raw_byte_range_refs(paths);
         out.raw_cell_value_flows = RawCellValueFlowFacts::merge_path_refs(paths);
+        let availability_indexes = paths
+            .iter()
+            .map(|path| CellMergeAvailabilityIndex::new(path))
+            .collect::<Vec<_>>();
         for place in places {
-            let mut states = paths.iter().map(|path| path.availability_state(&place));
+            let mut states = availability_indexes
+                .iter()
+                .map(|path| path.availability_state(&place));
             if let Some(mut merged) = states.next() {
                 for state in states {
                     merged = merge_cell_states(merged, state);
                 }
-                out.set_state(&place, merged);
+                out.cells.push(CellStateEntry {
+                    place,
+                    state: merged,
+                });
             }
         }
         out
@@ -365,6 +378,93 @@ impl CellTable {
         self.cells.retain(|entry| {
             entry.place == *prefix || place_suffix_after_prefix(&entry.place, prefix).is_none()
         });
+    }
+}
+
+struct CellMergeAvailabilityIndex<'a> {
+    table: &'a CellTable,
+    exact_states: BTreeMap<Place, CellState>,
+    non_initialized: Vec<&'a CellStateEntry>,
+    initialized: Vec<&'a CellStateEntry>,
+}
+
+impl<'a> CellMergeAvailabilityIndex<'a> {
+    fn new(table: &'a CellTable) -> Self {
+        let mut exact_states = BTreeMap::new();
+        let mut non_initialized = Vec::new();
+        let mut initialized = Vec::new();
+        for entry in &table.cells {
+            exact_states.insert(entry.place.clone(), entry.state.clone());
+            if matches!(entry.state, CellState::Initialized(_)) {
+                initialized.push(entry);
+            } else {
+                non_initialized.push(entry);
+            }
+        }
+        Self {
+            table,
+            exact_states,
+            non_initialized,
+            initialized,
+        }
+    }
+
+    fn availability_state(&self, place: &Place) -> CellState {
+        let exact_state = self.exact_states.get(place);
+        if let Some(state) = exact_state {
+            if !matches!(state, CellState::Initialized(_)) {
+                return state.clone();
+            }
+        }
+        let mut ancestor_state = None;
+        let mut descendant_state = None;
+        let mut raw_cell_state = None;
+        for entry in &self.non_initialized {
+            if entry.place == *place {
+                continue;
+            }
+            if ancestor_state.is_none()
+                && place_suffix_after_prefix(place, &entry.place).is_some()
+                && cell_descendant_state_flows(&entry.place, place)
+            {
+                ancestor_state = Some(entry.state.clone());
+            }
+            if descendant_state.is_none()
+                && place_suffix_after_prefix(&entry.place, place).is_some()
+                && cell_descendant_state_flows(place, &entry.place)
+            {
+                descendant_state = Some(entry.state.clone());
+            }
+            if raw_cell_state.is_none() && raw_cell_state_flows_to_query(&entry.place, place) {
+                raw_cell_state = Some(entry.state.clone());
+            }
+        }
+        if let Some(state) = ancestor_state {
+            return state;
+        }
+        if let Some(state) = descendant_state {
+            return state;
+        }
+        if let Some(state) = raw_cell_state {
+            return state;
+        }
+        if let Some(state) = exact_state {
+            return state.clone();
+        }
+        for entry in &self.initialized {
+            let CellState::Initialized(ty) = entry.state else {
+                continue;
+            };
+            if initialized_state_flows_to_by(&entry.place, place, ty, None, &|left, right| {
+                left == right
+            }) {
+                return CellState::Initialized(place.ty);
+            }
+        }
+        if self.table.raw_cell_place_is_untracked_external(place) {
+            return CellState::Initialized(place.ty);
+        }
+        CellState::Uninit
     }
 }
 

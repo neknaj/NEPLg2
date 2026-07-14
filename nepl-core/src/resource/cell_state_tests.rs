@@ -60,6 +60,132 @@ fn availability_state_prefers_non_initialized_ancestor_over_exact_initialized_fi
 }
 
 #[test]
+fn merge_paths_preserves_first_seen_place_order_and_state_join() {
+    let ty = TypeId(1);
+    let first = Place::local(String::from("first"), ty);
+    let second = Place::local(String::from("second"), ty);
+    let third = Place::local(String::from("third"), ty);
+    let mut left = CellTable::default();
+    left.mark_initialized(&first);
+    left.set_state(&second, CellState::Moved);
+    let mut right = CellTable::default();
+    right.mark_initialized(&second);
+    right.mark_initialized(&third);
+
+    let merged = CellTable::merge_paths(&[left, right]);
+    let entries = merged.entries();
+
+    assert_eq!(entries.len(), 3);
+    assert_eq!(entries[0].place, first);
+    assert_eq!(entries[1].place, second);
+    assert_eq!(entries[2].place, third);
+    assert_eq!(entries[0].state, CellState::MaybeMoved);
+    assert_eq!(entries[1].state, CellState::MaybeMoved);
+    assert_eq!(entries[2].state, CellState::MaybeMoved);
+}
+
+#[test]
+fn merge_paths_keeps_hierarchical_availability_semantics() {
+    let ty = TypeId(1);
+    let aggregate = Place::local(String::from("aggregate"), ty);
+    let field = aggregate.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        ty,
+    );
+    let mut moved_parent = CellTable::default();
+    moved_parent.mark_initialized(&field);
+    moved_parent.set_state(&aggregate, CellState::Moved);
+    let mut initialized_field = CellTable::default();
+    initialized_field.mark_initialized(&field);
+
+    let merged = CellTable::merge_paths(&[moved_parent, initialized_field]);
+
+    assert_eq!(merged.availability_state(&field), CellState::MaybeMoved);
+}
+
+#[test]
+fn merge_paths_projects_initialized_parent_to_child_entry() {
+    let ty = TypeId(1);
+    let aggregate = Place::local(String::from("aggregate"), ty);
+    let field = aggregate.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        ty,
+    );
+    let mut initialized_parent = CellTable::default();
+    initialized_parent.mark_initialized(&aggregate);
+    let mut initialized_field = CellTable::default();
+    initialized_field.mark_initialized(&field);
+
+    let merged = CellTable::merge_paths(&[initialized_parent, initialized_field]);
+
+    let field_entry = merged
+        .entries()
+        .iter()
+        .find(|entry| entry.place == field)
+        .expect("merged field entry");
+    assert_eq!(field_entry.state, CellState::Initialized(ty));
+    assert_eq!(merged.availability_state(&field), CellState::MaybeMoved);
+}
+
+#[test]
+fn merge_paths_keeps_non_initialized_descendant_fallback() {
+    let ty = TypeId(1);
+    let aggregate = Place::local(String::from("aggregate"), ty);
+    let field = aggregate.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        ty,
+    );
+    let mut moved_field = CellTable::default();
+    moved_field.set_state(&field, CellState::Moved);
+    let mut initialized_parent = CellTable::default();
+    initialized_parent.mark_initialized(&aggregate);
+
+    let merged = CellTable::merge_paths(&[moved_field, initialized_parent]);
+
+    assert_eq!(merged.availability_state(&aggregate), CellState::MaybeMoved);
+}
+
+#[test]
+fn merge_paths_keeps_raw_cell_and_external_fallbacks() {
+    let ty = TypeId(1);
+    let address = Place::local(String::from("buffer"), ty);
+    let unknown_cell = raw_memory_unknown_offset_cell_place(&address, ty);
+    let concrete_cell = symbolic_cell(&address, 0, ty);
+    let mut moved_unknown = CellTable::default();
+    moved_unknown.set_state(&unknown_cell, CellState::Moved);
+    let mut initialized_concrete = CellTable::default();
+    initialized_concrete.mark_initialized(&concrete_cell);
+
+    let merged_raw = CellTable::merge_paths(&[moved_unknown, initialized_concrete]);
+
+    assert_eq!(
+        merged_raw.availability_state(&concrete_cell),
+        CellState::MaybeMoved
+    );
+
+    let mut external = CellTable::default();
+    external.mark_external_raw_storage_root(&address);
+    let mut tracked = CellTable::default();
+    tracked.mark_initialized(&concrete_cell);
+
+    let merged_external = CellTable::merge_paths(&[external, tracked]);
+
+    assert_eq!(
+        merged_external.availability_state(&concrete_cell),
+        CellState::Initialized(ty)
+    );
+}
+
+#[test]
 fn copy_store_preserves_unknown_offset_initialized_copy_fact() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);

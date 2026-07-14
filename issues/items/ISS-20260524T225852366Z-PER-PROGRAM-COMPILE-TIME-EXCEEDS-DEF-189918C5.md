@@ -848,3 +848,11 @@ initialized stateを変更しないmarkerと、fresh temporaryへ同一initializ
 actual fixtureは`resource_initialized_function_checks=48665ms`、`resource_initialized_moves=89740ms`、全check約161.6秒でexit 0だった。直前はそれぞれ約56.2秒、108.5秒、176.8秒である。`str_find`は約12.4秒から6.3秒へ低下した。0.5秒目標とselfhost compiler全体は未完了で、`str_line_end`等の残るpath-sensitive hotspotを継続する。
 
 最終predicate制約後のper-function loggingなし再計測も`resource_initialized_function_checks=41845ms`、`resource_initialized_moves=71930ms`、`resource_static_check=126571ms`、全pipeline約136.1秒で`Check successful`を維持した。logging有無で絶対値が変わるため、改善比較には上記の同条件値を用いる。
+
+### 2026-07-15 initialized CellTable path merge index
+
+`str_line_end`のLoop/Branch mergeを内訳計測すると、raw alias joinではなく`CellTable` joinが支配していた。原因はfirst-seen placeの重複判定、merged entryの`set_state`、placeごとのavailability検索が同じcell列を反復走査していたことだった。
+
+first-seen順を保持する`Vec`に重複判定用`BTreeSet`を併設し、一意placeの出力は直接追加する。pathごとにexact state mapとinitialized/non-initialized viewを一度構築する。exact non-initialized、ancestor、descendant、raw-cell、exact initialized、initialized projection、untracked external、uninitializedという既存優先順位は維持し、順序、階層、raw、external fallbackをRust回帰で固定した。
+
+proof/check cache無効、per-function loggingなしの同じnative release actual fixtureは`resource_initialized_function_checks=19919ms`、`resource_initialized_moves=38911ms`、`resource_static_check=63416ms`、pipeline約71.4秒で`Check successful`となった。直前は`41845ms`、`71930ms`、`126571ms`、約136.1秒だった。source/contract/proof policyを変更しないRust内部のcompile-local indexであり、NEPL source変更は不要である。このissueの0.5秒目標とselfhost compiler全体は未完成である。
