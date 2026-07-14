@@ -84125,3 +84125,9 @@ MERGE_APPROVED
 - caller supplied range、span、TypeId、nominal、raw member名はauthorityにしない。scope/value/signature/candidate/constructorが同一checker phase由来であることはまだpreconditionで、production authorityは発行しない。
 - Rustのarm-derived expected type推論、diagnostic/type context checkpoint rollbackと再試行、checked Match tree、arm body型統一、HIR / Resource輸送は未実装である。小さなcheckpointを全体完成とは扱わず、`plan.md`は変更していない。
 - actual VFS compositeのruntime fixtureは固定direct callだけの独立moduleへ縮退させ、約29秒で実行完走した。direct / ascription / pipe / ambiguityを一つの汎化owner bundleへ集約した旧fixtureは、各固定caseへ分けてもdirect以外が数分以上compileを継続したため恒久suiteから除いた。ascription / pipe / ambiguityのreducer component runtimeとstatic contractを維持し、このsliceの新しいactual VFS→checked root→member identity境界はdirect composite runtimeで検査する。これはfixture集約によるcompiler state探索の性能病理であり、semantic失敗とは区別する。
+
+## 2026-07-14 Match direct runtime gate performance investigation checkpoint
+
+- 上記の「約29秒で実行完走」は、runnerがWASI warningを返した後もNode子processが継続していたため誤りだった。修正前後ともprocess終了を監視したactual direct doctestは180秒以内に完走せず、このruntime gateは未達として扱う。
+- native debug stackではshallow type arity preloadがpublic re-export cycleを不完全結果として捨て、同じsource scanとdependency path解決を反復していた。cacheをlocal hints / dependency paths / complete root closureへ分離し、空visitedから始まるroot DFSだけを完全閉包として再利用する。cycleとdiamondのprovider readを各source 1回へ固定するRust回帰テストは通過した。
+- `trunk build`は通過したが、修正版WASMのactual direct doctestも105秒時点で継続していたため停止した。次回は修正版WASMのCPU profileからarity preload後の支配的経路を特定し、actual processが終了コード0で消滅するまでruntime完了を主張しない。セルフホストコンパイラ全体も未完成である。

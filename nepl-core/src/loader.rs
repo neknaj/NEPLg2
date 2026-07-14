@@ -484,13 +484,22 @@ struct LoaderDependencyAggregatePublicSurfaceClosedSourceKey {
 
 /// One loader traversal treats each canonical path as a stable source snapshot.
 ///
-/// This cache is not shared across compiler sessions.  Long-lived stdlib caches
+/// This cache is not shared across compiler sessions. Long-lived stdlib caches
 /// still use source hashes, but the shallow arity preload inside one load should
 /// not re-read the same path merely to prove that the already observed snapshot
-/// is unchanged.  Reusing the first complete arity surface also makes a single
-/// compile deterministic if a file changes while the host is reading the import
-/// graph.
-type ShallowTypeArityHintCache = BTreeMap<PathBuf, Vec<(String, usize)>>;
+/// is unchanged. Local hints and dependency paths are context independent, so
+/// cycle recovery can retain them even when the transitive result is incomplete.
+/// Only complete transitive hints are reusable without the current traversal's
+/// cycle context. Reusing the observed snapshot also makes a single compile
+/// deterministic if a file changes while the host is reading the import graph.
+type ShallowTypeArityHintCache = BTreeMap<PathBuf, ShallowTypeArityHintCacheEntry>;
+
+#[derive(Debug, Clone)]
+struct ShallowTypeArityHintCacheEntry {
+    local_hints: Vec<(String, usize)>,
+    dependency_paths: Vec<PathBuf>,
+    complete_hints: Option<Vec<(String, usize)>>,
+}
 
 #[derive(Debug, Clone)]
 struct ShallowTypeArityHints {
@@ -1599,30 +1608,44 @@ impl Loader {
         shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
     ) -> Result<ShallowTypeArityHints, LoaderError> {
         let canon = canonicalize_path(path);
+        if let Some(hints) = shallow_type_arity_cache
+            .get(&canon)
+            .and_then(|entry| entry.complete_hints.as_ref())
+        {
+            return Ok(ShallowTypeArityHints {
+                hints: hints.clone(),
+                complete: true,
+            });
+        }
+        let is_traversal_root = visited.is_empty();
         if !visited.insert(canon.clone()) {
             return Ok(ShallowTypeArityHints {
                 hints: Vec::new(),
                 complete: false,
             });
         }
-        if let Some(hints) = shallow_type_arity_cache.get(&canon) {
-            return Ok(ShallowTypeArityHints {
-                hints: hints.clone(),
-                complete: true,
-            });
-        }
-        let src = read_file_to_string(&canon)?;
+        let src = if shallow_type_arity_cache.contains_key(&canon) {
+            None
+        } else {
+            Some(read_file_to_string(&canon)?)
+        };
         let hints = self.shallow_type_arity_hints_from_source(
             &canon,
             file_id,
-            &src,
+            src.as_deref(),
             visited,
             shallow_type_arity_cache,
         );
-        if hints.complete {
-            shallow_type_arity_cache.insert(canon, hints.hints.clone());
+        if hints.complete || is_traversal_root {
+            shallow_type_arity_cache
+                .get_mut(&canon)
+                .expect("the local shallow arity surface is cached before dependency traversal")
+                .complete_hints = Some(hints.hints.clone());
         }
-        Ok(hints)
+        Ok(ShallowTypeArityHints {
+            hints: hints.hints,
+            complete: hints.complete || is_traversal_root,
+        })
     }
 
     fn shallow_type_arity_hints_from_file_with(
@@ -1635,39 +1658,53 @@ impl Loader {
         session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<ShallowTypeArityHints, LoaderError> {
         let canon = canonicalize_path(path);
+        if let Some(hints) = shallow_type_arity_cache
+            .get(&canon)
+            .and_then(|entry| entry.complete_hints.as_ref())
+        {
+            return Ok(ShallowTypeArityHints {
+                hints: hints.clone(),
+                complete: true,
+            });
+        }
+        let is_traversal_root = visited.is_empty();
         if !visited.insert(canon.clone()) {
             return Ok(ShallowTypeArityHints {
                 hints: Vec::new(),
                 complete: false,
             });
         }
-        if let Some(hints) = shallow_type_arity_cache.get(&canon) {
-            return Ok(ShallowTypeArityHints {
-                hints: hints.clone(),
-                complete: true,
-            });
-        }
-        let src = provider(&canon)?;
+        let src = if shallow_type_arity_cache.contains_key(&canon) {
+            None
+        } else {
+            Some(provider(&canon)?)
+        };
         let hints = self.shallow_type_arity_hints_from_source_with(
             &canon,
             file_id,
-            &src,
+            src.as_deref(),
             visited,
             shallow_type_arity_cache,
             provider,
             session_cache,
         )?;
-        if hints.complete {
-            shallow_type_arity_cache.insert(canon, hints.hints.clone());
+        if hints.complete || is_traversal_root {
+            shallow_type_arity_cache
+                .get_mut(&canon)
+                .expect("the local shallow arity surface is cached before dependency traversal")
+                .complete_hints = Some(hints.hints.clone());
         }
-        Ok(hints)
+        Ok(ShallowTypeArityHints {
+            hints: hints.hints,
+            complete: hints.complete || is_traversal_root,
+        })
     }
 
     fn shallow_type_arity_hints_from_source(
         &self,
         canon: &PathBuf,
         file_id: FileId,
-        src: &str,
+        src: Option<&str>,
         visited: &mut BTreeSet<PathBuf>,
         shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
     ) -> ShallowTypeArityHints {
@@ -1678,9 +1715,21 @@ impl Loader {
         // followed here: exposing them to parser-facing type annotations would
         // both leak module boundaries and multiply stdlib implementation
         // graphs during speculative arity discovery.
-        let mut hints = parser::type_arity_hints_from_source(file_id, src);
+        if let Some(src) = src {
+            let entry = ShallowTypeArityHintCacheEntry {
+                local_hints: parser::type_arity_hints_from_source(file_id, src),
+                dependency_paths: self.shallow_type_arity_dependency_paths(canon, file_id, src),
+                complete_hints: None,
+            };
+            shallow_type_arity_cache.insert(canon.clone(), entry);
+        }
+        let entry = shallow_type_arity_cache
+            .get(canon)
+            .expect("a source or cached local shallow arity surface is available")
+            .clone();
+        let mut hints = entry.local_hints;
         let mut complete = true;
-        for dep in self.shallow_type_arity_dependency_paths(canon, file_id, src) {
+        for dep in entry.dependency_paths {
             let Ok(dep_hints) = self.shallow_type_arity_hints_from_file(
                 &dep,
                 file_id,
@@ -1699,17 +1748,30 @@ impl Loader {
         &self,
         canon: &PathBuf,
         file_id: FileId,
-        src: &str,
+        src: Option<&str>,
         visited: &mut BTreeSet<PathBuf>,
         shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<ShallowTypeArityHints, LoaderError> {
-        let surface = self.source_arity_surface(canon, file_id, src, session_cache.as_deref_mut());
-        let dependency_paths = surface.public_reexport_paths();
-        let mut hints = surface.local_type_arity_hints;
+        if let Some(src) = src {
+            let surface =
+                self.source_arity_surface(canon, file_id, src, session_cache.as_deref_mut());
+            let dependency_paths = surface.public_reexport_paths();
+            let entry = ShallowTypeArityHintCacheEntry {
+                local_hints: surface.local_type_arity_hints,
+                dependency_paths,
+                complete_hints: None,
+            };
+            shallow_type_arity_cache.insert(canon.clone(), entry);
+        }
+        let entry = shallow_type_arity_cache
+            .get(canon)
+            .expect("a source or cached local shallow arity surface is available")
+            .clone();
+        let mut hints = entry.local_hints;
         let mut complete = true;
-        for dep in dependency_paths {
+        for dep in entry.dependency_paths {
             let dep_hints = self.shallow_type_arity_hints_from_file_with(
                 &dep,
                 file_id,
@@ -4806,7 +4868,7 @@ mod tests {
     }
 
     #[test]
-    fn shallow_type_arity_cache_does_not_reuse_cycle_partial_hints() {
+    fn shallow_type_arity_cache_reuses_complete_cycle_root_hints() {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let loader = Loader::new(stdlib_root.clone());
         let a_path = canonicalize_path(&stdlib_path(&stdlib_root, &["a.nepl"]));
@@ -4822,9 +4884,11 @@ mod tests {
         );
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
         let mut shallow_type_arity_cache = BTreeMap::new();
+        let mut provider_reads = 0usize;
 
         {
             let mut provider = |path: &PathBuf| {
+                provider_reads += 1;
                 sources
                     .get(path)
                     .cloned()
@@ -4849,6 +4913,7 @@ mod tests {
         }
 
         let mut provider = |path: &PathBuf| {
+            provider_reads += 1;
             sources
                 .get(path)
                 .cloned()
@@ -4864,12 +4929,68 @@ mod tests {
                 &mut provider,
                 Some(&mut session_cache),
             )
-            .expect("the second cycle traversal should not reuse a partial cache entry");
+            .expect("the second cycle traversal should reuse only complete root results");
 
         assert!(
             hints.hints.iter().any(|(name, _)| name == "AType")
                 && hints.hints.iter().any(|(name, _)| name == "BType"),
-            "cycle-dependent shallow arity results are intentionally not cached as complete aggregate surfaces",
+            "a cycle traversal root should cache the whole reachable aggregate surface",
+        );
+        assert_eq!(
+            provider_reads, 2,
+            "cycle retries should reuse cached local surfaces and dependency paths without rereading either module",
+        );
+    }
+
+    #[test]
+    fn shallow_type_arity_cache_bounds_diamond_provider_reads() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let root = canonicalize_path(&stdlib_path(&stdlib_root, &["root.nepl"]));
+        let left = canonicalize_path(&stdlib_path(&stdlib_root, &["left.nepl"]));
+        let right = canonicalize_path(&stdlib_path(&stdlib_root, &["right.nepl"]));
+        let common = canonicalize_path(&stdlib_path(&stdlib_root, &["common.nepl"]));
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            root.clone(),
+            String::from("#import pub \"left\" as *\n#import pub \"right\" as *\n"),
+        );
+        sources.insert(
+            left,
+            String::from("#import pub \"common\" as *\npub struct Left:\n    value Common\n"),
+        );
+        sources.insert(
+            right,
+            String::from("#import pub \"common\" as *\npub struct Right:\n    value Common\n"),
+        );
+        sources.insert(common, String::from("pub struct Common:\n    value i32\n"));
+        let mut reads = BTreeMap::<PathBuf, usize>::new();
+        let mut provider = |path: &PathBuf| {
+            *reads.entry(path.clone()).or_default() += 1;
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut cache = BTreeMap::new();
+        let mut visited = BTreeSet::new();
+        let hints = loader
+            .shallow_type_arity_hints_from_file_with(
+                &root,
+                FileId(0),
+                &mut visited,
+                &mut cache,
+                &mut provider,
+                None,
+            )
+            .expect("diamond arity discovery should complete");
+
+        assert!(hints.complete);
+        assert!(hints.hints.iter().any(|(name, _)| name == "Common"));
+        assert!(
+            reads.values().all(|count| *count == 1) && reads.len() == 4,
+            "each diamond module should be read exactly once: {:?}",
+            reads,
         );
     }
 
