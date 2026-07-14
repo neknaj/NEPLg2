@@ -6631,6 +6631,7 @@ owner / state契約:
 - join stepはterminal、budget、provenance read、actual metric read、metric index、variant、checked curve座標、stroke widthの順に検査し、全検査成功後だけcursorを進める。新しいmetric Vecやfull command scanは作らない。
 - join startはF5nxk completed ownerを一度だけ消費し、owning module内でnested sink completedをほどいて既存actual checkpoint bridgeへ渡す。sealed provenance Vecとregistered sourceをactual checkpoint ownerへ再結合し、metric / line / quadratic count、len、capを照合する。originとbuild入力paint由来のcanonical positive stroke widthをjoin ownerへ保持し、actual metricから期待widthを逆生成しない。
 - LineとQuadraticを含むregistered drawable fixtureでmetric indexとpath command indexを区別し、座標、delta、squared length、typed mismatch、owner recoveryを検査する。既存8 Skip fixtureはzero-draw edge caseとして残す。
+- registered drawable fixtureのcompile gateは、戻り値i32 leafごとにscalar aliases、derived scalar value (`i32_value_with_context`)、offset reachable stateを一度だけ作り、relation factはPlace別indexから候補だけを参照する。leaf pairごとのmemo済みalias / reachable集合clone、relation全表scan、offset reachable集合の全直積比較を反復してはならない。事前計算後もderived scalar value、explicit relation、zero condition、offset relationの優先順位、reverse relation、矛盾時のunknown、全6比較演算を維持する。
 - actual metric ownerを作るproduction checkpoint bridgeとdrawable runtime gateが揃うまでF5nxl完了とは扱わず、offset geometry以降へ進まない。
 
 ### Phase F5nxa: registered indexed path action owner
