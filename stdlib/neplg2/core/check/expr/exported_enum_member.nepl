@@ -1,0 +1,140 @@
+#indent 4
+
+//: # check/expr/exported_enum_member
+//: qualified pattern parserが渡すsource spanを前提にcurrent import / export closureを辿り、enum member identityとそのowner contextを同時生成します。
+//:
+//: [authority boundary]: public入口はexport table / entry / origin context / source text / nominal ID / TypeId / qualifier owner / raw visible nameを受けません。alias spanはimport recordへ再結合し、enum nameとmember tailはcurrent importer sourceのfile/range/UTF-8境界を検査します。3 spanが同じpattern ASTに属する証明はactual expression parser接続までcaller preconditionであり、このcheckpoint単独をproduction capabilityとして扱いません。
+//: [owner boundary]: arenaとconstructor seedを消費し、成功時はorigin contextとchecked memberをmove-only ownerに束ねます。失敗時は内部table、query text、origin contextを逆順に閉じます。
+//: [type boundary]: producer-issued TypeIdはdirect Namedのnonproduction checkpointです。actual Match scrutineeのNamed / Applied TypeId、checked tree / HIR / Resource、stable keyは後続sliceで接続します。
+
+#import "alloc/string/access" as string_access
+#import "alloc/string/slice" as string_slice
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/check/expr/enum_member" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/infra/text" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/vfs" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/resolve/type_resolver/exported_enum_origin" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostCheckedExportedEnumMemberContext: checked memberとそのarena/session ownerを同時に閉じるbundle
+pub struct SelfhostCheckedExportedEnumMemberContext:
+    origin %SelfhostExportedEnumOriginContext
+    checked %SelfhostCheckedEnumMember
+
+//: SelfhostCheckedExportedEnumMemberErrorKind: qualified importからmember checkerまでのtyped failure
+pub enum SelfhostCheckedExportedEnumMemberErrorKind:
+    OrderInvariant
+    QualifiedImport %SelfhostQualifiedEnumImportErrorKind
+    EnumNameSpanInvalid
+    MemberSpanInvalid
+    Origin %SelfhostExportedEnumOriginErrorKind
+    QueryTextAllocationFailed
+    Checker %SelfhostCheckedEnumMemberErrorKind
+    CheckedResultInvariant
+
+impl Clone for SelfhostCheckedExportedEnumMemberErrorKind:
+    fn clone %fn &SelfhostCheckedExportedEnumMemberErrorKind SelfhostCheckedExportedEnumMemberErrorKind \self: *self
+
+impl Copy for SelfhostCheckedExportedEnumMemberErrorKind:
+    fn copy_mark %fn SelfhostCheckedExportedEnumMemberErrorKind SelfhostCheckedExportedEnumMemberErrorKind \self: self
+
+//: SelfhostCheckedExportedEnumMemberError: 原因位置span付きconsumer failure
+pub struct SelfhostCheckedExportedEnumMemberError:
+    kind %SelfhostCheckedExportedEnumMemberErrorKind
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostCheckedExportedEnumMemberError:
+    fn clone %fn &SelfhostCheckedExportedEnumMemberError SelfhostCheckedExportedEnumMemberError \self: *self
+
+impl Copy for SelfhostCheckedExportedEnumMemberError:
+    fn copy_mark %fn SelfhostCheckedExportedEnumMemberError SelfhostCheckedExportedEnumMemberError \self: self
+
+fn selfhost_checked_exported_enum_member_error %fn SelfhostCheckedExportedEnumMemberErrorKind fn SelfhostSourceSpan SelfhostCheckedExportedEnumMemberError \kind\span:
+    SelfhostCheckedExportedEnumMemberError kind span
+
+fn selfhost_checked_exported_enum_member_fail_owned %impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostCheckedExportedEnumMemberErrorKind impure fn SelfhostSourceSpan Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \arena\constructors\kind\span:
+    selfhost_type_arena_free arena
+    selfhost_type_constructor_table_free constructors
+    Result::Err selfhost_checked_exported_enum_member_error kind span
+
+fn selfhost_checked_exported_enum_member_utf8_boundary %fn str fn i32 bool \source\idx:
+    if:
+        or lt idx 0 gt idx string_access::str_byte_len source
+        then: false
+        else if:
+            eq idx string_access::str_byte_len source
+            then: true
+            else: ne bit_and string_access::str_byte_at source idx 192 128
+
+fn selfhost_checked_exported_enum_member_span_valid %fn str fn i32 fn SelfhostSourceSpan bool \source\file_id\span:
+    and and and and and source_span_is_valid span eq span.file_id file_id lt span.start span.end le span.end string_access::str_byte_len source selfhost_checked_exported_enum_member_utf8_boundary source span.start selfhost_checked_exported_enum_member_utf8_boundary source span.end
+
+fn selfhost_checked_exported_enum_member_finish %impure fn SelfhostQualifiedEnumImportTable impure fn SelfhostExportedEnumOriginContext impure fn str impure fn i32 impure fn str impure fn SelfhostSourceSpan Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \qualified\origin\source_path\source_file_id\source\member_span:
+    match source_text_new source_file_id source_path source:
+        Result::Err _e:
+            selfhost_exported_enum_origin_context_free origin
+            selfhost_qualified_enum_import_table_free qualified
+            Result::Err selfhost_checked_exported_enum_member_error SelfhostCheckedExportedEnumMemberErrorKind::QueryTextAllocationFailed member_span
+        Result::Ok query_text:
+            let witness %SelfhostExportedEnumOriginWitness selfhost_exported_enum_origin_context_witness &origin
+            let checked_result %Result SelfhostCheckedEnumMember SelfhostCheckedEnumMemberError selfhost_check_enum_member_resolve_result selfhost_exported_enum_origin_context_arena &origin witness.scrutinee_type_id some witness.nominal_id selfhost_exported_enum_origin_context_session &origin &query_text member_span
+            source_text_free query_text
+            selfhost_qualified_enum_import_table_free qualified
+            match checked_result:
+                Result::Err e:
+                    selfhost_exported_enum_origin_context_free origin
+                    Result::Err selfhost_checked_exported_enum_member_error SelfhostCheckedExportedEnumMemberErrorKind::Checker e.kind e.span
+                Result::Ok checked:
+                    let valid %bool and and selfhost_type_id_eq checked.scrutinee_type witness.scrutinee_type_id selfhost_named_type_id_eq checked.member_id.nominal_id witness.nominal_id ge checked.member_id.variant_ordinal 0
+                    if:
+                        not valid
+                        then:
+                            selfhost_exported_enum_origin_context_free origin
+                            Result::Err selfhost_checked_exported_enum_member_error SelfhostCheckedExportedEnumMemberErrorKind::CheckedResultInvariant member_span
+                        else: Result::Ok SelfhostCheckedExportedEnumMemberContext origin checked
+
+fn selfhost_checked_exported_enum_member_with_import %impure fn SelfhostQualifiedEnumImportTable impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \qualified\graph\vfs\order\source_path\enum_name_span\member_span\arena\constructors:
+    let source %str *selfhost_qualified_enum_import_table_source &qualified
+    let source_file_id %i32 selfhost_qualified_enum_import_table_source_file_id &qualified
+    if:
+        not selfhost_checked_exported_enum_member_span_valid source source_file_id enum_name_span
+        then:
+            selfhost_qualified_enum_import_table_free qualified
+            selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::EnumNameSpanInvalid enum_name_span
+        else if:
+            not selfhost_checked_exported_enum_member_span_valid source source_file_id member_span
+            then:
+                selfhost_qualified_enum_import_table_free qualified
+                selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::MemberSpanInvalid member_span
+            else:
+                let visible_name %str string_slice::str_slice source enum_name_span.start enum_name_span.end
+                let target_node %i32 selfhost_qualified_enum_import_table_target_node_index &qualified
+                match selfhost_exported_enum_origin_context_result graph vfs order target_node visible_name arena constructors:
+                    Result::Err e:
+                        selfhost_qualified_enum_import_table_free qualified
+                        Result::Err selfhost_checked_exported_enum_member_error SelfhostCheckedExportedEnumMemberErrorKind::Origin e enum_name_span
+                    Result::Ok origin: selfhost_checked_exported_enum_member_finish qualified origin source_path source_file_id source member_span
+
+//: selfhost_check_exported_enum_member_context_result: qualified pattern spansからcurrent exportとmember identityを同時生成する
+pub fn selfhost_check_exported_enum_member_context_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \graph\vfs\order\source_path\alias_span\enum_name_span\member_span\arena\constructors:
+    match selfhost_module_order_validate_against graph vfs order:
+        Option::Some _e: selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::OrderInvariant member_span
+        Option::None:
+            match selfhost_qualified_enum_import_table_build graph vfs source_path alias_span:
+                Result::Err e: selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::QualifiedImport e alias_span
+                Result::Ok qualified: selfhost_checked_exported_enum_member_with_import qualified graph vfs order source_path enum_name_span member_span arena constructors
+
+//: selfhost_checked_exported_enum_member_context_checked: ownerが保持するchecked memberを観測する
+pub fn selfhost_checked_exported_enum_member_context_checked %fn &SelfhostCheckedExportedEnumMemberContext SelfhostCheckedEnumMember \context:
+    *field::get_ref context "checked"
+
+//: selfhost_checked_exported_enum_member_context_free: checked memberのarena/session ownerを1回だけ閉じる
+pub fn selfhost_checked_exported_enum_member_context_free %impure fn SelfhostCheckedExportedEnumMemberContext unit \context:
+    selfhost_exported_enum_origin_context_free field::get context "origin"

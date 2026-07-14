@@ -273,6 +273,19 @@ pub fn selfhost_qualified_enum_import_table_free %impure fn SelfhostQualifiedEnu
     selfhost_module_ast_free field::get table "target_ast"
     selfhost_name_scope_free field::get table "target_scope"
 
+//: selfhost_qualified_enum_import_table_source: validated importer sourceをborrowする
+pub fn selfhost_qualified_enum_import_table_source %fn &SelfhostQualifiedEnumImportTable &str \table:
+    field::get_ref table "source_source"
+
+//: selfhost_qualified_enum_import_table_source_file_id: validated importerのfile identityを返す
+pub fn selfhost_qualified_enum_import_table_source_file_id %fn &SelfhostQualifiedEnumImportTable i32 \table:
+    selfhost_qualified_alias_target_source_file_id field::get_ref table "target"
+
+//: selfhost_qualified_enum_import_table_target_node_index: build時に検証したalias target nodeを同一session内で観測する
+pub fn selfhost_qualified_enum_import_table_target_node_index %fn &SelfhostQualifiedEnumImportTable i32 \table:
+    let target %&SelfhostQualifiedEnumAliasTarget field::get_ref table "target"
+    selfhost_qualified_alias_target_node_index target
+
 fn selfhost_qualified_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
     and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
 
