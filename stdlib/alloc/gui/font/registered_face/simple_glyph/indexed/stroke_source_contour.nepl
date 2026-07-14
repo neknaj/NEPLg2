@@ -639,3 +639,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_
                     if gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_span_identity_eq &span &invalid:
                         then GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::CommandReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SourceTagMismatch
                         else GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
+
+#test
+//: join_test_force_metric_index_mismatch: valid join authorityを変更せずowner-bearing mismatch recoveryへ通します
+//:
+//: ownerを分解せずerrorへ一度だけmoveし、callerが回収後に同じcursorからproduction stepをretryできることを検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_test_force_metric_index_mismatch %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch

@@ -482,6 +482,8 @@ F5nxl join startはF5nxk completed ownerのowning moduleでだけnested source c
 
 join stepはownerを消費し、metric cursorがtotalへ達していればbudgetより先にCompletedを返す。未完了かつbudgetが非正ならownerを変えずStepBudgetExhaustedを返す。進行時は同じmetric indexでsealed provenanceとactual checkpointを各1回O(1) readし、provenance metric indexとactual segment index、Line / Quadratic variant、checked curveのdoubled座標、build paint由来stroke widthを順に照合する。path command indexはmetric indexとは異なる独立metadataとしてjoined provenanceに保持し、相互比較しない。全検査成功時だけcursorを1進め、Copy provenanceとactual projectionを束ねたjoined valueを返す。失敗は完全なjoin ownerを保持するtyped errorであり、新しいVecやcommand full scanは作らない。
 
+valid production joinは同一sinkからprovenanceとactualを作るため、自然入力で両authorityの不一致を作らない。forced mismatch recovery runtimeは`#test` consuming seamでvalid join ownerを変更せず通常のMetricIndexMismatch errorへ包み、同じ公開owner recoveryを通した後にproduction stepを再実行する。これはproduction mismatch detectorの人工再現ではなくerror recoveryとretryの検査である。test seamはfield split、storage mutation、owner再構築を行わない。
+
 plan derivationは`total=emitted`、`draw=line+quadratic`、`path_segment=move+line+quadratic`、`raster_edge=draw`をchecked算術で固定し、既存F5ay algorithmを変更しない。allocation failureではF5nxi ownerを回収可能に保ち、2本目Vec失敗時は1本目を逆順freeする。Writingはsuccess push後だけcursorを進め、budget 0以下ではread/pushしない。途中scalar push failureはlegacy owner-bearing errorから分類を保存してpartial writerを直ちにsingle freeし、registered authority、分類、failure cursorだけをcleanup-only errorへ移す。sealはcursor、summary、writer counts、last index、plan/capacity、Vec len/capを照合する。
 
 Pending activationでspan lookupが成功した後のtag/edge/event failureはActive cached-span ownerをerrorから回収する。このtransitionではcursor nextとsummary total/各kind/lastを変更しない。same-owner retryは保存済みspanを使うため、failure recoveryのためにcontour lookupを再実行しない。
