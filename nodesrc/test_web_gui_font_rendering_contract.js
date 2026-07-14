@@ -324,6 +324,8 @@ const platformGuiHeadlessFacade = read("stdlib/platforms/gui/headless.nepl");
 const platformGuiHeadlessClock = read("stdlib/platforms/gui/headless/clock.nepl");
 const platformGuiHeadlessClockImpl = withoutComments(platformGuiHeadlessClock);
 const platformGuiNativeFacade = read("stdlib/platforms/gui/native.nepl");
+const platformGuiNativeFontResourceProvider = read("stdlib/platforms/gui/native/font_resource_provider.nepl");
+const platformGuiNativeFontResourceProviderImpl = withoutComments(platformGuiNativeFontResourceProvider);
 const platformGuiNativeClock = read("stdlib/platforms/gui/native/clock.nepl");
 const platformGuiNativeClockImpl = withoutComments(platformGuiNativeClock);
 const platformGuiNativeSchedulerClock = read("stdlib/platforms/gui/native/scheduler_clock.nepl");
@@ -2188,6 +2190,36 @@ assertNoMatch(
     platformGuiWebFontResourceProviderImpl,
     /\b(?:std\/fs|path_open|FontFace|Canvas|fillText|measureText|stdout|suffix|displayName|family)\b/,
     "Web font resource provider must not use filesystem, browser text, stdout, suffix, or display-name authority",
+);
+assertMatch(
+    platformGuiNativeFacade,
+    /pub\s+#import\s+"\.\/native\/font_resource_provider"\s+as\s+@merge/,
+    "platforms/gui/native facade must export native font resource provider",
+);
+assertMatch(
+    platformGuiNativeFontResourceProvider,
+    /#extern\s+"nepl_gui_native"\s+"font_resource_open"[\s\S]*#extern\s+"nepl_gui_native"\s+"font_resource_byte_len"[\s\S]*#extern\s+"nepl_gui_native"\s+"font_resource_read_bytes"[\s\S]*#extern\s+"nepl_gui_native"\s+"font_resource_close"/,
+    "native font resource provider must use dedicated nepl_gui_native imports",
+);
+assertMatch(
+    platformGuiNativeFontResourceProviderImpl,
+    /gui_native_font_resource_request_bytes[\s\S]*gui_native_font_resource_open_raw[\s\S]*gui_native_font_resource_byte_len_raw\s+handle[\s\S]*io_bytebuf_alloc_region[\s\S]*gui_native_font_resource_read_bytes_raw\s+handle[\s\S]*gui_native_font_resource_close_raw\s+handle[\s\S]*lt\s+written\s+0[\s\S]*gui_native_font_resource_status_error\s+written[\s\S]*ne\s+written\s+byte_len[\s\S]*gui_font_resource_validate_request_bytes_hash[\s\S]*gui_font_resource_bytes_new\s+request_value\s+GuiFontResourceSource::FileSystem/,
+    "native font resource provider must read exact host bytes, validate hash, and seal filesystem source",
+);
+assertMatch(
+    platformGuiNativeFontResourceProviderImpl,
+    /Result::Err\s+kind:[\s\S]*io_bytebuf_free\s+bytes[\s\S]*Result::Err\s+kind/,
+    "native font resource provider must free ByteBuf on hash validation failure",
+);
+assertMatch(
+    fs.readFileSync(path.resolve(repoRoot, "nodesrc/run_test.js"), "utf8"),
+    /function defaultNeplGuiNativeImports\(\)[\s\S]*font_resource_open:\s*\(\)\s*=>\s*-1[\s\S]*font_resource_byte_len:\s*\(\)\s*=>\s*-1[\s\S]*font_resource_read_bytes:\s*\(\)\s*=>\s*-1[\s\S]*font_resource_close:\s*\(\)\s*=>\s*-1/,
+    "default native runtime imports must fail closed when no resource root provider is configured",
+);
+assertNoMatch(
+    platformGuiNativeFontResourceProviderImpl,
+    /\b(?:std\/fs|path_open|FontFace|Canvas|fillText|measureText|stdout|suffix|displayName|family|fontconfig|DirectWrite|CoreText)\b/,
+    "native font resource provider must not expose filesystem APIs, OS font APIs, stdout, suffix, or display-name authority",
 );
 
 assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui facade must export font parser facade");

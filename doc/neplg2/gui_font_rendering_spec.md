@@ -7308,6 +7308,8 @@ F5nl の Web Playground font drawing readiness boundary は、現時点で engin
 
 F5nn の Web font resource bytes provider boundary は、`GuiFontResourceRequest` から Web VFS の mounted binary payload へ進む最初の formal provider 経路である。`std/gui/font_resource` は `GuiFontResourceBytes` owner と typed provider errors を持ち、success owner は request、source、byte length、actual `GuiResourceHash`、decode policy、owned `ByteBuf` を保持する。Web platform module は `nepl_gui_web.font_resource_byte_len` / `font_resource_read_bytes` を使い、canonical path を UTF-8 bytes として host に渡し、host は exact canonical lookup だけで `/fonts/...` internal path を導出する。`expected_hash` がある場合は ByteBuf 上で FNV-1a 32-bit bit pattern を計算して照合し、mismatch では bytes owner を解放して `HashMismatch` を返す。
 
+F5nn native follow-upは同じrequest/bytes owner契約を`nepl_gui_native`専用ABIへ接続する。guestはcanonical path bytesとdecode policy tagだけをopenへ渡し、同じsnapshot session handleでlen/read/closeを行う。closeは返却statusにかかわらずhandleを消費・無効化し、guestは再試行しない。written lengthとsnapshot lengthの完全一致、close成功、expected hash検査後だけ`FileSystem` sourceとなる。configured resource root、absolute OS path、font display nameをguestへ渡さず、suffix探索、OS font registry fallback、root未設定時のsilent successは禁止する。
+
 F5nn は font registry、face selection、SFNT metadata parsing、glyph shaping、layout、rasterization、render2d drain、Web compositor presentation を開かない。`std/fs` / Web WASI `path_open`、suffix match、display name authority、browser CSS font、`FontFace`、Canvas `fillText` / `measureText`、stdout text transport、empty fake bytes、system font fallback は provider success evidence ではない。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary

@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - native GUI backend が提供する formal platform [境界/きょうかい]を公開します。
-//: - 現 checkpoint では monotonic clock source、clock one-tick helper、clock action input helper、scheduler executor outcome input helper、presenter operation identity input boundary、scheduler executor one-step bridge、scheduler host action executor backend bridge、native scheduler real-loop action step boundary、bounded real-loop runner boundary を公開し、window / present host implementation は後続 slice に分けます。
+//: - monotonic clock、scheduler、presenter inputに加え、configured resource rootからfont bytesを取得するformal provider boundaryを公開します。
 //:
 //: ### [注意/ちゅうい]
 //: - OS handle、minifb、AppKit、Win32、Wayland、X11 は public API に出しません。
@@ -20,3 +20,4 @@ pub #import "./native/scheduler_executor_step" as @merge
 pub #import "./native/scheduler_host_executor" as @merge
 pub #import "./native/scheduler_real_loop_step" as @merge
 pub #import "./native/scheduler_real_loop_runner" as @merge
+pub #import "./native/font_resource_provider" as @merge

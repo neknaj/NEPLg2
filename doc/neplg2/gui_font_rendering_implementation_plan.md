@@ -6032,6 +6032,13 @@ plan review:
 
 ## Phase F5no: alloc font registered face owner boundary
 
+### F5nn native provider follow-up
+
+- `platforms/gui/native/font_resource_provider` は canonical `GuiFontResourcePath` bytes と decode policy tagだけを専用 `nepl_gui_native` host ABIへ渡す。openはsnapshot session handleを返し、len/read/closeは同じhandleに結合する。read成功はwritten lengthがsnapshot lengthと完全一致する場合だけである。guestはabsolute filesystem path、resource root、OS font handleを受け取らない。
+- native hostはconfigured resource root内のexact canonical lookupとcontainment検査を担当し、suffix、display name、family name、fontconfig / DirectWrite / CoreTextへfallbackしない。root未設定、invalid path、missing resource、unsupported policy、resource exhaustion、backend failureは既存typed provider errorへ写す。
+- providerはhost byte lengthを検査して`ByteBuf` storageを確保し、session closeとexact-fill確認後に共通expected-hash検査を通した場合だけ`GuiFontResourceSource::FileSystem` ownerを返す。close importは成否にかかわらずhandleを消費し、statusはfinalization結果だけを表す。allocation/read/close/hash失敗時はhandle/storageをexactly once閉じる。nodesrc default importはprovider未設定をfail-closedに返す。
+- このfollow-upはnative host filesystem adapter、resource-root configuration、bare embedded blob、headless fixture provider、registry/layout/raster/presentationの完成ではない。
+
 目的:
 
 - F5nn の `GuiFontResourceBytes` owner を `alloc/gui/font/sfnt` の metadata parser へ接続し、formal font engine が参照できる registered face owner を追加する。
