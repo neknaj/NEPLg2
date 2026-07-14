@@ -15,6 +15,7 @@ const checks = [
     "nodesrc/test_selfhost_enum_surface_contract.js",
     "nodesrc/test_selfhost_enum_member_checker_contract.js",
     "nodesrc/test_selfhost_enum_definition_binding_contract.js",
+    "nodesrc/test_selfhost_qualified_enum_import_contract.js",
     "nodesrc/test_stdlib_match_decision_trees.js",
     "nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js",
     "nodesrc/test_stdlib_fs_report_contract.js",

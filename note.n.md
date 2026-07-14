@@ -84036,3 +84036,10 @@ MERGE_APPROVED
 - 最初のprerequisiteとして`SelfhostImportRecord`へaliasの絶対source spanを追加した。spanはparserが持つdirective spanとlexeme相対alias rangeから生成し、file IDを保持する。graphにはfrom path、resolved target path、directive spanがexactly oneで一致するときだけedgeを返す再結合APIを追加した。
 - このcheckpointはoriginal definition projectionやcommon origin witnessをまだ発行せず、セルフホストコンパイラ全体も未完成である。次はgraph/VFS/visibility/local scopeを共同検証する2段qualified import definition tableを実装する。`plan.md`は変更していない。
 - review指摘によりalias span生成を検査付き`Option`へ変更し、record-aware edge lookupを`Missing` / `Duplicate` / `Invariant` / `Found`へ分類した。実行doctestはfound、target/from/span mismatch、duplicateを検査して通過した。focused contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13も通過した。source-policy全体は新contract通過後、既存stdlib documentation baseline `2790 > 2756`だけで停止した。
+
+## 2026-07-14 selfhost direct qualified enum import table
+
+- explicit qualified alias 1件をsource graph node/VFS/import scan/edge/target graph node/VFSへexactly-oneで再結合し、target ASTとmodule-local scopeを保持するmove-only tableを追加した。lookupはtarget ASTのdirect `Public Enum`とscope bindingをhoist順DefIdで照合し、module node/file ID付きoriginal definition originを返す。
+- wildcard、同名alias、private enum、non-enum、missing/duplicate node/file/edge/definitionはfail closedである。re-export/selective/open/mergeをdirect declarationとして偽装せず、full public export tableとenum session/TypeArena common-originは後続に残す。Copy origin単体はcapabilityでもproduction originでもなく、セルフホストコンパイラ全体は未完成である。`plan.md`は変更していない。
+- subagent reviewで検出したauthority欠陥を修正した。VFSはlogical path exactly-one、edgeはfrom/to/directive span exactly-one、member/alias spanはUTF-8境界、同名宣言はvisibility/kindを問わずduplicate判定する。
+- focused contract、issues check、diff check、3本のfocused doctest（happy/private、duplicate VFS path、cross-kind DefinitionDuplicate）、trunk build、Playground editor CLI JSON 13/13は通過した。source-policyは新しいqualified enum contractを通過後、clean main既存のdocumentation baseline `2790 > 2756`だけで停止した。subagentの最終差分reviewと全体整合reviewはいずれもblocking 0で承認された。

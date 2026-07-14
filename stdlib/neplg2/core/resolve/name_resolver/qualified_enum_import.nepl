@@ -1,0 +1,610 @@
+#indent 4
+
+//: # name_resolver/qualified_enum_import
+//: qualified import aliasとtarget moduleのdirect public enum宣言を、module origin付きDefIdへ解決します。
+//:
+//: [目的/もくてき]:
+//: - import scan・module graph・VFSを再結合して、1つのexplicit aliasが指すtarget moduleを確定します。
+//: - target sourceをparse/hoistし、ASTのPublic Enum evidenceとmodule-local scope bindingを照合します。
+//:
+//: [注意/ちゅうい]:
+//: - `as *`、re-export、selective/open/mergeはこのdirect declaration tableの対象外です。
+//: - lookup結果はCopy payloadであり単体をcapabilityにしません。table ownerを保持したlookup成功経路か、graph/VFS/AST/scopeへの再validationがauthorityです。
+//: - nominal ID、TypeArena common origin、checked Match/HIR/Resource identityは発行しません。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok vfs0:
+//:             match selfhost_vfs_add vfs0 "main.nepl" "#import \"lib.nepl\" as lib\nlib::Result\nlib::Private\n":
+//:                 Result::Ok vfs1:
+//:                     match selfhost_vfs_add vfs1 "lib.nepl" "fn hidden %fn void i32 \\void:\n    0\npub enum Result:\n    Ok\nenum Private:\n    No\n":
+//:                         Result::Ok vfs2:
+//:                             match selfhost_build_module_graph &vfs2 "main.nepl":
+//:                                 Result::Ok graph:
+//:                                     match selfhost_qualified_enum_import_table_build &graph &vfs2 "main.nepl" source_span_new_unchecked 0 22 25:
+//:                                         Result::Ok table:
+//:                                             let public_ok %bool match selfhost_qualified_enum_import_lookup &table source_span_new_unchecked 0 31 37:
+//:                                                 Result::Ok origin:
+//:                                                     let node_ok %bool eq selfhost_qualified_enum_definition_origin_module_node_index origin 1
+//:                                                     let file_ok %bool eq selfhost_qualified_enum_definition_origin_module_file_id origin 1
+//:                                                     let def_ok %bool eq selfhost_def_id_index selfhost_qualified_enum_definition_origin_definition_id origin 1
+//:                                                     and node_ok and file_ok def_ok
+//:                                                 Result::Err _e: false
+//:                                             let private_hidden %bool match selfhost_qualified_enum_import_lookup &table source_span_new_unchecked 0 43 50:
+//:                                                 Result::Err e:
+//:                                                     match e:
+//:                                                         SelfhostQualifiedEnumImportErrorKind::DefinitionMissing: true
+//:                                                         _: false
+//:                                                 Result::Ok _origin: false
+//:                                             selfhost_qualified_enum_import_table_free table
+//:                                             selfhost_module_graph_free graph
+//:                                             selfhost_vfs_free vfs2
+//:                                             if and public_ok private_hidden 0 1
+//:                                         Result::Err _e:
+//:                                             selfhost_module_graph_free graph
+//:                                             selfhost_vfs_free vfs2
+//:                                             1
+//:                                 Result::Err _e:
+//:                                     selfhost_vfs_free vfs2
+//:                                     1
+//:                         Result::Err _e: 1
+//:                 Result::Err _e: 1
+//:         Result::Err _e: 1
+//: ```
+
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok vfs0:
+//:             match selfhost_vfs_add vfs0 "main.nepl" "#import \"lib.nepl\" as lib\nlib::Result\n":
+//:                 Result::Ok vfs1:
+//:                     match selfhost_vfs_add vfs1 "main.nepl" "#import \"lib.nepl\" as lib\nlib::Result\n":
+//:                         Result::Ok vfs2:
+//:                             match selfhost_vfs_add vfs2 "lib.nepl" "pub enum Result:\n    Ok\n":
+//:                                 Result::Ok vfs3:
+//:                                     match selfhost_build_module_graph &vfs3 "main.nepl":
+//:                                         Result::Ok graph:
+//:                                             let rejected %bool match selfhost_qualified_enum_import_table_build &graph &vfs3 "main.nepl" source_span_new_unchecked 0 22 25:
+//:                                                 Result::Err e:
+//:                                                     match e:
+//:                                                         SelfhostQualifiedEnumImportErrorKind::SourceFileDuplicate: true
+//:                                                         _: false
+//:                                                 Result::Ok table:
+//:                                                     selfhost_qualified_enum_import_table_free table
+//:                                                     false
+//:                                             selfhost_module_graph_free graph
+//:                                             selfhost_vfs_free vfs3
+//:                                             if rejected 0 1
+//:                                         Result::Err _e:
+//:                                             selfhost_vfs_free vfs3
+//:                                             1
+//:                                 Result::Err _e: 1
+//:                         Result::Err _e: 1
+//:                 Result::Err _e: 1
+//:         Result::Err _e: 1
+//: ```
+
+
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_vfs_new:
+//:         Result::Ok vfs0:
+//:             match selfhost_vfs_add vfs0 "main.nepl" "#import \"lib.nepl\" as lib\nlib::Result\n":
+//:                 Result::Ok vfs1:
+//:                     match selfhost_vfs_add vfs1 "lib.nepl" "pub enum Result:\n    Ok\nstruct Result:\n    value %i32\n":
+//:                         Result::Ok vfs2:
+//:                             match selfhost_build_module_graph &vfs2 "main.nepl":
+//:                                 Result::Ok graph:
+//:                                     let rejected %bool match selfhost_qualified_enum_import_table_build &graph &vfs2 "main.nepl" source_span_new_unchecked 0 22 25:
+//:                                         Result::Err e:
+//:                                             match e:
+//:                                                 SelfhostQualifiedEnumImportErrorKind::ScopeFailed: true
+//:                                                 _: false
+//:                                         Result::Ok table:
+//:                                             let duplicate %bool match selfhost_qualified_enum_import_lookup &table source_span_new_unchecked 0 31 37:
+//:                                                 Result::Err e:
+//:                                                     match e:
+//:                                                         SelfhostQualifiedEnumImportErrorKind::DefinitionDuplicate: true
+//:                                                         _: false
+//:                                                 Result::Ok _origin: false
+//:                                             selfhost_qualified_enum_import_table_free table
+//:                                             duplicate
+//:                                     selfhost_module_graph_free graph
+//:                                     selfhost_vfs_free vfs2
+//:                                     if rejected 0 1
+//:                                 Result::Err _e:
+//:                                     selfhost_vfs_free vfs2
+//:                                     1
+//:                         Result::Err _e: 1
+//:                 Result::Err _e: 1
+//:         Result::Err _e: 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string/access" as string_access
+#import "alloc/string/byte_index" as string_byte_index
+#import "alloc/string/search" as string_search
+#import "alloc/string/utf8" as string_utf8
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/import_scan" as *
+#import "neplg2/core/module/vfs" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/parser/module_parser" as *
+#import "./binding" as *
+#import "./hoist" as *
+#import "./id" as *
+#import "./kind" as *
+#import "./scope" as *
+
+//: SelfhostQualifiedEnumAliasTarget: importer aliasとdirect target moduleのgraph/VFS identityを保持します。
+//: [注意/ちゅうい]: Copy payload単体はauthorityではなく、table build成功経路でのみ利用します。
+pub struct SelfhostQualifiedEnumAliasTarget:
+    source_node_index %i32
+    source_file_id %i32
+    alias_span %SelfhostSourceSpan
+    directive_span %SelfhostSourceSpan
+    target_node_index %i32
+    target_file_id %i32
+
+impl Clone for SelfhostQualifiedEnumAliasTarget:
+    fn clone %fn &SelfhostQualifiedEnumAliasTarget SelfhostQualifiedEnumAliasTarget \self: *self
+
+impl Copy for SelfhostQualifiedEnumAliasTarget:
+    fn copy_mark %fn SelfhostQualifiedEnumAliasTarget SelfhostQualifiedEnumAliasTarget \self: self
+
+fn selfhost_qualified_alias_target_source_file_id %fn &SelfhostQualifiedEnumAliasTarget i32 \target:
+    *field::get_ref target "source_file_id"
+
+fn selfhost_qualified_alias_target_node_index %fn &SelfhostQualifiedEnumAliasTarget i32 \target:
+    *field::get_ref target "target_node_index"
+
+fn selfhost_qualified_alias_target_file_id %fn &SelfhostQualifiedEnumAliasTarget i32 \target:
+    *field::get_ref target "target_file_id"
+
+//: SelfhostQualifiedEnumImportTable: 1 aliasのtarget module parse/scope owner
+//: [所有権/しょゆうけん]: target ASTとscopeを所有します。文字列はVFS sourceのborrowed viewなので、callerはtable freeまでVFS ownerを生存させます。
+//: [制約/せいやく]: exact-VFS graphのdirect declaration専用per-alias sessionであり、path-map graph、full export table、re-export traversalには使用しません。
+pub struct SelfhostQualifiedEnumImportTable:
+    target %SelfhostQualifiedEnumAliasTarget
+    source_source %str
+    target_source %str
+    target_ast %SelfhostModuleAst
+    target_scope %SelfhostNameScope
+
+//: SelfhostQualifiedEnumDefinitionOrigin: direct public enumのmodule-local origin
+//: [authority boundary]: Copy payload単体はcapabilityではありません。
+pub struct SelfhostQualifiedEnumDefinitionOrigin:
+    module_node_index %i32
+    module_file_id %i32
+    definition_id %SelfhostDefId
+    name_span %SelfhostSourceSpan
+
+impl Clone for SelfhostQualifiedEnumDefinitionOrigin:
+    fn clone %fn &SelfhostQualifiedEnumDefinitionOrigin SelfhostQualifiedEnumDefinitionOrigin \self: *self
+
+impl Copy for SelfhostQualifiedEnumDefinitionOrigin:
+    fn copy_mark %fn SelfhostQualifiedEnumDefinitionOrigin SelfhostQualifiedEnumDefinitionOrigin \self: self
+
+//: target module node indexを返します。値単体はresolver capabilityではありません。
+pub fn selfhost_qualified_enum_definition_origin_module_node_index %fn SelfhostQualifiedEnumDefinitionOrigin i32 \origin:
+    origin.module_node_index
+
+//: target module file IDを返します。graph/VFSとの再照合に使用します。
+pub fn selfhost_qualified_enum_definition_origin_module_file_id %fn SelfhostQualifiedEnumDefinitionOrigin i32 \origin:
+    origin.module_file_id
+
+//: target module内のhoist順DefIdを返します。
+pub fn selfhost_qualified_enum_definition_origin_definition_id %fn SelfhostQualifiedEnumDefinitionOrigin SelfhostDefId \origin:
+    origin.definition_id
+
+//: originが指すtarget module内の宣言名spanを返します。
+pub fn selfhost_qualified_enum_definition_origin_name_span %fn SelfhostQualifiedEnumDefinitionOrigin SelfhostSourceSpan \origin:
+    origin.name_span
+
+//: SelfhostQualifiedEnumImportErrorKind: graph/VFS/import/AST/scopeのfail-closed拒否理由です。
+pub enum SelfhostQualifiedEnumImportErrorKind:
+    SourceNodeMissing
+    SourceNodeDuplicate
+    SourceFileMissing
+    SourceFileDuplicate
+    SourceFileIdMismatch
+    AliasSpanInvalid
+    MemberSpanInvalid
+    ImportScanFailed
+    AliasMissing
+    AliasDuplicate
+    AliasWildcard
+    EdgeMissing
+    EdgeDuplicate
+    EdgeInvariant
+    ResolvedTargetUnsupported
+    TargetNodeMissing
+    TargetNodeDuplicate
+    TargetFileMissing
+    TargetFileDuplicate
+    ParseFailed
+    ScopeFailed
+    DefinitionMissing
+    DefinitionDuplicate
+    BindingMismatch
+    TableInvariant
+
+impl Clone for SelfhostQualifiedEnumImportErrorKind:
+    fn clone %fn &SelfhostQualifiedEnumImportErrorKind SelfhostQualifiedEnumImportErrorKind \self: *self
+
+impl Copy for SelfhostQualifiedEnumImportErrorKind:
+    fn copy_mark %fn SelfhostQualifiedEnumImportErrorKind SelfhostQualifiedEnumImportErrorKind \self: self
+
+//: tableが所有するtarget ASTとscopeを解放します。計算量は各ownerの解放量に比例します。
+pub fn selfhost_qualified_enum_import_table_free %impure fn SelfhostQualifiedEnumImportTable unit \table:
+    selfhost_module_ast_free field::get table "target_ast"
+    selfhost_name_scope_free field::get table "target_scope"
+
+fn selfhost_qualified_span_eq %fn SelfhostSourceSpan fn SelfhostSourceSpan bool \a\b:
+    and and eq a.file_id b.file_id eq a.start b.start eq a.end b.end
+
+fn selfhost_qualified_utf8_boundary %fn str fn i32 bool \source\idx:
+    if:
+        or lt idx 0 gt idx string_access::str_byte_len source
+        then: false
+        else if:
+            eq idx string_access::str_byte_len source
+            then: true
+            else:
+                match string_byte_index::checked_string_byte_at source idx:
+                    Option::Some byte: not string_utf8::string_utf8_is_continuation byte
+                    Option::None: false
+
+fn selfhost_qualified_span_in_source %fn str fn i32 fn SelfhostSourceSpan bool \source\file_id\span:
+    and and and and source_span_is_valid span eq span.file_id file_id le span.end string_access::str_byte_len source selfhost_qualified_utf8_boundary source span.start selfhost_qualified_utf8_boundary source span.end
+
+fn selfhost_qualified_graph_node_count %fn &SelfhostModuleGraph fn str fn i32 fn i32 i32 \graph\path\idx\count:
+    if:
+        ge idx selfhost_module_graph_node_len graph
+        then: count
+        else:
+            match selfhost_module_graph_node_at graph idx:
+                Option::Some node:
+                    selfhost_qualified_graph_node_count graph path add idx 1 if string_search::str_eq node.path path add count 1 count
+                Option::None: count
+
+fn selfhost_qualified_graph_node_find %fn &SelfhostModuleGraph fn str fn i32 Option i32 \graph\path\idx:
+    if:
+        ge idx selfhost_module_graph_node_len graph
+        then: none
+        else:
+            match selfhost_module_graph_node_at graph idx:
+                Option::Some node:
+                    if string_search::str_eq node.path path some idx selfhost_qualified_graph_node_find graph path add idx 1
+                Option::None: none
+
+fn selfhost_qualified_vfs_file_count %fn &SelfhostVirtualFileSystem fn str fn i32 fn i32 i32 \vfs\path\idx\count:
+    if:
+        ge idx selfhost_vfs_len vfs
+        then: count
+        else:
+            match selfhost_vfs_get vfs idx:
+                Option::Some file:
+                    let matches %bool string_search::str_eq file.path path
+                    selfhost_qualified_vfs_file_count vfs path add idx 1 if matches add count 1 count
+                Option::None: count
+
+fn selfhost_qualified_vfs_file_find %fn &SelfhostVirtualFileSystem fn str fn i32 Option SelfhostVirtualFile \vfs\path\idx:
+    if:
+        ge idx selfhost_vfs_len vfs
+        then: none
+        else:
+            match selfhost_vfs_get vfs idx:
+                Option::Some file:
+                    if string_search::str_eq file.path path some file selfhost_qualified_vfs_file_find vfs path add idx 1
+                Option::None: none
+
+fn selfhost_qualified_alias_record_count %fn &Vec SelfhostImportRecord fn SelfhostSourceSpan fn i32 fn i32 i32 \records\alias_span\idx\count:
+    if:
+        ge idx v::len records
+        then: count
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    let matches %bool selfhost_qualified_span_eq record.alias_span alias_span
+                    selfhost_qualified_alias_record_count records alias_span add idx 1 if matches add count 1 count
+                Option::None: count
+
+fn selfhost_qualified_alias_record_find %fn &Vec SelfhostImportRecord fn SelfhostSourceSpan fn i32 Option SelfhostImportRecord \records\alias_span\idx:
+    if:
+        ge idx v::len records
+        then: none
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    if selfhost_qualified_span_eq record.alias_span alias_span some record selfhost_qualified_alias_record_find records alias_span add idx 1
+                Option::None: none
+
+fn selfhost_qualified_alias_name_count %fn &Vec SelfhostImportRecord fn str fn i32 fn i32 i32 \records\alias\idx\count:
+    if:
+        ge idx v::len records
+        then: count
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    let matches %bool and not record.is_wildcard string_search::str_eq record.alias alias
+                    selfhost_qualified_alias_name_count records alias add idx 1 if matches add count 1 count
+                Option::None: count
+
+fn selfhost_qualified_edge_count %fn &SelfhostModuleGraph fn str fn str fn SelfhostSourceSpan fn i32 fn i32 i32 \graph\from\to\directive_span\idx\count:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: count
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::Some edge:
+                    let matches %bool and and string_search::str_eq edge.from from string_search::str_eq edge.to to selfhost_qualified_span_eq edge.span directive_span
+                    selfhost_qualified_edge_count graph from to directive_span add idx 1 if matches add count 1 count
+                Option::None: count
+
+fn selfhost_qualified_edge_find %fn &SelfhostModuleGraph fn str fn str fn SelfhostSourceSpan fn i32 Option SelfhostModuleGraphEdge \graph\from\to\directive_span\idx:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: none
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::Some edge:
+                    if and and string_search::str_eq edge.from from string_search::str_eq edge.to to selfhost_qualified_span_eq edge.span directive_span some edge selfhost_qualified_edge_find graph from to directive_span add idx 1
+                Option::None: none
+
+fn selfhost_qualified_edge_directive_count %fn &SelfhostModuleGraph fn str fn SelfhostSourceSpan fn i32 fn i32 i32 \graph\from\directive_span\idx\count:
+    if:
+        ge idx selfhost_module_graph_edge_len graph
+        then: count
+        else:
+            match selfhost_module_graph_edge_at graph idx:
+                Option::Some edge:
+                    let matches %bool and string_search::str_eq edge.from from selfhost_qualified_span_eq edge.span directive_span
+                    selfhost_qualified_edge_directive_count graph from directive_span add idx 1 if matches add count 1 count
+                Option::None: count
+
+fn selfhost_qualified_enum_import_finish %impure fn SelfhostQualifiedEnumAliasTarget impure fn str impure fn str impure fn SelfhostModuleAst Result SelfhostQualifiedEnumImportTable SelfhostQualifiedEnumImportErrorKind \target\source_source\target_source\ast:
+    match selfhost_name_scope_hoist_module_declarations target_source &ast:
+        Result::Ok scope:
+            Result::Ok SelfhostQualifiedEnumImportTable target source_source target_source ast scope
+        Result::Err _e:
+            selfhost_module_ast_free ast
+            Result::Err SelfhostQualifiedEnumImportErrorKind::ScopeFailed
+
+fn selfhost_qualified_enum_import_target %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn str impure fn i32 impure fn SelfhostVirtualFile impure fn SelfhostImportRecord Result SelfhostQualifiedEnumImportTable SelfhostQualifiedEnumImportErrorKind \graph\vfs\source_path\source_node_index\source_file\record:
+    let edge_count %i32 selfhost_qualified_edge_count graph source_path record.path record.span 0 0
+    let directive_edge_count %i32 selfhost_qualified_edge_directive_count graph source_path record.span 0 0
+    if:
+        eq edge_count 0
+        then: Result::Err if gt directive_edge_count 0 SelfhostQualifiedEnumImportErrorKind::ResolvedTargetUnsupported SelfhostQualifiedEnumImportErrorKind::EdgeMissing
+        else if:
+            ne edge_count 1
+            then: Result::Err SelfhostQualifiedEnumImportErrorKind::EdgeDuplicate
+            else:
+                match selfhost_qualified_edge_find graph source_path record.path record.span 0:
+                    Option::Some edge:
+                        let target_count %i32 selfhost_qualified_graph_node_count graph edge.to 0 0
+                        if:
+                            eq target_count 0
+                            then: Result::Err SelfhostQualifiedEnumImportErrorKind::TargetNodeMissing
+                            else if:
+                                ne target_count 1
+                                then: Result::Err SelfhostQualifiedEnumImportErrorKind::TargetNodeDuplicate
+                                else:
+                                    match selfhost_qualified_graph_node_find graph edge.to 0:
+                                        Option::Some target_node_index:
+                                            match selfhost_module_graph_node_at graph target_node_index:
+                                                Option::Some target_node:
+                                                    let file_count %i32 selfhost_qualified_vfs_file_count vfs target_node.path 0 0
+                                                    if:
+                                                        eq file_count 0
+                                                        then: Result::Err SelfhostQualifiedEnumImportErrorKind::TargetFileMissing
+                                                        else if:
+                                                            ne file_count 1
+                                                            then: Result::Err SelfhostQualifiedEnumImportErrorKind::TargetFileDuplicate
+                                                            else:
+                                                                match selfhost_qualified_vfs_file_find vfs target_node.path 0:
+                                                                    Option::Some target_file:
+                                                                        if:
+                                                                            ne target_file.file_id target_node.file_id
+                                                                            then: Result::Err SelfhostQualifiedEnumImportErrorKind::TargetFileMissing
+                                                                            else:
+                                                                                match selfhost_parse_module_source_with_file_id target_file.source target_file.file_id:
+                                                                                    Result::Ok ast:
+                                                                                        let target %SelfhostQualifiedEnumAliasTarget SelfhostQualifiedEnumAliasTarget source_node_index source_file.file_id record.alias_span record.span target_node_index target_file.file_id
+                                                                                        selfhost_qualified_enum_import_finish target source_file.source target_file.source ast
+                                                                                    Result::Err _diag: Result::Err SelfhostQualifiedEnumImportErrorKind::ParseFailed
+                                                                    Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                                                Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                                        Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                    Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::EdgeInvariant
+
+//: selfhost_qualified_enum_import_table_build: explicit aliasのdirect target sessionをco-produceする
+//: [アルゴリズム]: source/target graph node、logical VFS path、import alias、from/to/span edgeをexactly-oneで結合し、targetをparse/hoistします。
+//: [制約]: exact-VFS graphだけを受理します。path-map graph、wildcard、重複alias/path/edge、parse/scope失敗をtyped errorで拒否します。計算量はgraph/VFS/import/target ASTの各要素数に線形です。
+pub fn selfhost_qualified_enum_import_table_build %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn str impure fn SelfhostSourceSpan Result SelfhostQualifiedEnumImportTable SelfhostQualifiedEnumImportErrorKind \graph\vfs\source_path\alias_span:
+    let node_count %i32 selfhost_qualified_graph_node_count graph source_path 0 0
+    if:
+        eq node_count 0
+        then: Result::Err SelfhostQualifiedEnumImportErrorKind::SourceNodeMissing
+        else if:
+            ne node_count 1
+            then: Result::Err SelfhostQualifiedEnumImportErrorKind::SourceNodeDuplicate
+            else:
+                match selfhost_qualified_graph_node_find graph source_path 0:
+                    Option::Some source_node_index:
+                        match selfhost_module_graph_node_at graph source_node_index:
+                            Option::Some source_node:
+                                let file_count %i32 selfhost_qualified_vfs_file_count vfs source_node.path 0 0
+                                if:
+                                    eq file_count 0
+                                    then: Result::Err SelfhostQualifiedEnumImportErrorKind::SourceFileMissing
+                                    else if:
+                                        ne file_count 1
+                                        then: Result::Err SelfhostQualifiedEnumImportErrorKind::SourceFileDuplicate
+                                        else:
+                                            match selfhost_qualified_vfs_file_find vfs source_node.path 0:
+                                                Option::Some source_file:
+                                                    if:
+                                                        or ne source_file.file_id source_node.file_id not selfhost_qualified_span_in_source source_file.source source_file.file_id alias_span
+                                                        then: Result::Err if ne source_file.file_id source_node.file_id SelfhostQualifiedEnumImportErrorKind::SourceFileIdMismatch SelfhostQualifiedEnumImportErrorKind::AliasSpanInvalid
+                                                        else:
+                                                            match selfhost_scan_module_imports_with_file_id source_file.source source_file.file_id:
+                                                                Result::Ok records:
+                                                                    let alias_count %i32 selfhost_qualified_alias_record_count &records alias_span 0 0
+                                                                    if:
+                                                                        eq alias_count 0
+                                                                        then:
+                                                                            v::free records
+                                                                            Result::Err SelfhostQualifiedEnumImportErrorKind::AliasMissing
+                                                                        else if:
+                                                                            ne alias_count 1
+                                                                            then:
+                                                                                v::free records
+                                                                                Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
+                                                                            else:
+                                                                                match selfhost_qualified_alias_record_find &records alias_span 0:
+                                                                                    Option::Some record:
+                                                                                        if:
+                                                                                            record.is_wildcard
+                                                                                            then:
+                                                                                                v::free records
+                                                                                                Result::Err SelfhostQualifiedEnumImportErrorKind::AliasWildcard
+                                                                                            else if:
+                                                                                                ne selfhost_qualified_alias_name_count &records record.alias 0 0 1
+                                                                                                then:
+                                                                                                    v::free records
+                                                                                                    Result::Err SelfhostQualifiedEnumImportErrorKind::AliasDuplicate
+                                                                                                else:
+                                                                                                    let out %Result SelfhostQualifiedEnumImportTable SelfhostQualifiedEnumImportErrorKind selfhost_qualified_enum_import_target graph vfs source_path source_node_index source_file record
+                                                                                                    v::free records
+                                                                                                    out
+                                                                                    Option::None:
+                                                                                        v::free records
+                                                                                        Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                                                                Result::Err _diag: Result::Err SelfhostQualifiedEnumImportErrorKind::ImportScanFailed
+                                                Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                            Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+                    Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+
+fn selfhost_qualified_span_bytes_eq %fn str fn SelfhostSourceSpan fn str fn SelfhostSourceSpan fn i32 bool \left\left_span\right\right_span\offset:
+    let byte_len %i32 sub left_span.end left_span.start
+    if:
+        ge offset byte_len
+        then: true
+        else:
+            match string_byte_index::checked_string_byte_at left add left_span.start offset:
+                Option::Some a:
+                    match string_byte_index::checked_string_byte_at right add right_span.start offset:
+                        Option::Some b: if eq a b selfhost_qualified_span_bytes_eq left left_span right right_span add offset 1 false
+                        Option::None: false
+                Option::None: false
+
+fn selfhost_qualified_query_matches %fn str fn SelfhostSourceSpan fn str fn SelfhostSourceSpan bool \source\query_span\target_source\name_span:
+    and eq sub query_span.end query_span.start sub name_span.end name_span.start selfhost_qualified_span_bytes_eq source query_span target_source name_span 0
+
+fn selfhost_qualified_binding_matches %fn &SelfhostNameScope fn SelfhostDefId fn SelfhostNameBinding bool \scope\def_id\expected:
+    match selfhost_name_scope_get scope def_id:
+        Option::Some actual:
+            and and and selfhost_name_binding_def_id_eq actual def_id selfhost_def_kind_eq actual.kind SelfhostDefKind::Enum selfhost_qualified_span_eq actual.span expected.span string_search::str_eq actual.name expected.name
+        Option::None: false
+
+fn selfhost_qualified_enum_lookup_loop %fn &SelfhostQualifiedEnumImportTable fn SelfhostSourceSpan fn i32 fn i32 fn i32 fn Option SelfhostQualifiedEnumDefinitionOrigin Result SelfhostQualifiedEnumDefinitionOrigin SelfhostQualifiedEnumImportErrorKind \table\query_span\idx\def_index\count\found:
+    let ast %&SelfhostModuleAst field::get_ref table "target_ast"
+    let scope %&SelfhostNameScope field::get_ref table "target_scope"
+    let target_source_ref %&str field::get_ref table "target_source"
+    let source_source_ref %&str field::get_ref table "source_source"
+    let target_ref %&SelfhostQualifiedEnumAliasTarget field::get_ref table "target"
+    if:
+        ge idx selfhost_module_ast_len ast
+        then:
+            if:
+                eq count 0
+                then: Result::Err SelfhostQualifiedEnumImportErrorKind::DefinitionMissing
+                else if:
+                    eq count 1
+                    then:
+                        match found:
+                            Option::Some origin: Result::Ok origin
+                            Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::DefinitionMissing
+                    else: Result::Err SelfhostQualifiedEnumImportErrorKind::DefinitionDuplicate
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    match item.declaration:
+                        Option::Some header:
+                            match selfhost_name_binding_from_declaration_header *target_source_ref header:
+                                Option::Some binding:
+                                    let def_id %SelfhostDefId selfhost_def_id_new def_index
+                                    let is_public_enum %bool match header.visibility:
+                                        SelfhostModuleDeclarationVisibility::Public:
+                                            match header.kind:
+                                                SelfhostModuleDeclarationKind::Enum: true
+                                                _: false
+                                        SelfhostModuleDeclarationVisibility::Private: false
+                                    let matches %bool and is_public_enum selfhost_qualified_query_matches *source_source_ref query_span *target_source_ref binding.span
+                                    let origin %SelfhostQualifiedEnumDefinitionOrigin SelfhostQualifiedEnumDefinitionOrigin selfhost_qualified_alias_target_node_index target_ref selfhost_qualified_alias_target_file_id target_ref def_id binding.span
+                                    if:
+                                        selfhost_qualified_query_matches *source_source_ref query_span *target_source_ref binding.span
+                                        then:
+                                            if:
+                                                not selfhost_qualified_span_in_source *target_source_ref selfhost_qualified_alias_target_file_id target_ref binding.span
+                                                then: Result::Err SelfhostQualifiedEnumImportErrorKind::BindingMismatch
+                                                else if:
+                                                    matches
+                                                    then:
+                                                        if:
+                                                            selfhost_qualified_binding_matches scope def_id binding
+                                                            then: selfhost_qualified_enum_lookup_loop table query_span add idx 1 add def_index 1 add count 1 some origin
+                                                            else: Result::Err SelfhostQualifiedEnumImportErrorKind::BindingMismatch
+                                                    else: selfhost_qualified_enum_lookup_loop table query_span add idx 1 add def_index 1 add count 1 found
+                                        else: selfhost_qualified_enum_lookup_loop table query_span add idx 1 add def_index 1 count found
+                                Option::None:
+                                    selfhost_qualified_enum_lookup_loop table query_span add idx 1 def_index count found
+                        Option::None:
+                            selfhost_qualified_enum_lookup_loop table query_span add idx 1 def_index count found
+                Option::None: Result::Err SelfhostQualifiedEnumImportErrorKind::TableInvariant
+
+//: selfhost_qualified_enum_import_lookup: alias target内のdirect public enumをmodule origin付きDefIdへ解決する
+//: [アルゴリズム]: 全named declarationをhoist順に走査し、同名exactly-one、Public Enum、scope binding identityを順に検査します。
+//: [制約]: member spanはimporter sourceのUTF-8境界でなければならず、re-export/open/selective importは探索しません。計算量はtarget宣言数と名前byte長に比例します。
+pub fn selfhost_qualified_enum_import_lookup %fn &SelfhostQualifiedEnumImportTable fn SelfhostSourceSpan Result SelfhostQualifiedEnumDefinitionOrigin SelfhostQualifiedEnumImportErrorKind \table\member_span:
+    let source_source_ref %&str field::get_ref table "source_source"
+    let target_ref %&SelfhostQualifiedEnumAliasTarget field::get_ref table "target"
+    if:
+        not selfhost_qualified_span_in_source *source_source_ref selfhost_qualified_alias_target_source_file_id target_ref member_span
+        then: Result::Err SelfhostQualifiedEnumImportErrorKind::MemberSpanInvalid
+        else: selfhost_qualified_enum_lookup_loop table member_span 0 0 0 none
