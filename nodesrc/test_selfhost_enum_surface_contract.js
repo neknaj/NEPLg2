@@ -34,7 +34,9 @@ assert.doesNotMatch(topLevelBlock("struct", "SelfhostResolvedEnumVariantHeader")
 assert.match(source, /pub enum SelfhostResolvedEnumSurfaceErrorKind:[\s\S]*ItemHeaderOriginMismatch[\s\S]*HeaderOriginMismatch[\s\S]*BodyOriginMismatch[\s\S]*DeclarationNameUnavailable[\s\S]*OutOfMemory[\s\S]*ConstructorTable/, "origin, unavailable-name, allocation, and constructor failures must remain distinct");
 
 const producer = topLevelBlock("fn", "selfhost_resolved_enum_module_session_materialize_with_file_id_result");
-assert.match(producer, /lex_all_with_file_id source file_id[\s\S]*selfhost_parse_module_tokens source &tokens[\s\S]*selfhost_resolved_enum_module_collect_loop[\s\S]*selfhost_resolved_enum_session_attach_tokens/, "public producer must internally lex with the VFS file identity, parse, scan the complete module, and retain its token origin");
+const modeProducer = topLevelBlock("fn", "selfhost_resolved_enum_module_session_materialize_mode_with_file_id_result");
+assert.match(producer, /selfhost_resolved_enum_module_session_materialize_mode_with_file_id_result constructor_seed source file_id false/, "public materializer must delegate to the closed internal mode with attach disabled");
+assert.match(modeProducer, /lex_all_with_file_id source file_id[\s\S]*selfhost_parse_module_tokens source &tokens[\s\S]*selfhost_resolved_enum_module_collect_loop[\s\S]*selfhost_resolved_enum_session_attach_tokens/, "internal mode producer must lex with the VFS file identity, parse, scan the complete module, and retain its token origin");
 assert.match(producer, /SelfhostTypeConstructorTable[\s\S]*str[\s\S]*i32 Result SelfhostResolvedEnumSession/, "public producer must accept only a constructor namespace seed, source, and file identity");
 assert.doesNotMatch(producer, /SelfhostModuleAst|&Vec SelfhostToken|SelfhostModuleItem/, "public producer must not accept forgeable external AST, token, or item inputs");
 const compatibilityProducer = topLevelBlock("fn", "selfhost_resolved_enum_module_session_materialize_result");
@@ -52,7 +54,9 @@ const origin = topLevelBlock("fn", "selfhost_resolved_enum_surface_validate_orig
 assert.match(origin, /item\.span[\s\S]*header\.header_span[\s\S]*span_inside[\s\S]*selfhost_parser_declaration_body_range[\s\S]*selfhost_resolved_enum_surface_body_eq/, "item, header, keyword/head, and exact body ranges must share one parser origin");
 
 const finish = topLevelBlock("fn", "selfhost_resolved_enum_surface_finish");
-assert.match(finish, /selfhost_type_constructor_table_add_checked[\s\S]*selfhost_type_constructor_add_result_nominal_id[\s\S]*selfhost_type_constructor_add_result_into_table[\s\S]*SelfhostResolvedEnumSession/, "session identity and table owner must come from the same checked constructor add result");
+const finishDefinition = topLevelBlock("fn", "selfhost_resolved_enum_surface_finish_definition");
+assert.match(finish, /selfhost_type_constructor_table_add_checked[\s\S]*selfhost_type_constructor_add_result_nominal_id[\s\S]*selfhost_type_constructor_add_result_into_table[\s\S]*selfhost_resolved_enum_surface_finish_definition/, "normal session identity and table owner must come from the same checked constructor add result");
+assert.match(finishDefinition, /SelfhostResolvedEnumDefinition[\s\S]*v::push definitions definition[\s\S]*SelfhostResolvedEnumSession source tokens constructors next_definitions variants attach_existing/, "shared finalizer must retain the selected constructor table and nominal in one session owner");
 assert.doesNotMatch(finish, /selfhost_named_type_id_new/, "session finish must not reconstruct nominal identity from an ordinal");
 assert.match(source, /constructor_seed.*namespace prefixであり、parser origin証明ではありません/, "constructor seed must be documented as a namespace prefix rather than parser-origin evidence");
 

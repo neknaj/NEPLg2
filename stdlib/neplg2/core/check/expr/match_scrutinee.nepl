@@ -1,0 +1,107 @@
+#indent 4
+
+//: # check/expr/match_scrutinee
+//: Match scrutineeのうち、単一NamedValue rootをactual checker evidenceへ接続します。
+//:
+//: [制約/せいやく]:
+//: - このsliceは単一`NamedValue`だけを扱います。direct call、literal、reference derefはtyped errorで拒否します。
+//: - 名前のspellingから型を作らず、最新scope binding、assigned DefId、value evidence、同一arena recordをすべて検証します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/check/expr/match_scrutinee" as *
+//: fn main %fn void i32 \void:
+//:     let kind SelfhostMatchScrutineeRootErrorKind::RootMissing
+//:     match kind:
+//:         SelfhostMatchScrutineeRootErrorKind::RootMissing: 0
+//:         _: 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/option" as *
+#import "core/result" as *
+#import "core/math" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/prefix_expr" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/check/expr/value_evidence" as *
+#import "neplg2/core/ty/ty" as *
+
+pub enum SelfhostMatchScrutineeRootErrorKind:
+    PrefixBuildFailed
+    RootMissing
+    RootNotSingleNamedValue
+    TokenMissing
+    NameUnresolved
+    BindingNotValue
+    BindingPending
+    ValueEvidenceMissing
+    TypeRecordMissing
+
+impl Clone for SelfhostMatchScrutineeRootErrorKind:
+    fn clone %fn &SelfhostMatchScrutineeRootErrorKind SelfhostMatchScrutineeRootErrorKind \self: *self
+
+impl Copy for SelfhostMatchScrutineeRootErrorKind:
+    fn copy_mark %fn SelfhostMatchScrutineeRootErrorKind SelfhostMatchScrutineeRootErrorKind \self: self
+
+pub struct SelfhostMatchScrutineeRootEvidence:
+    ty %SelfhostTypeId
+    span %SelfhostSourceSpan
+
+impl Clone for SelfhostMatchScrutineeRootEvidence:
+    fn clone %fn &SelfhostMatchScrutineeRootEvidence SelfhostMatchScrutineeRootEvidence \self: *self
+
+impl Copy for SelfhostMatchScrutineeRootEvidence:
+    fn copy_mark %fn SelfhostMatchScrutineeRootEvidence SelfhostMatchScrutineeRootEvidence \self: self
+
+fn selfhost_match_scrutinee_binding_is_value %fn SelfhostDefKind bool \kind:
+    match kind:
+        SelfhostDefKind::Function: true
+        SelfhostDefKind::Local: true
+        SelfhostDefKind::Param: true
+        SelfhostDefKind::Builtin: true
+        _: false
+
+fn selfhost_match_scrutinee_named_value %fn &Vec SelfhostToken fn str fn &SelfhostNameScope fn &SelfhostValueTypeEvidenceTable fn &SelfhostTypeArena fn SelfhostExprPrefixItem Result SelfhostMatchScrutineeRootEvidence SelfhostMatchScrutineeRootErrorKind \tokens\source\scope\value_types\arena\item:
+    match v::get tokens item.token_index:
+        Option::None: Result::Err SelfhostMatchScrutineeRootErrorKind::TokenMissing
+        Option::Some token:
+            let name selfhost_token_lexeme source token
+            match selfhost_name_scope_find scope name:
+                Option::None: Result::Err SelfhostMatchScrutineeRootErrorKind::NameUnresolved
+                Option::Some binding:
+                    if:
+                        not selfhost_match_scrutinee_binding_is_value binding.kind
+                        then: Result::Err SelfhostMatchScrutineeRootErrorKind::BindingNotValue
+                        else:
+                            match binding.def_id:
+                                Option::None: Result::Err SelfhostMatchScrutineeRootErrorKind::BindingPending
+                                Option::Some def_id:
+                                    match selfhost_value_type_evidence_table_find value_types def_id:
+                                        Option::None: Result::Err SelfhostMatchScrutineeRootErrorKind::ValueEvidenceMissing
+                                        Option::Some evidence:
+                                            match selfhost_type_arena_get_record arena evidence.value_type:
+                                                Option::None: Result::Err SelfhostMatchScrutineeRootErrorKind::TypeRecordMissing
+                                                Option::Some _record: Result::Ok SelfhostMatchScrutineeRootEvidence evidence.value_type item.span
+
+//: selfhost_match_scrutinee_single_named_value_result: parser rangeを単一NamedValue actual typeへ検査する
+pub fn selfhost_match_scrutinee_single_named_value_result %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostSyntaxRange impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn &SelfhostTypeArena Result SelfhostMatchScrutineeRootEvidence SelfhostMatchScrutineeRootErrorKind \tokens\source\range\scope\value_types\arena:
+    match selfhost_expr_prefix_list_from_syntax_range tokens range:
+        Result::Err _e: Result::Err SelfhostMatchScrutineeRootErrorKind::PrefixBuildFailed
+        Result::Ok prefix:
+            let result %Result SelfhostMatchScrutineeRootEvidence SelfhostMatchScrutineeRootErrorKind if:
+                not eq selfhost_expr_prefix_list_len &prefix 1
+                then: Result::Err SelfhostMatchScrutineeRootErrorKind::RootNotSingleNamedValue
+                else:
+                    match selfhost_expr_prefix_list_get &prefix 0:
+                        Option::None: Result::Err SelfhostMatchScrutineeRootErrorKind::RootMissing
+                        Option::Some item:
+                            match item.kind:
+                                SelfhostExprPrefixItemKind::NamedValue: selfhost_match_scrutinee_named_value tokens source scope value_types arena item
+                                _: Result::Err SelfhostMatchScrutineeRootErrorKind::RootNotSingleNamedValue
+            selfhost_expr_prefix_list_free prefix
+            result

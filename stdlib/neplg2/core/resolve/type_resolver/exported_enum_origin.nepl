@@ -190,11 +190,13 @@ pub enum SelfhostExportedEnumOriginErrorKind:
     DefinitionDuplicate
     DefinitionBinding %SelfhostResolvedEnumDefinitionBindingErrorKind
     ArenaAllocationFailed
+    ActualTypeMissing
+    ActualNominalMismatch
 
 //: selfhost_exported_enum_origin_context_free: contextが所有するarenaとenum sessionを1回だけ閉じる
 pub fn selfhost_exported_enum_origin_context_free %impure fn SelfhostExportedEnumOriginContext unit \context:
-    selfhost_type_arena_free context.arena
-    selfhost_resolved_enum_session_free context.enum_session
+    selfhost_type_arena_free field::get context "arena"
+    selfhost_resolved_enum_session_free field::get context "enum_session"
 
 fn selfhost_exported_enum_entry_count_loop %fn &SelfhostPublicExportTable fn i32 fn str fn i32 fn i32 i32 \table\owner\name\idx\count:
     if ge idx selfhost_public_export_table_count table count match selfhost_public_export_table_get table idx:
@@ -216,7 +218,10 @@ fn selfhost_exported_enum_utf8_boundary %fn str fn i32 bool \source\idx:
         else if:
             eq idx string_access::str_byte_len source
             then: true
-            else: ne bit_and string_access::str_byte_at source idx 192 128
+            else:
+                match string_access::byte_at source idx:
+                    Option::Some byte: or lt byte 128 ge byte 192
+                    Option::None: false
 
 fn selfhost_exported_enum_span_in_source %fn str fn i32 fn SelfhostSourceSpan bool \source\file_id\span:
     and and and and and source_span_is_valid span eq span.file_id file_id lt span.start span.end le span.end string_access::str_byte_len source selfhost_exported_enum_utf8_boundary source span.start selfhost_exported_enum_utf8_boundary source span.end
@@ -261,17 +266,43 @@ pub fn selfhost_exported_enum_origin_context_result %impure fn &SelfhostModuleGr
         selfhost_exported_enum_arena_contains_nominal_loop &arena 0
         then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ArenaContainsNominal
         else if:
-            match selfhost_module_order_validate_against graph vfs order: Option::Some _error: true Option::None: false
-        then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OrderInvariant
-        else:
-            match selfhost_public_export_table_build graph vfs order:
-                Result::Err e: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ExportTableBuild e
-                Result::Ok table:
-                    let result %Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind selfhost_exported_enum_origin_context_after_order &table graph vfs owner visible_name arena constructors
-                    selfhost_public_export_table_free table
-                    result
+            match selfhost_module_order_validate_against graph vfs order:
+                Option::Some _error: true
+                Option::None: false
+            then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OrderInvariant
+            else:
+                match selfhost_public_export_table_build graph vfs order:
+                    Result::Err e: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ExportTableBuild e
+                    Result::Ok table:
+                        let result %Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind selfhost_exported_enum_origin_context_after_order &table graph vfs owner visible_name arena constructors none
+                        selfhost_public_export_table_free table
+                        result
 
-fn selfhost_exported_enum_origin_context_after_order %impure fn &SelfhostPublicExportTable impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn i32 impure fn str impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \table\graph\vfs\owner\visible_name\arena\constructors:
+//: selfhost_exported_enum_origin_actual_context_result: actual checker TypeIdを同一arena/constructor sessionでexport originへ再結合する
+//:
+//: [契約/けいやく]:
+//: - arenaへ型を追加しません。Named/Applied base nominalが解決済みenum definitionと一致する場合だけcontextを返します。
+//: - arenaとconstructorsを消費し、全失敗経路でもownerを閉じます。
+pub fn selfhost_exported_enum_origin_actual_context_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn i32 impure fn str impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostTypeId Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \graph\vfs\order\owner\visible_name\arena\constructors\actual_type:
+    if:
+        match selfhost_type_arena_get_record &arena actual_type:
+            Option::None: true
+            Option::Some _record: false
+        then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ActualTypeMissing
+        else if:
+            match selfhost_module_order_validate_against graph vfs order:
+                Option::Some _error: true
+                Option::None: false
+            then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OrderInvariant
+            else:
+                match selfhost_public_export_table_build graph vfs order:
+                    Result::Err e: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ExportTableBuild e
+                    Result::Ok table:
+                        let result %Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind selfhost_exported_enum_origin_context_after_order &table graph vfs owner visible_name arena constructors some actual_type
+                        selfhost_public_export_table_free table
+                        result
+
+fn selfhost_exported_enum_origin_context_after_order %impure fn &SelfhostPublicExportTable impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn i32 impure fn str impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn Option SelfhostTypeId Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \table\graph\vfs\owner\visible_name\arena\constructors\actual_type:
     let count %i32 selfhost_exported_enum_entry_count_loop table owner visible_name 0 0
     if:
         eq count 0
@@ -282,9 +313,9 @@ fn selfhost_exported_enum_origin_context_after_order %impure fn &SelfhostPublicE
             else:
                 match selfhost_public_export_table_lookup table owner visible_name:
                     Option::None: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ExportMissing
-                    Option::Some entry: selfhost_exported_enum_origin_entry_result graph vfs owner arena constructors entry
+                    Option::Some entry: selfhost_exported_enum_origin_entry_result graph vfs owner arena constructors entry actual_type
 
-fn selfhost_exported_enum_origin_entry_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn i32 impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostPublicExportEntry Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \graph\vfs\owner\arena\constructors\entry:
+fn selfhost_exported_enum_origin_entry_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn i32 impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostPublicExportEntry impure fn Option SelfhostTypeId Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \graph\vfs\owner\arena\constructors\entry\actual_type:
     match entry.kind:
         SelfhostPublicExportKind::Function: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ExportWrongKind
         SelfhostPublicExportKind::Struct: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ExportWrongKind
@@ -296,28 +327,32 @@ fn selfhost_exported_enum_origin_entry_result %impure fn &SelfhostModuleGraph im
                     if:
                         eq source_count 0
                         then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginSourceMissing
-                        else if:
-                            ne source_count 1
-                            then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginSourceDuplicate
-                        else if:
-                            ne node.file_id entry.origin_module_file_id
-                            then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginIdentityMismatch
                         else:
-                            match selfhost_vfs_find vfs node.path:
-                                Option::None: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginSourceMissing
-                                Option::Some file:
+                            if:
+                                ne source_count 1
+                                then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginSourceDuplicate
+                                else:
                                     if:
-                                        ne file.file_id entry.origin_module_file_id
+                                        ne node.file_id entry.origin_module_file_id
                                         then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginIdentityMismatch
-                                        else if:
-                                            not selfhost_exported_enum_span_in_source file.source file.file_id entry.original_name_span
-                                            then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginalNameSpanInvalid
-                                        else if:
-                                            not string_search::str_eq string_slice::str_slice file.source entry.original_name_span.start entry.original_name_span.end entry.original_name
-                                            then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginalNameMismatch
-                                        else: selfhost_exported_enum_origin_parse owner arena constructors entry file
+                                        else:
+                                            match selfhost_vfs_find vfs node.path:
+                                                Option::None: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginSourceMissing
+                                                Option::Some file:
+                                                    if:
+                                                        ne file.file_id entry.origin_module_file_id
+                                                        then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginIdentityMismatch
+                                                        else:
+                                                            if:
+                                                                not selfhost_exported_enum_span_in_source file.source file.file_id entry.original_name_span
+                                                                then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginalNameSpanInvalid
+                                                                else:
+                                                                    if:
+                                                                        not string_search::str_eq string_slice::str_slice file.source entry.original_name_span.start entry.original_name_span.end entry.original_name
+                                                                        then: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::OriginalNameMismatch
+                                                                        else: selfhost_exported_enum_origin_parse owner arena constructors entry file actual_type
 
-fn selfhost_exported_enum_origin_parse %impure fn i32 impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostPublicExportEntry impure fn SelfhostVirtualFile Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \owner\arena\constructors\entry\file:
+fn selfhost_exported_enum_origin_parse %impure fn i32 impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostPublicExportEntry impure fn SelfhostVirtualFile impure fn Option SelfhostTypeId Result SelfhostExportedEnumOriginContext SelfhostExportedEnumOriginErrorKind \owner\arena\constructors\entry\file\actual_type:
     match selfhost_parse_module_source_with_file_id file.source file.file_id:
         Result::Err _diag: selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::ParseFailed
         Result::Ok ast:
@@ -326,7 +361,10 @@ fn selfhost_exported_enum_origin_parse %impure fn i32 impure fn SelfhostTypeAren
                     selfhost_module_ast_free ast
                     selfhost_exported_enum_fail arena constructors SelfhostExportedEnumOriginErrorKind::HoistFailed
                 Result::Ok scope:
-                    match selfhost_resolved_enum_module_session_materialize_with_file_id_result constructors file.source file.file_id:
+                    let session_result %Result SelfhostResolvedEnumSession SelfhostResolvedEnumSurfaceError match actual_type:
+                        Option::Some _type_id: selfhost_resolved_enum_module_session_attach_existing_with_file_id_result constructors file.source file.file_id
+                        Option::None: selfhost_resolved_enum_module_session_materialize_with_file_id_result constructors file.source file.file_id
+                    match session_result:
                         Result::Err e:
                             selfhost_name_scope_free scope
                             selfhost_module_ast_free ast
@@ -342,42 +380,71 @@ fn selfhost_exported_enum_origin_parse %impure fn i32 impure fn SelfhostTypeAren
                                     selfhost_module_ast_free ast
                                     selfhost_type_arena_free arena
                                     Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionMissing
-                                else if:
-                                    ne definition_count 1
-                                    then:
-                                        selfhost_resolved_enum_session_free session
-                                        selfhost_name_scope_free scope
-                                        selfhost_module_ast_free ast
-                                        selfhost_type_arena_free arena
-                                        Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionDuplicate
                                 else:
-                                    match selfhost_exported_enum_definition_find_loop &session entry.original_name_span entry.original_name 0:
-                                        Option::None:
+                                    if:
+                                        ne definition_count 1
+                                        then:
                                             selfhost_resolved_enum_session_free session
                                             selfhost_name_scope_free scope
                                             selfhost_module_ast_free ast
                                             selfhost_type_arena_free arena
-                                            Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionMissing
-                                        Option::Some definition:
-                                            match selfhost_resolved_enum_definition_binding_result &scope entry.origin_def_id &session definition.nominal_id:
-                                                Result::Err e:
+                                            Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionDuplicate
+                                        else:
+                                            match selfhost_exported_enum_definition_find_loop &session entry.original_name_span entry.original_name 0:
+                                                Option::None:
                                                     selfhost_resolved_enum_session_free session
                                                     selfhost_name_scope_free scope
                                                     selfhost_module_ast_free ast
                                                     selfhost_type_arena_free arena
-                                                    Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionBinding e
-                                                Result::Ok _binding:
-                                                    selfhost_name_scope_free scope
-                                                    selfhost_module_ast_free ast
-                                                    match selfhost_type_arena_add_named arena definition.nominal_id:
-                                                        Result::Err _e:
+                                                    Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionMissing
+                                                Option::Some definition:
+                                                    match selfhost_resolved_enum_definition_binding_result &scope entry.origin_def_id &session definition.nominal_id:
+                                                        Result::Err e:
                                                             selfhost_resolved_enum_session_free session
-                                                            Result::Err SelfhostExportedEnumOriginErrorKind::ArenaAllocationFailed
-                                                        Result::Ok allocated:
-                                                            let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
-                                                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
-                                                            let witness %SelfhostExportedEnumOriginWitness SelfhostExportedEnumOriginWitness owner entry.origin_module_node_index entry.origin_module_file_id entry.origin_def_id entry.original_name_span definition.nominal_id type_id
-                                                            Result::Ok SelfhostExportedEnumOriginContext next_arena session witness
+                                                            selfhost_name_scope_free scope
+                                                            selfhost_module_ast_free ast
+                                                            selfhost_type_arena_free arena
+                                                            Result::Err SelfhostExportedEnumOriginErrorKind::DefinitionBinding e
+                                                        Result::Ok _binding:
+                                                            selfhost_name_scope_free scope
+                                                            selfhost_module_ast_free ast
+                                                            match actual_type:
+                                                                Option::Some type_id:
+                                                                    match selfhost_type_arena_get_record &arena type_id:
+                                                                        Option::None:
+                                                                            selfhost_resolved_enum_session_free session
+                                                                            selfhost_type_arena_free arena
+                                                                            Result::Err SelfhostExportedEnumOriginErrorKind::ActualTypeMissing
+                                                                        Option::Some record:
+                                                                            let nominal_result %Option SelfhostNamedTypeId match record:
+                                                                                SelfhostTypeRecord::Named named: some selfhost_named_type_record_id named
+                                                                                SelfhostTypeRecord::Applied applied: some selfhost_applied_type_record_id applied
+                                                                                _: none
+                                                                            match nominal_result:
+                                                                                Option::None:
+                                                                                    selfhost_resolved_enum_session_free session
+                                                                                    selfhost_type_arena_free arena
+                                                                                    Result::Err SelfhostExportedEnumOriginErrorKind::ActualNominalMismatch
+                                                                                Option::Some nominal:
+                                                                                    if:
+                                                                                        not selfhost_named_type_id_eq nominal definition.nominal_id
+                                                                                        then:
+                                                                                            selfhost_resolved_enum_session_free session
+                                                                                            selfhost_type_arena_free arena
+                                                                                            Result::Err SelfhostExportedEnumOriginErrorKind::ActualNominalMismatch
+                                                                                        else:
+                                                                                            let witness %SelfhostExportedEnumOriginWitness SelfhostExportedEnumOriginWitness owner entry.origin_module_node_index entry.origin_module_file_id entry.origin_def_id entry.original_name_span definition.nominal_id type_id
+                                                                                            Result::Ok SelfhostExportedEnumOriginContext arena session witness
+                                                                Option::None:
+                                                                    match selfhost_type_arena_add_named arena definition.nominal_id:
+                                                                        Result::Err _e:
+                                                                            selfhost_resolved_enum_session_free session
+                                                                            Result::Err SelfhostExportedEnumOriginErrorKind::ArenaAllocationFailed
+                                                                        Result::Ok allocated:
+                                                                            let type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                                                                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                                                                            let witness %SelfhostExportedEnumOriginWitness SelfhostExportedEnumOriginWitness owner entry.origin_module_node_index entry.origin_module_file_id entry.origin_def_id entry.original_name_span definition.nominal_id type_id
+                                                                            Result::Ok SelfhostExportedEnumOriginContext next_arena session witness
 
 //: selfhost_exported_enum_origin_context_arena: same-session contextのTypeArenaをborrowする
 pub fn selfhost_exported_enum_origin_context_arena %fn &SelfhostExportedEnumOriginContext &SelfhostTypeArena \context: field::get_ref context "arena"

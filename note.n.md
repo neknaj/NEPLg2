@@ -1,3 +1,25 @@
+# 2026-07-14 Selfhost actual Match NamedValue member connection
+
+## 方針
+
+- `plan.md`、todo、対象issue、Rust `match_check.rs`、selfhost Match parser / expression checker / enum originを再確認した。`plan.md`は変更していない。
+- 根本原因は、actual scrutinee型のauthorityがchecker evidenceである一方、既存export originがnominalを含むarenaを拒否してsynthetic direct Namedを割り当てていたため、actual Named / Applied TypeIdを同じmember sessionへ渡せないことだった。
+
+## 実装
+
+- current-VFS Match contextのowned token/source/rangeを専用consumerからborrowし、single NamedValue scrutineeをprefix、latest scope binding、assigned DefId、value evidence、same-arena recordの順に検査する境界を追加した。
+- export originにactual-type経路を追加し、arenaへ型を追加せず、parser enumを既存constructorのname、exact kind/arity、宣言名span identityへattachして同じ宣言のnominal IDだけを再利用し、Named / Applied base nominalとdefinitionの一致を必須にした。同名・同arityの別originは`ExistingConstructorOriginMismatch`で拒否する。actual TypeIdは既存enum member gateへ渡し、成功ownerがarena/session/memberを一括保持する。
+- composite入口はgraph/VFS/order/path、function/segment/arm ordinal、scope/value evidence、arena/constructor ownerだけを受ける。source/token/range/span/TypeId/nominal/raw enum/member nameをcaller入力にしない。
+- scope/value evidence/arena/constructor ownerと選択FunctionDeclのco-productionはまだcaller preconditionでありproduction authorityではない。direct call/ascription/pipe checked-tree root、Rustのarm-derived expected-type retryとtransaction rollback、reference deref、payload substitution/bind、重複・網羅性、arm body型統一、HIR/Resource identity輸送は未完了としてtodoへ残した。
+
+## 検証
+
+- existing-constructor attachのnominal再利用、missing、arity mismatch、同名別origin拒否を実行する4 doctestとstatic authority contractを追加した。actual export originはNamed成功、別nominal拒否、同名別origin拒否、Applied TypeId保持を2 doctestで実行し、`NEPL_TEST_CASE_TIMEOUT_MS=180000`で2/2通過した。
+- attach fixtureが依存moduleを初めて直接compileしたことで、`impl`内部の拡張doc markerを現parserがfunction宣言として誤解する問題、2個のinline match layout、nominal ID helper import不足、10条件に対する`or`演算子不足が露出した。抽象説明を保った通常commentへの限定変換と、報告箇所だけのlayout/import/arity修正を行った。
+- source policyは新規・既存selfhost contractを含めてdocumentation contract直前まで通過し、既知baselineのstdlib declaration doc gaps `2790 > 2756`だけで停止した。今回追加したpublic NEPL宣言には拡張docを付与しており、この全体baselineを増やす変更ではない。
+- diff reviewと全体整合reviewは、同名・同arityの別origin誤接続をMajorとして指摘した。constructor宣言spanのexact一致とwrong-origin runtime拒否を追加後、両reviewともBlocker/Majorなし・統合承認となった。composite直結runtime fixtureはproduction authority昇格前のcoverage debtとして残す。
+- `PATH=/tmp:$PATH CARGO_TARGET_DIR=/tmp/nepl-trunk-target NO_COLOR=false trunk build`は成功し、続く`nodesrc/cli.js` playground editor JSONは13/13通過した。
+
 # 2026-07-13 Selfhost parser-derived enum nominal surface session
 
 ## 方針

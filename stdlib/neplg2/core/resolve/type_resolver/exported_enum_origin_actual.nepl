@@ -1,0 +1,189 @@
+#indent 4
+
+//: # type_resolver/exported_enum_origin_actual
+//: actual checker arenaと既存constructor identityをexported enum originへ接続する実行検査です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver/module_order" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/exported_enum_origin" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| fn actual_case %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn i32 impure fn bool impure fn bool bool \graph\vfs\order\root\mismatch\wrong_origin:
+//:|    match selfhost_type_constructor_table_new:
+//:|     Result::Err _e: false
+//:|     Result::Ok table0:
+//:|      match selfhost_type_constructor_table_add_checked table0 "Other" 0 source_span_empty_unchecked 0 0:
+//:|       Result::Err _e: false
+//:|       Result::Ok other_added:
+//:|        let other_id selfhost_type_constructor_add_result_nominal_id &other_added
+//:|        let table1 selfhost_type_constructor_add_result_into_table other_added
+//:|        let choice_span %SelfhostSourceSpan if wrong_origin source_span_new_unchecked 7 9 15 source_span_new_unchecked 0 9 15
+//:|        match selfhost_type_constructor_table_add_checked table1 "Choice" 0 choice_span:
+//:|         Result::Err _e: false
+//:|         Result::Ok choice_added:
+//:|          let choice_id selfhost_type_constructor_add_result_nominal_id &choice_added
+//:|          let constructors selfhost_type_constructor_add_result_into_table choice_added
+//:|          match selfhost_type_arena_new:
+//:|           Result::Err _e:
+//:|            selfhost_type_constructor_table_free constructors
+//:|            false
+//:|           Result::Ok arena0:
+//:|            let selected if mismatch other_id choice_id
+//:|            match selfhost_type_arena_add_named arena0 selected:
+//:|             Result::Err _e:
+//:|              selfhost_type_constructor_table_free constructors
+//:|              false
+//:|             Result::Ok allocated:
+//:|              let actual_type selfhost_type_arena_alloc_type_id &allocated
+//:|              let arena selfhost_type_arena_alloc_into_arena allocated
+//:|              match selfhost_exported_enum_origin_actual_context_result graph vfs order root "Choice" arena constructors actual_type:
+//:|               Result::Ok context:
+//:|                let witness selfhost_exported_enum_origin_context_witness &context
+//:|                let preserved and not mismatch and selfhost_type_id_eq witness.scrutinee_type_id actual_type selfhost_named_type_id_eq witness.nominal_id choice_id
+//:|                selfhost_exported_enum_origin_context_free context
+//:|                preserved
+//:|               Result::Err e:
+//:|                match e:
+//:|                 SelfhostExportedEnumOriginErrorKind::ActualNominalMismatch: mismatch
+//:|                 SelfhostExportedEnumOriginErrorKind::EnumSurface kind:
+//:|                  let origin_rejected %bool match kind:
+//:|                   SelfhostResolvedEnumSurfaceErrorKind::ExistingConstructorOriginMismatch: true
+//:|                   _: false
+//:|                  and wrong_origin origin_rejected
+//:|                 _: false
+//:| fn main %impure fn void i32 \void:
+//:|    match selfhost_vfs_new:
+//:|     Result::Err _e: 1
+//:|     Result::Ok v0:
+//:|      match selfhost_vfs_add v0 "Child" "pub enum Choice:\n    First\n    Last\n":
+//:|       Result::Err _e: 1
+//:|       Result::Ok v1:
+//:|        match selfhost_vfs_add v1 "Root" "pub #import \"Child\" as child\n":
+//:|         Result::Err _e: 1
+//:|         Result::Ok vfs:
+//:|          match selfhost_build_module_graph &vfs "Root":
+//:|           Result::Err _e:
+//:|            selfhost_vfs_free vfs
+//:|            1
+//:|           Result::Ok graph:
+//:|            match selfhost_module_order_build &graph &vfs:
+//:|             Result::Err _e:
+//:|              selfhost_module_graph_free graph
+//:|              selfhost_vfs_free vfs
+//:|              1
+//:|             Result::Ok order:
+//:|              match selfhost_module_graph_find_node &graph "Root":
+//:|               Option::None:
+//:|                selfhost_module_order_free order
+//:|                selfhost_module_graph_free graph
+//:|                selfhost_vfs_free vfs
+//:|                1
+//:|               Option::Some root:
+//:|                let success actual_case &graph &vfs &order root false false
+//:|                let mismatch actual_case &graph &vfs &order root true false
+//:|                let wrong_origin actual_case &graph &vfs &order root false true
+//:|                selfhost_module_order_free order
+//:|                selfhost_module_graph_free graph
+//:|                selfhost_vfs_free vfs
+//:|                if and success and mismatch wrong_origin 0 1
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/module/graph" as *
+//:| #import "neplg2/core/module/vfs" as *
+//:| #import "neplg2/core/resolve/name_resolver/module_order" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/exported_enum_origin" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| fn applied_case %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn i32 bool \graph\vfs\order\root:
+//:|    match selfhost_type_constructor_table_new:
+//:|     Result::Err _e: false
+//:|     Result::Ok table0:
+//:|      match selfhost_type_constructor_table_add_checked table0 "Choice" 1 source_span_new_unchecked 0 9 15:
+//:|       Result::Err _e: false
+//:|       Result::Ok choice_added:
+//:|        let choice_id selfhost_type_constructor_add_result_nominal_id &choice_added
+//:|        let constructors selfhost_type_constructor_add_result_into_table choice_added
+//:|        match selfhost_type_arena_new:
+//:|         Result::Err _e:
+//:|          selfhost_type_constructor_table_free constructors
+//:|          false
+//:|         Result::Ok arena0:
+//:|          match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+//:|           Result::Err _e:
+//:|            selfhost_type_constructor_table_free constructors
+//:|            false
+//:|           Result::Ok primitive_alloc:
+//:|            let primitive_type selfhost_type_arena_alloc_type_id &primitive_alloc
+//:|            let arena1 selfhost_type_arena_alloc_into_arena primitive_alloc
+//:|            let args0 %Vec SelfhostTypeId unwrap_ok v::new
+//:|            let args1 %Vec SelfhostTypeId unwrap_ok v::push args0 primitive_type
+//:|            match selfhost_type_arena_add_applied_named arena1 choice_id args1:
+//:|             Result::Err _e:
+//:|              selfhost_type_constructor_table_free constructors
+//:|              false
+//:|             Result::Ok applied_alloc:
+//:|              let actual_type selfhost_type_arena_alloc_type_id &applied_alloc
+//:|              let arena selfhost_type_arena_alloc_into_arena applied_alloc
+//:|              match selfhost_exported_enum_origin_actual_context_result graph vfs order root "Choice" arena constructors actual_type:
+//:|               Result::Err _e: false
+//:|               Result::Ok context:
+//:|                let witness selfhost_exported_enum_origin_context_witness &context
+//:|                let preserved and selfhost_type_id_eq witness.scrutinee_type_id actual_type selfhost_named_type_id_eq witness.nominal_id choice_id
+//:|                selfhost_exported_enum_origin_context_free context
+//:|                preserved
+//:| fn main %impure fn void i32 \void:
+//:|    match selfhost_vfs_new:
+//:|     Result::Err _e: 1
+//:|     Result::Ok v0:
+//:|      match selfhost_vfs_add v0 "Child" "pub enum Choice<.T>:\n    First %.T\n    Last\n":
+//:|       Result::Err _e: 1
+//:|       Result::Ok v1:
+//:|        match selfhost_vfs_add v1 "Root" "pub #import \"Child\" as child\n":
+//:|         Result::Err _e: 1
+//:|         Result::Ok vfs:
+//:|          match selfhost_build_module_graph &vfs "Root":
+//:|           Result::Err _e:
+//:|            selfhost_vfs_free vfs
+//:|            1
+//:|           Result::Ok graph:
+//:|            match selfhost_module_order_build &graph &vfs:
+//:|             Result::Err _e:
+//:|              selfhost_module_graph_free graph
+//:|              selfhost_vfs_free vfs
+//:|              1
+//:|             Result::Ok order:
+//:|              match selfhost_module_graph_find_node &graph "Root":
+//:|               Option::None:
+//:|                selfhost_module_order_free order
+//:|                selfhost_module_graph_free graph
+//:|                selfhost_vfs_free vfs
+//:|                1
+//:|               Option::Some root:
+//:|                let success applied_case &graph &vfs &order root
+//:|                selfhost_module_order_free order
+//:|                selfhost_module_graph_free graph
+//:|                selfhost_vfs_free vfs
+//:|                if success 0 1
+//: ```
+
+pub #import "./exported_enum_origin" as *

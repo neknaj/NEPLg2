@@ -1,9 +1,11 @@
 #indent 4
 #import "core/option" as *
 #import "core/result" as *
+#import "core/math" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/infra/span" as *
 #import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/ty" as *
 #import "./enum_surface" as *
 
 //: # type_resolver/enum_binding

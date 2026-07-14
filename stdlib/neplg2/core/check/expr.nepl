@@ -44,6 +44,8 @@ pub #import "./expr/argument_payload" as *
 pub #import "./expr/checked_tree" as *
 pub #import "./expr/enum_member" as *
 pub #import "./expr/exported_enum_member" as *
+pub #import "./expr/match_scrutinee" as *
+pub #import "./expr/match_actual_member" as *
 pub #import "./expr/literal_payload" as *
 pub #import "./expr/model" as *
 pub #import "./expr/argument" as *

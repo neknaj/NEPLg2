@@ -1,0 +1,116 @@
+#indent 4
+
+//: # type_resolver/enum_surface_attach_existing
+//: 既存constructor identityへenum surfaceをattachする段階的なexisting-identity境界の実行検査です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/enum_surface" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Result<.T, .E>:\n    Ok %.T\n    Err %.E\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok table0:
+//:|             match selfhost_type_constructor_table_add_checked table0 "Result" 2 source_span_new_unchecked 9 5 11:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok added:
+//:|                     let expected selfhost_type_constructor_add_result_nominal_id &added
+//:|                     let table1 selfhost_type_constructor_add_result_into_table added
+//:|                     match selfhost_resolved_enum_module_session_attach_existing_with_file_id_result table1 source 9:
+//:|                         Result::Err _e: 1
+//:|                         Result::Ok session:
+//:|                             let status %i32 match selfhost_resolved_enum_session_definition_get &session 0:
+//:|                                 Option::None: 1
+//:|                                 Option::Some definition: if selfhost_named_type_id_eq definition.nominal_id expected 0 1
+//:|                             selfhost_resolved_enum_session_free session
+//:|                             status
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/enum_surface" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Missing:\n    A\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok table:
+//:|             match selfhost_resolved_enum_module_session_attach_existing_with_file_id_result table source 3:
+//:|                 Result::Ok session:
+//:|                     selfhost_resolved_enum_session_free session
+//:|                     1
+//:|                 Result::Err e:
+//:|                     match e.kind:
+//:|                         SelfhostResolvedEnumSurfaceErrorKind::ExistingConstructorMissing: 0
+//:|                         _: 1
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/enum_surface" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Result<.T, .E>:\n    Ok %.T\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok table0:
+//:|             match selfhost_type_constructor_table_add_checked table0 "Result" 1 source_span_new_unchecked 4 5 11:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok added:
+//:|                     let table1 selfhost_type_constructor_add_result_into_table added
+//:|                     match selfhost_resolved_enum_module_session_attach_existing_with_file_id_result table1 source 4:
+//:|                         Result::Ok session:
+//:|                             selfhost_resolved_enum_session_free session
+//:|                             1
+//:|                         Result::Err e:
+//:|                             match e.kind:
+//:|                                 SelfhostResolvedEnumSurfaceErrorKind::ExistingConstructorMismatch: 0
+//:|                                 _: 1
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/type_resolver/constructor" as *
+//:| #import "neplg2/core/resolve/type_resolver/enum_surface" as *
+//:| fn main %impure fn void i32 \void:
+//:|     let source "enum Choice:\n    First\n"
+//:|     match selfhost_type_constructor_table_new:
+//:|         Result::Err _e: 1
+//:|         Result::Ok table0:
+//:|             match selfhost_type_constructor_table_add_checked table0 "Choice" 0 source_span_new_unchecked 8 5 11:
+//:|                 Result::Err _e: 1
+//:|                 Result::Ok added:
+//:|                     let table1 selfhost_type_constructor_add_result_into_table added
+//:|                     match selfhost_resolved_enum_module_session_attach_existing_with_file_id_result table1 source 9:
+//:|                         Result::Ok session:
+//:|                             selfhost_resolved_enum_session_free session
+//:|                             1
+//:|                         Result::Err e:
+//:|                             match e.kind:
+//:|                                 SelfhostResolvedEnumSurfaceErrorKind::ExistingConstructorOriginMismatch: 0
+//:|                                 _: 1
+//: ```
+
+pub #import "./enum_surface" as *

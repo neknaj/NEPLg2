@@ -71,7 +71,10 @@ fn selfhost_checked_exported_enum_member_utf8_boundary %fn str fn i32 bool \sour
         else if:
             eq idx string_access::str_byte_len source
             then: true
-            else: ne bit_and string_access::str_byte_at source idx 192 128
+            else:
+                match string_access::byte_at source idx:
+                    Option::Some byte: or lt byte 128 ge byte 192
+                    Option::None: false
 
 fn selfhost_checked_exported_enum_member_span_valid %fn str fn i32 fn SelfhostSourceSpan bool \source\file_id\span:
     and and and and and source_span_is_valid span eq span.file_id file_id lt span.start span.end le span.end string_access::str_byte_len source selfhost_checked_exported_enum_member_utf8_boundary source span.start selfhost_checked_exported_enum_member_utf8_boundary source span.end
@@ -130,6 +133,35 @@ pub fn selfhost_check_exported_enum_member_context_result %impure fn &SelfhostMo
             match selfhost_qualified_enum_import_table_build graph vfs source_path alias_span:
                 Result::Err e: selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::QualifiedImport e alias_span
                 Result::Ok qualified: selfhost_checked_exported_enum_member_with_import qualified graph vfs order source_path enum_name_span member_span arena constructors
+
+//: selfhost_check_exported_enum_member_actual_context_result: actual scrutinee TypeIdを再割当せずqualified member gateへ渡す
+pub fn selfhost_check_exported_enum_member_actual_context_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostSourceSpan impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable impure fn SelfhostTypeId Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError \graph\vfs\order\source_path\alias_span\enum_name_span\member_span\arena\constructors\actual_type:
+    match selfhost_module_order_validate_against graph vfs order:
+        Option::Some _e: selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::OrderInvariant member_span
+        Option::None:
+            match selfhost_qualified_enum_import_table_build graph vfs source_path alias_span:
+                Result::Err e: selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::QualifiedImport e alias_span
+                Result::Ok qualified:
+                    let source %str *selfhost_qualified_enum_import_table_source &qualified
+                    let source_file_id %i32 selfhost_qualified_enum_import_table_source_file_id &qualified
+                    if:
+                        not selfhost_checked_exported_enum_member_span_valid source source_file_id enum_name_span
+                        then:
+                            selfhost_qualified_enum_import_table_free qualified
+                            selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::EnumNameSpanInvalid enum_name_span
+                        else if:
+                            not selfhost_checked_exported_enum_member_span_valid source source_file_id member_span
+                            then:
+                                selfhost_qualified_enum_import_table_free qualified
+                                selfhost_checked_exported_enum_member_fail_owned arena constructors SelfhostCheckedExportedEnumMemberErrorKind::MemberSpanInvalid member_span
+                            else:
+                                let visible_name %str string_slice::str_slice source enum_name_span.start enum_name_span.end
+                                let target_node %i32 selfhost_qualified_enum_import_table_target_node_index &qualified
+                                match selfhost_exported_enum_origin_actual_context_result graph vfs order target_node visible_name arena constructors actual_type:
+                                    Result::Err e:
+                                        selfhost_qualified_enum_import_table_free qualified
+                                        Result::Err selfhost_checked_exported_enum_member_error SelfhostCheckedExportedEnumMemberErrorKind::Origin e enum_name_span
+                                    Result::Ok origin: selfhost_checked_exported_enum_member_finish qualified origin source_path source_file_id source member_span
 
 //: selfhost_checked_exported_enum_member_context_checked: ownerが保持するchecked memberを観測する
 pub fn selfhost_checked_exported_enum_member_context_checked %fn &SelfhostCheckedExportedEnumMemberContext SelfhostCheckedEnumMember \context:

@@ -308,6 +308,20 @@ pub fn selfhost_match_context_arms %fn &SelfhostMatchContext &SelfhostMatchVaria
 pub fn selfhost_match_context_arm_len %fn &SelfhostMatchContext i32 \context:
     selfhost_match_variant_arm_list_len selfhost_match_context_arms context
 
+//: selfhost_match_context_source: current VFS sourceを借用する
+pub fn selfhost_match_context_source %fn &SelfhostMatchContext str \context:
+    let loaded %&SelfhostLoadedModuleTokens field::get_ref context "loaded"
+    *field::get_ref loaded "source"
+
+//: selfhost_match_context_tokens: current lexer token streamを借用する
+pub fn selfhost_match_context_tokens %fn &SelfhostMatchContext &Vec SelfhostToken \context:
+    let loaded %&SelfhostLoadedModuleTokens field::get_ref context "loaded"
+    field::get_ref loaded "tokens"
+
+//: selfhost_match_context_scrutinee_range: parserが確定したscrutinee rangeを返す
+pub fn selfhost_match_context_scrutinee_range %fn &SelfhostMatchContext SelfhostSyntaxRange \context:
+    *field::get_ref context "scrutinee"
+
 fn selfhost_match_context_arm_spans_loop %fn &SelfhostMatchContext fn i32 fn i32 fn i32 bool \context\file_id\n\idx:
     if:
         ge idx n

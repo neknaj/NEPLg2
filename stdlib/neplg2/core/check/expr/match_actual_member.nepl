@@ -1,0 +1,76 @@
+#indent 4
+
+//: # check/expr/match_actual_member
+//: current VFS Matchの単一NamedValue scrutineeをactual enum memberへ接続します。
+//:
+//: [authority boundary]:
+//: - 公開入口はrange、span、TypeId、nominal ID、raw enum/member名を受けません。
+//: - scrutinee TypeIdはscopeの最新DefId-linked value evidenceから取得し、同じarena内のrecord存在を確認します。
+//: - variantは選択armのexact 3-segment AST projectionだけを使い、actual arenaへsynthetic typeを追加しません。
+//: - scope、value evidence、arena、constructor tableが選択functionと同じchecker phaseから作られたことは、この段階ではcaller preconditionです。production authorityへの昇格にはmodule checker environmentとのco-productionが必要です。
+//:
+//: [制約/せいやく]: direct-call root、reference deref、payload typing、exhaustiveness、arm body型統一は後続sliceです。
+
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/check/expr/exported_enum_member" as *
+#import "neplg2/core/check/expr/match_scrutinee" as *
+#import "neplg2/core/check/expr/value_evidence" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/resolve/type_resolver" as *
+#import "neplg2/core/syntax/parser/match_context" as *
+#import "neplg2/core/ty/ty" as *
+
+pub enum SelfhostMatchActualMemberError:
+    Context %SelfhostMatchContextErrorKind
+    Scrutinee %SelfhostMatchScrutineeRootErrorKind
+    ArmOutOfBounds
+    PatternNotDirectAlias
+    Member %SelfhostCheckedExportedEnumMemberError
+
+//: selfhost_check_match_single_named_value_actual_member_result: VFS authorityからactual checked memberを生成する
+//:
+//: [入力/にゅうりょく]:
+//: - graph、VFS、order、pathと三つのordinalはcurrent source上のMatch armを選びます。
+//: - scopeとvalue evidenceは単一NamedValue scrutineeのactual TypeId authorityです。
+//: - arenaとconstructorsは同じchecker sessionのownerであり、この関数が消費します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - 成功時はactual arena、enum session、checked memberを一括所有するcontextを返します。
+//: - 失敗時はMatch context、arena、constructorsを残さず解放し、失敗段階をtyped errorで返します。
+//:
+//: [計算量/けいさんりょう]: VFS parseとmodule graph/export探索、およびenum variant数に比例します。
+pub fn selfhost_check_match_single_named_value_actual_member_result %impure fn &SelfhostModuleGraph impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModuleOrder impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn &SelfhostNameScope impure fn &SelfhostValueTypeEvidenceTable impure fn SelfhostTypeArena impure fn SelfhostTypeConstructorTable Result SelfhostCheckedExportedEnumMemberContext SelfhostMatchActualMemberError \graph\vfs\order\path\function_ordinal\segment_ordinal\arm_ordinal\scope\value_types\arena\constructors:
+    match selfhost_match_context_from_vfs vfs path function_ordinal segment_ordinal:
+        Result::Err e:
+            selfhost_type_arena_free arena
+            selfhost_type_constructor_table_free constructors
+            Result::Err SelfhostMatchActualMemberError::Context e
+        Result::Ok context:
+            match selfhost_match_scrutinee_single_named_value_result selfhost_match_context_tokens &context selfhost_match_context_source &context selfhost_match_context_scrutinee_range &context scope value_types &arena:
+                Result::Err e:
+                    selfhost_match_context_free context
+                    selfhost_type_arena_free arena
+                    selfhost_type_constructor_table_free constructors
+                    Result::Err SelfhostMatchActualMemberError::Scrutinee e
+                Result::Ok root:
+                    match selfhost_match_variant_arm_list_get selfhost_match_context_arms &context arm_ordinal:
+                        Option::None:
+                            selfhost_match_context_free context
+                            selfhost_type_arena_free arena
+                            selfhost_type_constructor_table_free constructors
+                            Result::Err SelfhostMatchActualMemberError::ArmOutOfBounds
+                        Option::Some arm:
+                            match selfhost_match_variant_arm_direct_alias selfhost_match_context_arms &context arm:
+                                Option::None:
+                                    selfhost_match_context_free context
+                                    selfhost_type_arena_free arena
+                                    selfhost_type_constructor_table_free constructors
+                                    Result::Err SelfhostMatchActualMemberError::PatternNotDirectAlias
+                                Option::Some direct:
+                                    let checked %Result SelfhostCheckedExportedEnumMemberContext SelfhostCheckedExportedEnumMemberError selfhost_check_exported_enum_member_actual_context_result graph vfs order path direct.alias.span direct.enum_name.span direct.member.span arena constructors root.ty
+                                    selfhost_match_context_free context
+                                    match checked:
+                                        Result::Err e: Result::Err SelfhostMatchActualMemberError::Member e
+                                        Result::Ok result: Result::Ok result
