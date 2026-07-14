@@ -1,11 +1,11 @@
 # GUI font registered simple glyph indexed stroke metric join
 
-このファイルは、固定 SFNT bytes を registered face owner に登録し、simple glyph collection と contour span index を production API だけで構築できることを確認する。
+このファイルは、固定 SFNT bytes を registered face owner に登録し、indexed outline、path command stream、sink、stroke metric provenance を production API だけで構築する。
 
 ## registered bytes reach indexed contour spans
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "test_report name=\"gui_font_registered_face_simple_glyph_indexed_stroke_metric_join\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"registered bytes produce indexed contour spans\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_font_registered_face_simple_glyph_indexed_stroke_metric_join\" count=1 failed=0\nassertion index=0 status=ok kind=bool label=\"registered bytes produce sealed stroke metric provenance\" expected=\"true\" actual=\"true\" message=\"\"\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -424,6 +424,132 @@ fn join_path_command_tag_slot_ok %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCo
         GuiSfntSimpleGlyphPathCommandTag::SkipNoSegment: 4
     and eq index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_path_command_index slot and eq edge_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_edge_index slot and eq 0 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_index slot and eq edge_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_contour_edge_index slot and eq expected_scalar gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_scalar_value slot and event_ok tag_ok
 
+fn join_stroke_metric_provenance_ok %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner fn i32 fn i32 fn i32 bool \completed\metric_index\command_index\tag_scalar:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_read_provenance completed metric_index:
+        Result::Err _error: false
+        Result::Ok provenance:
+            let command gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_command &provenance
+            let value gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_value &command
+            and eq metric_index gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_metric_index &provenance and eq command_index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value eq tag_scalar gui_sfnt_simple_glyph_path_command_tag_scalar_value &(gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value)
+
+fn join_stroke_metric_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner bool \owner:
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_budget owner 1:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_step_error_free error
+            false
+        Result::Ok step:
+            let status gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_status &step
+            let next gui_font_registered_face_simple_glyph_indexed_stroke_metric_budget_step_take_owner step
+            match status:
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Progressed: join_stroke_metric_drain next
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::Completed:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal next:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal_error_free error
+                            false
+                        Result::Ok completed:
+                            let counts_ok %bool and eq 8 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_command_count &completed and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_metric_count &completed and eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_move_count &completed and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_line_count &completed and eq 1 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_quadratic_count &completed and eq 2 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_skip_count &completed eq 3 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_storage_cap &completed
+                            let provenance_ok %bool and join_stroke_metric_provenance_ok &completed 0 1 2 and join_stroke_metric_provenance_ok &completed 1 3 3 join_stroke_metric_provenance_ok &completed 2 7 2
+                            gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_free completed
+                            and counts_ok provenance_ok
+                GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricBudgetStatusKind::StepBudgetExhausted:
+                    gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free next
+                    false
+
+fn join_stroke_source_complete %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner bool \completed:
+    let source gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_start completed
+    match gui_font_registered_face_simple_glyph_indexed_stroke_metric_start source:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_stroke_metric_start_error_free error
+            false
+        Result::Ok owner: join_stroke_metric_drain owner
+
+fn join_path_command_sink_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner impure fn i32 bool \owner\remaining:
+    if le remaining 0:
+        then:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step_budget owner 0:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_free error
+                    false
+                Result::Ok terminal:
+                    let status_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_status &terminal:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::Completed: true
+                        _: false
+                    let sealed_owner gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_owner terminal
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_seal sealed_owner:
+                        Result::Err recovered:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_sink_writing_owner_free recovered
+                            false
+                        Result::Ok completed: and status_ok join_stroke_source_complete completed
+        else:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_step_budget owner 1:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_error_free error
+                    false
+                Result::Ok step:
+                    let status_ok %bool match gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_status &step:
+                        GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkBudgetStatus::Written: true
+                        _: false
+                    let next gui_font_registered_face_simple_glyph_indexed_path_command_sink_budget_step_owner step
+                    and status_ok join_path_command_sink_drain next sub remaining 1
+
+fn join_path_command_sink_complete %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner bool \source:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_start source:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_sink_plan_error_free error
+            false
+        Result::Ok planned:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_sink_allocate planned:
+                Result::Err error:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_sink_alloc_error_free error
+                    false
+                Result::Ok allocated:
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_sink_writer_start allocated:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_sink_start_error_free error
+                            false
+                        Result::Ok writer: join_path_command_sink_drain writer 8
+
+fn join_path_command_stream_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamOwner impure fn i32 bool \owner\index:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_step_budget owner 1:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_error_free error
+            false
+        Result::Ok step:
+            match gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_status &step:
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::Prepared value:
+                    let stored gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value
+                    let source gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag &value
+                    let expected_scalar %i32 if or or eq index 0 eq index 2 eq index 6 then 1 else if or eq index 1 eq index 7 then 2 else if eq index 3 then 3 else 4
+                    let command_ok %bool match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value:
+                        GuiSfntSimpleGlyphPathCommand::MoveTo _point: eq expected_scalar 1
+                        GuiSfntSimpleGlyphPathCommand::LineTo _point: eq expected_scalar 2
+                        GuiSfntSimpleGlyphPathCommand::QuadraticTo _curve: eq expected_scalar 3
+                        GuiSfntSimpleGlyphPathCommand::SkipNoSegment _skip: eq expected_scalar 4
+                    let prepared_ok %bool and eq index gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value and eq expected_scalar gui_sfnt_simple_glyph_path_command_tag_scalar_value &stored and eq expected_scalar gui_sfnt_simple_glyph_path_command_tag_scalar_value &source command_ok
+                    let next gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner step
+                    and prepared_ok join_path_command_stream_drain next add index 1
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::Completed:
+                    let running gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_owner step
+                    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal running:
+                        Result::Err error:
+                            gui_font_registered_face_simple_glyph_indexed_path_command_stream_seal_error_free error
+                            false
+                        Result::Ok completed:
+                            let summary gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_summary &completed
+                            let summary_ok %bool and eq index 8 and eq 8 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary and eq 3 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary and eq 2 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary and eq 1 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary and eq 2 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary eq 7 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+                            and summary_ok join_path_command_sink_complete completed
+                GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamBudgetStatus::StepBudgetExhausted:
+                    gui_font_registered_face_simple_glyph_indexed_path_command_stream_budget_step_free step
+                    false
+
+fn join_path_command_stream_complete %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagCompletedOwner bool \completed:
+    match gui_font_registered_face_simple_glyph_indexed_path_command_stream_start completed:
+        Result::Err error:
+            gui_font_registered_face_simple_glyph_indexed_path_command_stream_start_error_free error
+            false
+        Result::Ok owner: join_path_command_stream_drain owner 0
+
 fn join_path_command_tag_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandTagOwner impure fn i32 bool \owner\index:
     if lt index 8:
         then:
@@ -455,8 +581,7 @@ fn join_path_command_tag_drain %impure fn GuiFontRegisteredFaceSimpleGlyphIndexe
                             gui_font_registered_face_simple_glyph_indexed_path_command_tag_seal_error_free error
                             false
                         Result::Ok completed:
-                            gui_font_registered_face_simple_glyph_indexed_path_command_tag_completed_owner_free completed
-                            terminal_ok
+                            and terminal_ok join_path_command_stream_complete completed
 
 fn join_path_command_tag_complete %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedEdgeCompletedOwner bool \edge:
     match gui_font_registered_face_simple_glyph_indexed_path_command_tag_start edge:
@@ -760,7 +885,7 @@ fn join_fixture_run %impure fn void bool \void:
 
 fn main %impure fn void i32 \void:
     let report %TestReport test_report_new "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join"
-    let checked %TestReport test_report_push report assert "registered bytes produce indexed contour spans" join_fixture_run
+    let checked %TestReport test_report_push report assert "registered bytes produce sealed stroke metric provenance" join_fixture_run
     let shown test_report_print_stdout checked
     test_report_exit_code shown
 ```
