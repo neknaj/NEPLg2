@@ -47,6 +47,14 @@
 
 - same-session enum surface ownerだけから`ResolvedEnumMemberId { nominal_id, variant_ordinal }`を生成し、qualified / alias source spellingとは別payloadとしてchecked tree/HIR/Resourceへ保持する。
 
+# 2026-07-15 GUI font rendering native font resource provider（進行中）
+
+- F5nxl統合後の次sliceとして、Web F5nnと同じtarget-independent request / bytes owner契約をnative guest ABIへ接続した。`platforms/gui/native/font_resource_provider`はcanonical path bytesとdecode policy tagだけをopenへ渡し、同じsnapshot session handleでlen/read/closeを行う。guest側でabsolute filesystem pathやresource rootを組み立てない。
+- native hostはconfigured resource root内のcontainmentとexact canonical lookupを担う。suffix、display name、family name、fontconfig / DirectWrite / CoreText fallbackは禁止し、root未設定やmissing resource等は既存typed provider errorへ写す。
+- providerはnegative read statusをtyped provider errorへ保ったまま写し、written lengthとsnapshot lengthの完全一致およびsession close後に共通FNV-1a expected hash検査を行い、成功時だけ`GuiFontResourceSource::FileSystem`のnon-Copy bytes ownerを返す。closeはstatusにかかわらずhandleを消費するABIとし、allocation/read/close/hash失敗はlive handle/storageをexactly once閉じる。nodesrc default native importsはprovider未設定をfail-closedに返す。
+- native host filesystem adapter、resource-root configuration、bare/headless provider、layout、rasterization、render2d、presentationは未完了である。このcheckpointをnative GUI、フォントレンダリングエンジン、GUIライブラリ全体の完成とは扱わない。`plan.md`は変更していない。
+- runtime ABI fixtureでdefault hostのopen/len/read/closeがすべて`-1`へfail-closedになることを1/1実行確認し、provider module doctestは2/2、Web GUI font rendering contract、native platform behavior contractを通過した。差分reviewで指摘されたnegative read sentinelのtyped mappingとcloseのconsume-on-return契約を修正した。
+
 # 2026-07-11 Agent2 GUI font rendering F5nxe registered indexed PointX population owner
 
 ## 方針とphase境界

@@ -147,6 +147,10 @@ function defaultNeplGuiWebImports() {
 function defaultNeplGuiNativeImports() {
     return {
         monotonic_clock_ms: () => 0,
+        font_resource_open: () => -1,
+        font_resource_byte_len: () => -1,
+        font_resource_read_bytes: () => -1,
+        font_resource_close: () => -1,
         window_presenter_session_begin: () => -1,
         window_presenter_session_run: () => -1,
         window_presenter_session_end: () => -1,
