@@ -6039,6 +6039,13 @@ plan review:
 - providerはhost byte lengthを検査して`ByteBuf` storageを確保し、session closeとexact-fill確認後に共通expected-hash検査を通した場合だけ`GuiFontResourceSource::FileSystem` ownerを返す。close importは成否にかかわらずhandleを消費し、statusはfinalization結果だけを表す。allocation/read/close/hash失敗時はhandle/storageをexactly once閉じる。nodesrc default importはprovider未設定をfail-closedに返す。
 - このfollow-upはnative host filesystem adapter、resource-root configuration、bare embedded blob、headless fixture provider、registry/layout/raster/presentationの完成ではない。
 
+### F5nn native configured-root host adapter follow-up
+
+- `nepl-gui-native`にexplicit configured root directory handleとopen snapshot tableを所有するhost adapterを追加する。Linuxでは`openat2` beneath/no-symlink resolutionを使い、canonical relative pathのsegment検査とatomic root containmentを両方通したexact fileだけを開く。macOS / Windowsはsecure handle-relative backendが来るまでfail-closedにする。
+- open時に64 MiB payload / 64 live-session上限を確保前に検査し、SFNT signatureを持つ非空payload全体をsnapshotとして保持してlen/read/closeを同じpositive handleへ結合する。open後のfile変更、short destination、unknown handle、double close、text payload、NUL path、payload/session limitをruntime fixtureで検査する。
+- guest ABIと同じstatus taxonomyを使い、root未設定、invalid path、missing、non-binary、unsupported policy、resource exhaustion、backend failureをfail-closedにする。suffix/display-name/OS font registry fallbackは禁止する。
+- このfollow-upはRust host owner/helperまでとし、NEPL Wasm runner/linkerとCLI option、bare/headless providerは後続に残す。
+
 目的:
 
 - F5nn の `GuiFontResourceBytes` owner を `alloc/gui/font/sfnt` の metadata parser へ接続し、formal font engine が参照できる registered face owner を追加する。

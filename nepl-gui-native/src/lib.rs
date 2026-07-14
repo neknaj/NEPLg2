@@ -1,3 +1,7 @@
+mod font_resource_host;
+
+pub use font_resource_host::*;
+
 use std::str::FromStr;
 use std::time::Instant;
 

@@ -752,3 +752,8 @@ F5fj は NEPL `#extern` 名と status mapping の formalization だけを扱う�
 - docs.rs minifb: `Window` https://docs.rs/minifb/latest/minifb/struct.Window.html
 - docs.rs minifb: `WindowOptions` https://docs.rs/minifb/latest/minifb/struct.WindowOptions.html
 - docs.rs minifb: `ScaleMode` https://docs.rs/minifb/latest/minifb/enum.ScaleMode.html
+## F5nn native font resource configured-root host adapter
+
+Native font resource hostは、起動時に明示されたresource rootを一度canonicalizeしてdirectory handleとして所有し、guestから受け取ったUTF-8 canonical relative pathをそのroot内でexact lookupする。absolute path、empty segment、`.`、`..`、backslash、NUL、drive-prefixを拒否する。Linux実装は`openat2`の`RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS`でroot handle配下の通常fileを直接開き、path検査とreadの間のsymlink差し替えを許さない。安全なhandle-relative backendが未実装のOSは`UnsupportedProvider`へfail-closedにする。suffix補完、display name / family name、fontconfig / DirectWrite / CoreTextへのfallbackは行わない。
+
+`font_resource_open`はmetadata lengthを確保前に64 MiB以下へ制限し、SFNT signatureを持つ非空binary snapshotだけをpositive session handleへ固定する。同時open sessionは64個以下であり、超過は確保前に`ResourceExhausted`となる。`font_resource_byte_len`と`font_resource_read_bytes`は同じsnapshotだけを参照するため、open後にfilesystem上のfileが変更されてもlen/readは分断されない。`font_resource_close`はhandleを消費し、double closeやunknown handleはbackend failureとなる。resource root未設定、unsupported decode policy、missing file、text / non-file / empty payload、resource exhaustion、backend failureはguest ABIと一致するnegative statusへ写す。このsliceはLinux Rust host owner/helperとruntime testsまでであり、NEPL Wasm runner/linker、CLI option、macOS / Windows secure open backend、bare/headless provider、font registration後続を完成扱いにしない。

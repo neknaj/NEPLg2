@@ -22,3 +22,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "nepl-gui-native"
 path = "src/main.rs"
+
+[dev-dependencies]
+tempfile.workspace = true

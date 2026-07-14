@@ -35,6 +35,8 @@ function runNativeGuiPlatformBehaviorRegression() {
     const standardSpec = readRepoFile("doc", "neplg2", "gui_standard_library_spec.md");
     const nativeFacade = readRepoFile("stdlib", "platforms", "gui", "native.nepl");
     const nativeClock = readRepoFile("stdlib", "platforms", "gui", "native", "clock.nepl");
+    const nativeFontResourceHost = readRepoFile("nepl-gui-native", "src", "font_resource_host.rs");
+    const nativeFontResourceHostImpl = withoutComments(nativeFontResourceHost);
     const nativeSchedulerHostExecutor = readRepoFile("stdlib", "platforms", "gui", "native", "scheduler_host_executor.nepl");
     const nativeClockImpl = withoutComments(nativeClock);
     const nativeClockTest = readRepoFile("tests", "stdlib", "gui_platform_native_clock.n.md");
@@ -3218,6 +3220,20 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeClock, /gui_rgba8888_row_tile_rle_present_host_span_operation_presenter_executor_session_turn_virtual_scheduler_backend_clock_sample raw/);
     assert.doesNotMatch(nativeClockImpl, /Date|performance|setTimeout|setInterval|sleep|queue|stdout_protocol|Canvas|DOM|minifb|video_memory|fallback|silent no-op|clamp|round/);
     assert.match(nativeClockTest, /native_runner_clock_instant_i32_guard_ok/);
+    assert.match(nativeFontResourceHost, /pub struct NativeFontResourceHost/);
+    assert.match(nativeFontResourceHost, /fs::canonicalize\(root\.as_ref\(\)\)/);
+    assert.match(nativeFontResourceHost, /validate_canonical_resource_path\(path\)/);
+    assert.match(nativeFontResourceHost, /libc::SYS_openat2/);
+    assert.match(nativeFontResourceHost, /RESOLVE_BENEATH \| RESOLVE_NO_MAGICLINKS \| RESOLVE_NO_SYMLINKS/);
+    assert.match(nativeFontResourceHost, /File::from_raw_fd\(fd\)/);
+    assert.match(nativeFontResourceHost, /GUI_NATIVE_FONT_RESOURCE_MAX_BYTES/);
+    assert.match(nativeFontResourceHost, /GUI_NATIVE_FONT_RESOURCE_MAX_OPEN_SESSIONS/);
+    assert.match(nativeFontResourceHost, /file\.read_exact\(&mut bytes\)/);
+    assert.match(nativeFontResourceHost, /NativeFontResourceSnapshot \{ bytes \}/);
+    assert.match(nativeFontResourceHost, /font_resource_byte_len\(&self, handle: i32\)/);
+    assert.match(nativeFontResourceHost, /font_resource_read_bytes\(&self, handle: i32, destination: &mut \[u8\]\)/);
+    assert.match(nativeFontResourceHost, /self\.snapshots\.remove\(&handle\)/);
+    assert.doesNotMatch(nativeFontResourceHostImpl, /fontconfig|DirectWrite|CoreText|family[_ ]name|display[_ ]name|set_extension|with_extension/);
 
     return {
         ok: true,
@@ -3225,6 +3241,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner uses OS-managed resize and close state",
             "Letterboxed framebuffer hit testing is modeled with explicit surface state",
             "Native monotonic clock source uses Instant with i32 range failure",
+            "Native Linux font resource host opens bounded configured-root snapshots beneath a directory handle",
             "Native span-operation host ABI validates scalar packet input before injected sink execution",
             "Native RGBA8888 framebuffer sink requires complete span sequences without endian byte views",
             "Native RGB0 present buffer conversion uses explicit background alpha composition",
