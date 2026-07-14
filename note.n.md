@@ -84151,3 +84151,18 @@ MERGE_APPROVED
 - native releaseの同一direct fixtureで`resource_lowering_coverage`は従来約27--49秒から53msへ低下した。transparent raw-address helper、明示Drop trait call、collection slot lifecycle coverageのfocused regressionは通過した。
 - actual native checkは300秒で終了コード124となった。`resource_initialized_moves=67303ms`の後にもowner解析が残るため、このcheckpointをセルフホスト完成または統合可能とは扱わない。次はinitialized/owner summaryとper-function checkの支配経路を追う。`plan.md`は変更していない。
 - 差分reviewは重複canonical nameで旧lookupがfirst-winsである点を検出し、indexも`entry.or_insert`で同じ挙動へ修正した。修正後の差分reviewはBlocker / High / Mediumなしで承認、全体整合reviewはcoverage差分を承認しつつactual exit124を統合Blockerとした。focused Rust regression 3件、issues check、format、`git diff --check`、Linux用一時`npm.cmd` shim経由の`trunk build`、Playground editor CLI JSON 13/13は通過した。
+
+## 2026-07-15 owner variant condition convergence checkpoint
+
+- per-function timingでowner return summary worklistが同じrecursive call-reduction SCCを反復していた。同一variantのconditionはalternative return pathだが、canonicalizationは各treeと完全一致entryだけを正規化し、base `Ok: Always`がrecursive conditional `Ok` pathを吸収していなかった。
+- same-variant alternativeを単一`Any`へ集約し、unreachable判定とselected fact適用のOR意味論を一致させた。`Always OR X = Always`も同じ正規化から導出される。wideningではなくexact boolean identityであり、100反復の収束と2 conditional pathの単一disjunctionを回帰で固定した。
+- 一般OR集約版のrebuilt native fixtureも300秒でexit 124となり、owner summary stageを完了しなかった。別のowner summary fieldまたはexact equivalenceが残る。iteration capやdiagnostic弱化は追加していない。selfhost compilerとactual runtime gateは未完了で、`plan.md`は変更していない。
+- 全体reviewが指摘したunreachable OR / selected-fact AND不整合を一般OR集約で修正し、再reviewはBlocker / High / Mediumなしで承認した。focused Rust 4/4、issues check、format、`git diff --check`、最新差分の`trunk build`、Playground editor CLI JSON 13/13は通過した。一般OR版actualはexit124なので統合しない。
+
+## 2026-07-15 owner variant payload must-fact convergence
+
+- env限定の一時計測で、recursive call-reduction SCCの`variant_payload_conditions`が同一`Ok` payloadについてzero closure 3件と、そこへ`NeZero` / `Positive`を足した矛盾集合5件を往復していることを特定した。診断instrumentationは原因特定後に除去した。
+- payload condition consumerはvariant選択後に全entryをknown trueとして適用するため、summary fieldはpath alternativeではなくmust factである。producerのglobal unionを、function全return blockで共有するvariant別path accumulatorへ置き換えた。同一variantはexact intersection、異variantは独立、factなしpathとvariant不明pathはempty observationにする。
+- accumulatorのcommon fact、variant独立+empty path、unknown path順序独立のRust unit 3/3に加え、実際のNEPL sourceをloweringしてzero/positive branchの共通`NonNegative`だけを残し、unknown `Ok` pathでfactsを空にするcollector-level回帰も通過した。差分reviewと全体整合reviewはいずれも、canonicalizerで矛盾だけを消す案ではpath境界を復元できず、producerでintersectionすべきと確認した。
+- rebuilt native release actual Match direct fixtureは`resource_owner_summary_recomputations=3958 summaries=2488`、`resource_owner_summaries=35866ms`で固定点を完了し、全checkは約176.8秒で`Check successful` / exit 0になった。従来の300秒・600秒 exit 124は解消した。
+- これはactual runtime gateの重要な前進だが、selfhost compiler全体もperformance issueの0.5秒目標も未完成である。`resource_initialized_moves=108473ms`など残る支配経路は次sliceで継続する。`plan.md`は変更していない。

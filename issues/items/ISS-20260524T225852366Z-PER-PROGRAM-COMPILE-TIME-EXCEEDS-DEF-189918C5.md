@@ -824,3 +824,17 @@ transparent raw-address helper、明示 Drop trait call、collection slot lifecy
 この issue は未解決である。同じ実測は300秒で終了コード124となり、`resource_initialized_moves=67303ms`
 の後にも owner解析が残る。coverage gateを削除・弱化せず、次は initialized/owner summary と
 per-function check の支配経路を追う。
+
+### 2026-07-15 owner variant condition convergence
+
+per-function timingではowner return summary worklistが同じrecursive call-reduction SCCを反復していた。同一variantのconditionはalternative return pathだが、canonicalizationは各treeの正規化と完全一致dedupだけを行っていた。このためunconditional pathとconditional pathが、`Always OR X = Always`であるにもかかわらず別entryとして残り、recursive re-exportが冗長なcondition treeを増やせた。
+
+同一variantのalternativeを単一`Any`へ集約するexact normalizationを追加した。これによりunconditional pathはconditional alternativeを吸収し、consumerも選択後に別alternativeのfactを同時成立として適用しない。100段のrecursive growth回帰は初回更新後に安定する。この変換はproof domainのwideningではない。一般OR集約版のfull fixtureも300秒でexit 124となりowner summary stageを完了しなかったため、別fieldの未正規化を引き続き特定する。
+
+### 2026-07-15 owner variant payload must-fact convergence
+
+追加計測で、recursive call-reduction SCC の `variant_payload_conditions` が同じ `Ok` payload に対して `{EqZero, NonPositive, NonNegative}` と、そこへ `{NeZero, Positive}` を足した矛盾集合を往復していた。producer は複数return pathのpayload factをunionしていたが、consumerはvariant選択後に全entryをknown trueとして適用していたため、これは性能問題だけでなくmust-analysisのsoundness不備だった。
+
+function summary全体で共有するpath accumulatorを追加し、同一variantの各return leafはexact intersection、異なるvariantは独立、factなしpathとvariant不明pathは明示的なempty observationとして扱うようにした。unknown pathは後から観測されるvariantにもfactを追加させない。矛盾pairの後処理やiteration capではなく、path境界を保持できるproducerで修正している。
+
+native releaseのactual Match direct fixtureは `resource_owner_summary_recomputations=3958 summaries=2488`、`resource_owner_summaries=35866ms`、全 `resource_static_check=161698ms` で固定点を抜け、`Check successful` / exit 0になった。従来の300秒・600秒 exit 124は解消したが、selfhost compiler全体と当performance issueの0.5秒目標は未完了である。

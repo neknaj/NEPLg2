@@ -1183,6 +1183,10 @@ indexを使い、重複名のfirst-wins互換を維持する。同一native fixt
 低下した。coverage診断の意味論やgateは変更していない。全体compileはなお300秒を超えるため、
 initialized/owner解析のsummaryとfunction checkを次の支配経路として扱う。
 
+同一variantのowner summary conditionはalternative pathであるため、単一`Any`へ集約してunreachable判定と選択後fact適用のOR意味論を一致させる。unconditional pathは`Always OR X = Always`としてconditional pathを吸収する。これはdiagnosticを弱めるwideningではなく、recursive summary transportにsemantically redundantなtreeを残さないための厳密な変換である。残るowner convergenceはiteration capを設けず、計測で変化中fieldを特定して修正する。
+
+variant payload の scalar condition は、variant を選択した後に必ず成立する must fact として扱う。複数の return path が同じ variant を構築する場合は path ごとの fact 集合を合併せず、同一 variant 内で積集合を取る。fact がない path と variant を特定できない path も観測対象に含める。これにより別pathの `EqZero` と `Positive` を同時に既知として適用するsoundness不備と、recursive summaryが矛盾したfact集合を往復する非収束を同じproducer境界で防ぐ。
+
 ## 完了条件
 
 この計画は次を満たした時点で完了とする。

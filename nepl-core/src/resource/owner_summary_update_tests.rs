@@ -94,6 +94,69 @@ fn update_owner_return_summary_canonicalizes_nested_conditions() {
     assert!(!update_owner_return_summary(&mut summaries, second));
 }
 
+#[test]
+fn update_owner_return_summary_absorbs_conditional_path_when_variant_is_unconditional() {
+    let atom = OwnerValueCondition::Param {
+        source: source(0),
+        condition: I32ValueCondition::Positive,
+    };
+    let mut summaries = Vec::new();
+    let mut previous = atom.clone();
+
+    for iteration in 0..100 {
+        let mut summary = empty_summary("recursive");
+        summary.variant_conditions.push(OwnerVariantCondition {
+            variant: String::from("Result::Ok"),
+            condition: OwnerValueCondition::Always,
+        });
+        summary.variant_conditions.push(OwnerVariantCondition {
+            variant: String::from("Result::Ok"),
+            condition: OwnerValueCondition::All(vec![atom.clone(), previous.clone()]),
+        });
+
+        assert_eq!(
+            update_owner_return_summary(&mut summaries, summary),
+            iteration == 0
+        );
+        previous = OwnerValueCondition::All(vec![atom.clone(), previous]);
+    }
+
+    assert_eq!(summaries[0].variant_conditions.len(), 1);
+    assert_eq!(
+        summaries[0].variant_conditions[0].condition,
+        OwnerValueCondition::Always
+    );
+}
+
+#[test]
+fn update_owner_return_summary_groups_variant_alternative_paths_as_disjunction() {
+    let positive = OwnerValueCondition::Param {
+        source: source(0),
+        condition: I32ValueCondition::Positive,
+    };
+    let negative = OwnerValueCondition::Param {
+        source: source(0),
+        condition: I32ValueCondition::Negative,
+    };
+    let mut summary = empty_summary("alternatives");
+    summary.variant_conditions.push(OwnerVariantCondition {
+        variant: String::from("Result::Ok"),
+        condition: positive.clone(),
+    });
+    summary.variant_conditions.push(OwnerVariantCondition {
+        variant: String::from("Result::Ok"),
+        condition: negative.clone(),
+    });
+
+    let mut summaries = Vec::new();
+    assert!(update_owner_return_summary(&mut summaries, summary));
+    assert_eq!(summaries[0].variant_conditions.len(), 1);
+    assert_eq!(
+        summaries[0].variant_conditions[0].condition,
+        OwnerValueCondition::Any(vec![positive, negative])
+    );
+}
+
 fn empty_summary(function: &str) -> OwnerReturnSummary {
     OwnerReturnSummary {
         function: String::from(function),

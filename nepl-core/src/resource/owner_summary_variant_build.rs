@@ -11,6 +11,7 @@ use super::owner_state::OwnerTable;
 use super::owner_summary_record::{OwnerParameterConditionSource, OwnerParameterStorageSource};
 use super::owner_summary_seed_leaf::owner_seed_leaf_places;
 use super::owner_summary_variant_paths::collect_variant_consumed_owner_parameters_from_nested_return;
+use super::owner_summary_variant_payload_conditions::OwnerVariantPayloadConditionAccumulator;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceOwnerCheckDeferred;
@@ -18,7 +19,7 @@ use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerHostSizeReturn, OwnerReturnSummaryIndex, OwnerTypeSizeReturn, OwnerVariantCondition,
     OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
-    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
+    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_return(
@@ -26,7 +27,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_return(
     source_out: &mut Vec<OwnerVariantProjectionSource>,
     extent_out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
     condition_out: &mut Vec<OwnerVariantCondition>,
-    payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
+    payload_condition_out: &mut OwnerVariantPayloadConditionAccumulator,
     function: &ResourceFunction,
     types: &TypeCtx,
     summaries: &OwnerReturnSummaryIndex<'_>,

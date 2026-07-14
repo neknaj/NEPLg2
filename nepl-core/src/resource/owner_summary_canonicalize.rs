@@ -143,6 +143,22 @@ fn canonicalize_variant_conditions(conditions: &mut Vec<OwnerVariantCondition>) 
         condition.condition = normalize_owner_value_condition(condition.condition.clone());
     }
     canonicalize_ord_vec(conditions);
+    let mut grouped: Vec<OwnerVariantCondition> = Vec::new();
+    for condition in conditions.drain(..) {
+        if let Some(existing) = grouped
+            .last_mut()
+            .filter(|existing| existing.variant == condition.variant)
+        {
+            existing.condition =
+                normalize_owner_value_condition(OwnerValueCondition::Any(alloc::vec![
+                    existing.condition.clone(),
+                    condition.condition
+                ]));
+        } else {
+            grouped.push(condition);
+        }
+    }
+    *conditions = grouped;
 }
 
 fn canonicalize_projection_return_summaries(summaries: &mut Vec<OwnerProjectionReturnSummary>) {

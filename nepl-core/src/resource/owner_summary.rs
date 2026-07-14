@@ -189,7 +189,8 @@ fn function_owner_return_summary(
     let mut variant_projection_returns = Vec::new();
     let mut resolved_parameter_variants = Vec::new();
     let mut variant_conditions = Vec::new();
-    let mut variant_payload_conditions = Vec::new();
+    let mut variant_payload_conditions =
+        super::owner_summary_variant_payload_conditions::OwnerVariantPayloadConditionAccumulator::default();
     let mut returned_sources = Vec::new();
     let mut returns_fresh_owner_extent = OwnerExtentSummary::Unknown;
     let mut function_aliases = FunctionAliasTable::default();
@@ -541,7 +542,7 @@ fn function_owner_return_summary(
         variant_projection_returns,
         resolved_parameter_variants,
         variant_conditions,
-        variant_payload_conditions,
+        variant_payload_conditions: variant_payload_conditions.into_conditions(),
         non_owning_raw_view_returns,
         returns_fresh_owner,
         returns_fresh_owner_extent,

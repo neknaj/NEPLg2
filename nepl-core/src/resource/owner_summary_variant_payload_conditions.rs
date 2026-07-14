@@ -12,6 +12,54 @@ use super::place_utils::{place_suffix_after_prefix, place_with_suffix};
 use super::summary::OwnerVariantPayloadCondition;
 use super::variant_name::normalize_variant_name;
 
+#[derive(Default)]
+pub(super) struct OwnerVariantPayloadConditionAccumulator {
+    conditions: Vec<OwnerVariantPayloadCondition>,
+    seen_variants: Vec<alloc::string::String>,
+    observations: usize,
+    unknown_path_seen: bool,
+}
+
+impl OwnerVariantPayloadConditionAccumulator {
+    pub(super) fn merge_path(
+        &mut self,
+        variant: alloc::string::String,
+        path_conditions: Vec<OwnerVariantPayloadCondition>,
+    ) {
+        self.observations += 1;
+        if self.unknown_path_seen {
+            if !self.seen_variants.iter().any(|seen| seen == &variant) {
+                self.seen_variants.push(variant);
+            }
+            return;
+        }
+        if self.seen_variants.iter().any(|seen| seen == &variant) {
+            self.conditions.retain(|existing| {
+                existing.variant != variant || path_conditions.contains(existing)
+            });
+            return;
+        }
+        self.seen_variants.push(variant);
+        for condition in path_conditions {
+            push_unique_variant_payload_condition(&mut self.conditions, condition);
+        }
+    }
+
+    pub(super) fn observation_count(&self) -> usize {
+        self.observations
+    }
+
+    pub(super) fn observe_unknown_path(&mut self) {
+        self.observations += 1;
+        self.unknown_path_seen = true;
+        self.conditions.clear();
+    }
+
+    pub(super) fn into_conditions(self) -> Vec<OwnerVariantPayloadCondition> {
+        self.conditions
+    }
+}
+
 pub(super) fn collect_owner_variant_payload_conditions(
     out: &mut Vec<OwnerVariantPayloadCondition>,
     types: &TypeCtx,
@@ -110,5 +158,85 @@ fn push_unique_variant_payload_condition(
 ) {
     if !out.iter().any(|existing| existing == &entry) {
         out.push(entry);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::TypeId;
+
+    fn condition(variant: &str, condition: I32ValueCondition) -> OwnerVariantPayloadCondition {
+        OwnerVariantPayloadCondition {
+            variant: variant.into(),
+            suffix: alloc::vec![PlaceProjection::EnumPayload {
+                variant: variant.into(),
+            }],
+            ty: TypeId(1),
+            condition,
+        }
+    }
+
+    #[test]
+    fn payload_condition_accumulator_intersects_same_variant_paths() {
+        let mut accumulator = OwnerVariantPayloadConditionAccumulator::default();
+        accumulator.merge_path(
+            "Ok".into(),
+            alloc::vec![
+                condition("Ok", I32ValueCondition::EqZero),
+                condition("Ok", I32ValueCondition::NonNegative),
+                condition("Ok", I32ValueCondition::NonPositive),
+            ],
+        );
+        accumulator.merge_path(
+            "Ok".into(),
+            alloc::vec![
+                condition("Ok", I32ValueCondition::NeZero),
+                condition("Ok", I32ValueCondition::NonNegative),
+                condition("Ok", I32ValueCondition::Positive),
+            ],
+        );
+
+        assert_eq!(
+            accumulator.into_conditions(),
+            alloc::vec![condition("Ok", I32ValueCondition::NonNegative)]
+        );
+    }
+
+    #[test]
+    fn payload_condition_accumulator_keeps_variants_independent_and_observes_empty_paths() {
+        let mut accumulator = OwnerVariantPayloadConditionAccumulator::default();
+        accumulator.merge_path(
+            "Ok".into(),
+            alloc::vec![condition("Ok", I32ValueCondition::EqZero)],
+        );
+        accumulator.merge_path(
+            "Err".into(),
+            alloc::vec![condition("Err", I32ValueCondition::Negative)],
+        );
+        accumulator.merge_path("Ok".into(), Vec::new());
+
+        assert_eq!(
+            accumulator.into_conditions(),
+            alloc::vec![condition("Err", I32ValueCondition::Negative)]
+        );
+    }
+
+    #[test]
+    fn payload_condition_accumulator_clears_facts_across_unknown_paths_in_any_order() {
+        for unknown_first in [false, true] {
+            let mut accumulator = OwnerVariantPayloadConditionAccumulator::default();
+            if unknown_first {
+                accumulator.observe_unknown_path();
+            }
+            accumulator.merge_path(
+                "Ok".into(),
+                alloc::vec![condition("Ok", I32ValueCondition::EqZero)],
+            );
+            if !unknown_first {
+                accumulator.observe_unknown_path();
+            }
+            assert!(accumulator.into_conditions().is_empty());
+        }
     }
 }

@@ -12,6 +12,7 @@ use crate::resource::{
 };
 use crate::{BuildProfile, CompileTarget};
 
+use super::super::model::I32ValueCondition;
 use super::super::summary::OwnerProjectionReturnOwner;
 use super::{
     compute_owner_return_summaries_for_root_for_test,
@@ -22,6 +23,82 @@ fn stdlib_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("stdlib")
+}
+
+#[test]
+fn variant_payload_conditions_intersect_across_collected_return_paths() {
+    let source = r#"
+#indent 4
+#target core
+#import "core/math" as *
+#import "core/mem" as *
+
+struct Payload:
+    value <i32>
+    region <RegionToken<u8>>
+
+enum Probe:
+    Ok <Payload>
+    Err <RegionToken<u8>>
+
+fn zero_or_positive <(RegionToken<u8>,i32)->Probe> (region, value):
+    if eq value 0:
+        Probe::Ok Payload value region
+    else if gt value 0:
+        Probe::Ok Payload value region
+    else:
+        Probe::Err region
+
+fn zero_or_unknown <(RegionToken<u8>,i32,i32)->Probe> (region, value, unknown):
+    if eq value 0 then Probe::Ok Payload value region else Probe::Ok Payload unknown region
+"#;
+    let root = stdlib_root();
+    let mut loader = Loader::new(root.clone());
+    let loaded = loader
+        .load_inline(
+            root.join("core/result/owner_summary_payload_condition_test.nepl"),
+            source.to_string(),
+        )
+        .expect("load payload condition fixture");
+    let checked = crate::typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    );
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
+        "typecheck diagnostics: {:#?}",
+        checked.diagnostics
+    );
+    let module = checked
+        .module
+        .expect("typechecked payload condition fixture");
+    let resource = lower_hir_module(&module, &checked.types);
+    let (summaries, _) =
+        compute_owner_return_summaries_with_recomputations(&resource, &checked.types, None);
+
+    let positive = summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("zero_or_positive__"))
+        .expect("zero_or_positive summary");
+    assert_eq!(positive.variant_payload_conditions.len(), 1);
+    assert_eq!(
+        positive.variant_payload_conditions[0].condition,
+        I32ValueCondition::NonNegative
+    );
+
+    let unknown = summaries
+        .iter()
+        .find(|summary| summary.function.starts_with("zero_or_unknown__"))
+        .expect("zero_or_unknown summary");
+    assert!(
+        unknown.variant_payload_conditions.is_empty(),
+        "unknown Ok path must clear payload must-facts: {unknown:#?}"
+    );
 }
 
 #[test]

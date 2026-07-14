@@ -17,6 +17,7 @@ use super::owner_summary_variant_conditions::{
 };
 use super::owner_summary_variant_construct::construct_variant_for_value;
 use super::owner_summary_variant_path_conditions::record_owner_variant_path_condition;
+use super::owner_summary_variant_payload_conditions::OwnerVariantPayloadConditionAccumulator;
 use super::owner_summary_variant_return::record_variant_projection_returns;
 use super::owner_summary_variant_return_sources::returned_owner_returns_for_value;
 use super::owner_variant::PendingVariantOwnerEffects;
@@ -26,15 +27,16 @@ use super::storage_origin::StorageOriginTable;
 use super::summary::{
     OwnerHostSizeReturn, OwnerTypeSizeReturn, OwnerVariantCondition,
     OwnerVariantConsumedExtentRequirement, OwnerVariantParameterIndex,
-    OwnerVariantPayloadCondition, OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
+    OwnerVariantProjectionReturn, OwnerVariantProjectionSource,
 };
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     index_out: &mut Vec<OwnerVariantParameterIndex>,
     source_out: &mut Vec<OwnerVariantProjectionSource>,
     extent_out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
     condition_out: &mut Vec<OwnerVariantCondition>,
-    payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
+    payload_condition_out: &mut OwnerVariantPayloadConditionAccumulator,
     engine: &ResourceOwnerCheckEngine<'_>,
     owners: &OwnerTable,
     raw_aliases: &RawCellAddressAliases,
@@ -51,6 +53,7 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
     type_size_out: &mut Vec<OwnerTypeSizeReturn>,
     return_out: &mut Vec<OwnerVariantProjectionReturn>,
 ) {
+    let payload_observations_before = payload_condition_out.observation_count();
     let mut engine = ResourceOwnerCheckEngine {
         function: engine.function,
         types: engine.types,
@@ -220,6 +223,9 @@ pub(super) fn collect_variant_consumed_owner_parameters_from_nested_return(
         extent_out,
         return_out,
     );
+    if payload_condition_out.observation_count() == payload_observations_before {
+        payload_condition_out.observe_unknown_path();
+    }
 }
 
 fn collect_variant_consumed_owner_parameters_from_path(
@@ -227,7 +233,7 @@ fn collect_variant_consumed_owner_parameters_from_path(
     source_out: &mut Vec<OwnerVariantProjectionSource>,
     extent_out: &mut Vec<OwnerVariantConsumedExtentRequirement>,
     condition_out: &mut Vec<OwnerVariantCondition>,
-    payload_condition_out: &mut Vec<OwnerVariantPayloadCondition>,
+    payload_condition_out: &mut OwnerVariantPayloadConditionAccumulator,
     engine: &ResourceOwnerCheckEngine<'_>,
     owners: &OwnerTable,
     raw_aliases: &RawCellAddressAliases,
@@ -319,9 +325,10 @@ fn collect_variant_consumed_owner_parameters_from_path(
         branch_condition,
         match_arm,
     );
+    let mut path_payload_conditions = Vec::new();
     if let Some((condition_fact, truthy_path)) = branch_condition {
         collect_owner_variant_payload_conditions(
-            payload_condition_out,
+            &mut path_payload_conditions,
             path_engine.types,
             &constructed_variant,
             path_value,
@@ -331,11 +338,15 @@ fn collect_variant_consumed_owner_parameters_from_path(
         );
     }
     collect_owner_variant_known_payload_conditions(
-        payload_condition_out,
+        &mut path_payload_conditions,
         path_engine.types,
         &constructed_variant,
         path_value,
         &path_raw_aliases,
+    );
+    payload_condition_out.merge_path(
+        normalize_variant_name(&constructed_variant.variant),
+        path_payload_conditions,
     );
     record_host_size_returns(host_size_out, &path_raw_aliases, path_value);
     record_type_size_returns(type_size_out, &path_raw_aliases, path_value);
