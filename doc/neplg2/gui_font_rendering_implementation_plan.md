@@ -8882,6 +8882,7 @@ git diff --check
 - Web Playground startup で mount promise を開始し、`neplg2 run` の直前に完了を待つ。失敗時は typed error を terminal に表示して実行を開始しない。
 - Compile-only path は runtime font bytes を要求しないため mount を待たない。
 - Native resource root の探索 contract を doc と source policy に追加する。
+- Native runner follow-upで`nepl-cli --run --gui-font-resource-root DIRECTORY`を唯一のroot authorityとし、wasmi store ownerへopen/len/read/closeを接続する。未指定は`Unsupported`、compile-onlyはfilesystem非参照とし、runtime fixtureで同一snapshot lifecycleを固定する。
 - Bare は embedded blob provider が未設定なら unsupported を返す contract にする。
 - Source policy で、HackGen 専用 API、suffix match、silent success、binary/read-only file の compile overlay 混入を禁止する。
 

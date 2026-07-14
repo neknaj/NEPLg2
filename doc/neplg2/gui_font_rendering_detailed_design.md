@@ -9101,6 +9101,8 @@ The F5nn native follow-up uses dedicated `nepl_gui_native.font_resource_open`, `
 
 The native Rust host adapter canonicalizes one explicitly configured directory and owns its directory handle. On Linux, `openat2` with beneath/no-symlink/no-magiclink resolution opens the selected file directly below that handle, avoiding a canonicalize-then-read race. Platforms without an equivalent secure backend remain unsupported. Open enforces a 64 MiB payload limit and 64 live-session limit before allocation, verifies an SFNT signature, and owns the complete payload in a session table, so len and read observe one immutable snapshot rather than two filesystem reads. Positive handles are unique among live sessions and close removes the snapshot before the handle can be reused. The adapter does not imply that a NEPL Wasm runner or CLI resource-root option is already connected.
 
+The runner follow-up adds `nepl-cli --run --gui-font-resource-root DIRECTORY`; one wasmi store owner serves all four imports. Missing option is Unsupported, and compile-only does not inspect the filesystem. Environment variables, working directories, suffixes, display/family names, and OS registries provide no implicit authority.
+
 ## Web font resource bytes provider boundary
 
 F5nn opens the first formal Web font bytes provider path. `std/gui/font_resource` owns the common contract: `GuiFontResourceProviderErrorKind` separates invalid path, missing resource, text payload, hash mismatch, unsupported decode policy/provider, out-of-memory, resource exhaustion, and backend failure. `GuiFontResourceBytes` is a non-Copy owner carrying the original `GuiFontResourceRequest`, provider source, byte length, actual resource hash, decode policy, and owned `ByteBuf`.

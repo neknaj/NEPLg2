@@ -37,6 +37,7 @@ function runNativeGuiPlatformBehaviorRegression() {
     const nativeClock = readRepoFile("stdlib", "platforms", "gui", "native", "clock.nepl");
     const nativeFontResourceHost = readRepoFile("nepl-gui-native", "src", "font_resource_host.rs");
     const nativeFontResourceHostImpl = withoutComments(nativeFontResourceHost);
+    const nativeRunner = readRepoFile("nepl-cli", "src", "main.rs");
     const nativeSchedulerHostExecutor = readRepoFile("stdlib", "platforms", "gui", "native", "scheduler_host_executor.nepl");
     const nativeClockImpl = withoutComments(nativeClock);
     const nativeClockTest = readRepoFile("tests", "stdlib", "gui_platform_native_clock.n.md");
@@ -3234,6 +3235,13 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeFontResourceHost, /font_resource_read_bytes\(&self, handle: i32, destination: &mut \[u8\]\)/);
     assert.match(nativeFontResourceHost, /self\.snapshots\.remove\(&handle\)/);
     assert.doesNotMatch(nativeFontResourceHostImpl, /fontconfig|DirectWrite|CoreText|family[_ ]name|display[_ ]name|set_extension|with_extension/);
+    assert.match(nativeRunner, /gui_font_resource_root: Option<PathBuf>/);
+    assert.match(nativeRunner, /NativeFontResourceHost::with_resource_root\(root\)/);
+    assert.match(nativeRunner, /NativeFontResourceHost::unsupported\(\)/);
+    assert.match(nativeRunner, /check_does_not_inspect_gui_font_resource_root/);
+    for (const name of ["font_resource_open", "font_resource_byte_len", "font_resource_read_bytes", "font_resource_close"]) {
+        assert.match(nativeRunner, new RegExp(`"nepl_gui_native",\\s*"${name}"`));
+    }
 
     return {
         ok: true,

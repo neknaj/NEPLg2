@@ -7310,6 +7310,8 @@ F5nn の Web font resource bytes provider boundary は、`GuiFontResourceRequest
 
 F5nn native follow-upは同じrequest/bytes owner契約を`nepl_gui_native`専用ABIへ接続する。guestはcanonical path bytesとdecode policy tagだけをopenへ渡し、同じsnapshot session handleでlen/read/closeを行う。closeは返却statusにかかわらずhandleを消費・無効化し、guestは再試行しない。written lengthとsnapshot lengthの完全一致、close成功、expected hash検査後だけ`FileSystem` sourceとなる。configured resource root、absolute OS path、font display nameをguestへ渡さず、suffix探索、OS font registry fallback、root未設定時のsilent successは禁止する。
 
+Native runner follow-upは`nepl-cli --run --gui-font-resource-root DIRECTORY`だけをroot authorityとし、同一wasmi store ownerへ4 importを接続する。未指定は`Unsupported`、compile-onlyはfilesystem非参照とし、environmentやcurrent working directoryからrootを暗黙選択しない。
+
 F5nn は font registry、face selection、SFNT metadata parsing、glyph shaping、layout、rasterization、render2d drain、Web compositor presentation を開かない。`std/fs` / Web WASI `path_open`、suffix match、display name authority、browser CSS font、`FontFace`、Canvas `fillText` / `measureText`、stdout text transport、empty fake bytes、system font fallback は provider success evidence ではない。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary

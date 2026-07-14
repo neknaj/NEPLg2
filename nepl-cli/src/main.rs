@@ -21,6 +21,7 @@ use nepl_core::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
     ResourceSummaryProofArtifactCacheOptions,
 };
+use nepl_gui_native::NativeFontResourceHost;
 use proof_cache::ResourceProofCacheProbe;
 use wasmi::{Caller, Engine, Linker, Module, Store};
 use wasmprinter::print_bytes;
@@ -74,6 +75,7 @@ struct AllocState {
     tty_line_buffered: bool,
     stdout_buf: Vec<u8>,
     stdout_last_flush: Instant,
+    native_font_resources: NativeFontResourceHost,
     #[cfg(unix)]
     tty_saved: bool,
     #[cfg(unix)]
@@ -434,6 +436,12 @@ struct Cli {
 
     #[arg(long, help = "Run the code if the output format is wasm")]
     run: bool,
+    #[arg(
+        long,
+        value_name = "DIRECTORY",
+        help = "Configured native GUI font resource root used only by --run"
+    )]
+    gui_font_resource_root: Option<PathBuf>,
 
     #[arg(
         long,
@@ -876,7 +884,12 @@ fn execute_inner(cli: Cli) -> Result<()> {
         let mut wasm_args = Vec::new();
         wasm_args.push(program_name);
         wasm_args.extend(cli.run_args.clone());
-        let result = run_wasm(&artifact, run_target, wasm_args)?;
+        let result = run_wasm(
+            &artifact,
+            run_target,
+            wasm_args,
+            cli.gui_font_resource_root.as_deref(),
+        )?;
         if result != 0 {
             println!("Program exited with {result}");
         }
@@ -1018,7 +1031,7 @@ fn run_test_file(path: &Path, std_root: &Path, verbose: bool) -> Result<()> {
     wasm_args.push(path.display().to_string());
     wasm_args.push("--flag".to_string());
     wasm_args.push("value".to_string());
-    let result = run_wasm(&artifact, CompileTarget::Wasi, wasm_args)?;
+    let result = run_wasm(&artifact, CompileTarget::Wasi, wasm_args, None)?;
     if result != 0 {
         return Err(anyhow::anyhow!("non-zero exit code: {result}"));
     }
@@ -1326,10 +1339,24 @@ fn run_wasm(
     artifact: &CompilationArtifact,
     target: CompileTarget,
     args: Vec<String>,
+    gui_font_resource_root: Option<&Path>,
+) -> Result<i32> {
+    run_wasm_bytes(
+        artifact.wasm.as_slice(),
+        target,
+        args,
+        gui_font_resource_root,
+    )
+}
+
+fn run_wasm_bytes(
+    wasm: &[u8],
+    target: CompileTarget,
+    args: Vec<String>,
+    gui_font_resource_root: Option<&Path>,
 ) -> Result<i32> {
     let engine = Engine::default();
-    let module = Module::new(&engine, artifact.wasm.as_slice())
-        .context("failed to compile wasm artifact")?;
+    let module = Module::new(&engine, wasm).context("failed to compile wasm artifact")?;
     let args_bytes: Vec<Vec<u8>> = args
         .into_iter()
         .map(|s| {
@@ -1343,9 +1370,12 @@ fn run_wasm(
     match target {
         CompileTarget::Wasi | CompileTarget::Wasix => {
             for import in module.imports() {
-                if import.module() != "wasi_snapshot_preview1" && import.module() != "wasix_32v1" {
+                if import.module() != "wasi_snapshot_preview1"
+                    && import.module() != "wasix_32v1"
+                    && import.module() != "nepl_gui_native"
+                {
                     return Err(anyhow::anyhow!(
-                        "unsupported import {}::{} (only wasi_snapshot_preview1 or wasix_32v1 are allowed for wasi/wasix targets)",
+                        "unsupported import {}::{} (only wasi_snapshot_preview1, wasix_32v1, or nepl_gui_native are allowed for wasi/wasix targets)",
                         import.module(),
                         import.name()
                     ));
@@ -1368,6 +1398,95 @@ fn run_wasm(
         }
     }
     if matches!(target, CompileTarget::Wasi | CompileTarget::Wasix) {
+        linker.func_wrap(
+            "nepl_gui_native",
+            "font_resource_open",
+            |mut caller: Caller<'_, AllocState>,
+             path_ptr: i32,
+             path_len: i32,
+             policy: i32|
+             -> i32 {
+                if path_ptr < 0
+                    || path_len < 0
+                    || path_len as usize > nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_MAX_PATH_BYTES
+                {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH;
+                }
+                let Some(memory) = caller.get_export("memory").and_then(|e| e.into_memory()) else {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                };
+                let start = path_ptr as usize;
+                let Some(end) = start.checked_add(path_len as usize) else {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH;
+                };
+                let Some(path) = memory.data(&caller).get(start..end).map(ToOwned::to_owned) else {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH;
+                };
+                caller
+                    .data_mut()
+                    .native_font_resources
+                    .font_resource_open(&path, policy)
+            },
+        )?;
+        linker.func_wrap(
+            "nepl_gui_native",
+            "font_resource_byte_len",
+            |caller: Caller<'_, AllocState>, handle: i32| -> i32 {
+                caller
+                    .data()
+                    .native_font_resources
+                    .font_resource_byte_len(handle)
+            },
+        )?;
+        linker.func_wrap(
+            "nepl_gui_native",
+            "font_resource_read_bytes",
+            |mut caller: Caller<'_, AllocState>, handle: i32, ptr: i32, capacity: i32| -> i32 {
+                if ptr < 0 || capacity < 0 {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                }
+                let Some(memory) = caller.get_export("memory").and_then(|e| e.into_memory()) else {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                };
+                let len = caller
+                    .data()
+                    .native_font_resources
+                    .font_resource_byte_len(handle);
+                if len < 0 || capacity < len {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                }
+                let start = ptr as usize;
+                let Some(end) = start.checked_add(len as usize) else {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                };
+                if end > memory.data(&caller).len() {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                }
+                let mut bytes = Vec::new();
+                if bytes.try_reserve_exact(len as usize).is_err() {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_RESOURCE_EXHAUSTED;
+                }
+                bytes.resize(len as usize, 0);
+                let status = caller
+                    .data()
+                    .native_font_resources
+                    .font_resource_read_bytes(handle, &mut bytes);
+                if status < 0 || memory.write(&mut caller, start, &bytes).is_err() {
+                    return nepl_gui_native::GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE;
+                }
+                status
+            },
+        )?;
+        linker.func_wrap(
+            "nepl_gui_native",
+            "font_resource_close",
+            |mut caller: Caller<'_, AllocState>, handle: i32| -> i32 {
+                caller
+                    .data_mut()
+                    .native_font_resources
+                    .font_resource_close(handle)
+            },
+        )?;
         linker.func_wrap(
             "wasi_snapshot_preview1",
             "args_sizes_get",
@@ -1985,6 +2104,15 @@ fn run_wasm(
             .unwrap_or(25);
         (cols, rows)
     });
+    let native_font_resources = match gui_font_resource_root {
+        Some(root) => NativeFontResourceHost::with_resource_root(root).map_err(|error| {
+            anyhow::anyhow!(
+                "invalid --gui-font-resource-root {}: {error:?}",
+                root.display()
+            )
+        })?,
+        None => NativeFontResourceHost::unsupported(),
+    };
     let mut store = Store::new(
         &engine,
         AllocState {
@@ -2006,6 +2134,7 @@ fn run_wasm(
             tty_line_buffered: true,
             stdout_buf: Vec::new(),
             stdout_last_flush: Instant::now(),
+            native_font_resources,
             #[cfg(unix)]
             tty_saved: false,
             #[cfg(unix)]
@@ -2221,6 +2350,72 @@ mod tests {
     fn cli_parses_stdlib_root() {
         let cli = Cli::parse_from(["nepl-cli", "--run", "--stdlib-root", "custom/stdlib"]);
         assert_eq!(cli.stdlib_root, Some(PathBuf::from("custom/stdlib")));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn wasm_runner_connects_native_font_resource_imports() {
+        let root = tempfile::tempdir().expect("resource root");
+        fs::create_dir(root.path().join("fonts")).expect("font directory");
+        fs::write(root.path().join("fonts/test.ttf"), b"\0\x01\0\0ABCD").expect("font");
+        let wasm = wat::parse_str(r#"(module
+            (import "nepl_gui_native" "font_resource_open" (func $open (param i32 i32 i32) (result i32)))
+            (import "nepl_gui_native" "font_resource_byte_len" (func $len (param i32) (result i32)))
+            (import "nepl_gui_native" "font_resource_read_bytes" (func $read (param i32 i32 i32) (result i32)))
+            (import "nepl_gui_native" "font_resource_close" (func $close (param i32) (result i32)))
+            (memory (export "memory") 1) (data (i32.const 0) "fonts/test.ttf")
+            (func (export "main") (result i32) (local $h i32)
+              (local.set $h (call $open (i32.const 0) (i32.const 14) (i32.const 1)))
+              (if (result i32) (i32.le_s (local.get $h) (i32.const 0)) (then (i32.const 91))
+                (else (drop (call $read (local.get $h) (i32.const 32) (call $len (local.get $h))))
+                  (drop (call $close (local.get $h)))
+                  (if (result i32) (i32.eq (i32.load (i32.const 32)) (i32.const 256))
+                    (then (i32.const 0)) (else (i32.const 92)))))))"#).expect("wat");
+        assert_eq!(
+            run_wasm_bytes(&wasm, CompileTarget::Wasi, Vec::new(), Some(root.path())).expect("run"),
+            0
+        );
+        assert_eq!(
+            run_wasm_bytes(&wasm, CompileTarget::Wasi, Vec::new(), None).expect("run"),
+            91
+        );
+    }
+
+    #[test]
+    fn wasm_runner_keeps_native_font_provider_unsupported_without_root() {
+        let wasm = wat::parse_str(
+            r#"(module
+              (import "nepl_gui_native" "font_resource_open" (func $open (param i32 i32 i32) (result i32)))
+              (memory (export "memory") 1)
+              (func (export "main") (result i32)
+                (i32.add (call $open (i32.const 0) (i32.const 0) (i32.const 1)) (i32.const 1))))"#,
+        )
+        .expect("wat");
+        assert_eq!(
+            run_wasm_bytes(&wasm, CompileTarget::Wasi, Vec::new(), None).expect("run"),
+            0
+        );
+    }
+
+    #[test]
+    fn check_does_not_inspect_gui_font_resource_root() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let source = tmp.path().join("check.nepl");
+        fs::write(
+            &source,
+            "#entry main\n#indent 4\nfn main <()->i32> ():\n    0\n",
+        )
+        .expect("source");
+        let missing = tmp.path().join("missing");
+        let cli = Cli::parse_from([
+            "nepl-cli",
+            "--check",
+            "-i",
+            source.to_str().expect("source path"),
+            "--gui-font-resource-root",
+            missing.to_str().expect("root path"),
+        ]);
+        execute(cli).expect("compile-only must not inspect runtime root");
     }
 
     #[test]

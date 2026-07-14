@@ -8,9 +8,11 @@ authors = ["NEPL Team"]
 anyhow.workspace = true
 clap.workspace = true
 nepl-core = { path = "../nepl-core" }
+nepl-gui-native = { path = "../nepl-gui-native" }
 wasmi.workspace = true
 wasmprinter.workspace = true
 libc = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true
+wat = "=1.244.0"

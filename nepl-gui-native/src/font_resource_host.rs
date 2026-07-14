@@ -31,6 +31,8 @@ pub const GUI_NATIVE_FONT_RESOURCE_DECODE_POLICY_SFNT_ONLY: i32 = 1;
 pub const GUI_NATIVE_FONT_RESOURCE_MAX_BYTES: u64 = 64 * 1024 * 1024;
 /// 1 hostが同時に所有できるsnapshot session数である。
 pub const GUI_NATIVE_FONT_RESOURCE_MAX_OPEN_SESSIONS: usize = 64;
+/// Guest ABIが受け入れるcanonical resource pathの最大byte数である。
+pub const GUI_NATIVE_FONT_RESOURCE_MAX_PATH_BYTES: usize = 4096;
 
 /// Configured resource rootを開く際のtyped error。
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -90,6 +92,9 @@ impl NativeFontResourceHost {
 
     /// Canonical pathをexact lookupし、bytes snapshotをpositive handleへ固定する。
     pub fn font_resource_open(&mut self, path: &[u8], decode_policy: i32) -> i32 {
+        if path.len() > GUI_NATIVE_FONT_RESOURCE_MAX_PATH_BYTES {
+            return GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH;
+        }
         let (Some(_root), Some(root_directory)) =
             (self.canonical_root.as_ref(), self.root_directory.as_ref())
         else {
@@ -340,6 +345,13 @@ mod tests {
                 GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH
             );
         }
+        assert_eq!(
+            host.font_resource_open(
+                &vec![b'a'; GUI_NATIVE_FONT_RESOURCE_MAX_PATH_BYTES + 1],
+                GUI_NATIVE_FONT_RESOURCE_DECODE_POLICY_SFNT_ONLY,
+            ),
+            GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH
+        );
     }
 
     #[cfg(target_os = "linux")]

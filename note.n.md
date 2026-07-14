@@ -168147,3 +168147,7 @@ MERGE_APPROVED
 - open時に64 MiB payload / 64 live-session上限を確保前に検査し、SFNT signatureを持つ非空file bytes全体をsessionへ固定してlen/read/closeを同じpositive handleへ結合した。open後のfile変更はsnapshotへ影響せず、short destination、unknown handle、double closeはbackend failureになる。
 - root未設定、invalid/NUL path、missing、text/non-binary、unsupported policy、resource exhaustion、backend failureはguest ABIと同じnegative statusを使う。NEPL Wasm runner/linker、CLI resource-root option、macOS / Windows secure backend、bare/headless providerは未完了であり、このcheckpointをnative GUIやfont engine全体の完成とは扱わない。`plan.md`は変更していない。
 - subagent reviewで指摘されたcanonicalize/read TOCTOU、確保後の巨大file判定、無制限session、text payload、NUL taxonomy、macOSで不一致となるtest cfgを修正した。focused host test 7/7、`nepl-gui-native`全test 535/535 + CLI 6/6、all-target check、native/Web contract、issues check、`trunk build`、playground editor JSON 13/13、`git diff --check`を通過した。
+2026-07-15 GUI font native runner resource-root bridge
+
+- `nepl-cli --run --gui-font-resource-root DIRECTORY`を追加し、wasmi linkerの4つの`nepl_gui_native` font resource importを同じ`NativeFontResourceHost` ownerへ接続した。option未指定時はimportを解決したまま`Unsupported`へfail-closedにする。
+- rootはrun時だけ検証し、compile-only、environment、current working directory、suffix、display/family name、OS font registryをauthorityにしない。macOS / Windows secure backend、bare/headless、layout、rasterization、render2d、presentationは未完了であり、全体完成とは扱わない。`plan.md`は変更していない。
