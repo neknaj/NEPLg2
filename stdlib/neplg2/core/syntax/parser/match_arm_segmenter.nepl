@@ -1,0 +1,526 @@
+#indent 4
+
+//: # parser/match_arm_segmenter
+//: `match` block を variant-only arm の列へ分解します。
+//:
+//: [目的/もくてき]:
+//: - enclosing body segmenter が作った `match` の `BlockIntro` を検査し、各 arm の pattern、colon、body range を一緒に確定します。
+//: - pattern は ordered segment parser の owner をそのまま保持し、一、二、三、四以上の path と optional bind を失いません。
+//:
+//: [authority boundary]:
+//: - この結果は current token/source 上の構文 evidence であり semantic capability ではありません。current VFS orchestration、scrutinee TypeId、export visibility の再検証は後続 consumer が行います。
+//:
+//: [制約/せいやく]:
+//: - Rust parser と同じく `match` の outer colon 後は `Newline`、続いて `Indent` を要求します。
+//: - scalar / wildcard arm はこの checkpoint では typed `UnsupportedPattern` です。
+//: - arm 数を a、対象 token 数を n として時間 O(n)、追加領域 O(a + path segment 数) です。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/syntax/ast/module_ast" as *
+//:| #import "neplg2/core/syntax/lexer" as *
+//:| #import "neplg2/core/syntax/parser/body_segmenter" as *
+//:| #import "neplg2/core/syntax/parser/match_arm_segmenter" as *
+//:| #import "neplg2/core/syntax/parser/range" as *
+//:| fn arm_shape_ok %fn &SelfhostMatchVariantArmList fn i32 bool \arms\index:
+//:|     match selfhost_match_variant_arm_list_get arms index:
+//:|         Option::None: false
+//:|         Option::Some arm:
+//:|             let count_ok eq arm.segment_count add index 1
+//:|             let segment_ok %bool match selfhost_match_variant_arm_segment arms arm index:
+//:|                 Option::None: false
+//:|                 Option::Some _segment: true
+//:|             let body_ok %bool match selfhost_match_variant_arm_body &arm:
+//:|                 SelfhostSyntaxRange::Empty: false
+//:|                 SelfhostSyntaxRange::Range _body: true
+//:|             let bind_ok %bool match arm.bind:
+//:|                 Option::None: not eq index 2
+//:|                 Option::Some _bind: eq index 2
+//:|             let alias_ok %bool match selfhost_match_variant_arm_direct_alias arms arm:
+//:|                 Option::None: not eq index 2
+//:|                 Option::Some _alias: eq index 2
+//:|             and and count_ok segment_ok and body_ok and bind_ok alias_ok
+//:| fn all_arm_shapes_ok %fn &SelfhostMatchVariantArmList fn i32 bool \arms\index:
+//:|     if eq index 4 true and arm_shape_ok arms index all_arm_shapes_ok arms add index 1
+//:| fn main %impure fn void i32 \void:
+//:|     let source "match x:\n    Member:\n\n        1\n    Enum::Member:\n        2\n    dep::Enum::Member value:\n        3\n    root::dep::Enum::Member:\n        4\n"
+//:|     match lex_all source:
+//:|         Result::Err _e: 1
+//:|         Result::Ok tokens:
+//:|             let envelope selfhost_parser_syntax_range_from_indices &tokens v::len &tokens 0 sub v::len &tokens 1
+//:|             match selfhost_body_segment_list_from_envelope &tokens envelope:
+//:|                 Result::Err _e:
+//:|                     v::free tokens
+//:|                     1
+//:|                 Result::Ok outer:
+//:|                     let result %i32 match selfhost_body_segment_list_get &outer 0:
+//:|                         Option::None: 1
+//:|                         Option::Some intro:
+//:|                             match selfhost_match_variant_arm_list_from_intro &tokens source intro:
+//:|                                 Result::Err _e: 1
+//:|                                 Result::Ok arms:
+//:|                                     let ok and eq selfhost_match_variant_arm_list_len &arms 4 all_arm_shapes_ok &arms 0
+//:|                                     selfhost_match_variant_arm_list_free arms
+//:|                                     if ok 0 1
+//:|                     selfhost_body_segment_list_free outer
+//:|                     v::free tokens
+//:|                     result
+//: ```
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #indent 1
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/math" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/syntax/lexer" as *
+//:| #import "neplg2/core/syntax/parser/body_segmenter" as *
+//:| #import "neplg2/core/syntax/parser/match_arm_segmenter" as *
+//:| #import "neplg2/core/syntax/parser/range" as *
+//:| fn rejection_matches %fn SelfhostMatchArmSegmentErrorKind fn i32 bool \kind\expected:
+//:|     match kind:
+//:|         SelfhostMatchArmSegmentErrorKind::UnsupportedPattern: eq expected 1
+//:|         SelfhostMatchArmSegmentErrorKind::TrailingPatternToken: eq expected 2
+//:|         SelfhostMatchArmSegmentErrorKind::InvalidArmLayout: eq expected 3
+//:|         _: false
+//:| fn source_rejected_as %impure fn str impure fn i32 bool \source\expected:
+//:|     match lex_all source:
+//:|         Result::Err _e: false
+//:|         Result::Ok tokens:
+//:|             let envelope selfhost_parser_syntax_range_from_indices &tokens v::len &tokens 0 sub v::len &tokens 1
+//:|             match selfhost_body_segment_list_from_envelope &tokens envelope:
+//:|                 Result::Err _e:
+//:|                     v::free tokens
+//:|                     false
+//:|                 Result::Ok outer:
+//:|                     let answer %bool match selfhost_body_segment_list_get &outer 0:
+//:|                         Option::None: false
+//:|                         Option::Some intro:
+//:|                             match selfhost_match_variant_arm_list_from_intro &tokens source intro:
+//:|                                 Result::Ok arms:
+//:|                                     selfhost_match_variant_arm_list_free arms
+//:|                                     false
+//:|                                 Result::Err e: rejection_matches e.kind expected
+//:|                     selfhost_body_segment_list_free outer
+//:|                     v::free tokens
+//:|                     answer
+//:| fn main %impure fn void i32 \void:
+//:|     let wildcard source_rejected_as "match x:\n    _:\n        1\n" 1
+//:|     let scalar source_rejected_as "match x:\n    1:\n        1\n" 1
+//:|     let trailing source_rejected_as "match x:\n    Enum value extra:\n        1\n" 2
+//:|     let layout source_rejected_as "match x:\n    Member:\n    Next:\n        2\n" 3
+//:|     if and and wildcard scalar and trailing layout 0 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/string" as string
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/match_pattern" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/token" as *
+#import "./body_segmenter" as *
+#import "./match_pattern" as *
+#import "./range" as *
+
+//: SelfhostMatchVariantArm: 一つのvariant armについて、共有segment範囲と構文envelopeを保持するCopy metadata
+pub struct SelfhostMatchVariantArm:
+    segment_start %i32
+    segment_count %i32
+    bind %(Option SelfhostMatchPatternBind)
+    pattern_span %SelfhostSourceSpan
+    colon_span %SelfhostSourceSpan
+    head %SelfhostSyntaxRange
+    body %SelfhostSyntaxRange
+
+//: Clone実装はCopy metadataを値として複製する
+impl Clone for SelfhostMatchVariantArm:
+    fn clone %fn &SelfhostMatchVariantArm SelfhostMatchVariantArm \self:
+        *self
+
+//: Copy実装はmove-only ownerをarm metadataへ混入させない
+impl Copy for SelfhostMatchVariantArm:
+    fn copy_mark %fn SelfhostMatchVariantArm SelfhostMatchVariantArm \self:
+        self
+
+//: SelfhostMatchVariantArmList: arm metadataとordered path segmentを一括所有する
+pub struct SelfhostMatchVariantArmList:
+    items %(Vec SelfhostMatchVariantArm)
+    segments %(Vec SelfhostMatchPatternSegment)
+
+//: SelfhostMatchArmSegmentErrorKind: Match arm分解の失敗境界を分類する
+pub enum SelfhostMatchArmSegmentErrorKind:
+    ExpectedBlockIntro
+    ExpectedMatchKeyword
+    InvalidMatchHead
+    InvalidOuterLayout
+    InvalidBodyRange
+    ArmSegmentationFailed
+    ExpectedArmBlock
+    InvalidArmLayout
+    UnsupportedPattern
+    PatternParseFailed
+    TrailingPatternToken
+    OutOfMemory
+
+//: SelfhostMatchArmSegmentError: 分類済み失敗と診断spanを保持する
+pub struct SelfhostMatchArmSegmentError:
+    kind %SelfhostMatchArmSegmentErrorKind
+    span %SelfhostSourceSpan
+
+//: selfhost_match_variant_arm_list_len: 所有中のarm数を返す
+pub fn selfhost_match_variant_arm_list_len %fn &SelfhostMatchVariantArmList i32 \list:
+    v::len field::get_ref list "items"
+
+//: selfhost_match_variant_arm_head: pattern部分の構文rangeを返す
+pub fn selfhost_match_variant_arm_head %fn &SelfhostMatchVariantArm SelfhostSyntaxRange \arm:
+    let head %&SelfhostSyntaxRange field::get_ref arm "head"
+    *head
+
+//: selfhost_match_variant_arm_body: arm本体の構文rangeを返す
+pub fn selfhost_match_variant_arm_body %fn &SelfhostMatchVariantArm SelfhostSyntaxRange \arm:
+    let body %&SelfhostSyntaxRange field::get_ref arm "body"
+    *body
+
+//: selfhost_match_variant_arm_colon_span: patternとbodyを分けたparser由来colon spanを返す
+pub fn selfhost_match_variant_arm_colon_span %fn SelfhostMatchVariantArm SelfhostSourceSpan \arm:
+    arm.colon_span
+
+//: selfhost_match_variant_arm_list_get: 指定ordinalのarm metadataを安全に取得する
+pub fn selfhost_match_variant_arm_list_get %fn &SelfhostMatchVariantArmList fn i32 Option SelfhostMatchVariantArm \list\index:
+    v::get field::get_ref list "items" index
+
+//: selfhost_match_variant_arm_segment: arm内ordinalを共有segment bufferへ射影する
+pub fn selfhost_match_variant_arm_segment %fn &SelfhostMatchVariantArmList fn SelfhostMatchVariantArm fn i32 Option SelfhostMatchPatternSegment \list\arm\index:
+    if:
+        or lt index 0 le arm.segment_count index
+        then:
+            none
+        else:
+            v::get field::get_ref list "segments" add arm.segment_start index
+
+//: selfhost_match_variant_arm_direct_alias: 三segmentだけをdirect alias consumer向けへ射影する
+pub fn selfhost_match_variant_arm_direct_alias %fn &SelfhostMatchVariantArmList fn SelfhostMatchVariantArm Option SelfhostDirectAliasEnumMemberPattern \list\arm:
+    if:
+        not eq arm.segment_count 3
+        then:
+            none
+        else:
+            match selfhost_match_variant_arm_segment list arm 0:
+                Option::None: none
+                Option::Some alias:
+                    match selfhost_match_variant_arm_segment list arm 1:
+                        Option::None: none
+                        Option::Some enum_name:
+                            match selfhost_match_variant_arm_segment list arm 2:
+                                Option::None: none
+                                Option::Some member:
+                                    some SelfhostDirectAliasEnumMemberPattern alias enum_name member arm.bind
+
+//: selfhost_match_variant_arm_list_free: arm metadataと共有segment bufferを解放する
+pub fn selfhost_match_variant_arm_list_free %impure fn SelfhostMatchVariantArmList unit \list:
+    v::free field::get list "items"
+    v::free field::get list "segments"
+
+//: selfhost_match_arm_error: typed分類とspanから診断値を作る
+fn selfhost_match_arm_error %fn SelfhostMatchArmSegmentErrorKind fn SelfhostSourceSpan SelfhostMatchArmSegmentError \kind\span:
+    SelfhostMatchArmSegmentError kind span
+
+//: selfhost_match_arm_range_span: rangeのspanを取り出し、空rangeには空spanを返す
+fn selfhost_match_arm_range_span %fn SelfhostSyntaxRange SelfhostSourceSpan \range:
+    match range:
+        SelfhostSyntaxRange::Range value:
+            value.span
+        SelfhostSyntaxRange::Empty:
+            source_span_empty_unchecked 0 0
+
+//: selfhost_match_arm_kind_is_block: body segmentがblock introductionか判定する
+fn selfhost_match_arm_kind_is_block %fn SelfhostBodySegmentKind bool \kind:
+    selfhost_body_segment_kind_eq kind SelfhostBodySegmentKind::BlockIntro
+
+//: selfhost_match_arm_is_variant_start: identifierかつwildcardでない開始tokenだけを受理する
+fn selfhost_match_arm_is_variant_start %fn str fn SelfhostToken bool \source\token:
+    match token.kind:
+        TokenKind::Ident:
+            not string::str_eq "_" selfhost_token_lexeme source token
+        _:
+            false
+
+//: selfhost_match_arm_block_indent_index: 改行列の後に現れるIndentのindexを返す
+fn selfhost_match_arm_block_indent_index %fn &Vec SelfhostToken fn i32 Option i32 \tokens\index:
+    match v::get tokens index:
+        Option::None:
+            none
+        Option::Some token:
+            match token.kind:
+                TokenKind::Newline:
+                    selfhost_match_arm_block_indent_index tokens add index 1
+                TokenKind::Indent:
+                    some index
+                _:
+                    none
+
+//: selfhost_match_arm_tokens_fit_source: pattern token列のspanが同一source内に収まることを検査する
+fn selfhost_match_arm_tokens_fit_source %fn &Vec SelfhostToken fn i32 fn i32 fn i32 fn i32 bool \tokens\index\end\source_len\file_id:
+    if:
+        ge index end
+        then:
+            true
+        else:
+            match v::get tokens index:
+                Option::None:
+                    false
+                Option::Some token:
+                    if:
+                        or or not source_span_is_valid token.span gt token.span.end source_len not eq token.span.file_id file_id
+                        then:
+                            false
+                        else:
+                            selfhost_match_arm_tokens_fit_source tokens add index 1 end source_len file_id
+
+//: selfhost_match_arm_layout_is_valid: inline bodyまたはNewline→Indent blockとbody rangeの対応を検査する
+fn selfhost_match_arm_layout_is_valid %fn &Vec SelfhostToken fn i32 fn SelfhostSyntaxRange bool \tokens\colon_index\body_range:
+    match body_range:
+        SelfhostSyntaxRange::Empty:
+            false
+        SelfhostSyntaxRange::Range body:
+            match v::get tokens add colon_index 1:
+                Option::None:
+                    false
+                Option::Some after_colon:
+                    match after_colon.kind:
+                        TokenKind::Newline:
+                            match selfhost_match_arm_block_indent_index tokens add colon_index 2:
+                                Option::Some indent_index:
+                                    eq body.first_token add indent_index 1
+                                Option::None:
+                                    false
+                        _:
+                            eq body.first_token add colon_index 1
+
+//: selfhost_match_arm_push: arm metadataを追加し、allocation失敗時は返却ownerを閉じる
+fn selfhost_match_arm_push %impure fn Vec SelfhostMatchVariantArm impure fn SelfhostMatchVariantArm Result Vec SelfhostMatchVariantArm SelfhostMatchArmSegmentError \items\arm:
+    match v::push items arm:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let returned v::vec_push_error_vec e
+            v::free returned
+            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::OutOfMemory source_span_empty_unchecked 0 0
+
+//: selfhost_match_arm_copy_segments: temporary patternのCopy segmentを共有bufferへ順番に移す
+fn selfhost_match_arm_copy_segments %impure fn &SelfhostMatchVariantPattern impure fn i32 impure fn Vec SelfhostMatchPatternSegment Result Vec SelfhostMatchPatternSegment SelfhostMatchArmSegmentError \pattern\index\out:
+    match selfhost_match_variant_pattern_segment pattern index:
+        Option::None:
+            Result::Ok out
+        Option::Some segment:
+            match v::push out segment:
+                Result::Ok next:
+                    selfhost_match_arm_copy_segments pattern add index 1 next
+                Result::Err e:
+                    v::free v::vec_push_error_vec e
+                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::OutOfMemory segment.span
+
+//: selfhost_match_arm_build_loop: arm envelopeをsource順に検査し一つのownerへ集約する
+fn selfhost_match_arm_build_loop %impure fn &Vec SelfhostToken impure fn str impure fn &SelfhostBodySegmentList impure fn i32 impure fn Vec SelfhostMatchVariantArm impure fn Vec SelfhostMatchPatternSegment Result SelfhostMatchVariantArmList SelfhostMatchArmSegmentError \tokens\source\body_segments\index\items\shared_segments:
+    match selfhost_body_segment_list_get body_segments index:
+        Option::None:
+            Result::Ok SelfhostMatchVariantArmList items shared_segments
+        Option::Some segment:
+            if:
+                not selfhost_match_arm_kind_is_block segment.kind
+                then:
+                    v::free items
+                    v::free shared_segments
+                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::ExpectedArmBlock selfhost_match_arm_range_span segment.head
+                else:
+                    match segment.head:
+                        SelfhostSyntaxRange::Empty:
+                            v::free items
+                            v::free shared_segments
+                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidBodyRange selfhost_match_arm_range_span segment.body
+                        SelfhostSyntaxRange::Range head:
+                            match v::get tokens head.first_token:
+                                Option::None:
+                                    v::free items
+                                    v::free shared_segments
+                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidBodyRange head.span
+                                Option::Some first:
+                                    let head_end add head.first_token head.token_count
+                                    if:
+                                        not selfhost_match_arm_tokens_fit_source tokens head.first_token head_end string::str_byte_len source head.span.file_id
+                                        then:
+                                            v::free items
+                                            v::free shared_segments
+                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidBodyRange head.span
+                                        else:
+                                            if:
+                                                not selfhost_match_arm_is_variant_start source first
+                                                then:
+                                                    v::free items
+                                                    v::free shared_segments
+                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::UnsupportedPattern first.span
+                                                else:
+                                                    match selfhost_parse_match_variant_pattern tokens head.first_token:
+                                                        Result::Err e:
+                                                            v::free items
+                                                            v::free shared_segments
+                                                            match e.kind:
+                                                                SelfhostMatchPatternParseErrorKind::SegmentAllocationFailed:
+                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::OutOfMemory e.span
+                                                                _:
+                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::PatternParseFailed e.span
+                                                        Result::Ok pattern:
+                                                            if:
+                                                                not eq selfhost_match_variant_pattern_next_token &pattern add head.first_token head.token_count
+                                                                then:
+                                                                    selfhost_match_variant_pattern_free pattern
+                                                                    v::free items
+                                                                    v::free shared_segments
+                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::TrailingPatternToken head.span
+                                                                else:
+                                                                    let segment_start v::len &shared_segments
+                                                                    let segment_count selfhost_match_variant_pattern_len &pattern
+                                                                    let bind selfhost_match_variant_pattern_bind &pattern
+                                                                    let pattern_span selfhost_match_variant_pattern_span &pattern
+                                                                    match v::get tokens add head.first_token head.token_count:
+                                                                        Option::None:
+                                                                            selfhost_match_variant_pattern_free pattern
+                                                                            v::free items
+                                                                            v::free shared_segments
+                                                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidBodyRange head.span
+                                                                        Option::Some arm_colon:
+                                                                            if:
+                                                                                not selfhost_match_arm_layout_is_valid tokens add head.first_token head.token_count segment.body
+                                                                                then:
+                                                                                    selfhost_match_variant_pattern_free pattern
+                                                                                    v::free items
+                                                                                    v::free shared_segments
+                                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidArmLayout arm_colon.span
+                                                                                else:
+                                                                                    match arm_colon.kind:
+                                                                                        TokenKind::Colon:
+                                                                                            match selfhost_match_arm_copy_segments &pattern 0 shared_segments:
+                                                                                                Result::Err e:
+                                                                                                    selfhost_match_variant_pattern_free pattern
+                                                                                                    v::free items
+                                                                                                    Result::Err e
+                                                                                                Result::Ok next_segments:
+                                                                                                    selfhost_match_variant_pattern_free pattern
+                                                                                                    let arm SelfhostMatchVariantArm segment_start segment_count bind pattern_span arm_colon.span segment.head segment.body
+                                                                                                    match selfhost_match_arm_push items arm:
+                                                                                                        Result::Err e:
+                                                                                                            v::free next_segments
+                                                                                                            Result::Err e
+                                                                                                        Result::Ok next:
+                                                                                                            selfhost_match_arm_build_loop tokens source body_segments add index 1 next next_segments
+                                                                                        _:
+                                                                                            selfhost_match_variant_pattern_free pattern
+                                                                                            v::free items
+                                                                                            v::free shared_segments
+                                                                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidArmLayout arm_colon.span
+
+//: selfhost_match_variant_arm_list_from_intro: `match` introduction から variant arm list を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `match_intro.head` は `KwMatch` から outer colon 直前、`body` は initial indent を除いた arm envelope です。
+//: - tokens と source は同一 lexer run の current source を借用します。source span が source byte length 外なら拒否します。
+pub fn selfhost_match_variant_arm_list_from_intro %impure fn &Vec SelfhostToken impure fn str impure fn SelfhostBodySegment Result SelfhostMatchVariantArmList SelfhostMatchArmSegmentError \tokens\source\match_intro:
+    if:
+        not selfhost_match_arm_kind_is_block match_intro.kind
+        then:
+            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::ExpectedBlockIntro selfhost_match_arm_range_span match_intro.head
+        else:
+            match match_intro.head:
+                SelfhostSyntaxRange::Empty:
+                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidMatchHead selfhost_match_arm_range_span match_intro.body
+                SelfhostSyntaxRange::Range head:
+                    let n v::len tokens
+                    if:
+                        or or or or lt head.first_token 0 le head.token_count 0 gt head.first_token n gt head.token_count sub n head.first_token or gt head.span.end string::str_byte_len source not source_span_is_valid head.span
+                        then:
+                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidMatchHead head.span
+                        else:
+                            match v::get tokens head.first_token:
+                                Option::Some first:
+                                    match first.kind:
+                                        TokenKind::KwMatch:
+                                            match match_intro.body:
+                                                SelfhostSyntaxRange::Empty:
+                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidBodyRange first.span
+                                                SelfhostSyntaxRange::Range body:
+                                                    let outer_colon_idx add head.first_token head.token_count
+                                                    let newline_idx add outer_colon_idx 1
+                                                    let indent_idx add outer_colon_idx 2
+                                                    match v::get tokens outer_colon_idx:
+                                                        Option::Some colon:
+                                                            match v::get tokens newline_idx:
+                                                                Option::Some newline:
+                                                                    match v::get tokens indent_idx:
+                                                                        Option::Some indent:
+                                                                            let layout_ok %bool match colon.kind:
+                                                                                TokenKind::Colon:
+                                                                                    match newline.kind:
+                                                                                        TokenKind::Newline:
+                                                                                            match indent.kind:
+                                                                                                TokenKind::Indent: eq body.first_token add indent_idx 1
+                                                                                                _: false
+                                                                                        _: false
+                                                                                _: false
+                                                                            if:
+                                                                                not layout_ok
+                                                                                then:
+                                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidOuterLayout colon.span
+                                                                                else:
+                                                                                    match selfhost_body_segment_list_from_envelope tokens match_intro.body:
+                                                                                        Result::Err e:
+                                                                                            match e.kind:
+                                                                                                SelfhostBodySegmentErrorKind::OutOfMemory:
+                                                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::OutOfMemory e.span
+                                                                                                _:
+                                                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::ArmSegmentationFailed e.span
+                                                                                        Result::Ok segments:
+                                                                                            let items_result %Result Vec SelfhostMatchVariantArm StdErrorKind v::new
+                                                                                            match items_result:
+                                                                                                Result::Err _e:
+                                                                                                    selfhost_body_segment_list_free segments
+                                                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::OutOfMemory body.span
+                                                                                                Result::Ok items:
+                                                                                                    let shared_result %Result Vec SelfhostMatchPatternSegment StdErrorKind v::new
+                                                                                                    match shared_result:
+                                                                                                        Result::Err _e:
+                                                                                                            v::free items
+                                                                                                            selfhost_body_segment_list_free segments
+                                                                                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::OutOfMemory body.span
+                                                                                                        Result::Ok shared:
+                                                                                                            match selfhost_match_arm_build_loop tokens source &segments 0 items shared:
+                                                                                                                Result::Err e:
+                                                                                                                    selfhost_body_segment_list_free segments
+                                                                                                                    Result::Err e
+                                                                                                                Result::Ok arms:
+                                                                                                                    selfhost_body_segment_list_free segments
+                                                                                                                    Result::Ok arms
+                                                                        Option::None:
+                                                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidOuterLayout body.span
+                                                                Option::None:
+                                                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidOuterLayout body.span
+                                                        Option::None:
+                                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidOuterLayout body.span
+                                        _:
+                                            Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::ExpectedMatchKeyword first.span
+                                Option::None:
+                                    Result::Err selfhost_match_arm_error SelfhostMatchArmSegmentErrorKind::InvalidMatchHead head.span

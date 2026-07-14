@@ -509,6 +509,8 @@ qualified enum member consumer は、caller からこの context や export entr
 
 Match variant patternの構文evidenceはRust parserと同じ`Ident (:: Ident)*`を任意長のordered segment spanとして保持し、直後のoptional bindと消費後token cursorを同時生成する。raw qualified spellingはASTに保存しない。`alias::Enum::Member`は一般文法ではなく現direct-alias resolver subsetなので、exactly 3 segment projectionだけを専用adapterに分離し、1/2/4+ segmentを一般parserで拒否しない。borrowed token列とCopy spanはsemantic capabilityではなく、current VFSからのlexとactual Match arm parser成功経路への接続は次段のauthority境界である。
 
+variant-only Match arm segmenterは、enclosing body parserが作った`match` BlockIntroについてouter colon直後の`Newline → Indent`をRust parserどおり専用検証する。各armのordered pattern segments、optional bind、pattern span、colon span、body envelopeを同じ走査でco-produceする。move-only patternをVecへ直接格納せず、Copy arm metadataと共有segment bufferを一つのownerに束ねる。scalar/wildcardは有効なRust構文だが、このenum consumer checkpointではtyped unsupportedとして保持し、variantへ偽装しない。
+
 各ステージは独立した `Result<_, Vec<Diagnostic>>` を返す。エラーがあっても可能な限り後段まで続行して診断をまとめる（エラー回復）。
 
 ---

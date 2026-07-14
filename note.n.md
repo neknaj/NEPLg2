@@ -84079,3 +84079,11 @@ MERGE_APPROVED
 - borrowed token buffer / Copy spanはsemantic capabilityではない。current VFS file-id lexer、actual Match arm parser、consumer gate、actual scrutinee Named / Applied TypeIdへの接続は次sliceであり、production checker/HIR/Resource authorityは発行しない。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
 - reviewでoptional bindまでaggregate pattern spanを広げるRust parity差を検出し、path/name spanは末尾segmentまで、bind spanは独立fieldに維持した。AST/parser contractはcomment-stripped実装を検査する。修正後の差分reviewと全体整合reviewはBlocker / Major 0で統合承認された。
 - focused runtime doctest 1/1、pattern/consumer contracts、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。初回buildはC:残量238MBによるLLVM I/O errorで停止したため生成済みcargo targetだけをcleanし、`CARGO_TARGET_DIR=/tmp/nepl-trunk-target`で再実行して通過した。
+
+## 2026-07-14 selfhost variant-only Match arm segmenter
+
+- enclosing body parserの`match` BlockIntroを入力に、outer colon直後の`Newline → Indent`をRust parserどおり専用検証し、各variant armのordered pattern segments、optional bind、pattern span、colon span、body envelopeを同時生成するownerを追加した。
+- move-only pattern ownerを`Vec`へ格納できない型境界を初回compileで検出し、Copy arm metadataと共有segment bufferへ正規化した。temporary pattern ownerはsegment copy後に即解放し、途中失敗ではtemporary/shared/items/body segment listを各一度だけ閉じる。
+- 1/2/3/4+ pathとbindをruntime fixtureで検査する。scalar/wildcardはRustでは有効だがvariant-only checkpointではtyped unsupportedであり、current VFS file-id lexer、actual scrutinee Named / Applied checker、checked Match/HIR/Resource接続は後続である。セルフホストコンパイラ全体は未完成で、`plan.md`は変更していない。
+- reviewで、head rangeの加算overflow、下位allocation failureの分類消失、各armの改行後Indent未検査、token spanのsource外参照、runtime assertion不足を検出した。減算型bounds、pattern token全span/file整合、下位OOM保持、inlineまたは`Newline → Indent`の専用arm layout検証へ修正し、segment数・bind・direct alias・bodyとwildcard/scalar/trailing/layout拒否を2本の実行doctestで固定した。
+- 最終差分reviewと全体整合reviewはBlocker / Major / Minorなしで承認された。focused doctest 2/2、Match arm contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13は通過した。full source-policyは新contractを含むselfhost群を通過後、main既存のstdlib documentation baseline `2790 > 2756`だけで停止した。

@@ -3794,6 +3794,8 @@ same-session contextをqualified member lookupへ渡すconsumer gateは、curren
 
 RustのMatch pattern parserは1/2/3/4+ segmentを区別せず`Ident (:: Ident)*`として受理するため、selfhostもordered segment span owner、optional bind、消費後token cursorをco-produceする。結合済みpath文字列は保持せず、resolverがowner prefixとmember tailを構造から導出する。exactly 3 segmentの`alias::Enum::Member` projectionは現direct alias export subset専用であり言語文法ではない。token列単体は偽造可能なので、この構文ownerをsemantic authorityへ昇格するのはcurrent VFS lexerとactual Match arm parserが同じ成功control-flowで生成し、consumerがgraph/VFS/orderへ再検証する後続orchestrationに限定する。
 
+actual Match arm構文への次段としてvariant-only arm segmenterを追加する。汎用body segmenterの緩いcolon layoutをauthorityにせず、match outer colon直後のNewlineとIndentを専用検証する。各armはvariant pattern、colon、body envelopeを別々のcaller入力から組み立てず同時生成し、path segmentsはlist共有buffer、arm範囲はCopy metadataとして所有する。scalar/wildcardはRustで有効だがenum export consumerへ流さずtyped unsupportedに閉じる。current VFS file identity、actual scrutinee checker、scalar checkerへの接続は後続である。
+
 ### 2026-07-13 Resource EnumPayload canonical symbol intern prerequisite
 
 `PlaceProjection::EnumPayload { variant: String }`のspellingは、producerの`str`への借用ではなくcanonical symbol tableがUTF-8 byte列をcopyして所有する。tableはspelling recordとbyte storageを別々のdense `Vec`で保持し、freeで両ownerを閉じる。identityはschema version 1とrecord ordinal + 1の組であり、same spellingのre-internはrecordを増やさず同じidentityを返し、distinct spellingは別identityを返す。
