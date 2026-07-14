@@ -3223,8 +3223,17 @@ function runNativeGuiPlatformBehaviorRegression() {
     assert.match(nativeClockTest, /native_runner_clock_instant_i32_guard_ok/);
     assert.match(nativeFontResourceHost, /pub struct NativeFontResourceHost/);
     assert.match(nativeFontResourceHost, /fs::canonicalize\(root\.as_ref\(\)\)/);
+    assert.match(nativeFontResourceHost, /open_resource_root_directory\(&canonical_root, &expected_metadata\)/);
+    assert.match(nativeFontResourceHost, /opened_metadata\.dev\(\) != expected_metadata\.dev\(\)/);
+    assert.match(nativeFontResourceHost, /opened_metadata\.ino\(\) != expected_metadata\.ino\(\)/);
     assert.match(nativeFontResourceHost, /validate_canonical_resource_path\(path\)/);
     assert.match(nativeFontResourceHost, /libc::SYS_openat2/);
+    assert.match(nativeFontResourceHost, /#\[cfg\(target_os = "macos"\)\][\s\S]*libc::openat/);
+    assert.match(nativeFontResourceHost, /libc::O_DIRECTORY \| libc::O_NOFOLLOW/);
+    assert.match(nativeFontResourceHost, /libc::O_RDONLY \| libc::O_CLOEXEC \| libc::O_NOFOLLOW/);
+    assert.match(nativeFontResourceHost, /libc::O_NONBLOCK/);
+    assert.match(nativeFontResourceHost, /OwnedFd::from_raw_fd\(fd\)/);
+    assert.match(nativeFontResourceHost, /named_pipe_is_rejected_without_blocking_open/);
     assert.match(nativeFontResourceHost, /RESOLVE_BENEATH \| RESOLVE_NO_MAGICLINKS \| RESOLVE_NO_SYMLINKS/);
     assert.match(nativeFontResourceHost, /File::from_raw_fd\(fd\)/);
     assert.match(nativeFontResourceHost, /GUI_NATIVE_FONT_RESOURCE_MAX_BYTES/);
@@ -3249,7 +3258,7 @@ function runNativeGuiPlatformBehaviorRegression() {
             "Native smoke runner uses OS-managed resize and close state",
             "Letterboxed framebuffer hit testing is modeled with explicit surface state",
             "Native monotonic clock source uses Instant with i32 range failure",
-            "Native Linux font resource host opens bounded configured-root snapshots beneath a directory handle",
+            "Native Linux and macOS font resource hosts open bounded snapshots beneath verified directory handles",
             "Native span-operation host ABI validates scalar packet input before injected sink execution",
             "Native RGBA8888 framebuffer sink requires complete span sequences without endian byte views",
             "Native RGB0 present buffer conversion uses explicit background alpha composition",

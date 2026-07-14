@@ -77,11 +77,12 @@ impl NativeFontResourceHost {
                 ErrorKind::NotFound => NativeFontResourceRootError::Missing,
                 _ => NativeFontResourceRootError::BackendFailure,
             })?;
-        if !canonical_root.is_dir() {
+        let expected_metadata = fs::metadata(&canonical_root)
+            .map_err(|_| NativeFontResourceRootError::BackendFailure)?;
+        if !expected_metadata.is_dir() {
             return Err(NativeFontResourceRootError::NotDirectory);
         }
-        let root_directory =
-            File::open(&canonical_root).map_err(|_| NativeFontResourceRootError::BackendFailure)?;
+        let root_directory = open_resource_root_directory(&canonical_root, &expected_metadata)?;
         Ok(Self {
             canonical_root: Some(canonical_root),
             root_directory: Some(root_directory),
@@ -199,6 +200,52 @@ impl NativeFontResourceHost {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn open_resource_root_directory(
+    canonical_root: &Path,
+    expected_metadata: &fs::Metadata,
+) -> Result<File, NativeFontResourceRootError> {
+    use std::ffi::CString;
+    use std::os::fd::FromRawFd;
+    use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::MetadataExt;
+
+    let path = CString::new(canonical_root.as_os_str().as_bytes())
+        .map_err(|_| NativeFontResourceRootError::BackendFailure)?;
+    let fd = unsafe {
+        libc::open(
+            path.as_ptr(),
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW,
+        )
+    };
+    if fd < 0 {
+        return Err(match std::io::Error::last_os_error().raw_os_error() {
+            Some(libc::ENOENT) => NativeFontResourceRootError::Missing,
+            Some(libc::ENOTDIR) | Some(libc::ELOOP) => NativeFontResourceRootError::NotDirectory,
+            _ => NativeFontResourceRootError::BackendFailure,
+        });
+    }
+    let root = unsafe { File::from_raw_fd(fd) };
+    let opened_metadata = root
+        .metadata()
+        .map_err(|_| NativeFontResourceRootError::BackendFailure)?;
+    if !opened_metadata.is_dir()
+        || opened_metadata.dev() != expected_metadata.dev()
+        || opened_metadata.ino() != expected_metadata.ino()
+    {
+        return Err(NativeFontResourceRootError::BackendFailure);
+    }
+    Ok(root)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn open_resource_root_directory(
+    canonical_root: &Path,
+    _expected_metadata: &fs::Metadata,
+) -> Result<File, NativeFontResourceRootError> {
+    File::open(canonical_root).map_err(|_| NativeFontResourceRootError::BackendFailure)
+}
+
 fn validate_canonical_resource_path(path: &[u8]) -> Result<PathBuf, ()> {
     let text = std::str::from_utf8(path).map_err(|_| ())?;
     if text.is_empty()
@@ -246,7 +293,7 @@ fn open_resource_beneath(root: &File, relative: &Path) -> Result<File, i32> {
     let path =
         CString::new(raw.as_bytes()).map_err(|_| GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH)?;
     let how = OpenHow {
-        flags: (libc::O_RDONLY | libc::O_CLOEXEC) as u64,
+        flags: (libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NONBLOCK) as u64,
         mode: 0,
         resolve: RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS,
     };
@@ -271,7 +318,67 @@ fn open_resource_beneath(root: &File, relative: &Path) -> Result<File, i32> {
     })
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+fn open_resource_beneath(root: &File, relative: &Path) -> Result<File, i32> {
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+
+    let segments = relative
+        .components()
+        .map(|component| match component {
+            Component::Normal(segment) => CString::new(segment.as_encoded_bytes()).map_err(|_| ()),
+            _ => Err(()),
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH)?;
+    let Some((last, parents)) = segments.split_last() else {
+        return Err(GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH);
+    };
+
+    let mut parent: Option<OwnedFd> = None;
+    for segment in parents {
+        let directory_fd = parent
+            .as_ref()
+            .map_or_else(|| root.as_raw_fd(), AsRawFd::as_raw_fd);
+        let fd = unsafe {
+            libc::openat(
+                directory_fd,
+                segment.as_ptr(),
+                libc::O_RDONLY | libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW,
+            )
+        };
+        if fd < 0 {
+            return Err(map_macos_open_error(std::io::Error::last_os_error()));
+        }
+        parent = Some(unsafe { OwnedFd::from_raw_fd(fd) });
+    }
+
+    let directory_fd = parent
+        .as_ref()
+        .map_or_else(|| root.as_raw_fd(), AsRawFd::as_raw_fd);
+    let fd = unsafe {
+        libc::openat(
+            directory_fd,
+            last.as_ptr(),
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW | libc::O_NONBLOCK,
+        )
+    };
+    if fd < 0 {
+        return Err(map_macos_open_error(std::io::Error::last_os_error()));
+    }
+    Ok(unsafe { File::from_raw_fd(fd) })
+}
+
+#[cfg(target_os = "macos")]
+fn map_macos_open_error(error: std::io::Error) -> i32 {
+    match error.raw_os_error() {
+        Some(libc::ENOENT) => GUI_NATIVE_FONT_RESOURCE_STATUS_MISSING_RESOURCE,
+        Some(libc::ELOOP) | Some(libc::ENOTDIR) => GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH,
+        _ => GUI_NATIVE_FONT_RESOURCE_STATUS_BACKEND_FAILURE,
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn open_resource_beneath(_root: &File, _relative: &Path) -> Result<File, i32> {
     Err(GUI_NATIVE_FONT_RESOURCE_STATUS_UNSUPPORTED)
 }
@@ -354,7 +461,7 @@ mod tests {
         );
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn canonical_file_containment_rejects_symlink_escape() {
         use std::os::unix::fs::symlink;
@@ -375,6 +482,40 @@ mod tests {
                 GUI_NATIVE_FONT_RESOURCE_DECODE_POLICY_SFNT_ONLY,
             ),
             GUI_NATIVE_FONT_RESOURCE_STATUS_INVALID_PATH
+        );
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn named_pipe_is_rejected_without_blocking_open() {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("fonts")).unwrap();
+        let fifo = root.path().join("fonts/Pipe.ttf");
+        let fifo_path = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_path.as_ptr(), 0o600) }, 0);
+        let mut host = NativeFontResourceHost::with_resource_root(root.path()).unwrap();
+        assert_eq!(
+            host.font_resource_open(
+                b"fonts/Pipe.ttf",
+                GUI_NATIVE_FONT_RESOURCE_DECODE_POLICY_SFNT_ONLY,
+            ),
+            GUI_NATIVE_FONT_RESOURCE_STATUS_PAYLOAD_NOT_BINARY
+        );
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn configured_root_descriptor_identity_mismatch_is_rejected() {
+        let configured = tempfile::tempdir().unwrap();
+        let replacement = tempfile::tempdir().unwrap();
+        let replacement_metadata = fs::metadata(replacement.path()).unwrap();
+        assert_eq!(
+            open_resource_root_directory(configured.path(), &replacement_metadata)
+                .expect_err("mismatched root identity must fail"),
+            NativeFontResourceRootError::BackendFailure
         );
     }
 

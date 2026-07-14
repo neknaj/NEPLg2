@@ -7312,6 +7312,8 @@ F5nn native follow-upは同じrequest/bytes owner契約を`nepl_gui_native`専�
 
 Native runner follow-upは`nepl-cli --run --gui-font-resource-root DIRECTORY`だけをroot authorityとし、同一wasmi store ownerへ4 importを接続する。未指定は`Unsupported`、compile-onlyはfilesystem非参照とし、environmentやcurrent working directoryからrootを暗黙選択しない。
 
+macOS native resource openはconfigured root directory handleから各canonical segmentを`openat`で解決し、全segmentに`O_NOFOLLOW`、中間segmentに`O_DIRECTORY`を要求する。parent directory fdを保持したまま次segmentを開き、symlink差し替えやroot外symlink aliasをresource identityとして受理しない。Windowsは同等のroot-handle-relative backendが実装されるまでfail-closedとする。
+
 F5nn は font registry、face selection、SFNT metadata parsing、glyph shaping、layout、rasterization、render2d drain、Web compositor presentation を開かない。`std/fs` / Web WASI `path_open`、suffix match、display name authority、browser CSS font、`FontFace`、Canvas `fillText` / `measureText`、stdout text transport、empty fake bytes、system font fallback は provider success evidence ではない。
 
 ### SFNT simple glyph render fill alpha mask sample cursor boundary

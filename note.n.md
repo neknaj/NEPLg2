@@ -168151,3 +168151,7 @@ MERGE_APPROVED
 
 - `nepl-cli --run --gui-font-resource-root DIRECTORY`を追加し、wasmi linkerの4つの`nepl_gui_native` font resource importを同じ`NativeFontResourceHost` ownerへ接続した。option未指定時はimportを解決したまま`Unsupported`へfail-closedにする。
 - rootはrun時だけ検証し、compile-only、environment、current working directory、suffix、display/family name、OS font registryをauthorityにしない。macOS / Windows secure backend、bare/headless、layout、rasterization、render2d、presentationは未完了であり、全体完成とは扱わない。`plan.md`は変更していない。
+2026-07-15 GUI font macOS secure resource open
+
+- macOS native font resource hostに、configured root directory handleから各canonical path segmentを`openat` + `O_NOFOLLOW`で辿るbackendを追加した。中間segmentは`O_DIRECTORY`も要求し、symlinkやnon-directory aliasを最終file open前に拒否する。root open前metadataとopened descriptorのdevice/inode identityを照合し、final openは`O_NONBLOCK`でFIFOによる停止を防いでtyped non-binary errorへ写す。Linux root/final openにも同じidentity/FIFO対策を適用した。
+- Linux `openat2` backendとsnapshot/session上限は維持する。Windows root-handle-relative NT open、bare/headless provider、layout、rasterization、render2d、presentationは未完了であり、全体完成とは扱わない。`plan.md`は変更していない。

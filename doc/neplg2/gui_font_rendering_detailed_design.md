@@ -9103,6 +9103,8 @@ The native Rust host adapter canonicalizes one explicitly configured directory a
 
 The runner follow-up adds `nepl-cli --run --gui-font-resource-root DIRECTORY`; one wasmi store owner serves all four imports. Missing option is Unsupported, and compile-only does not inspect the filesystem. Environment variables, working directories, suffixes, display/family names, and OS registries provide no implicit authority.
 
+On macOS, secure lookup walks every canonical relative-path segment from the configured root directory descriptor with `openat`. Every open uses `O_NOFOLLOW`, intermediate descriptors additionally require `O_DIRECTORY`, and the next segment is resolved only from the retained parent descriptor. Windows remains fail-closed until an equivalent root-handle-relative NT open backend exists.
+
 ## Web font resource bytes provider boundary
 
 F5nn opens the first formal Web font bytes provider path. `std/gui/font_resource` owns the common contract: `GuiFontResourceProviderErrorKind` separates invalid path, missing resource, text payload, hash mismatch, unsupported decode policy/provider, out-of-memory, resource exhaustion, and backend failure. `GuiFontResourceBytes` is a non-Copy owner carrying the original `GuiFontResourceRequest`, provider source, byte length, actual resource hash, decode policy, and owned `ByteBuf`.
