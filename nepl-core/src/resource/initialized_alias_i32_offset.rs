@@ -39,6 +39,7 @@ impl RawCellAddressAliases {
         truth
     }
 
+    #[cfg(test)]
     pub(super) fn i32_offset_relation_truth_with_context(
         &self,
         left: &Place,

@@ -107,6 +107,386 @@ fn i32_return_facts_preserve_offset_derived_equal_leaf_relations() {
     );
 }
 
+/// 多数の戻り値 leaf と relation fact が共存しても、全ての等価 relation を正確に保存する。
+///
+/// 32 leaf、3 leaf、2 leaf の各完全グループは合計500 relationを持つ。残る48 leafは
+/// relationを持たないため、別グループとの偽の等価性を作ってはならない。
+#[test]
+fn i32_return_facts_preserve_large_relation_groups() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let aggregate_ty = types.tuple(vec![i32_ty; 85]);
+    let returned_value = Place::local(String::from("aggregate"), aggregate_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    assert_eq!(leaves.len(), 85);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    for range in [0..32, 32..35, 35..37] {
+        for left in range.clone() {
+            for right in (left + 1)..range.end {
+                source_aliases.add_i32_relation(
+                    &leaves[left].place,
+                    ResourceI32RelationOp::Eq,
+                    &leaves[right].place,
+                );
+            }
+        }
+    }
+
+    let mut condition_context = I32ConditionQueryContext::default();
+    let leaf_indices: Vec<usize> = (0..leaves.len()).collect();
+    let relation_index = I32ScalarReturnRelationIndex::new(&source_aliases);
+    let profiles = i32_scalar_return_relation_leaf_profiles(
+        &source_aliases,
+        &leaves,
+        &leaf_indices,
+        &relation_index,
+        &mut condition_context,
+    );
+    assert_eq!(
+        profiles.len(),
+        85,
+        "relation profileはleafごとに1件だけ作る"
+    );
+    assert!(profiles[..37].iter().all(|profile| profile.has_relation));
+    assert!(profiles[37..].iter().all(|profile| !profile.has_relation));
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+    assert_eq!(facts.relations.len(), 500);
+    assert!(facts.relations.iter().any(|relation| {
+        relation.left_return_projection == leaves[0].suffix
+            && relation.right_return_projection == leaves[31].suffix
+    }));
+    assert!(!facts.relations.iter().any(|relation| {
+        relation.left_return_projection == leaves[31].suffix
+            && relation.right_return_projection == leaves[32].suffix
+    }));
+}
+
+#[test]
+fn i32_relation_index_matches_full_scan_for_order_duplicates_and_conflicts() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let left = Place::local(String::from("left"), i32_ty);
+    let right = Place::local(String::from("right"), i32_ty);
+    let unrelated_left = Place::local(String::from("unrelated_left"), i32_ty);
+    let unrelated_right = Place::local(String::from("unrelated_right"), i32_ty);
+    let mut aliases = RawCellAddressAliases::default();
+    aliases.add_i32_relation(&unrelated_left, ResourceI32RelationOp::Lt, &unrelated_right);
+    aliases.add_i32_relation(&right, ResourceI32RelationOp::Eq, &left);
+    aliases.add_i32_relation(&left, ResourceI32RelationOp::Ne, &right);
+
+    let index = I32ScalarReturnRelationIndex::new(&aliases);
+    let left_aliases = vec![left.clone(), left.clone()];
+    let right_aliases = vec![right.clone(), right.clone()];
+    let relation_indices = index.indices_for_aliases(&left_aliases);
+    assert_eq!(relation_indices, vec![1, 2]);
+    let left_alias_set = left_aliases.iter().cloned().collect();
+    let right_alias_set = right_aliases.iter().cloned().collect();
+    for op in [
+        ResourceI32RelationOp::Lt,
+        ResourceI32RelationOp::Le,
+        ResourceI32RelationOp::Gt,
+        ResourceI32RelationOp::Ge,
+        ResourceI32RelationOp::Eq,
+        ResourceI32RelationOp::Ne,
+    ] {
+        let authoritative =
+            aliases
+                .i32_relations
+                .relation_truth_for_aliases(&left_aliases, op, &right_aliases);
+        assert_eq!(
+            authoritative,
+            aliases.i32_relations.relation_truth_for_aliases_at_indices(
+                &relation_indices,
+                &left_aliases,
+                op,
+                &right_aliases,
+            )
+        );
+        assert_eq!(
+            authoritative,
+            aliases
+                .i32_relations
+                .relation_truth_for_alias_sets_at_indices(
+                    &relation_indices,
+                    &left_alias_set,
+                    op,
+                    &right_alias_set,
+                )
+        );
+    }
+}
+
+#[test]
+fn i32_offset_reachable_index_preserves_all_relations_and_conflicts() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let shared = Place::local(String::from("shared"), i32_ty);
+    let ignored = Place::local(String::from("ignored"), i32_ty);
+    let left = I32ScalarReturnOffsetReachableIndex::new(vec![
+        (shared.clone(), -2),
+        (shared.clone(), i64::MIN),
+        (ignored, i64::MIN),
+    ]);
+    let right = I32ScalarReturnOffsetReachableIndex::new(vec![(shared.clone(), -3)]);
+    for (op, expected) in [
+        (ResourceI32RelationOp::Eq, false),
+        (ResourceI32RelationOp::Ne, true),
+        (ResourceI32RelationOp::Lt, true),
+        (ResourceI32RelationOp::Le, true),
+        (ResourceI32RelationOp::Gt, false),
+        (ResourceI32RelationOp::Ge, false),
+    ] {
+        assert_eq!(left.relation_truth(op, &right), Some(expected));
+    }
+
+    let conflicting =
+        I32ScalarReturnOffsetReachableIndex::new(vec![(shared.clone(), -2), (shared.clone(), -3)]);
+    assert_eq!(
+        conflicting.relation_truth(ResourceI32RelationOp::Eq, &right),
+        None
+    );
+
+    let minimum_only = I32ScalarReturnOffsetReachableIndex::new(vec![(shared.clone(), i64::MIN)]);
+    let minimum_and_normal =
+        I32ScalarReturnOffsetReachableIndex::new(vec![(shared.clone(), i64::MIN), (shared, -3)]);
+    assert_eq!(
+        minimum_only.relation_truth(ResourceI32RelationOp::Eq, &minimum_only),
+        None
+    );
+    assert_eq!(
+        minimum_only.relation_truth(ResourceI32RelationOp::Eq, &right),
+        None
+    );
+    assert_eq!(
+        minimum_and_normal.relation_truth(ResourceI32RelationOp::Eq, &right),
+        Some(true)
+    );
+}
+
+#[test]
+fn i32_precomputed_return_relation_query_matches_authoritative_query() {
+    let types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let cases = [
+        {
+            let left = Place::local(String::from("value_left"), i32_ty);
+            let right = Place::local(String::from("value_right"), i32_ty);
+            let mut aliases = RawCellAddressAliases::default();
+            aliases.set_i32_value(&left, 7);
+            aliases.set_i32_value(&right, 7);
+            (aliases, left, right)
+        },
+        {
+            let left = Place::local(String::from("relation_left"), i32_ty);
+            let right = Place::local(String::from("relation_right"), i32_ty);
+            let mut aliases = RawCellAddressAliases::default();
+            aliases.add_i32_relation(&left, ResourceI32RelationOp::Eq, &right);
+            (aliases, left, right)
+        },
+        {
+            let left = Place::i32_constant(0, i32_ty);
+            let right = Place::local(String::from("zero_condition"), i32_ty);
+            let mut aliases = RawCellAddressAliases::default();
+            aliases.add_i32_condition(&right, I32ValueCondition::EqZero);
+            (aliases, left, right)
+        },
+        {
+            let base = Place::local(String::from("offset_base"), i32_ty);
+            let left = Place::local(String::from("offset_left"), i32_ty);
+            let right = Place::local(String::from("offset_right"), i32_ty);
+            let mut aliases = RawCellAddressAliases::default();
+            aliases.add_i32_offset(&base, &left, 1);
+            aliases.add_i32_offset(&base, &right, 1);
+            (aliases, left, right)
+        },
+        {
+            let left = Place::local(String::from("unknown_left"), i32_ty);
+            let right = Place::local(String::from("unknown_right"), i32_ty);
+            (RawCellAddressAliases::default(), left, right)
+        },
+    ];
+
+    for (aliases, left, right) in cases {
+        let mut authoritative_context = I32ConditionQueryContext::default();
+        let authoritative = aliases.i32_relation_truth_with_context(
+            &left,
+            ResourceI32RelationOp::Eq,
+            &right,
+            &mut authoritative_context,
+        );
+        let mut context = I32ConditionQueryContext::default();
+        let left_value = aliases.i32_value_with_context(&left, &mut context);
+        let right_value = aliases.i32_value_with_context(&right, &mut context);
+        let left_direct_value = aliases.direct_i32_value_with_context(&left, &mut context);
+        let right_direct_value = aliases.direct_i32_value_with_context(&right, &mut context);
+        let left_zero_condition_truth = aliases.i32_condition_truth_inner(
+            &left,
+            I32ValueCondition::EqZero,
+            0,
+            true,
+            &mut context,
+        );
+        let right_zero_condition_truth = aliases.i32_condition_truth_inner(
+            &right,
+            I32ValueCondition::EqZero,
+            0,
+            true,
+            &mut context,
+        );
+        let left_aliases = aliases.scalar_aliases_for_value_with_context(&left, &mut context);
+        let right_aliases = aliases.scalar_aliases_for_value_with_context(&right, &mut context);
+        let explicit_relation_truth = aliases.i32_relations.relation_truth_for_aliases(
+            &left_aliases,
+            ResourceI32RelationOp::Eq,
+            &right_aliases,
+        );
+        let left_reachable = I32ScalarReturnOffsetReachableIndex::new(
+            aliases.i32_offset_reachable_from_with_context(&left, &mut context),
+        );
+        let right_reachable = I32ScalarReturnOffsetReachableIndex::new(
+            aliases.i32_offset_reachable_from_with_context(&right, &mut context),
+        );
+        let offset_relation_truth =
+            left_reachable.relation_truth(ResourceI32RelationOp::Eq, &right_reachable);
+        assert_eq!(
+            aliases.i32_relation_truth_with_precomputed_return_evidence(
+                ResourceI32RelationOp::Eq,
+                left_value,
+                right_value,
+                explicit_relation_truth,
+                left_direct_value,
+                right_direct_value,
+                left_zero_condition_truth,
+                right_zero_condition_truth,
+                || offset_relation_truth,
+            ),
+            authoritative
+        );
+    }
+}
+
+/// 先に確定できる relation evidence がある場合、offset graph の比較を行わない。
+///
+/// return summary は多数の leaf pair を比較するため、authoritative query と同じ
+/// evidence 順序を保ち、後段の探索を必要な場合だけ実行する。
+#[test]
+fn i32_precomputed_return_relation_query_defers_offset_fallback() {
+    let aliases = RawCellAddressAliases::default();
+
+    assert_eq!(
+        aliases.i32_relation_truth_with_precomputed_return_evidence(
+            ResourceI32RelationOp::Eq,
+            Some(7),
+            Some(7),
+            None,
+            Some(7),
+            Some(7),
+            Some(false),
+            Some(false),
+            || panic!("offset fallback must remain lazy after concrete values"),
+        ),
+        Some(true)
+    );
+    assert_eq!(
+        aliases.i32_relation_truth_with_precomputed_return_evidence(
+            ResourceI32RelationOp::Eq,
+            None,
+            None,
+            Some(true),
+            None,
+            None,
+            None,
+            None,
+            || panic!("offset fallback must remain lazy after an explicit relation"),
+        ),
+        Some(true)
+    );
+
+    assert_eq!(
+        aliases.i32_relation_truth_with_precomputed_return_evidence(
+            ResourceI32RelationOp::Eq,
+            None,
+            None,
+            None,
+            Some(0),
+            None,
+            None,
+            Some(true),
+            || panic!("offset fallback must remain lazy after a zero condition"),
+        ),
+        Some(true)
+    );
+
+    let mut offset_calls = 0;
+    assert_eq!(
+        aliases.i32_relation_truth_with_precomputed_return_evidence(
+            ResourceI32RelationOp::Eq,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            || {
+                offset_calls += 1;
+                Some(false)
+            },
+        ),
+        Some(false)
+    );
+    assert_eq!(offset_calls, 1);
+}
+
+/// 直接値0の戻り値 leaf と、relation chain を介して EqZero が証明される leaf の
+/// 等価性を return summary に保存する。
+///
+/// relation candidate の絞り込みは条件 source へ接続された leaf を含める必要がある。
+/// ここを直接条件だけに限定すると、実際の戻り値集約で必要な等価 relation が落ちる。
+#[test]
+fn i32_return_facts_preserve_zero_equality_through_relation_condition_chain() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let pair_ty = types.tuple(vec![i32_ty, i32_ty]);
+    let returned_value = Place::local(String::from("pair"), pair_ty);
+    let mut leaf_cache = I32LeafProjectionCache::default();
+    let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+    let condition_bridge = Place::local(String::from("condition_bridge"), i32_ty);
+    let unrelated = Place::local(String::from("unrelated"), i32_ty);
+    let mut source_aliases = RawCellAddressAliases::default();
+
+    source_aliases.set_i32_value(&leaves[0].place, 0);
+    source_aliases.add_i32_relation(&leaves[0].place, ResourceI32RelationOp::Ne, &unrelated);
+    source_aliases.add_i32_relation(
+        &leaves[1].place,
+        ResourceI32RelationOp::Eq,
+        &condition_bridge,
+    );
+    source_aliases.add_i32_condition(&condition_bridge, I32ValueCondition::EqZero);
+
+    let facts = collect_i32_scalar_return_facts_for_value_suffix(
+        &[],
+        &types,
+        &source_aliases,
+        &returned_value,
+        &[],
+    );
+    assert!(facts.relations.iter().any(|relation| {
+        relation.left_return_projection == leaves[0].suffix
+            && relation.op == ResourceI32RelationOp::Eq
+            && relation.right_return_projection == leaves[1].suffix
+    }));
+}
+
 /// 引数 leaf に対して既に成立している i32 condition は、呼び出し元へ戻す
 /// parameter condition として保存する。
 ///

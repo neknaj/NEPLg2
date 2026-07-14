@@ -133,6 +133,7 @@ impl RawCellAddressAliases {
             .or_else(|| self.i32_offset_relation_truth(left, op, right))
     }
 
+    #[cfg(test)]
     pub(super) fn i32_relation_truth_with_context(
         &self,
         left: &Place,
@@ -162,6 +163,35 @@ impl RawCellAddressAliases {
         self.i32_offset_relation_truth_with_context(left, op, right, context)
     }
 
+    pub(super) fn i32_relation_truth_with_precomputed_return_evidence<F>(
+        &self,
+        op: ResourceI32RelationOp,
+        left_value: Option<i32>,
+        right_value: Option<i32>,
+        explicit_relation_truth: Option<bool>,
+        left_direct_value: Option<i32>,
+        right_direct_value: Option<i32>,
+        left_zero_condition_truth: Option<bool>,
+        right_zero_condition_truth: Option<bool>,
+        offset_relation_truth: F,
+    ) -> Option<bool>
+    where
+        F: FnOnce() -> Option<bool>,
+    {
+        if let (Some(left_value), Some(right_value)) = (left_value, right_value) {
+            return Some(relation_holds(left_value, op, right_value));
+        }
+        if explicit_relation_truth.is_some() {
+            return explicit_relation_truth;
+        }
+        let zero_condition_truth = match (left_direct_value, right_direct_value) {
+            (Some(0), None) => right_zero_condition_truth,
+            (None, Some(0)) => left_zero_condition_truth,
+            _ => None,
+        };
+        zero_condition_truth.or_else(offset_relation_truth)
+    }
+
     fn i32_relation_truth_from_zero_condition(
         &self,
         left: &Place,
@@ -177,6 +207,7 @@ impl RawCellAddressAliases {
         }
     }
 
+    #[cfg(test)]
     fn i32_relation_truth_from_zero_condition_with_context(
         &self,
         left: &Place,
@@ -225,6 +256,7 @@ impl RawCellAddressAliases {
         self.i32_condition_truth(place, condition)
     }
 
+    #[cfg(test)]
     fn i32_relation_truth_from_condition_against_zero_with_context(
         &self,
         place: &Place,

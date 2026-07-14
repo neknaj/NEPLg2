@@ -515,6 +515,7 @@ impl ResourceOwnerCheckEngine<'_> {
         }
     }
 
+
     pub(super) fn apply_branch_condition_fact(
         &mut self,
         owners: &mut OwnerTable,

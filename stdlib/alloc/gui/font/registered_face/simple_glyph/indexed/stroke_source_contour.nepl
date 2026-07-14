@@ -25,6 +25,7 @@
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
+#import "core/option" as *
 #import "core/result" as *
 
 //: Owner: sink completionとregistered indexed sourceの対応を保持します
@@ -85,6 +86,92 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner:
     quadratic_count %i32
     skip_count %i32
 
+//: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner: sealed provenance と actual metric checkpoint の一体 authority
+//:
+//: F5nxk completed ownerからregistered command source、provenance storage、legacy writerを一度だけ分離し、writerから作ったactual checkpointを同じownerへ再結合します。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner:
+    provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance
+    actual %GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner
+    command_count %i32
+    metric_count %i32
+    line_count %i32
+    quadratic_count %i32
+    next_metric_index %i32
+    origin %GuiPoint
+    stroke_width %i32
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind:
+    ActualBuildFailed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind
+    ActualSummaryReadFailed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind
+    PaintStrokeMissing
+    PaintStrokeWidthInvalid
+    MetricCountMismatch
+    LineCountMismatch
+    QuadraticCountMismatch
+    StorageShapeMismatch
+
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind \kind: *kind
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind \kind: kind
+
+enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual:
+    Preflight %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner
+    BuildError %GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError
+    Checkpoint %GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError:
+    provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance
+    actual %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind
+    command_count %i32
+    expected_metric_count %i32
+    expected_line_count %i32
+    expected_quadratic_count %i32
+    actual_metric_count %i32
+    actual_line_count %i32
+    actual_quadratic_count %i32
+    actual_len %i32
+    actual_cap %i32
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined:
+    provenance %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance
+    actual %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined \value: value
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind:
+    Completed
+    StepBudgetExhausted
+    Joined
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind
+    joined %Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind:
+    ProvenanceReadFailed %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind
+    ActualReadFailed %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind
+    MetricIndexMismatch
+    VariantMismatch
+    CoordinateMismatch
+    StrokeWidthMismatch
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind \kind: *kind
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind \kind: kind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind
+
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricStartErrorKind:
     InvalidSummary
     AllocationFailed %StdErrorKind
@@ -128,6 +215,10 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricSealError:
 
 pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
     IndexOutOfRange
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind \kind: *kind
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind \kind: kind
 
 //: command_from_span: commandとindexed spanのidentityを一か所で検査します
 //:
@@ -337,6 +428,175 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_own
             match vec::get provenance metric_index:
                 Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind::IndexOutOfRange
                 Option::Some value: Result::Ok value
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error %fn Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError \provenance\actual\kind\command_count\expected_metric\expected_line\expected_quadratic\actual_metric\actual_line\actual_quadratic\actual_len\actual_cap:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError provenance actual kind command_count expected_metric expected_line expected_quadratic actual_metric actual_line actual_quadratic actual_len actual_cap
+
+//: join_start: sealed provenance authorityからactual checkpointを構築し、走査前summaryを照合します
+//:
+//: nested sink completedを一度だけ分解し、registered sourceとprovenanceは保持したままlegacy writerだけをF5ku production bridgeへ移します。countまたはstorage shapeが一致しなければ両authorityをtyped errorに保持します。
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_checked %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner impure fn GuiPoint impure fn GuiGlyphPaint impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError \completed\origin\paint\stroke_width:
+    let command_count %i32 *field::get_ref &completed "command_count"
+    let expected_line %i32 *field::get_ref &completed "line_count"
+    let expected_quadratic %i32 *field::get_ref &completed "quadratic_count"
+    let expected_metric %i32 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_metric_count &completed
+    let contour_source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner field::get completed "source"
+    let sink %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner field::get contour_source "sink"
+    let provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get completed "provenance"
+    match gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start sink origin paint:
+        Result::Err lower:
+            let lower_kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start_error_kind &lower
+            let actual %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::BuildError lower
+            let kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::ActualBuildFailed lower_kind
+            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error provenance actual kind command_count expected_metric expected_line expected_quadratic -1 -1 -1 -1 -1
+        Result::Ok actual_owner:
+            match gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_summary &actual_owner:
+                Result::Err lower_kind:
+                    let actual %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::Checkpoint actual_owner
+                    let kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::ActualSummaryReadFailed lower_kind
+                    Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error provenance actual kind command_count expected_metric expected_line expected_quadratic -1 -1 -1 -1 -1
+                Result::Ok summary:
+                    let actual_metric %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_total &summary
+                    let actual_line %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_line &summary
+                    let actual_quadratic %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_quadratic &summary
+                    let actual_len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_len &summary
+                    let actual_cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_cap &summary
+                    let kind %Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind if ne expected_metric actual_metric:
+                        then some GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::MetricCountMismatch
+                        else if ne expected_line actual_line:
+                            then some GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::LineCountMismatch
+                            else if ne expected_quadratic actual_quadratic:
+                                then some GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::QuadraticCountMismatch
+                                else if or ne actual_metric actual_len ne actual_len actual_cap:
+                                    then some GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::StorageShapeMismatch
+                                    else none
+                    match kind:
+                        Option::Some mismatch:
+                            let actual %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::Checkpoint actual_owner
+                            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error provenance actual mismatch command_count expected_metric expected_line expected_quadratic actual_metric actual_line actual_quadratic actual_len actual_cap
+                        Option::None:
+                            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner provenance actual_owner command_count expected_metric expected_line expected_quadratic 0 origin stroke_width
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_preflight_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError \completed\kind:
+    let command_count %i32 *field::get_ref &completed "command_count"
+    let expected_line %i32 *field::get_ref &completed "line_count"
+    let expected_quadratic %i32 *field::get_ref &completed "quadratic_count"
+    let expected_metric %i32 gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_metric_count &completed
+    let contour_source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourOwner field::get completed "source"
+    let sink %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner field::get contour_source "sink"
+    let provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get completed "provenance"
+    let actual %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::Preflight sink
+    gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error provenance actual kind command_count expected_metric expected_line expected_quadratic -1 -1 -1 -1 -1
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricCompletedOwner impure fn GuiPoint impure fn GuiGlyphPaint Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError \completed\origin\paint:
+    match gui_glyph_paint_stroke &paint:
+        Option::None:
+            Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_preflight_error completed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::PaintStrokeMissing
+        Option::Some stroke:
+            let stroke_width %i32 gui_stroke_width &stroke
+            if le stroke_width 0:
+                then Result::Err gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_preflight_error completed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind::PaintStrokeWidthInvalid
+                else gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_checked completed origin paint stroke_width
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_command_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner i32 \owner: *field::get_ref owner "command_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_metric_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner i32 \owner: *field::get_ref owner "metric_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_line_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner i32 \owner: *field::get_ref owner "line_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_quadratic_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner i32 \owner: *field::get_ref owner "quadratic_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner i32 \owner: *field::get_ref owner "next_metric_index"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_origin %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiPoint \owner: *field::get_ref owner "origin"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_stroke_width %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner i32 \owner: *field::get_ref owner "stroke_width"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_provenance %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance \value: *field::get_ref value "provenance"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_joined_actual %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection \value: *field::get_ref value "actual"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner \step: field::get step "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind \step: *field::get_ref step "status"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_joined %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep Option GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined \step: *field::get_ref step "joined"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error_expected_metric_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError i32 \error: *field::get_ref error "expected_metric_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error_actual_metric_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError i32 \error: *field::get_ref error "actual_metric_count"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner unit \owner:
+    vec::free field::get owner "provenance";
+    gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_owner_free field::get owner "actual"
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartError unit \error:
+    vec::free field::get error "provenance";
+    match field::get error "actual":
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::Preflight sink:
+            gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_free sink
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::BuildError lower:
+            gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start_error_free lower
+        GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStartErrorActual::Checkpoint checkpoint:
+            gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_owner_free checkpoint
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_line_coordinates_match %fn &GuiSfntSimpleGlyphLineSegment fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection bool \curve\actual:
+    and eq gui_sfnt_simple_glyph_line_segment_start_x2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_x2 actual and eq gui_sfnt_simple_glyph_line_segment_start_y2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_y2 actual and eq gui_sfnt_simple_glyph_line_segment_end_x2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_x2 actual eq gui_sfnt_simple_glyph_line_segment_end_y2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_y2 actual
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_quadratic_coordinates_match %fn &GuiSfntSimpleGlyphQuadraticSegment fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection bool \curve\actual:
+    and eq gui_sfnt_simple_glyph_quadratic_segment_start_x2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_x2 actual and eq gui_sfnt_simple_glyph_quadratic_segment_start_y2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_y2 actual and eq gui_sfnt_simple_glyph_quadratic_segment_control_x2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_x2 actual and eq gui_sfnt_simple_glyph_quadratic_segment_control_y2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_y2 actual and eq gui_sfnt_simple_glyph_quadratic_segment_end_x2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_end_x2 actual eq gui_sfnt_simple_glyph_quadratic_segment_end_y2 curve gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_end_y2 actual
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError \owner\kind:
+    Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError owner kind
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError \owner\budget:
+    let next %i32 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_next_metric_index &owner
+    let metric_count %i32 gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_metric_count &owner
+    if eq next metric_count:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Completed none
+        else if le budget 0:
+            then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::StepBudgetExhausted none
+            else:
+                let provenance_values %&Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get_ref &owner "provenance"
+                match vec::get provenance_values next:
+                    Option::None: gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::ProvenanceReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind::IndexOutOfRange
+                    Option::Some provenance:
+                        let actual_ref %&GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner field::get_ref &owner "actual"
+                        match gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_read_at actual_ref next:
+                            Result::Err kind: gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::ActualReadFailed kind
+                            Result::Ok actual:
+                                if ne gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_metric_index &provenance next:
+                                    then gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch
+                                    else:
+                                        let command gui_font_registered_face_simple_glyph_indexed_stroke_metric_provenance_command &provenance
+                                        let curve gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_command_curve &command
+                                        let stroke_width gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_owner_stroke_width &owner
+                                        let checked %Result unit GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind match curve:
+                                            GuiSfntSimpleGlyphCurveSegment::NoSegment _no_segment: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::VariantMismatch
+                                            GuiSfntSimpleGlyphCurveSegment::Line line:
+                                                match actual:
+                                                    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Quadratic _quadratic: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::VariantMismatch
+                                                    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line line_actual:
+                                                        if ne next gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_segment_index &line_actual:
+                                                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch
+                                                            else if not gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_line_coordinates_match &line &line_actual:
+                                                                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::CoordinateMismatch
+                                                                else if ne stroke_width gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_stroke_width &line_actual:
+                                                                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::StrokeWidthMismatch
+                                                                    else Result::Ok unit
+                                            GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic:
+                                                match actual:
+                                                    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line _line: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::VariantMismatch
+                                                    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Quadratic quadratic_actual:
+                                                        if ne next gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_segment_index &quadratic_actual:
+                                                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch
+                                                            else if not gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_quadratic_coordinates_match &quadratic &quadratic_actual:
+                                                                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::CoordinateMismatch
+                                                                else if ne stroke_width gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_stroke_width &quadratic_actual:
+                                                                    then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::StrokeWidthMismatch
+                                                                    else Result::Ok unit
+                                        match checked:
+                                            Result::Err kind: gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error owner kind
+                                            Result::Ok _unit:
+                                                let moved_provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance field::get owner "provenance"
+                                                let moved_actual %GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner field::get owner "actual"
+                                                let command_count %i32 field::get owner "command_count"
+                                                let line_count %i32 field::get owner "line_count"
+                                                let quadratic_count %i32 field::get owner "quadratic_count"
+                                                let origin %GuiPoint field::get owner "origin"
+                                                let joined %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoined provenance actual
+                                                let next_owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner moved_provenance moved_actual command_count metric_count line_count quadratic_count add next 1 origin stroke_width
+                                                Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStep next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Joined some joined
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_drain_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricDrainOwner unit \owner:
     gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_owner_free field::get owner "source";
     vec::free field::get owner "provenance"
@@ -387,3 +647,12 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_test_
                     if gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_span_identity_eq &span &invalid:
                         then GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::CommandReadFailed GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedReadErrorKind::SourceTagMismatch
                         else GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContourReadErrorKind::SpanIdentityMismatch
+
+#test
+//: join_test_force_metric_index_mismatch: valid join authorityを変更せずowner-bearing mismatch recoveryへ通します
+//:
+//: ownerを分解せずerrorへ一度だけmoveし、callerが回収後に同じcursorからproduction stepをretryできることを検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_test_force_metric_index_mismatch %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch

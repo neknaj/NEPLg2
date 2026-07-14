@@ -21,6 +21,7 @@
 #import "alloc/gui/font/registered_face/simple_glyph/indexed/path_command_stream" as *
 #import "alloc/gui/font/sfnt" as *
 #import "core/field" as field
+#import "core/gui" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -55,6 +56,20 @@ pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkWritingOwner:
 pub struct GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner:
     source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
     writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner: registered source と actual metric checkpoint の一体 owner
+//:
+//: completed sink から同時に取り出した source と writer のうち、writer を F5ku production bridge へ移し、成功した opaque checkpoint を元の source と束ねます。raw writer、metric Vec、plan owner は公開しません。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    checkpoint %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner
+
+//: GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError: registered source を失わない checkpoint build failure
+//:
+//: lower error が private F5kq-F5ku owner を保持し、この error が registered source を保持します。caller は kind を借用で読み、single free で両方を閉じます。
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner
+    lower %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError
 
 //: PlanError: plan導出失敗時もsource authorityを返します
 //:
@@ -426,6 +441,47 @@ pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_step_erro
 pub fn gui_font_registered_face_simple_glyph_indexed_path_command_sink_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner unit \owner:
     gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get owner "source"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free field::get owner "writer"
+
+//: completed sink から registered source を保持した actual metric checkpoint を構築する
+//:
+//: source と writer を同じ completed owner から一度だけ移し、writer だけを lower production bridge へ渡します。失敗時も source と lower owner-bearing error を同じ error に保持します。
+pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkCompletedOwner impure fn GuiPoint impure fn GuiGlyphPaint Result GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError \completed\origin\paint:
+    let source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner field::get completed "source"
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get completed "writer"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_build writer origin paint:
+        Result::Err lower:
+            Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError source lower
+        Result::Ok checkpoint:
+            Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner source checkpoint
+
+//: registered actual metric checkpoint の checked count / storage summary を返す
+//:
+//: lower F5ku plan-bound invariant を毎回検査し、total、Line、Quadratic、len、cap の Copy summary だけを公開します。
+pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_summary %fn &GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \owner:
+    let checkpoint %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner field::get_ref owner "checkpoint"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_summary checkpoint
+
+//: registered actual metric checkpoint を owner-bound index で読む
+//:
+//: source / writer / raw metric storage を分離せず、検査済み Line または Quadratic Copy projection だけを返します。失敗後も同じ owner を再利用できます。
+pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_read_at %fn &GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \owner\metric_index:
+    let checkpoint %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner field::get_ref owner "checkpoint"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at checkpoint metric_index
+
+//: registered actual metric checkpoint build failure の lower stage kind を借用で返す
+pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind \error:
+    let lower %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError field::get_ref error "lower"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error_kind lower
+
+//: registered source と actual metric checkpoint を一度ずつ解放する
+pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get owner "source"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_free field::get owner "checkpoint"
+
+//: checkpoint build failure が保持する registered source と lower private owner を一度ずつ解放する
+pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_path_command_stream_completed_owner_free field::get error "source"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error_free field::get error "lower"
 
 //: completed_owner_summary: downstream phaseへsource command summaryを転送します
 //: neplg2:test[skip]

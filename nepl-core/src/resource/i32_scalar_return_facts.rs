@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
@@ -764,18 +765,32 @@ fn collect_i32_scalar_return_leaf_relations(
     // leaf 間の等価性照会は同じ raw alias graph に対する純粋な問い合わせである。
     // return value に多数の i32 leaf がある場合でも、alias/offset 到達性の memo を
     // relation 収集全体で共有し、同じ探索を leaf pair ごとに繰り返さない。
+    let relation_index = I32ScalarReturnRelationIndex::new(raw_aliases);
+    let profiles = i32_scalar_return_relation_leaf_profiles(
+        raw_aliases,
+        leaves,
+        leaf_indices,
+        &relation_index,
+        condition_context,
+    );
     for (left_position, left_index) in leaf_indices.iter().enumerate() {
         let left = &leaves[*left_index];
-        for right_index in leaf_indices.iter().skip(left_position + 1) {
+        let left_profile = &profiles[left_position];
+        for (right_position, right_index) in leaf_indices.iter().enumerate().skip(left_position + 1)
+        {
             let right = &leaves[*right_index];
-            if left.place.ty != right.place.ty
-                || !i32_scalar_leaf_places_are_known_equal(
-                    raw_aliases,
-                    &left.place,
-                    &right.place,
-                    condition_context,
-                )
-            {
+            let right_profile = &profiles[right_position];
+            if left.place.ty != right.place.ty {
+                continue;
+            }
+            let places_are_known_equal = i32_scalar_leaf_places_are_known_equal(
+                raw_aliases,
+                &left.place,
+                &right.place,
+                left_profile,
+                right_profile,
+            );
+            if !places_are_known_equal {
                 continue;
             }
             let left_return_projection = compose_return_projection(target_suffix, &left.suffix);
@@ -793,6 +808,232 @@ fn collect_i32_scalar_return_leaf_relations(
                 },
             );
         }
+    }
+}
+
+struct I32ScalarReturnRelationLeafProfile {
+    alias_set: BTreeSet<Place>,
+    relation_indices: Vec<usize>,
+    value: Option<i32>,
+    direct_value: Option<i32>,
+    eq_zero_truth: Option<bool>,
+    offset_reachable: I32ScalarReturnOffsetReachableIndex,
+    has_condition_source: bool,
+    has_relation: bool,
+    has_offset: bool,
+    has_scale: bool,
+}
+
+fn i32_scalar_return_relation_leaf_profiles(
+    raw_aliases: &RawCellAddressAliases,
+    leaves: &[OwnerLeafPlace],
+    leaf_indices: &[usize],
+    relation_index: &I32ScalarReturnRelationIndex,
+    condition_context: &mut I32ConditionQueryContext,
+) -> Vec<I32ScalarReturnRelationLeafProfile> {
+    let mut profiles: Vec<I32ScalarReturnRelationLeafProfile> = leaf_indices
+        .iter()
+        .map(|leaf_index| {
+            let aliases = raw_aliases.scalar_aliases_for_value_with_context(
+                &leaves[*leaf_index].place,
+                condition_context,
+            );
+            let has_offset = raw_aliases.i32_offsets.has_offset_for_aliases(&aliases);
+            I32ScalarReturnRelationLeafProfile {
+                value: raw_aliases
+                    .i32_value_with_context(&leaves[*leaf_index].place, condition_context),
+                direct_value: raw_aliases
+                    .direct_i32_value_with_context(&leaves[*leaf_index].place, condition_context),
+                eq_zero_truth: None,
+                has_condition_source: raw_aliases
+                    .i32_facts
+                    .has_condition_sources_for_aliases(&aliases),
+                has_relation: raw_aliases
+                    .i32_relations
+                    .has_relation_touching_aliases(&aliases),
+                has_offset,
+                has_scale: raw_aliases
+                    .i32_scales
+                    .has_scaled_source_for_aliases(&aliases),
+                offset_reachable: I32ScalarReturnOffsetReachableIndex::new(if has_offset {
+                    raw_aliases.i32_offset_reachable_from_with_context(
+                        &leaves[*leaf_index].place,
+                        condition_context,
+                    )
+                } else {
+                    Vec::new()
+                }),
+                relation_indices: relation_index.indices_for_aliases(&aliases),
+                alias_set: aliases.iter().cloned().collect(),
+            }
+        })
+        .collect();
+    let zero_condition_candidate_places: BTreeSet<Place> =
+        i32_scalar_return_condition_connected_relation_candidate_places(
+            raw_aliases,
+            i32_scalar_return_non_relation_condition_candidate_places(raw_aliases),
+        )
+        .into_iter()
+        .collect();
+    let needs_eq_zero_truth: Vec<bool> = profiles
+        .iter()
+        .enumerate()
+        .map(|(position, profile)| {
+            profile.value.is_none()
+                && profile.direct_value.is_none()
+                && profile
+                    .alias_set
+                    .iter()
+                    .any(|alias| zero_condition_candidate_places.contains(alias))
+                && profiles.iter().enumerate().any(|(other_position, other)| {
+                    position != other_position
+                        && other.direct_value == Some(0)
+                        && i32_scalar_leaf_relation_query_may_succeed(profile, other)
+                })
+        })
+        .collect();
+    for (position, needs_truth) in needs_eq_zero_truth.into_iter().enumerate() {
+        if needs_truth {
+            profiles[position].eq_zero_truth = raw_aliases.i32_condition_truth_inner(
+                &leaves[leaf_indices[position]].place,
+                I32ValueCondition::EqZero,
+                0,
+                true,
+                condition_context,
+            );
+        }
+    }
+    profiles
+}
+
+struct I32ScalarReturnOffsetReachableIndex {
+    offsets_by_place: BTreeMap<Place, Vec<i64>>,
+}
+
+impl I32ScalarReturnOffsetReachableIndex {
+    fn new(reachable: Vec<(Place, i64)>) -> Self {
+        let mut offsets_by_place: BTreeMap<Place, Vec<i64>> = BTreeMap::new();
+        for (place, offset) in reachable {
+            if offset == i64::MIN {
+                continue;
+            }
+            offsets_by_place.entry(place).or_default().push(offset);
+        }
+        for offsets in offsets_by_place.values_mut() {
+            offsets.sort_unstable();
+            offsets.dedup();
+        }
+        Self { offsets_by_place }
+    }
+
+    fn relation_truth(
+        &self,
+        op: ResourceI32RelationOp,
+        other: &I32ScalarReturnOffsetReachableIndex,
+    ) -> Option<bool> {
+        if op == ResourceI32RelationOp::Eq {
+            return self.equal_relation_truth(other);
+        }
+        let mut truth = None;
+        for (place, left_offsets) in &self.offsets_by_place {
+            let Some(right_offsets) = other.offsets_by_place.get(place) else {
+                continue;
+            };
+            for left_offset in left_offsets {
+                let Some(left_value) = left_offset.checked_neg() else {
+                    continue;
+                };
+                for right_offset in right_offsets {
+                    let Some(right_value) = right_offset.checked_neg() else {
+                        continue;
+                    };
+                    let candidate = match op {
+                        ResourceI32RelationOp::Eq => left_value == right_value,
+                        ResourceI32RelationOp::Ne => left_value != right_value,
+                        ResourceI32RelationOp::Lt => left_value < right_value,
+                        ResourceI32RelationOp::Le => left_value <= right_value,
+                        ResourceI32RelationOp::Gt => left_value > right_value,
+                        ResourceI32RelationOp::Ge => left_value >= right_value,
+                    };
+                    match truth {
+                        Some(existing) if existing != candidate => return None,
+                        Some(_) => {}
+                        None => truth = Some(candidate),
+                    }
+                }
+            }
+        }
+        truth
+    }
+
+    fn equal_relation_truth(&self, other: &I32ScalarReturnOffsetReachableIndex) -> Option<bool> {
+        let mut truth = None;
+        for (place, left_offsets) in &self.offsets_by_place {
+            let Some(right_offsets) = other.offsets_by_place.get(place) else {
+                continue;
+            };
+            let has_equal = sorted_i64_slices_intersect(left_offsets, right_offsets);
+            let has_unequal = left_offsets.len() > 1
+                || right_offsets.len() > 1
+                || left_offsets.first() != right_offsets.first();
+            for candidate in [has_equal.then_some(true), has_unequal.then_some(false)] {
+                let Some(candidate) = candidate else {
+                    continue;
+                };
+                match truth {
+                    Some(existing) if existing != candidate => return None,
+                    Some(_) => {}
+                    None => truth = Some(candidate),
+                }
+            }
+        }
+        truth
+    }
+}
+
+fn sorted_i64_slices_intersect(left: &[i64], right: &[i64]) -> bool {
+    let mut left_index = 0;
+    let mut right_index = 0;
+    while left_index < left.len() && right_index < right.len() {
+        match left[left_index].cmp(&right[right_index]) {
+            core::cmp::Ordering::Less => left_index += 1,
+            core::cmp::Ordering::Greater => right_index += 1,
+            core::cmp::Ordering::Equal => return true,
+        }
+    }
+    false
+}
+
+struct I32ScalarReturnRelationIndex {
+    relation_indices_by_place: BTreeMap<Place, Vec<usize>>,
+}
+
+impl I32ScalarReturnRelationIndex {
+    fn new(raw_aliases: &RawCellAddressAliases) -> Self {
+        let mut relation_indices_by_place: BTreeMap<Place, Vec<usize>> = BTreeMap::new();
+        for (relation_index, relation) in raw_aliases.i32_relations.relations.iter().enumerate() {
+            relation_indices_by_place
+                .entry(relation.left.clone())
+                .or_default()
+                .push(relation_index);
+            relation_indices_by_place
+                .entry(relation.right.clone())
+                .or_default()
+                .push(relation_index);
+        }
+        Self {
+            relation_indices_by_place,
+        }
+    }
+
+    fn indices_for_aliases(&self, aliases: &[Place]) -> Vec<usize> {
+        let mut indices = BTreeSet::new();
+        for alias in aliases {
+            if let Some(alias_indices) = self.relation_indices_by_place.get(alias) {
+                indices.extend(alias_indices.iter().copied());
+            }
+        }
+        indices.into_iter().collect()
     }
 }
 
@@ -1008,57 +1249,64 @@ fn i32_scalar_leaf_places_are_known_equal(
     raw_aliases: &RawCellAddressAliases,
     left: &Place,
     right: &Place,
-    condition_context: &mut I32ConditionQueryContext,
+    left_profile: &I32ScalarReturnRelationLeafProfile,
+    right_profile: &I32ScalarReturnRelationLeafProfile,
 ) -> bool {
     if left == right {
         return true;
     }
-    let left_aliases = raw_aliases.scalar_aliases_for_value_with_context(left, condition_context);
-    let right_aliases = raw_aliases.scalar_aliases_for_value_with_context(right, condition_context);
-    left_aliases.iter().any(|left_alias| {
-        right_aliases
-            .iter()
-            .any(|right_alias| right_alias == left_alias)
-    }) || i32_scalar_leaf_relation_query_may_succeed(raw_aliases, &left_aliases, &right_aliases)
-        && raw_aliases.i32_relation_truth_with_context(
-            left,
-            ResourceI32RelationOp::Eq,
-            right,
-            condition_context,
-        ) == Some(true)
+    let aliases_intersect = left_profile
+        .alias_set
+        .iter()
+        .any(|left_alias| right_profile.alias_set.contains(left_alias));
+    aliases_intersect
+        || i32_scalar_leaf_relation_query_may_succeed(left_profile, right_profile) && {
+            let explicit_relation_truth = raw_aliases
+                .i32_relations
+                .relation_truth_for_alias_sets_at_indices(
+                    &left_profile.relation_indices,
+                    &left_profile.alias_set,
+                    ResourceI32RelationOp::Eq,
+                    &right_profile.alias_set,
+                );
+            raw_aliases.i32_relation_truth_with_precomputed_return_evidence(
+                ResourceI32RelationOp::Eq,
+                left_profile.value,
+                right_profile.value,
+                explicit_relation_truth,
+                left_profile.direct_value,
+                right_profile.direct_value,
+                left_profile.eq_zero_truth,
+                right_profile.eq_zero_truth,
+                || {
+                    (left_profile.has_offset && right_profile.has_offset)
+                        .then(|| {
+                            left_profile.offset_reachable.relation_truth(
+                                ResourceI32RelationOp::Eq,
+                                &right_profile.offset_reachable,
+                            )
+                        })
+                        .flatten()
+                },
+            ) == Some(true)
+        }
 }
 
 fn i32_scalar_leaf_relation_query_may_succeed(
-    raw_aliases: &RawCellAddressAliases,
-    left_aliases: &[Place],
-    right_aliases: &[Place],
+    left: &I32ScalarReturnRelationLeafProfile,
+    right: &I32ScalarReturnRelationLeafProfile,
 ) -> bool {
     // `i32_relation_truth_with_context` は direct value、parameter condition、明示 relation、
     // offset graph、scale fact のどれからでも等価性を証明できる汎用問い合わせである。
     // return summary は戻り値 i32 leaf の全組にこの問い合わせを行うため、どちらの leaf も
     // scalar proof source に触れていない組だけは、到達不能な relation 探索へ入る前に外す。
-    raw_aliases
-        .i32_facts
-        .has_condition_sources_for_aliases(left_aliases)
-        || raw_aliases
-            .i32_facts
-            .has_condition_sources_for_aliases(right_aliases)
-        || raw_aliases
-            .i32_relations
-            .has_relation_touching_aliases(left_aliases)
-        || raw_aliases
-            .i32_relations
-            .has_relation_touching_aliases(right_aliases)
-        || raw_aliases.i32_offsets.has_offset_for_aliases(left_aliases)
-            && raw_aliases
-                .i32_offsets
-                .has_offset_for_aliases(right_aliases)
-        || raw_aliases
-            .i32_scales
-            .has_scaled_source_for_aliases(left_aliases)
-        || raw_aliases
-            .i32_scales
-            .has_scaled_source_for_aliases(right_aliases)
+    left.has_condition_source
+        || right.has_condition_source
+        || left.has_relation
+        || right.has_relation
+        || left.has_offset && right.has_offset
+        || left.has_scale
+        || right.has_scale
 }
 
 fn collect_i32_scalar_return_leaf_facts(

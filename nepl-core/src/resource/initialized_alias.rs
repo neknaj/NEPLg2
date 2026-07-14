@@ -71,6 +71,21 @@ impl RawCellAddressAliases {
         self.copy_alias_if_tracked_with_mode(source, target, false);
     }
 
+    /// Copies facts to a mutually exclusive enum payload without aliasing sibling payloads.
+    pub(super) fn copy_exclusive_variant_facts(&mut self, source: &Place, target: &Place) {
+        if source == target {
+            return;
+        }
+        let source_has_owner_alias = self.contains_marked_alias(source);
+        let source_origin = self.canonicalize_scalar(source);
+        let fact_copies = self.scalar_fact_copies_for_aliases(source, target);
+        self.clear(target);
+        if source_has_owner_alias {
+            self.ensure_marked(target);
+        }
+        self.copy_scalar_facts_to_fresh_target(source, target, source_origin, fact_copies);
+    }
+
     /// Copies stable scalar-value facts without creating a raw-address owner alias.
     pub(super) fn copy_scalar_facts_if_tracked(&mut self, source: &Place, target: &Place) {
         if source == target {

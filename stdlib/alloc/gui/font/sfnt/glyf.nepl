@@ -26864,6 +26864,21 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric %fn i32 fn i32
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
     *field::get_ref metric "segment_index"
 
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "start_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "start_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "end_x2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "end_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i32 \metric:
+    *field::get_ref metric "stroke_width"
+
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric i64 \metric:
     *field::get_ref metric "dx"
 
@@ -26909,6 +26924,14 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric %fn i32 f
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric:
     *field::get_ref metric "segment_index"
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "start_x2"
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "start_y2"
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "control_x2"
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "control_y2"
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "end_x2"
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "end_y2"
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i32 \metric: *field::get_ref metric "stroke_width"
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric i64 \metric:
     *field::get_ref metric "start_control_dx"
@@ -27158,6 +27181,203 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap %
     let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref owner "metrics"
     vec::cap metrics
 
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection: line metric の公開 Copy projection
+//:
+//: private metric owner の所有権を公開せず、検査済み line metric の数値だけを値として返します。
+pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+    dx %i64
+    dy %i64
+    length_squared %i64
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection \value: value
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection: quadratic metric の公開 Copy projection
+//:
+//: private metric owner の所有権を公開せず、検査済み quadratic metric の数値だけを値として返します。
+pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection:
+    segment_index %i32
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    stroke_width %i32
+    start_control_dx %i64
+    start_control_dy %i64
+    control_end_dx %i64
+    control_end_dy %i64
+    start_control_length_squared %i64
+    control_end_length_squared %i64
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection \value: value
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection: source segment metric の公開 Copy projection
+//:
+//: metric の順序と line / quadratic の種別を保ったまま、private metric を公開値へ射影します。
+pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection:
+    Line %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection
+    Quadratic %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection \value: value
+
+//: line projection が対応する source segment index を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i32 \value: *field::get_ref value "segment_index"
+//: line projection の doubled start x 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i32 \value: *field::get_ref value "start_x2"
+//: line projection の doubled start y 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i32 \value: *field::get_ref value "start_y2"
+//: line projection の doubled end x 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i32 \value: *field::get_ref value "end_x2"
+//: line projection の doubled end y 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i32 \value: *field::get_ref value "end_y2"
+//: line projection の stroke width を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i32 \value: *field::get_ref value "stroke_width"
+//: line projection の doubled x delta を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i64 \value: *field::get_ref value "dx"
+//: line projection の doubled y delta を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i64 \value: *field::get_ref value "dy"
+//: line projection の doubled delta length squared を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection i64 \value: *field::get_ref value "length_squared"
+
+//: quadratic projection が対応する source segment index を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_segment_index %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "segment_index"
+//: quadratic projection の doubled start x 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "start_x2"
+//: quadratic projection の doubled start y 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "start_y2"
+//: quadratic projection の doubled control x 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "control_x2"
+//: quadratic projection の doubled control y 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "control_y2"
+//: quadratic projection の doubled end x 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "end_x2"
+//: quadratic projection の doubled end y 座標を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "end_y2"
+//: quadratic projection の stroke width を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_stroke_width %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i32 \value: *field::get_ref value "stroke_width"
+//: quadratic projection の start-to-control doubled x delta を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_control_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i64 \value: *field::get_ref value "start_control_dx"
+//: quadratic projection の start-to-control doubled y delta を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_control_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i64 \value: *field::get_ref value "start_control_dy"
+//: quadratic projection の control-to-end doubled x delta を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_end_dx %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i64 \value: *field::get_ref value "control_end_dx"
+//: quadratic projection の control-to-end doubled y delta を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_end_dy %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i64 \value: *field::get_ref value "control_end_dy"
+//: quadratic projection の start-to-control length squared を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_start_control_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i64 \value: *field::get_ref value "start_control_length_squared"
+//: quadratic projection の control-to-end length squared を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_projection_control_end_length_squared %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection i64 \value: *field::get_ref value "control_end_length_squared"
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner: private metric sequence の公開 opaque owner
+//:
+//: F5kq から F5ku までを完走して invariant 検査に通った owner だけを保持し、projection 読み出しと一括解放だけを許可します。
+pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner:
+    inner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind: checkpoint 読み出し失敗理由
+pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind:
+    IndexOutOfRange
+    OwnerInvariantInvalid
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \value: value
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner \inner:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner inner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection \metric:
+    match metric:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line line:
+            GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Line GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetricProjection (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_segment_index &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_start_x2 &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_start_y2 &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_end_x2 &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_end_y2 &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_stroke_width &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dx &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_dy &line) (gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_length_squared &line)
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic quadratic:
+            GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection::Quadratic GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetricProjection (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_segment_index &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_x2 &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_y2 &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_x2 &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_y2 &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_end_x2 &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_end_y2 &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_stroke_width &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dx &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_dy &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dx &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_dy &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_start_control_length_squared &quadratic) (gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric_control_end_length_squared &quadratic)
+
+//: checkpoint owner の検査済み metric count を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_metric_count %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner i32 \owner:
+    let inner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "inner"
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count inner
+
+//: checkpoint owner の metric を invariant と範囲を検査して O(1) で Copy projection として読む
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \owner\metric_index:
+    let inner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "inner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour inner:
+        Result::Err _kind: Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind::OwnerInvariantInvalid
+        Result::Ok _unit:
+            let metric_count %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count inner
+            if or lt metric_index 0 ge metric_index metric_count:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind::IndexOutOfRange
+                else:
+                    let metrics %&Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get_ref inner "metrics"
+                    match vec::get metrics metric_index:
+                        Option::None: Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind::OwnerInvariantInvalid
+                        Option::Some metric: Result::Ok gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection metric
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary: checkpoint の検査済み count / storage summary
+//:
+//: total、line、quadratic、Vec length、Vec capacity を Copy value に固定し、呼び出し側が private owner を借用し続けずに整合性を確認できるようにします。
+pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary:
+    total %i32
+    line %i32
+    quadratic %i32
+    len %i32
+    cap %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary \summary:
+        *summary
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary \summary:
+        summary
+
+//: checkpoint summary の total metric count を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_total %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary i32 \summary:
+    *field::get_ref summary "total"
+
+//: checkpoint summary の line metric count を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_line %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary i32 \summary:
+    *field::get_ref summary "line"
+
+//: checkpoint summary の quadratic metric count を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_quadratic %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary i32 \summary:
+    *field::get_ref summary "quadratic"
+
+//: checkpoint summary の metric Vec length を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_len %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary i32 \summary:
+    *field::get_ref summary "len"
+
+//: checkpoint summary の metric Vec capacity を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_summary_cap %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary i32 \summary:
+    *field::get_ref summary "cap"
+
+//: checkpoint owner を再検査し、count と storage の Copy summary を返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_summary %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \owner:
+    let inner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "inner"
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour inner:
+        Result::Err _kind:
+            Result::Err GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind::OwnerInvariantInvalid
+        Result::Ok _unit:
+            let total %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count inner
+            let line %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_line_metric_count inner
+            let quadratic %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_quadratic_metric_count inner
+            let len %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_len inner
+            let cap %i32 gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metrics_cap inner
+            Result::Ok GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointSummary total line quadratic len cap
+
 //: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartErrorKind: metric drain start failure reason
 //:
 //: neplg2:test[skip]
@@ -27270,12 +27490,16 @@ impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind:
 //: [目的/もくてき]:
 //: - cursor step が source segment を[消費/しょうひ]した[後/あと]の metric prepare / push 失敗では、通常の resumable drain owner ではなく、[進/すす]んだ cursor と returned Vec と pre push count を[明示/めいじ]します。
 //: - push 失敗では拒否された metric value も保持し、どの segment index で[止/と]まったかを[診断/しんだん]できます。
+//: - cursor と completed plan の recovery authority は enum で排他的に保持し、同じ sink storage を sibling field へ暗黙に複製しません。
 //:
 //: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner:
+    Cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
+    Completed %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+
 struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError:
     kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind
-    cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor
-    completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner
+    recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner
     metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric
     metric_count %i32
     line_metric_count %i32
@@ -27287,8 +27511,8 @@ struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError:
     segment_index %i32
     rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric
 
-fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind fn Option StdErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\cursor\completed_plan_owner\metrics\metric_count\line_metric_count\quadratic_metric_count\cursor_error_kind\metric_error_kind\storage_error\segment_kind\segment_index\rejected_metric:
-    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError kind cursor completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind fn Option StdErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\recovery_owner\metrics\metric_count\line_metric_count\quadratic_metric_count\cursor_error_kind\metric_error_kind\storage_error\segment_kind\segment_index\rejected_metric:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError kind recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_from_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\owner:
     let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
@@ -27296,13 +27520,12 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_from_ow
     let metric_count %i32 field::get owner "metric_count"
     let line_metric_count %i32 field::get owner "line_metric_count"
     let quadratic_metric_count %i32 field::get owner "quadratic_metric_count"
-    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
     let storage_error %Option StdErrorKind none
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \owner\cursor_error_kind_value:
     let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get owner "cursor"
@@ -27310,60 +27533,54 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_
     let metric_count %i32 field::get owner "metric_count"
     let line_metric_count %i32 field::get owner "line_metric_count"
     let quadratic_metric_count %i32 field::get owner "quadratic_metric_count"
-    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind some cursor_error_kind_value
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
     let storage_error %Option StdErrorKind none
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CursorInvariantFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CursorInvariantFailed recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_step_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorError fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \cursor_error\metrics\metric_count\line_metric_count\quadratic_metric_count:
     let cursor_error_kind_value %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_kind &cursor_error
     let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_error_cursor cursor_error
-    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind some cursor_error_kind_value
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
     let storage_error %Option StdErrorKind none
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CursorStepFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::CursorStepFailed recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_prepare_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \segment_kind\segment_index\metric_error_kind_value\cursor\metrics\metric_count\line_metric_count\quadratic_metric_count:
-    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind some metric_error_kind_value
     let storage_error %Option StdErrorKind none
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricPrepareFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricPrepareFailed recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_cursor_state %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\segment_kind\segment_index\cursor\metrics\metric_count\line_metric_count\quadratic_metric_count:
-    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
     let storage_error %Option StdErrorKind none
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_push_failed %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind fn i32 fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 fn StdErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \segment_kind\segment_index\metric\cursor\metrics\metric_count\line_metric_count\quadratic_metric_count\storage_error_value:
-    let cursor_option %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor some cursor
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner none
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
     let storage_error %Option StdErrorKind some storage_error_value
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric some metric
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricPushFailed cursor_option completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind::MetricPushFailed recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error segment_kind segment_index rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_completed_owner %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner fn Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError \kind\plan_owner\metrics\metric_count\line_metric_count\quadratic_metric_count:
-    let cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor none
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner some plan_owner
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Completed plan_owner
     let cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind none
     let metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind none
     let storage_error %Option StdErrorKind none
     let rejected_metric %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric none
-    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind cursor completed_plan_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error kind recovery_owner metrics metric_count line_metric_count quadratic_metric_count cursor_error_kind metric_error_kind storage_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricRejectedSegmentKind::NoSegment -1 rejected_metric
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainErrorKind \error:
     *field::get_ref error "kind"
@@ -27656,23 +27873,21 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free %impure 
     gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
     vec::free metrics
 
+//: opaque checkpoint owner と内部の private metric sequence を一度だけ解放する
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner unit \owner:
+    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free field::get owner "inner"
+
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError unit \error:
     let cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get error "cursor"
     gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor
 
 fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError unit \error:
-    let cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get error "cursor"
-    let completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get error "completed_plan_owner"
+    let recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner field::get error "recovery_owner"
     let metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric field::get error "metrics"
-    match cursor:
-        Option::None:
-            ()
-        Option::Some cursor_value:
+    match recovery_owner:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor_value:
             gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor_value
-    match completed_plan_owner:
-        Option::None:
-            ()
-        Option::Some plan_owner:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Completed plan_owner:
             gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner
     vec::free metrics
 
@@ -27684,6 +27899,138 @@ fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_terminal_free
             gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_free owner
         GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free owner
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind: production bridge の失敗段階
+//:
+//: private F5kq-F5ku chain の具体的な owner / error 型を公開せず、回復 payload が保持されている段階だけを Copy value として公開します。
+pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind:
+    RequestStartFailed
+    SegmentPlanStartFailed
+    CursorStartFailed
+    MetricDrainStartFailed
+    MetricDrainFailed
+    DrainBudgetInvalid
+    DrainBudgetExhausted
+    CompletedOwnerInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind \kind:
+        kind
+
+enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload:
+    RequestStart %GuiSfntSimpleGlyphRenderStrokeRequestStartError
+    SegmentPlanStart %GuiSfntSimpleGlyphRenderStrokeSegmentPlanStartError
+    CursorStart %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorStartError
+    MetricDrainStart %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError
+    MetricDrain %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError
+    DrainOwner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner
+    CompletedOwner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner
+
+//: GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError: production bridge の owner-bearing error
+//:
+//: 失敗した private stage の所有権を payload に保持します。kind は借用で読み、回復 payload を外へ取り出さず single free で必ず解放します。
+pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError:
+    kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind
+    payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error %fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError \kind\payload:
+    GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError kind payload
+
+//: production bridge error の失敗段階を借用で返す
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error_kind %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind \error:
+    *field::get_ref error "kind"
+
+//: production bridge error が保持する private owner / error を段階に応じて一度だけ解放する
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error_free %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError unit \error:
+    let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload field::get error "payload"
+    match payload:
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::RequestStart lower:
+            gui_sfnt_simple_glyph_render_stroke_request_start_error_free lower
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::SegmentPlanStart lower:
+            gui_sfnt_simple_glyph_render_stroke_segment_plan_start_error_free lower
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::CursorStart lower:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start_error_free lower
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::MetricDrainStart lower:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_start_error_free lower
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::MetricDrain lower:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_free lower
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::DrainOwner owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_free owner
+        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::CompletedOwner owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_to_complete %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner impure fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError \owner\remaining_steps:
+    if le remaining_steps 0:
+        then:
+            let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::DrainOwner owner
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::DrainBudgetExhausted payload
+        else:
+            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_step owner:
+                Result::Err lower:
+                    let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::MetricDrain lower
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::MetricDrainFailed payload
+                Result::Ok terminal:
+                    match terminal:
+                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::StateUpdated next_owner:
+                            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_to_complete next_owner sub remaining_steps 1
+                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::MetricPushed next_owner:
+                            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_to_complete next_owner sub remaining_steps 1
+                        GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal::Completed completed_owner:
+                            match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_invariants_for_contour &completed_owner:
+                                Result::Err _kind:
+                                    let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::CompletedOwner completed_owner
+                                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::CompletedOwnerInvariantInvalid payload
+                                Result::Ok _unit:
+                                    Result::Ok gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner completed_owner
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_start %impure fn GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError \cursor:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_start cursor:
+        Result::Err lower:
+            let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::MetricDrainStart lower
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::MetricDrainStartFailed payload
+        Result::Ok owner:
+            let cursor_ref %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor field::get_ref &owner "cursor"
+            let plan_owner %&GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner field::get_ref cursor_ref "plan_owner"
+            let path_command_count %i32 *field::get_ref plan_owner "path_command_count"
+            let max_i32 %i32 2147483647
+            if or lt path_command_count 0 ge path_command_count max_i32:
+                then:
+                    let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::DrainOwner owner
+                    Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::DrainBudgetInvalid payload
+                else:
+                    gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_to_complete owner add path_command_count 1
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_cursor_start %impure fn GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError \plan_owner:
+    match gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_start plan_owner:
+        Result::Err lower:
+            let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::CursorStart lower
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::CursorStartFailed payload
+        Result::Ok cursor:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_start cursor
+
+fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_plan_start %impure fn GuiSfntSimpleGlyphRenderStrokeRequestOwner Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError \request_owner:
+    match gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_start request_owner:
+        Result::Err lower:
+            let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::SegmentPlanStart lower
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::SegmentPlanStartFailed payload
+        Result::Ok plan_owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_cursor_start plan_owner
+
+//: completed legacy writer と origin / paint から private F5kq-F5ku chain を駆動して opaque metric checkpoint owner を作る
+//:
+//: path command count + 1 の上限で drain を完了させ、各失敗ではその段階の lower owner / error を公開 error 内に保持します。成功時は completed owner invariant を再検査します。
+pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_build %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner impure fn GuiPoint impure fn GuiGlyphPaint Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError \writer\origin\paint:
+    let config %GuiSfntSimpleGlyphRenderStrokeRequestConfig gui_sfnt_simple_glyph_render_stroke_request_config origin paint
+    match gui_sfnt_simple_glyph_render_stroke_request_owner_start writer config:
+        Result::Err lower:
+            let payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload::RequestStart lower
+            Result::Err gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind::RequestStartFailed payload
+        Result::Ok request_owner:
+            gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_plan_start request_owner
 
 //: GuiSfntSimpleGlyphRenderStrokeSourceMetricProvenance: stroke metric の source path provenance
 //:

@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::BTreeSet;
 use alloc::vec::Vec;
 
 use super::initialized_alias_relation_op::{relation_implication, relation_reverse};
@@ -67,6 +68,74 @@ impl I32RelationFacts {
             } else {
                 None
             };
+            let Some(fact_truth) = fact_truth else {
+                continue;
+            };
+            match truth {
+                Some(existing) if existing != fact_truth => return None,
+                Some(_) => {}
+                None => truth = Some(fact_truth),
+            }
+        }
+        truth
+    }
+
+    #[cfg(test)]
+    pub(super) fn relation_truth_for_aliases_at_indices(
+        &self,
+        relation_indices: &[usize],
+        left_aliases: &[Place],
+        op: ResourceI32RelationOp,
+        right_aliases: &[Place],
+    ) -> Option<bool> {
+        let mut truth = None;
+        for relation_index in relation_indices {
+            let Some(fact) = self.relations.get(*relation_index) else {
+                continue;
+            };
+            let fact_truth = if left_aliases.iter().any(|alias| alias == &fact.left)
+                && right_aliases.iter().any(|alias| alias == &fact.right)
+            {
+                relation_implication(fact.op, op)
+            } else if left_aliases.iter().any(|alias| alias == &fact.right)
+                && right_aliases.iter().any(|alias| alias == &fact.left)
+            {
+                relation_implication(relation_reverse(fact.op), op)
+            } else {
+                None
+            };
+            let Some(fact_truth) = fact_truth else {
+                continue;
+            };
+            match truth {
+                Some(existing) if existing != fact_truth => return None,
+                Some(_) => {}
+                None => truth = Some(fact_truth),
+            }
+        }
+        truth
+    }
+
+    pub(super) fn relation_truth_for_alias_sets_at_indices(
+        &self,
+        relation_indices: &[usize],
+        left_aliases: &BTreeSet<Place>,
+        op: ResourceI32RelationOp,
+        right_aliases: &BTreeSet<Place>,
+    ) -> Option<bool> {
+        let mut truth = None;
+        for relation_index in relation_indices {
+            let Some(fact) = self.relations.get(*relation_index) else {
+                continue;
+            };
+            let fact_truth =
+                if left_aliases.contains(&fact.left) && right_aliases.contains(&fact.right) {
+                    relation_implication(fact.op, op)
+                } else if left_aliases.contains(&fact.right) && right_aliases.contains(&fact.left) {
+                    relation_implication(relation_reverse(fact.op), op)
+                } else {
+                    None
+                };
             let Some(fact_truth) = fact_truth else {
                 continue;
             };

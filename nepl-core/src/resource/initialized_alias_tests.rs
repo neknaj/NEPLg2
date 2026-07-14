@@ -4,6 +4,7 @@ use super::model::{Place, PlaceProjection, ResourceI32RelationOp, ResourceId, Re
 use super::raw_cell_value_flow_alias::raw_cell_place_alias_candidates;
 
 use alloc::boxed::Box;
+use alloc::vec;
 
 use ResourceI32RelationOp::{Eq, Ge, Gt, Le, Lt, Ne};
 
@@ -18,6 +19,40 @@ fn i32_relation_facts_follow_alias_copy() {
     aliases.copy_alias_if_tracked(&source, &target);
 
     assert_eq!(aliases.i32_relation_truth(&target, Lt, &len), Some(true));
+}
+
+#[test]
+fn exclusive_variant_fact_copy_keeps_raw_aliases_disjoint() {
+    let source = local("source");
+    let root = local("terminal");
+    let left = root.clone().with_projection(
+        PlaceProjection::EnumPayload {
+            variant: "Left".into(),
+        },
+        source.ty,
+    );
+    let right = root.with_projection(
+        PlaceProjection::EnumPayload {
+            variant: "Right".into(),
+        },
+        source.ty,
+    );
+    let mut aliases = RawCellAddressAliases::default();
+    aliases.mark(&source);
+    aliases.set_i32_value(&source, 7);
+
+    aliases.copy_exclusive_variant_facts(&source, &left);
+    aliases.copy_exclusive_variant_facts(&left, &right);
+
+    assert_eq!(aliases.aliases_for(&left), vec![left.clone()]);
+    assert_eq!(aliases.aliases_for(&right), vec![right.clone()]);
+    assert!(!aliases.aliases_for(&source).contains(&left));
+    assert!(!aliases.aliases_for(&source).contains(&right));
+    assert!(aliases.contains_marked_alias(&left));
+    assert!(aliases.contains_marked_alias(&right));
+    let seven = Place::i32_constant(7, source.ty);
+    assert_eq!(aliases.i32_relation_truth(&left, Eq, &seven), Some(true));
+    assert_eq!(aliases.i32_relation_truth(&right, Eq, &seven), Some(true));
 }
 
 #[test]

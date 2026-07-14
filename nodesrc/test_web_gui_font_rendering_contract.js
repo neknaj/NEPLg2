@@ -473,6 +473,7 @@ const guiDirtyRegionSetTests = read("tests/stdlib/gui_dirty_region_set.n.md");
 const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_command.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontRegisteredFaceTests = read("tests/stdlib/gui_font_registered_face.n.md");
+const guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_metric_join.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
@@ -3897,6 +3898,35 @@ assertOrderedFragments(registeredStrokeMetricStep, ["ge next end", "Completed", 
 const registeredStrokeMetricSeal = functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_seal");
 assertOrderedFragments(registeredStrokeMetricSeal, ["ne next command_count", "SummaryCountMismatch", "ne add line quadratic vec::len provenance", "MetricCountMismatch", "ne vec::len provenance vec::cap provenance", "StorageMismatch"], "F5nxk metric seal must bind cursor, summary counts, metric count, and exact Vec shape");
 assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /gui_font_registered_face_simple_glyph_indexed_stroke_metric_completed_owner_read_provenance\b/, "F5nxk completed metric provenance must expose typed owner-bound O(1) read");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner:\s+provenance %Vec GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenance\s+actual %GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner[\s\S]*next_metric_index %i32\s+origin %GuiPoint\s+stroke_width %i32/, "F5nxl join owner must keep sealed provenance, actual checkpoint, cursor, origin, and canonical stroke width in one move-only authority");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /impl\s+(?:Clone|Copy)\s+for\s+GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoin(?:Owner|StartError)\b/, "F5nxl join owner and owner-bearing start error must remain move-only");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start"), ["gui_glyph_paint_stroke &paint", "PaintStrokeMissing", "gui_stroke_width &stroke", "PaintStrokeWidthInvalid", "join_start_checked completed origin paint stroke_width"], "F5nxl join start must validate canonical paint stroke before consuming the completed authority");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_checked"), ["completed_owner_metric_count &completed", "field::get contour_source \"sink\"", "indexed_metric_checkpoint_start sink origin paint", "indexed_metric_checkpoint_summary &actual_owner", "expected_metric actual_metric", "expected_line actual_line", "expected_quadratic actual_quadratic", "actual_metric actual_len", "actual_len actual_cap", "StrokeMetricJoinOwner provenance actual_owner"], "F5nxl checked join start must consume the nested sink once, build the actual checkpoint, and validate both summaries");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start_error_free"), ["vec::free", "Preflight sink", "path_command_sink_completed_owner_free sink", "BuildError lower", "metric_checkpoint_start_error_free lower", "Checkpoint checkpoint", "metric_checkpoint_owner_free checkpoint"], "F5nxl join start error free must close provenance and the exact preflight, build-failure, or completed-checkpoint authority once");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_(?:owner|start_error)_(?:take_source|take_actual|take_checkpoint|provenance_ref|source_ref|writer_ref)\b/, "F5nxl join must not expose raw authority split or retry APIs");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError:\s+owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinOwner\s+kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind/, "F5nxl join-step failure must retain the complete move-only owner for recovery");
+assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /impl\s+(?:Clone|Copy)\s+for\s+GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoin(?:Step|StepError)\b/, "F5nxl join step and owner-bearing error must remain move-only");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricProvenanceReadErrorKind/, "F5nxl provenance read classification payload must remain Copy");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /impl\s+Copy\s+for\s+GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind/, "F5nxl join-step classification must remain Copy for borrowed inspection before owner recovery");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind/, "F5nxl join-step classification accessor must borrow the owner-bearing error");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step"), ["next metric_count", "le budget 0", "vec::get provenance_values next", "metric_checkpoint_read_at actual_ref next", "provenance_metric_index &provenance next", "match curve", "next gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric_projection_segment_index", "coordinates_match", "projection_stroke_width", "field::get owner \"provenance\"", "add next 1"], "F5nxl join step must check terminal, budget, both owner-bound records, metric indices, variant geometry, and width before committing its cursor");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step"), /path_command_index.*projection_segment_index|projection_segment_index.*path_command_index/, "F5nxl join step must distinguish path-command metadata from the draw/metric sequence index");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step"), /with_capacity|vec::push|full_scan|gui_sfnt_lookup_|gui_sfnt_parse_metadata|fallback|platform/, "F5nxl join step must not allocate another metric sequence or re-enter parser, fallback, or platform paths");
+assertOrderedFragments(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, ["#test", "pub fn gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_test_force_metric_index_mismatch", "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepError owner", "MetricIndexMismatch"], "F5nxl mismatch fixture seam must retain an unchanged valid join owner in the normal typed error boundary");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_test_force_metric_index_mismatch"), /field::get|vec::|metric_checkpoint/, "F5nxl mismatch seam must not split, mutate, or reconstruct opaque join authority");
+assertNoMatch(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests, /neplg2:test\[skip\]/, "F5nxl registered Line/Quadratic metric join fixture must execute instead of remaining a source-policy-only skip");
+for (const fragment of [
+    "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_start completed (gui_point_new 3 sub 0 2) paint",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::StepBudgetExhausted",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStepErrorKind::MetricIndexMismatch",
+    "gui_font_registered_face_simple_glyph_indexed_stroke_metric_join_step_error_owner forced",
+    "join_stroke_metric_joined_provenance_ok joined 0 1 2",
+    "join_stroke_metric_joined_provenance_ok joined 1 3 3",
+    "join_stroke_metric_joined_provenance_ok joined 2 7 2",
+    "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinStatusKind::Completed",
+]) {
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests.includes(fragment), `F5nxl registered metric join runtime fixture must include ${fragment}`);
+}
 assertNoMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner|gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_|GuiSfntSimpleGlyphRenderStrokeSourceContourDrainOwner|gui_sfnt_simple_glyph_render_stroke_source_contour_drain_owner_/, "F5nxk registered metric provenance must not expose legacy F5ku/F5kw owner pairing");
 for (const helper of ["test_force_span_lookup_failure", "test_force_identity_mismatch"]) {
     assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, new RegExp(`#test[\\s\\S]*pub\\s+fn\\s+gui_font_registered_face_simple_glyph_indexed_stroke_source_contour_${helper}\\b`), `F5nxk ${helper} must remain test-only`);
@@ -23412,6 +23442,33 @@ assertNoMatch(
     /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainOwner:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwnerStartError:|pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainError:|pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainTerminal:|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_start\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_owner_step\b/,
     "alloc/gui/font/sfnt/glyf F5ku owner-bearing boundary types and drain start/step must remain private",
 );
+assertMatch(allocFontSfntGlyfImpl, /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner:\s+inner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner/, "F5nxl must expose a new opaque checkpoint wrapper around the private actual metric owner");
+assertNoMatch(allocFontSfntGlyfImpl, /pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner\b|pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection\b/, "F5nxl checkpoint constructor and private metric projection must remain private");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at"), ["owner_invariants_for_contour inner", "metric_count", "IndexOutOfRange", "vec::get metrics metric_index", "metric_projection metric"], "F5nxl checkpoint read must validate plan-bound invariants before one owner-bound O(1) projection");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_summary"), ["owner_invariants_for_contour inner", "metric_count inner", "line_metric_count inner", "quadratic_metric_count inner", "metrics_len inner", "metrics_cap inner"], "F5nxl checkpoint summary must validate the owner before exposing total, kind, length, and capacity counts");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_build"), ["render_stroke_request_owner_start writer config", "render_stroke_source_segment_metric_checkpoint_plan_start request_owner"], "F5nxl production bridge must enter the private request-plan-cursor-metric chain through the legacy completed writer");
+assertOrderedFragments(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_drain_start"), ["render_stroke_source_segment_metric_drain_owner_start cursor", "path_command_count", "DrainBudgetInvalid", "add path_command_count 1"], "F5nxl production bridge must derive a checked finite drain budget from the completed path command count");
+assertMatch(allocFontSfntGlyfImpl, /pub struct GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildError:\s+kind %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorKind\s+payload %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointBuildErrorPayload/, "F5nxl production bridge errors must retain the private failing-stage owner payload");
+assertMatch(allocFontSfntGlyfImpl, /pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_build_error_free\b/, "F5nxl production bridge errors must expose one ownership-closing free boundary");
+assertMatch(allocFontSfntGlyfImpl, /pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_free\b/, "F5nxl opaque checkpoint owner must expose single free");
+assertNoMatch(functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at"), /field::get\s+inner\s+"(?:metrics|plan_owner)"|take_|full_scan|gui_sfnt_lookup_|gui_sfnt_parse_metadata/, "F5nxl checkpoint read must not split raw owner state or re-enter lookup/parser traversal");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, /pub struct GuiFontRegisteredFaceSimpleGlyphIndexedMetricCheckpointOwner:\s+source %GuiFontRegisteredFaceSimpleGlyphIndexedPathCommandStreamCompletedOwner\s+checkpoint %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner/, "F5nxl registered transition must keep the registered source and actual metric checkpoint in one owner");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start"), ["field::get completed \"source\"", "field::get completed \"writer\"", "metric_checkpoint_owner_build writer origin paint", "MetricCheckpointOwner source checkpoint"], "F5nxl registered transition must consume the completed source and writer exactly once before joining them");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, /pub fn gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_owner_free\b/, "F5nxl registered metric checkpoint owner must expose one combined free boundary");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedPathCommandSinkImpl, "gui_font_registered_face_simple_glyph_indexed_metric_checkpoint_start"), /gui_sfnt_lookup_|gui_sfnt_parse_metadata|fallback|platform|render command/, "F5nxl registered transition must not re-enter lookup, parser, fallback, platform, or final rendering");
+assertNoMatch(guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests, /neplg2:test\[skip\]/, "F5nxl metric checkpoint fixture must execute instead of remaining a source-policy-only skip");
+for (const fragment of [
+    "GuiSfntSimpleGlyphPathCommand::QuadraticTo",
+    "GuiSfntSimpleGlyphPathCommand::LineTo",
+    "metric_checkpoint_owner_build",
+    "metric_checkpoint_owner_summary",
+    "metric_checkpoint_owner_read_at",
+    "metric_checkpoint_owner_free",
+    "start_control_length_squared",
+    "length_squared",
+]) {
+    assert(guiFontSfntOutlinePointStreamItemCollectionRenderStrokeSourceSegmentMetricOwnerTests.includes(fragment), `F5nxl runtime fixture must include ${fragment}`);
+}
 for (const fragment of [
     "CursorInvariantFailed",
     "CursorScalarIndexNotZero",
@@ -23453,8 +23510,7 @@ for (const fragment of [
     assert(renderStrokeSourceSegmentMetricDrainErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ku drain error kind must include ${fragment}`);
 }
 for (const fragment of [
-    "cursor %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor",
-    "completed_plan_owner %Option GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner",
+    "recovery_owner %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner",
     "metrics %Vec GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric",
     "cursor_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursorErrorKind",
     "metric_error_kind %Option GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricErrorKind",
@@ -23588,12 +23644,23 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5ku step must validate state, complete exactly at scalar_count, and delegate line/quadratic terminals to metric push helpers",
 );
 const renderStrokeSourceSegmentMetricDrainErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_stroke_source_segment_metric_drain_error_free");
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner:\s+Cursor %GuiSfntSimpleGlyphRenderStrokeSourceSegmentCursor\s+Completed %GuiSfntSimpleGlyphRenderStrokeSegmentPlanOwner/,
+    "alloc/gui/font/sfnt/glyf F5ku drain recovery authority must encode cursor/completed exclusivity as one enum",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub enum GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner:/,
+    "alloc/gui/font/sfnt/glyf F5ku drain recovery authority must remain private",
+);
 assertOrderedFragments(
     renderStrokeSourceSegmentMetricDrainErrorFree,
     [
-        "Option::Some cursor_value",
+        "field::get error \"recovery_owner\"",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Cursor cursor_value",
         "gui_sfnt_simple_glyph_render_stroke_source_segment_cursor_free cursor_value",
-        "Option::Some plan_owner",
+        "GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricDrainRecoveryOwner::Completed plan_owner",
         "gui_sfnt_simple_glyph_render_stroke_segment_plan_owner_free plan_owner",
         "vec::free metrics",
     ],

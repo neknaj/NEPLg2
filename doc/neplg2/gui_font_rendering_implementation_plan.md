@@ -6624,6 +6624,18 @@ owner / state契約:
 - checked sealはcommand cursor、kind別summary、metric count、Vec len/capを照合する。sealed provenanceはowner-bound O(1) readだけを公開し、raw Vec/source splitや旧F5ku/F5kw pairingを公開しない。
 - actual numeric metric join、offset geometry、coverage、raster/render/platformは後続へ残す。
 
+### Phase F5nxl: registered actual stroke metric join
+
+- F5ku actual metric ownerはopaque public authorityとし、raw metric Vec、plan owner、constructor、takeは公開しない。公開面はcount summary、owner-bound O(1) indexed Copy metric read、single freeに限定する。
+- F5nxk sealed provenance ownerとactual metric ownerをmove-only join ownerへ束ねるproduction bridgeを追加し、metric count、line/quadratic count、len/capを照合してから走査を開始する。
+- join stepはterminal、budget、provenance read、actual metric read、metric index、variant、checked curve座標、stroke widthの順に検査し、全検査成功後だけcursorを進める。新しいmetric Vecやfull command scanは作らない。
+- join startはF5nxk completed ownerを一度だけ消費し、owning module内でnested sink completedをほどいて既存actual checkpoint bridgeへ渡す。sealed provenance Vecとregistered sourceをactual checkpoint ownerへ再結合し、metric / line / quadratic count、len、capを照合する。originとbuild入力paint由来のcanonical positive stroke widthをjoin ownerへ保持し、actual metricから期待widthを逆生成しない。
+- LineとQuadraticを含むregistered drawable fixtureでmetric indexとpath command indexを区別し、座標、delta、squared length、typed mismatch、owner recoveryを検査する。既存8 Skip fixtureはzero-draw edge caseとして残す。
+- registered drawable fixtureのcompile gateは、戻り値i32 leafごとにscalar aliases、derived scalar value (`i32_value_with_context`)、offset reachable stateを一度だけ作り、relation factはPlace別indexから候補だけを参照する。leaf pairごとのmemo済みalias / reachable集合clone、relation全表scan、offset reachable集合の全直積比較を反復してはならない。事前計算後もderived scalar value、explicit relation、zero condition、offset relationの優先順位、reverse relation、矛盾時のunknown、全6比較演算を維持する。
+- actual metric ownerを作るproduction checkpoint bridgeとdrawable runtime gateが揃うまでF5nxl完了とは扱わず、offset geometry以降へ進まない。
+- F5nxlのcompile性能gateは、relation-only leafで無条件にEqZero closureを導出せず、condition / offset / scale / constant sourceからrelationで接続された候補だけを評価する。direct scalar value、explicit relation、direct-zeroとEqZero condition、offset relationの証明順序は維持し、Eq offset集合はsort / dedup後の共通値と不一致値の有無でCartesian積と同じtruthを求める。
+- 2026-07-15 gateではfocused compiler回帰23件、`cargo check -p nepl-core`、Web contract、trunk build、独立Line / Quadratic registered actual-join fixture、通常registered-face fixture、diff reviewを通過した。独立fixtureはtyped mismatchからownerを回収し、metric index `0,1,2`とpath command index `1,3,7`、actual座標、stroke width、terminal、single freeをproduction chainで検査する。これによりF5nxlを完了とし、後続phaseへ進む。フォントレンダリングエンジンとGUIライブラリ全体の完了ではない。
+
 ### Phase F5nxa: registered indexed path action owner
 
 目的:
