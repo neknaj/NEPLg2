@@ -1,0 +1,57 @@
+#indent 4
+
+//: # ty/arena_fork_fixture
+//: TypeArenaのtransaction forkが全bufferを複製し、branch追記を元arenaへ漏らさないことを実行検査します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target core
+//:| #import "neplg2/core/ty/ty/arena_fork_fixture" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_type_arena_fork_fixture:
+//:         true: 0
+//:         false: 1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/kind/model" as *
+
+//: selfhost_type_arena_fork_fixture: record、function argument、type argumentの独立複製を検査する
+pub fn selfhost_type_arena_fork_fixture %impure fn void bool \void:
+    let source0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_new
+    let i32_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive source0 SelfhostPrimitiveTypeKind::I32
+    let i32_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+    let source1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+    let named_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_named source1 selfhost_named_type_id_new 7
+    let source2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena named_alloc
+    let type_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let type_args %Vec SelfhostTypeId unwrap_ok v::push type_args0 i32_type
+    let applied_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_applied_named source2 (selfhost_named_type_id_new 7) type_args
+    let applied_type %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+    let source3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+    let function_args0 %Vec SelfhostTypeId unwrap_ok v::new
+    let function_args %Vec SelfhostTypeId unwrap_ok v::push function_args0 i32_type
+    let function_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_function source3 function_args applied_type
+    let source %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_alloc
+    let branch0 %SelfhostTypeArena unwrap_ok selfhost_type_arena_fork &source
+    let records_copied %bool eq (selfhost_type_arena_len &source) selfhost_type_arena_len &branch0
+    let function_args_copied %bool eq (selfhost_type_arena_function_arg_len &source) selfhost_type_arena_function_arg_len &branch0
+    let type_args_copied %bool eq (selfhost_type_arena_type_arg_len &source) selfhost_type_arena_type_arg_len &branch0
+    let copied %bool and records_copied and function_args_copied type_args_copied
+    let bool_alloc %SelfhostTypeArenaAlloc unwrap_ok selfhost_type_arena_add_primitive branch0 SelfhostPrimitiveTypeKind::Bool
+    let branch %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bool_alloc
+    let source_unchanged %bool eq (selfhost_type_arena_len &source) 4
+    let branch_extended %bool eq (selfhost_type_arena_len &branch) 5
+    let isolated %bool and source_unchanged branch_extended
+    let args_preserved %bool match selfhost_type_arena_type_arg_at &branch 0:
+        Option::Some type_id: selfhost_type_id_eq type_id i32_type
+        Option::None: false
+    selfhost_type_arena_free branch
+    selfhost_type_arena_free source
+    and copied (and isolated args_preserved)
