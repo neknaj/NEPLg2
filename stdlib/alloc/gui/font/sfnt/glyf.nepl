@@ -33607,6 +33607,132 @@ pub fn gui_sfnt_simple_glyph_render_stroke_edge_closure_test_sparse_and_self_adj
     let right_self_ok %bool and right_self_adjacency eq 0 *field::get_ref &right_self "source_edge_gap_count"
     and left_skip_ok (and right_skip_ok (and left_self_ok right_self_ok))
 
+//: registered join geometry の policy matrix 用 line side-edge を production projection 経路で構築する
+#test
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i64 fn i64 fn i64 fn GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \metric_index\edge_index\start_x2\start_y2\end_x2\end_y2\dx\dy\length_squared\side:
+    let metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentLineMetric gui_sfnt_simple_glyph_render_stroke_source_segment_line_metric metric_index start_x2 start_y2 end_x2 end_y2 4 dx dy length_squared
+    let source %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Line metric
+    let actual %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection source
+    let provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance metric_index edge_index edge_index 0 edge_index 0 1 2
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection unwrap_ok gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry &provenance &actual 4
+    gui_sfnt_simple_glyph_render_stroke_side_edge_projection &geometry side
+
+//: registered join geometry の policy matrix 用 quadratic side-edge を production projection 経路で構築する
+#test
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_test_quadratic_side_edge %fn unit GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \_unit:
+    let start_control_dx %i64 cast 0
+    let start_control_dy %i64 cast 5
+    let control_end_dx %i64 cast 0
+    let control_end_dy %i64 cast 5
+    let start_control_length_squared %i64 cast 25
+    let control_end_length_squared %i64 cast 25
+    let metric %GuiSfntSimpleGlyphRenderStrokeSourceSegmentQuadraticMetric gui_sfnt_simple_glyph_render_stroke_source_segment_quadratic_metric 1 10 0 10 5 10 10 4 start_control_dx start_control_dy control_end_dx control_end_dy start_control_length_squared control_end_length_squared
+    let source %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetric::Quadratic metric
+    let actual %GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection gui_sfnt_simple_glyph_render_stroke_source_segment_metric_projection source
+    let provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance 1 1 1 0 1 0 1 2
+    let geometry %GuiSfntSimpleGlyphRenderOffsetGeometryProjection unwrap_ok gui_sfnt_simple_glyph_render_stroke_offset_projection_geometry &provenance &actual 4
+    gui_sfnt_simple_glyph_render_stroke_side_edge_projection &geometry GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+
+//: registered side-edge 2 件から policy を保持した closure record を構築する
+#test
+fn gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn GuiStrokeJoin fn f32 GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \from\to\join\miter_limit:
+    let style %GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection gui_sfnt_simple_glyph_render_stroke_closure_style_projection GuiStrokeCap::Butt join miter_limit
+    unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges 0 from 1 to &style
+
+//: gui_sfnt_simple_glyph_render_stroke_join_geometry_test_policy_matrix: registered projection の join policy と payload を実値検査する
+#test
+pub fn gui_sfnt_simple_glyph_render_stroke_join_geometry_test_policy_matrix %fn unit bool \_unit:
+    let ten %i64 cast 10
+    let zero %i64 cast 0
+    let hundred %i64 cast 100
+    let left_from %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 0 0 0 0 10 0 ten zero hundred GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+    let left_to %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 1 1 10 0 10 10 zero ten hundred GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+    let bevel_join %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure &left_from &left_to GuiStrokeJoin::Bevel 4.0
+    let bevel %GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 0 &bevel_join &left_from &left_to
+    let bevel_ok %bool match bevel:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel value:
+            let identity_ok %bool and eq *field::get_ref &value "join_index" 0 and eq *field::get_ref &value "from_side_edge_index" 0 eq *field::get_ref &value "to_side_edge_index" 1
+            let policy_ok %bool match *field::get_ref &value "join_policy":
+                GuiStrokeJoin::Bevel: true
+                _: false
+            let side_ok %bool match *field::get_ref &value "side":
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: true
+                _: false
+            let chord_ok %bool and eq *field::get_ref &value "from_end_x2" 10.0 and eq *field::get_ref &value "from_end_y2" 4.0 and eq *field::get_ref &value "to_start_x2" 6.0 eq *field::get_ref &value "to_start_y2" 0.0
+            and identity_ok and policy_ok and side_ok and not *field::get_ref &value "miter_clipped" and not *field::get_ref &value "quadratic_bevel" chord_ok
+        _: false
+    let miter_join %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure &left_from &left_to GuiStrokeJoin::Miter 4.0
+    let miter %GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 1 &miter_join &left_from &left_to
+    let miter_ok %bool match miter:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Miter value:
+            let identity_ok %bool and eq *field::get_ref &value "join_index" 1 and eq *field::get_ref &value "from_side_edge_index" 0 eq *field::get_ref &value "to_side_edge_index" 1
+            let side_ok %bool match *field::get_ref &value "side":
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: true
+                _: false
+            let chord_ok %bool and eq *field::get_ref &value "from_end_x2" 10.0 and eq *field::get_ref &value "from_end_y2" 4.0 and eq *field::get_ref &value "to_start_x2" 6.0 eq *field::get_ref &value "to_start_y2" 0.0
+            and identity_ok and side_ok and eq *field::get_ref &value "stroke_width" 4 and eq *field::get_ref &value "miter_limit" 4.0 and chord_ok and eq *field::get_ref &value "miter_x2" 6.0 eq *field::get_ref &value "miter_y2" 4.0
+        _: false
+    let parallel_to %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 1 1 10 0 20 0 ten zero hundred GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left
+    let parallel_join %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure &left_from &parallel_to GuiStrokeJoin::Miter 4.0
+    let parallel %GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 2 &parallel_join &left_from &parallel_to
+    let parallel_ok %bool match parallel:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel value:
+            let identity_ok %bool and eq *field::get_ref &value "join_index" 2 and eq *field::get_ref &value "from_side_edge_index" 0 eq *field::get_ref &value "to_side_edge_index" 1
+            let policy_ok %bool match *field::get_ref &value "join_policy":
+                GuiStrokeJoin::Miter: true
+                _: false
+            let side_ok %bool match *field::get_ref &value "side":
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: true
+                _: false
+            let chord_ok %bool and eq *field::get_ref &value "from_end_x2" 10.0 and eq *field::get_ref &value "from_end_y2" 4.0 and eq *field::get_ref &value "to_start_x2" 10.0 eq *field::get_ref &value "to_start_y2" 4.0
+            and identity_ok and policy_ok and side_ok and *field::get_ref &value "miter_clipped" and not *field::get_ref &value "quadratic_bevel" chord_ok
+        _: false
+    let limited_join %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure &left_from &left_to GuiStrokeJoin::Miter 0.25
+    let limited %GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 3 &limited_join &left_from &left_to
+    let limited_ok %bool match limited:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel value:
+            let identity_ok %bool and eq *field::get_ref &value "join_index" 3 and eq *field::get_ref &value "from_side_edge_index" 0 eq *field::get_ref &value "to_side_edge_index" 1
+            let policy_ok %bool match *field::get_ref &value "join_policy":
+                GuiStrokeJoin::Miter: true
+                _: false
+            let side_ok %bool match *field::get_ref &value "side":
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: true
+                _: false
+            let chord_ok %bool and eq *field::get_ref &value "from_end_x2" 10.0 and eq *field::get_ref &value "from_end_y2" 4.0 and eq *field::get_ref &value "to_start_x2" 6.0 eq *field::get_ref &value "to_start_y2" 0.0
+            and identity_ok and policy_ok and side_ok and *field::get_ref &value "miter_clipped" and not *field::get_ref &value "quadratic_bevel" chord_ok
+        _: false
+    let right_from %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 1 1 10 0 10 10 zero ten hundred GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right
+    let right_to %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_join_geometry_test_line_side_edge 0 0 0 0 10 0 ten zero hundred GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right
+    let round_join %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure &right_from &right_to GuiStrokeJoin::Round 4.0
+    let round %GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 4 &round_join &right_from &right_to
+    let round_diagonal %f32 mul div 1.0 sqrt 2.0 4.0
+    let round_ok %bool match round:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Round value:
+            let identity_ok %bool and eq *field::get_ref &value "join_index" 4 and eq *field::get_ref &value "from_side_edge_index" 0 eq *field::get_ref &value "to_side_edge_index" 1
+            let side_ok %bool match *field::get_ref &value "side":
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right: true
+                _: false
+            let chord_ok %bool and eq *field::get_ref &value "from_end_x2" 14.0 and eq *field::get_ref &value "from_end_y2" 0.0 and eq *field::get_ref &value "to_start_x2" 10.0 eq *field::get_ref &value "to_start_y2" -4.0
+            let arc_ok %bool and eq *field::get_ref &value "arc_mid_x2" add 10.0 round_diagonal eq *field::get_ref &value "arc_mid_y2" sub 0.0 round_diagonal
+            and identity_ok and side_ok and eq *field::get_ref &value "stroke_width" 4 and eq *field::get_ref &value "source_center_x2" 10.0 and eq *field::get_ref &value "source_center_y2" 0.0 and chord_ok arc_ok
+        _: false
+    let quadratic_to %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection gui_sfnt_simple_glyph_render_stroke_join_geometry_test_quadratic_side_edge unit
+    let quadratic_join %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_geometry_test_closure &left_from &quadratic_to GuiStrokeJoin::Miter 4.0
+    let quadratic %GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord unwrap_ok gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges 5 &quadratic_join &left_from &quadratic_to
+    let quadratic_ok %bool match quadratic:
+        GuiSfntSimpleGlyphRenderStrokeJoinGeometryRecord::Bevel value:
+            let identity_ok %bool and eq *field::get_ref &value "join_index" 5 and eq *field::get_ref &value "from_side_edge_index" 0 eq *field::get_ref &value "to_side_edge_index" 1
+            let policy_ok %bool match *field::get_ref &value "join_policy":
+                GuiStrokeJoin::Miter: true
+                _: false
+            let side_ok %bool match *field::get_ref &value "side":
+                GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: true
+                _: false
+            let chord_ok %bool and eq *field::get_ref &value "from_end_x2" 10.0 and eq *field::get_ref &value "from_end_y2" 4.0 and eq *field::get_ref &value "to_start_x2" 6.0 eq *field::get_ref &value "to_start_y2" 0.0
+            and identity_ok and policy_ok and side_ok and not *field::get_ref &value "miter_clipped" and *field::get_ref &value "quadratic_bevel" chord_ok
+        _: false
+    and bevel_ok (and miter_ok (and parallel_ok (and limited_ok (and round_ok quadratic_ok))))
+
 //: registered side-edge projection 2 件からF5kzと同じclosure evidenceを構築する
 pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges %fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn &GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection Result GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \from_side_edge_index\from_edge\to_side_edge_index\to_edge\style:
     let from_side_projection %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side from_edge

@@ -476,6 +476,7 @@ const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_comm
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontRegisteredFaceTests = read("tests/stdlib/gui_font_registered_face.n.md");
 const guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests = read("tests/stdlib/gui_font_registered_face_simple_glyph_indexed_stroke_metric_join.n.md");
+const guiFontRegisteredJoinGeometryPolicyMatrixTests = read("tests/stdlib/gui_font_registered_join_geometry_policy_matrix.n.md");
 const guiFontSfntGlyfSpanIndexTests = read("tests/stdlib/gui_font_sfnt_glyf_span_index.n.md");
 const guiFontSfntGlyfIndexedPathTests = read("tests/stdlib/gui_font_sfnt_glyf_indexed_path.n.md");
 const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software_surface.n.md");
@@ -4008,6 +4009,13 @@ assertNoMatch(registeredStrokeJoinGeometryRegion, /gui_sfnt_lookup_|gui_sfnt_par
 assertOrderedFragments(functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_join_geometry_projection_from_side_edges"), ["endpoints_ok", "provenance_ok", "lt join_index 0", "stroke_join_geometry_projection_stroke_width", "stroke_join_geometry_line_from_projection", "stroke_join_geometry_miter_from_lines", "stroke_join_geometry_round_from_lines"], "F5nxp projection must validate authority and share F5lc miter/round numeric helpers");
 for (const fragment of ["join_stroke_join_geometry_start", "join_stroke_join_geometry_run", "stroke_join_geometry_test_force_start_storage_failure", "stroke_join_geometry_test_force_push_failure", "stroke_join_geometry_step_error_rejected", "stroke_join_geometry_completed_owner_geometries_cap", "stroke_join_geometry_completed_owner_free"]) {
     assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests.includes(fragment), `F5nxp registered join geometry runtime fixture must include ${fragment}`);
+}
+for (const fragment of ["production metric projection", "bevel", "miter", "parallel clip", "miter-limit clip", "round", "quadratic bevel", "Left/Right", "gui_sfnt_simple_glyph_render_stroke_join_geometry_test_policy_matrix"]) {
+    assert(guiFontRegisteredJoinGeometryPolicyMatrixTests.includes(fragment), `F5nxp focused owner-neutral policy fixture must include ${fragment}`);
+}
+assertNoMatch(guiFontRegisteredJoinGeometryPolicyMatrixTests, /neplg2:test\[skip\]/, "F5nxp focused owner-neutral policy matrix must execute instead of remaining source-policy-only");
+for (const helper of ["line_side_edge", "quadratic_side_edge", "closure", "policy_matrix"]) {
+    assertMatch(allocFontSfntGlyf, new RegExp(`#test\\s*\\r?\\n(?:\\s*//:[^\\r\\n]*\\r?\\n)*(?:pub\\s+)?fn\\s+gui_sfnt_simple_glyph_render_stroke_join_geometry_test_${helper}\\b`), `F5nxp focused policy helper must remain test-only and absent from normal artifacts: ${helper}`);
 }
 assertOrderedFragments(spec, ["F5nxp", "bevel", "line-only miter", "line-only round", "quadratic_bevel", "coverage、packed mask、raster"], "F5nxp spec must preserve geometry policy and later-phase boundaries");
 assertOrderedFragments(implementationPlan, ["Phase F5nxp", "completed F5nxo compact owner", "owner-neutral geometry projection helper", "coverage、packed mask、raster"], "F5nxp plan must preserve direct authority, shared geometry, and later phases");
