@@ -3970,6 +3970,36 @@ for (const fragment of [
     assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests.includes(fragment), `F5nxn registered side-edge runtime fixture must include ${fragment}`);
 }
 assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_test_edge_matches"), ["stroke_side_edge_projection_start_x2", "stroke_side_edge_projection_start_y2", "stroke_side_edge_projection_end_x2", "stroke_side_edge_projection_end_y2", "OffsetGeometryProjection::Line", "OffsetGeometryProjection::Quadratic"], "F5nxn runtime seam must compare directed start/end coordinates for Line and Quadratic edges");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start\b[^\n]*GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection/, "F5nxo must require an explicit typed Copy style authority instead of manufacturing defaults or traversing nested stroke resources");
+assertMatch(allocFontSfntGlyf, /pub fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection_from_paint\b/, "F5nxo style authority must be projected from validated glyph paint");
+assertNoMatch(allocFontSfntGlyf, /pub fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection\b/, "F5nxo raw cap join miter projection constructor must remain module-private");
+assertMatch(allocFontSfntGlyf, /pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges\b/, "F5nxo and lower F5kz must share a neutral Copy closure projection from side edges");
+assertMatch(functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges"), /stroke_join_closure_record_from_topology/, "F5nxo projection must delegate topology evidence and record construction to the neutral builder");
+assertMatch(functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges"), /stroke_join_closure_record_from_topology/, "legacy F5kz must delegate topology evidence and record construction to the same neutral builder");
+assertOrderedFragments(functionSlice(allocFontSfntGlyf, "gui_sfnt_simple_glyph_render_stroke_edge_closure_test_sparse_and_self_adjacency"), ["SkippedNoSegmentRange", "SelfTarget", "source_edge_gap_count"], "F5nxo topology runtime seam must gate sparse and self adjacency evidence with gap counts");
+assertMatch(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, /pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner:[\s\S]*edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection[\s\S]*pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner:[\s\S]*source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner[\s\S]*joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord/, "F5nxo closure owner must transfer F5nxn side-edge storage into a compact source authority and own exact join storage");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start"), ["field::get side_edge \"offset\"", "field::get side_edge \"edges\"", "stroke_offset_projection_owner_free", "StrokeEdgeClosureSourceOwner"], "F5nxo successful start must transfer side-edge storage and release the lower nested owner exactly once");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start"), ["stroke_side_edge_completed_owner_side_edge_count", "vec::with_capacity"], "F5nxo start must allocate exact side-edge-count join capacity once");
+assertOrderedFragments(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_after_terminal_probe"), ["le budget 0", "stroke_edge_closure_source_edge", "gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges", "vec::push"], "F5nxo step must preserve zero budget and push one authority-derived closure record at a time");
+assertNoMatch(functionSlice(allocFontRegisteredFaceSimpleGlyphIndexedStrokeSourceContour, "gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_after_terminal_probe"), /gui_sfnt_lookup_|gui_sfnt_parse_|stroke_offset_projection_step|stroke_side_edge_step|platform|coverage|raster/, "F5nxo must not re-enter lookup, lower registered drains, platform, coverage, or raster paths");
+for (const fragment of [
+    "join_stroke_edge_closure_start",
+    "join_stroke_edge_closure_run",
+    "stroke_closure_style_projection_from_paint &paint",
+    "stroke_edge_closure_step owner 0",
+    "stroke_edge_closure_test_force_push_failure",
+    "stroke_edge_closure_test_sparse_and_self_adjacency",
+    "stroke_edge_closure_step_error_rejected",
+    "ClosedContourNoCap",
+    "stroke_join_closure_record_from_side_edge_index",
+    "stroke_join_closure_record_adjacency_tag",
+    "stroke_edge_closure_completed_owner_free",
+]) {
+    assert(guiFontRegisteredFaceSimpleGlyphIndexedStrokeMetricJoinTests.includes(fragment), `F5nxo registered closure runtime fixture must include ${fragment}`);
+}
+assertOrderedFragments(spec, ["F5nxo", "Left", "strict", "Right", "wrap", "ClosedContourNoCap"], "F5nxo spec must document directional successor order, wrap, and closed-contour cap evidence");
+assertOrderedFragments(detailedDesign, ["F5nxo owner", "exact-capacity join Vec", "DirectNeighbor", "SkippedNoSegmentRange", "ContourWrap", "SelfTarget", "CompletedValue"], "F5nxo design must preserve exact owner, typed adjacency, and exclusive completion contracts");
+assertOrderedFragments(implementationPlan, ["Phase F5nxo", "completed F5nxn owner", "Left strict ascending", "Right strict descending", "join geometry、coverage、raster"], "F5nxo plan must retain authority, successor direction, and later-phase boundaries");
 for (const fragment of [
     "gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_step offset_owner0 0",
     "GuiFontRegisteredFaceSimpleGlyphIndexedStrokeOffsetProjectionStatusKind::StepBudgetExhausted",
@@ -24889,10 +24919,7 @@ assertOrderedFragments(
     [
         "gui_sfnt_simple_glyph_render_stroke_edge_closure_side_eq from_side to_side",
         "gui_sfnt_simple_glyph_render_stroke_side_edge_records_share_contour_for_closure from_edge to_edge",
-        "gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges from_side from_edge_index to_edge_index",
-        "let adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency",
-        "let source_edge_gap_count %i32",
-        "gui_sfnt_simple_glyph_render_stroke_join_closure_record from_side_edge_index to_side_edge_index",
+        "gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_topology from_side_edge_index to_side_edge_index",
     ],
     "alloc/gui/font/sfnt/glyf F5kz join record construction must preserve from/to provenance, same contour/side, and adjacency gap evidence",
 );

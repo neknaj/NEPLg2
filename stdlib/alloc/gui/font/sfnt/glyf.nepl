@@ -27311,6 +27311,32 @@ pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owne
     let inner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "inner"
     gui_sfnt_simple_glyph_render_stroke_source_segment_metric_owner_metric_count inner
 
+//: registered closureへ渡すCopy style authority
+pub struct GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection:
+    cap %GuiStrokeCap
+    join %GuiStrokeJoin
+    miter_limit %f32
+impl Clone for GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection:
+    fn clone %fn &GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection \value: *value
+impl Copy for GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection \value: value
+fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection %fn GuiStrokeCap fn GuiStrokeJoin fn f32 GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection \cap\join\miter_limit: GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection cap join miter_limit
+//: gui_sfnt_simple_glyph_render_stroke_closure_style_projection_from_paint: validated glyph paintからclosure用Copy styleを固定する
+//:
+//: [契約/けいやく]:
+//: - strokeなしpaintは`None`とし、callerがcap/join/miterを別値から捏造するraw constructorは公開しません。
+//: - `GuiStroke`はchecked constructorのproofを持つため、miter finite/positive validationを再実装しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection_from_paint %fn &GuiGlyphPaint Option GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection \paint:
+    match gui_glyph_paint_stroke paint:
+        Option::None: none
+        Option::Some stroke:
+            some gui_sfnt_simple_glyph_render_stroke_closure_style_projection (gui_stroke_cap &stroke) (gui_stroke_join &stroke) (gui_stroke_miter_limit &stroke)
+pub fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection_cap %fn &GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection GuiStrokeCap \value: *field::get_ref value "cap"
+pub fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection_join %fn &GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection GuiStrokeJoin \value: *field::get_ref value "join"
+pub fn gui_sfnt_simple_glyph_render_stroke_closure_style_projection_miter_limit %fn &GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection f32 \value: *field::get_ref value "miter_limit"
+
 //: checkpoint owner の metric を invariant と範囲を検査して O(1) で Copy projection として読む
 pub fn gui_sfnt_simple_glyph_render_stroke_source_segment_metric_checkpoint_owner_read_at %fn &GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointOwner fn i32 Result GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricProjection GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricCheckpointReadErrorKind \owner\metric_index:
     let inner %&GuiSfntSimpleGlyphRenderStrokeSourceSegmentMetricOwner field::get_ref owner "inner"
@@ -30632,6 +30658,13 @@ pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection %fn &GuiSfntSimp
 //: neplg2:test[skip]
 pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_geometry %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection GuiSfntSimpleGlyphRenderOffsetGeometryProjection \value: *field::get_ref value "geometry"
 
+//: side-edge projection の source provenance を左右に依存しない Copy value で返す
+pub fn gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance \value:
+    let geometry %&GuiSfntSimpleGlyphRenderOffsetGeometryProjection field::get_ref value "geometry"
+    match geometry:
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Line line: gui_sfnt_simple_glyph_render_offset_line_geometry_projection_provenance line
+        GuiSfntSimpleGlyphRenderOffsetGeometryProjection::Quadratic quadratic: gui_sfnt_simple_glyph_render_offset_quadratic_geometry_projection_provenance quadratic
+
 //: gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side: directed edge の左右を返す
 //:
 //: neplg2:test[skip]
@@ -32353,7 +32386,7 @@ fn gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_evidence %fn GuiSf
 //: - miter / bevel / round の形状をここで edge geometry に[近似/きんじ]せず、後続 boundary が解釈する policy record として[残/のこ]します。
 //:
 //: neplg2:test[skip]
-struct GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:
+pub struct GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:
     from_side_edge_index %i32
     to_side_edge_index %i32
     from_metric_index %i32
@@ -32393,6 +32426,34 @@ impl Copy for GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord:
 //: neplg2:test[skip]
 fn gui_sfnt_simple_glyph_render_stroke_join_closure_record %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn GuiStrokeJoin fn f32 fn f32 fn f32 fn f32 fn f32 GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \from_side_edge_index\to_side_edge_index\from_metric_index\to_metric_index\from_edge_index\to_edge_index\contour_index\from_contour_edge_index\to_contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\adjacency\source_edge_gap_count\side\join\miter_limit\from_end_x2\from_end_y2\to_start_x2\to_start_y2:
     GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord from_side_edge_index to_side_edge_index from_metric_index to_metric_index from_edge_index to_edge_index contour_index from_contour_edge_index to_contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count adjacency source_edge_gap_count side join miter_limit from_end_x2 from_end_y2 to_start_x2 to_start_y2
+
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_side_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record: *field::get_ref record "from_side_edge_index"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_side_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record: *field::get_ref record "to_side_edge_index"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record: *field::get_ref record "from_edge_index"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_edge_index %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record: *field::get_ref record "to_edge_index"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_adjacency_tag %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record:
+    match *field::get_ref record "adjacency":
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::DirectNeighbor: 0
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange: 1
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::ContourWrap: 2
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget: 3
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_source_edge_gap_count %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record: *field::get_ref record "source_edge_gap_count"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_side_tag %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord i32 \record:
+    match *field::get_ref record "side":
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left: 0
+        GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right: 1
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_join %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiStrokeJoin \record: *field::get_ref record "join"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_miter_limit %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord f32 \record: *field::get_ref record "miter_limit"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_end_x2 %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord f32 \record: *field::get_ref record "from_end_x2"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_end_y2 %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord f32 \record: *field::get_ref record "from_end_y2"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_start_x2 %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord f32 \record: *field::get_ref record "to_start_x2"
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_start_y2 %fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord f32 \record: *field::get_ref record "to_start_y2"
+
+fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_topology %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphRenderStrokeEdgeSide fn GuiStrokeJoin fn f32 fn f32 fn f32 fn f32 fn f32 Result GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \from_side_edge_index\to_side_edge_index\from_metric_index\to_metric_index\from_edge_index\to_edge_index\contour_index\from_contour_edge_index\to_contour_edge_index\contour_start_edge_index\contour_end_edge_index\contour_edge_count\side\join\miter_limit\from_end_x2\from_end_y2\to_start_x2\to_start_y2:
+    match gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges side from_edge_index to_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count:
+        Result::Err kind: Result::Err kind
+        Result::Ok evidence:
+            Result::Ok gui_sfnt_simple_glyph_render_stroke_join_closure_record from_side_edge_index to_side_edge_index from_metric_index to_metric_index from_edge_index to_edge_index contour_index from_contour_edge_index to_contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count (field::get evidence "adjacency") (field::get evidence "source_edge_gap_count") side join miter_limit from_end_x2 from_end_y2 to_start_x2 to_start_y2
 
 //: GuiSfntSimpleGlyphRenderStrokeEdgeClosureDrainOwner: stroke closure drain state
 //:
@@ -33519,6 +33580,71 @@ fn gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges %fn Gui
                                                     let distance %i32 add add start_to_from to_to_end 1
                                                     gui_sfnt_simple_glyph_render_stroke_edge_closure_wrap_evidence distance
 
+#test
+//: gui_sfnt_simple_glyph_render_stroke_edge_closure_test_sparse_and_self_adjacency: sparse/self topologyの両side evidenceを検査する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_render_stroke_edge_closure_test_sparse_and_self_adjacency %fn unit bool \_unit:
+    let left_skip %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence unwrap_ok gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left 0 2 0 2 3
+    let right_skip %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence unwrap_ok gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right 2 0 0 2 3
+    let left_self %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence unwrap_ok gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left 0 0 0 0 1
+    let right_self %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacencyEvidence unwrap_ok gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right 0 0 0 0 1
+    let left_skip_adjacency %bool match *field::get_ref &left_skip "adjacency":
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange: true
+        _: false
+    let right_skip_adjacency %bool match *field::get_ref &right_skip "adjacency":
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SkippedNoSegmentRange: true
+        _: false
+    let left_self_adjacency %bool match *field::get_ref &left_self "adjacency":
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget: true
+        _: false
+    let right_self_adjacency %bool match *field::get_ref &right_self "adjacency":
+        GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency::SelfTarget: true
+        _: false
+    let left_skip_ok %bool and left_skip_adjacency eq 1 *field::get_ref &left_skip "source_edge_gap_count"
+    let right_skip_ok %bool and right_skip_adjacency eq 1 *field::get_ref &right_skip "source_edge_gap_count"
+    let left_self_ok %bool and left_self_adjacency eq 0 *field::get_ref &left_self "source_edge_gap_count"
+    let right_self_ok %bool and right_self_adjacency eq 0 *field::get_ref &right_self "source_edge_gap_count"
+    and left_skip_ok (and right_skip_ok (and left_self_ok right_self_ok))
+
+//: registered side-edge projection 2 件からF5kzと同じclosure evidenceを構築する
+pub fn gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges %fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn &GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection Result GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind \from_side_edge_index\from_edge\to_side_edge_index\to_edge\style:
+    let from_side_projection %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side from_edge
+    let to_side_projection %GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side to_edge
+    let same_side %bool match from_side_projection:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left:
+            match to_side_projection:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+                _: false
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right:
+            match to_side_projection:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: true
+                _: false
+    if not same_side:
+        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinSideMismatch
+        else:
+            let from_provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance from_edge
+            let to_provenance %GuiSfntSimpleGlyphRenderStrokeOffsetProjectionProvenance gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance to_edge
+            let contour_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_index &from_provenance
+            let to_contour_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_index &to_provenance
+            let contour_start %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_start_edge_index &from_provenance
+            let contour_end %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_end_edge_index &from_provenance
+            let contour_count %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_count &from_provenance
+            let same_contour %bool and eq contour_index to_contour_index and eq contour_start gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_start_edge_index &to_provenance and eq contour_end gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_end_edge_index &to_provenance eq contour_count gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_count &to_provenance
+            if not same_contour:
+                then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourMismatch
+                else:
+                    let expected_count %i32 add sub contour_end contour_start 1
+                    if ne expected_count contour_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind::JoinContourSpanMismatch
+                        else:
+                            let from_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &from_provenance
+                            let to_edge_index %i32 gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &to_provenance
+                            let side %GuiSfntSimpleGlyphRenderStrokeEdgeSide match from_side_projection:
+                                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: GuiSfntSimpleGlyphRenderStrokeEdgeSide::Left
+                                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: GuiSfntSimpleGlyphRenderStrokeEdgeSide::Right
+                            gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_topology from_side_edge_index to_side_edge_index (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_metric_index &from_provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_metric_index &to_provenance) from_edge_index to_edge_index contour_index (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_index &from_provenance) (gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_index &to_provenance) contour_start contour_end contour_count side (gui_sfnt_simple_glyph_render_stroke_closure_style_projection_join style) (gui_sfnt_simple_glyph_render_stroke_closure_style_projection_miter_limit style) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 from_edge) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 from_edge) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 to_edge) (gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 to_edge)
+
 //: gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges: side edge 2 つから join closure record を作る
 //:
 //: [目的/もくてき]:
@@ -33553,14 +33679,7 @@ fn gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_edges %fn i32 fn
                             let from_end_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_end_y2_for_closure from_edge
                             let to_start_x2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_start_x2_for_closure to_edge
                             let to_start_y2 %f32 gui_sfnt_simple_glyph_render_stroke_side_edge_record_start_y2_for_closure to_edge
-                            match gui_sfnt_simple_glyph_render_stroke_edge_closure_adjacency_from_edges from_side from_edge_index to_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count:
-                                Result::Err error_kind:
-                                    Result::Err error_kind
-                                Result::Ok adjacency_evidence:
-                                    let adjacency %GuiSfntSimpleGlyphRenderStrokeEdgeClosureAdjacency field::get adjacency_evidence "adjacency"
-                                    let source_edge_gap_count %i32 field::get adjacency_evidence "source_edge_gap_count"
-                                    let record %GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord gui_sfnt_simple_glyph_render_stroke_join_closure_record from_side_edge_index to_side_edge_index from_metric_index to_metric_index from_edge_index to_edge_index contour_index from_contour_edge_index to_contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count adjacency source_edge_gap_count from_side join_policy miter_limit from_end_x2 from_end_y2 to_start_x2 to_start_y2
-                                    Result::Ok record
+                            gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_topology from_side_edge_index to_side_edge_index from_metric_index to_metric_index from_edge_index to_edge_index contour_index from_contour_edge_index to_contour_edge_index contour_start_edge_index contour_end_edge_index contour_edge_count from_side join_policy miter_limit from_end_x2 from_end_y2 to_start_x2 to_start_y2
 
 //: gui_sfnt_simple_glyph_render_stroke_join_closure_record_invariants: F5kz closure invariant を検査する
 //:

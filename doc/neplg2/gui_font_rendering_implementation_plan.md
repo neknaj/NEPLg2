@@ -13549,3 +13549,13 @@ git diff --check
 - registered ownerは`metric_count * 2` exact capacity、pending-before-push、1 budget 1 push、returned Vecとpre-push progress回収を実装する。
 - runtime fixtureでbudget不変、line/quadratic Left/Right、途中count、lower/push failure recovery、terminal exact capacityを固定する。
 - source policy、spec、design、todo、noteを同時更新し、後続registered closure / coverage / rasterを未完了として残す。
+
+## Phase F5nxo: registered simple glyph stroke edge closure projection boundary
+
+- completed F5nxn ownerをsole direct geometry authorityとし、start成功時にside-edge Vecと検証済みcountsをcompact source authorityへ一度だけ移譲してlower ownerを解放する。paint消費前に公開paint projection helperで固定したtyped Copy style projectionと移譲済みside-edge storageからregistered closure record ownerを構築する。raw style constructorは公開しない。
+- `side_edge_count` exact capacityを一度だけ確保し、1 budget 1 join push、terminal-before-budget、budget 0不変、push成功後だけcursor/count commitを実装する。
+- successorは同一contour・同一sideに限定し、Left strict ascending / Right strict descending、方向端ではwrap、単一drawable edgeではself-targetとする。座標一致による隣接推測は禁止する。
+- recordへfrom/to storage index、metric/edge/contour provenance、directed endpoint、gap count、direct/skip/wrap/self evidence、paint-bound projection由来join/miter policyを保持し、owner-levelにrequested capとclosed-contour no-cap evidenceを保持する。
+- start/step/push/invariant failureは元owner、returned Vec、rejected recordを失わないtyped errorにし、step resultは`Progress` / `CompletedValue`の排他的enumとする。
+- runtime fixtureでLeft/Right順序とwrap、Line/Quadratic directed coordinates、6回の1-record push、次回terminal、budget 0、forced push retry、exact count/capacity、single freeを検査する。
+- source policy、spec、design、todo、noteを同時更新し、join geometry、coverage、raster、runtime/native/GUI表示を未完了として残す。

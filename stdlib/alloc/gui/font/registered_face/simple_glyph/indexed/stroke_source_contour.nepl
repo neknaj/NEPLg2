@@ -944,6 +944,9 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edges_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner:
     let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref owner "edges"
     vec::cap edges
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edges_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner i32 \owner:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref owner "edges"
+    vec::len edges
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner fn i32 Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \owner\index:
     let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref owner "edges"
     match vec::get edges index:
@@ -1063,6 +1066,330 @@ pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_start_erro
     gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free field::get error "offset"
 pub fn gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeStepError unit \error:
     gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_owner_free field::get error "owner"
+
+//: F5nxo registered closure owner
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution:
+    ClosedContourNoCap
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner:
+    edges %Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection
+    geometry_count %i32
+    side_edge_count %i32
+    line_side_edge_count %i32
+    quadratic_side_edge_count %i32
+    left_side_edge_count %i32
+    right_side_edge_count %i32
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner
+    joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+    side_edge_index %i32
+    join_count %i32
+    left_join_count %i32
+    right_join_count %i32
+    style %GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection
+    cap_resolution %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner:
+    source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner
+    joins %Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+    join_count %i32
+    left_join_count %i32
+    right_join_count %i32
+    style %GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection
+    cap_resolution %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind:
+    Completed
+    StepBudgetExhausted
+    JoinPushed
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner
+    status %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind
+    join %Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStep:
+    Progress %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress
+    CompletedValue %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner
+
+pub enum GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind:
+    SourceInvariantInvalid
+    StorageFailed %StdErrorKind
+    SuccessorMissing
+    ProjectionFailed %GuiSfntSimpleGlyphRenderStrokeEdgeClosureErrorKind
+    ProgressInvariantInvalid
+impl Clone for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind:
+    fn clone %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind \value: *value
+impl Copy for GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind:
+    fn copy_mark %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind \value: value
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError:
+    side_edge %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind
+
+pub struct GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError:
+    owner %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner
+    kind %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind
+    rejected %Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_same_side %fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection bool \left\right:
+    match gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side left:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left:
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side right:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+                _: false
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right:
+            match gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side right:
+                GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: true
+                _: false
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner fn i32 Option GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection \source\index:
+    let edges %&Vec GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection field::get_ref source "edges"
+    let count %i32 *field::get_ref source "side_edge_count"
+    if or lt index 0 ge index count:
+        then none
+        else vec::get edges index
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_successor %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner fn i32 fn &GuiSfntSimpleGlyphRenderStrokeSideEdgeProjection Result i32 GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind \source\current_index\current:
+    let current_provenance gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance current
+    let current_contour gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_index &current_provenance
+    let current_edge_index gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &current_provenance
+    let current_contour_start gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_start_edge_index &current_provenance
+    let current_contour_end gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_end_edge_index &current_provenance
+    let current_contour_count gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_count &current_provenance
+    let is_left %bool match gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side current:
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+        GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: false
+    let edge_count %i32 *field::get_ref source "side_edge_count"
+    let mut scan %i32 0
+    let mut primary_found %bool false
+    let mut primary_index %i32 -1
+    let mut primary_edge_index %i32 0
+    let mut wrap_found %bool false
+    let mut wrap_index %i32 -1
+    let mut wrap_edge_index %i32 0
+    let mut missing %bool false
+    let mut done %bool false
+    while not done:
+        do:
+            if ge scan edge_count:
+                then set done true
+                else:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source scan:
+                        Option::None:
+                            set missing true
+                            set done true
+                        Option::Some candidate:
+                            let candidate_provenance gui_sfnt_simple_glyph_render_stroke_side_edge_projection_provenance &candidate
+                            let candidate_contour gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_index &candidate_provenance
+                            let candidate_edge_index gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_edge_index &candidate_provenance
+                            let candidate_span_ok %bool and eq current_contour_start gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_start_edge_index &candidate_provenance and eq current_contour_end gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_end_edge_index &candidate_provenance eq current_contour_count gui_sfnt_simple_glyph_render_stroke_offset_projection_provenance_contour_edge_count &candidate_provenance
+                            if and eq current_contour candidate_contour and candidate_span_ok gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_same_side current &candidate:
+                                then:
+                                    if and ne scan current_index eq candidate_edge_index current_edge_index:
+                                        then:
+                                            set missing true
+                                            set done true
+                                        else:
+                                            let primary %bool if is_left then gt candidate_edge_index current_edge_index else lt candidate_edge_index current_edge_index
+                                            if primary:
+                                                then:
+                                                    let better %bool if not primary_found then true else if is_left then lt candidate_edge_index primary_edge_index else gt candidate_edge_index primary_edge_index
+                                                    if better:
+                                                        then:
+                                                            set primary_found true
+                                                            set primary_index scan
+                                                            set primary_edge_index candidate_edge_index
+                                                        else unit
+                                                else:
+                                                    let better %bool if not wrap_found then true else if is_left then lt candidate_edge_index wrap_edge_index else gt candidate_edge_index wrap_edge_index
+                                                    if better:
+                                                        then:
+                                                            set wrap_found true
+                                                            set wrap_index scan
+                                                            set wrap_edge_index candidate_edge_index
+                                                        else unit
+                                else unit
+                            set scan add scan 1
+    if missing:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid
+        else:
+            if primary_found:
+                then Result::Ok primary_index
+                else if wrap_found then Result::Ok wrap_index else Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::SuccessorMissing
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner impure fn GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError \side_edge\style:
+    let geometry gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_geometry_count &side_edge
+    let count gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_side_edge_count &side_edge
+    let line gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_line_side_edge_count &side_edge
+    let quadratic gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_quadratic_side_edge_count &side_edge
+    let left gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_left_side_edge_count &side_edge
+    let right gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_right_side_edge_count &side_edge
+    let len gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edges_len &side_edge
+    let cap gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_edges_cap &side_edge
+    if or lt count 0 or ne count mul geometry 2 or ne count add line quadratic or ne count add left right or ne left geometry or ne right geometry or ne count len ne count cap:
+        then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError side_edge GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::SourceInvariantInvalid
+        else:
+            let joins_result %Result Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord StdErrorKind vec::with_capacity<GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord> count
+            match joins_result:
+                Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError side_edge (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::StorageFailed kind)
+                Result::Ok joins:
+                    let offset field::get side_edge "offset"
+                    let edges field::get side_edge "edges"
+                    gui_font_registered_face_simple_glyph_indexed_stroke_offset_projection_owner_free offset
+                    let source %GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner edges geometry count line quadratic left right
+                    Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner source joins 0 0 0 0 style GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution::ClosedContourNoCap
+
+fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_after_terminal_probe %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError \owner\budget:
+    if le budget 0:
+        then Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind::StepBudgetExhausted none)
+        else:
+            let index %i32 *field::get_ref &owner "side_edge_index"
+            let count %i32 *field::get_ref &owner "join_count"
+            let left_count %i32 *field::get_ref &owner "left_join_count"
+            let right_count %i32 *field::get_ref &owner "right_join_count"
+            let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref &owner "source"
+            let total %i32 *field::get_ref source "side_edge_count"
+            let joins_ref %&Vec GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord field::get_ref &owner "joins"
+            let joins_len %i32 vec::len joins_ref
+            let joins_cap %i32 vec::cap joins_ref
+            if or ne index count or ne count joins_len ne joins_cap total:
+                then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid none
+                else if eq index total:
+                    then:
+                        let expected_left %i32 *field::get_ref source "left_side_edge_count"
+                        let expected_right %i32 *field::get_ref source "right_side_edge_count"
+                        if or ne left_count expected_left ne right_count expected_right:
+                            then Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid none
+                            else:
+                                Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStep::CompletedValue (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner (field::get owner "source") (field::get owner "joins") count left_count right_count (field::get owner "style") (field::get owner "cap_resolution"))
+                    else:
+                        match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source index:
+                            Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid none
+                            Option::Some from_edge:
+                                match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_successor source index &from_edge:
+                                    Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner kind none
+                                    Result::Ok to_index:
+                                        match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source to_index:
+                                            Option::None: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid none
+                                            Option::Some to_edge:
+                                                let style %&GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection field::get_ref &owner "style"
+                                                match gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges index &from_edge to_index &to_edge style:
+                                                    Result::Err kind: Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProjectionFailed kind) none
+                                                    Result::Ok join:
+                                                        let source field::get owner "source"
+                                                        let joins field::get owner "joins"
+                                                        let style_value field::get owner "style"
+                                                        let cap_resolution field::get owner "cap_resolution"
+                                                        match vec::push joins join:
+                                                            Result::Err push_error:
+                                                                let push_kind vec::vec_push_error_kind &push_error
+                                                                let returned vec::vec_push_error_vec push_error
+                                                                let recovered GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner source returned index count left_count right_count style_value cap_resolution
+                                                                Result::Err GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError recovered (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::StorageFailed push_kind) (some join)
+                                                            Result::Ok next_joins:
+                                                                let is_left %bool match gui_sfnt_simple_glyph_render_stroke_side_edge_projection_side &from_edge:
+                                                                    GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Left: true
+                                                                    GuiSfntSimpleGlyphRenderStrokeSideEdgeProjectionSide::Right: false
+                                                                let next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner source next_joins (add index 1) (add count 1) (if is_left then add left_count 1 else left_count) (if is_left then right_count else add right_count 1) style_value cap_resolution
+                                                                Result::Ok GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStep::Progress (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress next_owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind::JoinPushed (some join))
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner impure fn i32 Result GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStep GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError \owner\budget:
+    let index %i32 *field::get_ref &owner "side_edge_index"
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref &owner "source"
+    let total %i32 *field::get_ref source "side_edge_count"
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_after_terminal_probe owner (if eq index total then 1 else budget)
+
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_progress_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner \progress: field::get progress "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_progress_status %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStatusKind \progress: *field::get_ref progress "status"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_progress_join %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureProgress Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \progress: *field::get_ref progress "join"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner \error: field::get error "side_edge"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_error_kind %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind \error: *field::get_ref error "kind"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_error_rejected %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError Option GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord \error: *field::get_ref error "rejected"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_error_owner %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner \error: field::get error "owner"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_owner_side_edge_index %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner i32 \owner: *field::get_ref owner "side_edge_index"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_owner_join_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner i32 \owner: *field::get_ref owner "join_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_owner_joins_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner i32 \owner: vec::cap field::get_ref owner "joins"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_join_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner i32 \owner: *field::get_ref owner "join_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_left_join_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner i32 \owner: *field::get_ref owner "left_join_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_right_join_count %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner i32 \owner: *field::get_ref owner "right_join_count"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_joins_len %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner i32 \owner: vec::len field::get_ref owner "joins"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_joins_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner i32 \owner: vec::cap field::get_ref owner "joins"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_requested_cap %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner GuiStrokeCap \owner: gui_sfnt_simple_glyph_render_stroke_closure_style_projection_cap field::get_ref owner "style"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_cap_resolution %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCapResolution \owner: *field::get_ref owner "cap_resolution"
+fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner unit \source:
+    vec::free field::get source "edges"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_owner_free field::get owner "source"
+    vec::free field::get owner "joins"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_completed_owner_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureCompletedOwner unit \owner:
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_owner_free field::get owner "source"
+    vec::free field::get owner "joins"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_start_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_side_edge_completed_owner_free field::get error "side_edge"
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_step_error_free %impure fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError unit \error:
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_owner_free field::get error "owner"
+
+#test
+//: edge_closure_test_force_start_storage_failure: allocation前のF5nxn completed ownerを回収可能なstorage failureにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_test_force_start_storage_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeSideEdgeCompletedOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError \owner:
+    GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStartError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::StorageFailed StdErrorKind::CapacityExceeded)
+
+#test
+//: edge_closure_test_force_push_failure: productionと同じsuccessor/projectionからpre-push candidateを作り、ownerを変更せず返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_test_force_push_failure %fn GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError \owner:
+    let index %i32 *field::get_ref &owner "side_edge_index"
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref &owner "source"
+    match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source index:
+        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid none
+        Option::Some from_edge:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_successor source index &from_edge:
+                Result::Err kind: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner kind none
+                Result::Ok to_index:
+                    match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source to_index:
+                        Option::None: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProgressInvariantInvalid none
+                        Option::Some to_edge:
+                            let style %&GuiSfntSimpleGlyphRenderStrokeClosureStyleProjection field::get_ref &owner "style"
+                            match gui_sfnt_simple_glyph_render_stroke_join_closure_projection_from_side_edges index &from_edge to_index &to_edge style:
+                                Result::Err kind: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::ProjectionFailed kind) none
+                                Result::Ok rejected: GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError owner (GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureErrorKind::StorageFailed StdErrorKind::CapacityExceeded) (some rejected)
+
+#test
+//: edge_closure_test_join_matches_source_endpoints: join endpointがsource side edgeのdirected endpointと一致することを検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_test_join_matches_source_endpoints %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureOwner fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord bool \owner\join:
+    let source %&GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureSourceOwner field::get_ref owner "source"
+    let from_index %i32 gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_side_edge_index join
+    let to_index %i32 gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_side_edge_index join
+    match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source from_index:
+        Option::None: false
+        Option::Some from_edge:
+            match gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_source_edge source to_index:
+                Option::None: false
+                Option::Some to_edge:
+                    and eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_end_x2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_x2 &from_edge and eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_from_end_y2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_end_y2 &from_edge and eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_start_x2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_x2 &to_edge eq gui_sfnt_simple_glyph_render_stroke_join_closure_record_to_start_y2 join gui_sfnt_simple_glyph_render_stroke_side_edge_projection_start_y2 &to_edge
+
+#test
+//: edge_closure_test_error_join_matches_source_endpoints: recovery ownerを消費せずrejected joinのendpointを検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_test_error_join_matches_source_endpoints %fn &GuiFontRegisteredFaceSimpleGlyphIndexedStrokeEdgeClosureStepError fn &GuiSfntSimpleGlyphRenderStrokeJoinClosureRecord bool \error\join:
+    gui_font_registered_face_simple_glyph_indexed_stroke_edge_closure_test_join_matches_source_endpoints (field::get_ref error "owner") join
 
 #test
 //: side_edge_test_force_push_failure: pending geometry とpre-push progressを保持するerror seam

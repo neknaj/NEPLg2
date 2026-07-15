@@ -19,7 +19,9 @@
 
 ## 検証状況
 
-- summary dependency単体テスト15件、compact owner/Vec topology ResourceIR回帰は通過した。F5nxo production fixture、trunk build、normal compile、CLI JSONは未実施であり、このcheckpointをフォントレンダリングエンジンやGUIライブラリの完成とは扱わない。
+- summary dependency単体テスト15件、compact owner/Vec topology ResourceIR回帰は通過した。
+- compiler artifact更新後、F5nxo production fixtureは従来の63件の`resource.owner.use_after_move`なしでcompileを完走した。最初のruntime失敗はfixtureがSkipNoSegmentのedge 2を3本目のdrawable edgeと誤認していたためで、実provenance `[0,0,1,1,3,3]` とedge 1↔3のskip evidenceへ期待値を修正後、focused compile/runtimeは1/1通過した。
+- `trunk build`は既知の`availability_state` warning 1件のみで成功し、playground editor CLI JSONは13/13通過した。Web GUI font rendering contractも通過した。このcheckpointをフォントレンダリングエンジンやGUIライブラリの完成とは扱わず、join geometry、coverage、raster、runtime bridge、native/GUI表示を後続phaseとして残す。
 
 # 2026-07-15 Selfhost non-generic Match arm retry
 
@@ -168285,7 +168287,6 @@ MERGE_APPROVED
 - `PATH=/tmp:$PATH CARGO_TARGET_DIR=/tmp/nepl-trunk-target NO_COLOR=false trunk build`は成功した。続くPlayground editor CLI JSONは13/13通過し、`failedCount`は0だった。
 - 2026-07-15 F5nxm registered offset geometry projection: F5nxl join後の一件を既存F5kx数値algorithmへ渡すcycle-free Copy境界を追加した。review指摘に従い既存provenance guardをLineTo / QuadraticTo別に通し、topology、source curve、normal/tangent source、offset端点を下流用projectionへ保持した。registered ownerはF5nxl join ownerだけをnested authorityとし、terminal-before-budget、budget不変、geometry failure時の進行済みowner+rejected value、single freeを維持する。独立registered fixtureはmetric/path index `0/1, 1/3, 2/7`、Line座標、Quadratic両endpoint tangent source、terminalを同じauthority chainで検査し1/1通過した。Web source-policy、`git diff --check`、`trunk build`、playground editor CLI JSON 13/13も通過した。documentation contractはclean `7aade36d0`でも既存baselineよりdoc gapが多く失敗する既知状態であり、F5nxm新規宣言には日本語docとdoctest labelを付与済み。F5nxm sliceは統合可能だが、registered side edge / coverage / raster / presentation、フォントレンダリングエンジン、GUIライブラリ全体は未完成である。
 F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric_count * 2` exact-capacity ownerへ接続し、既存F5kyと共有するLeft source-forward / Right source-reverse neutral projectionを追加した。lower成功geometryはpush前にpending authorityへ保存し、1 budget 1 pushとowner-bearing failure recoveryを維持する。focused runtime fixture、source-policy、`trunk build`、playground editor CLI JSON 13/13、差分・全体整合reviewを通過した。これはside-edge checkpointであり、registered closure、coverage、raster、native/GUI表示を含む最終目標は未完成である。
-
 2026-07-16 selfhost Match candidate transaction follow-up
 
 - Match arm-derived expectation による overload retry を result 型だけの probe から、TypeArena と checked expression tree を候補ごとに fork し、generic state、arity、source-backed argument、trailing block、result inference、root node 追加までを一括して commit / rollback する production transaction へ置き換えた。
@@ -168314,3 +168315,4 @@ F5nxn registered side-edge sliceでは、F5nxm streaming Copy geometryを`metric
 - このauthorityはvariant payload型投影とApplied type argument substitutionの前提である。payload projection、binder environment、owned bind evidence、diagnostic/pending constraintを含むTypeCtx transaction、checked Match / HIR / Resource輸送は未完成であり、このcheckpointをセルフホストコンパイラ完成とは扱わない。`plan.md`は変更していない。
 - review指摘に従いnon-genericの数値sentinelを`Option i32`へ置き換え、parameter token indexの乗算・加算を演算前に上限検査した。Dot/Ident双方のsame-file declaration containmentと単調順序も再検査し、負ordinal、non-generic、複数definitionを実行gateへ追加した。
 - enum surface contract、focused doctest 5/5、parser syntax boundary、Match checked scrutinee contract、issues check、`git diff --check`、`trunk build`、Playground editor CLI JSON 13/13を通過した。stdlib unsafe-helper policyは今回未変更のGUI `stroke_source_contour.nepl` 2箇所の`unwrap`を報告し、main開始点でも存在するscope外baselineとして記録した。
+- 2026-07-15 F5nxo registered closure契約: completed F5nxn ownerをsole direct geometry authorityとして`side_edge_count` exact-capacity join record ownerへ接続する。start成功時にside-edge Vecと検証済みcountsをcompact source authorityへ一度だけ移譲し、lower offset/metric/checkpoint ownerを解放する。start failureはF5nxn全体を返す。successorは同一contour/span/sideでLeft昇順・Right降順、端ではwrapし、座標一致ではなくedge orderからdirect/skip/wrap/self evidenceを残す。cap/join/miterはpaint-bound strokeを消費する前に公開paint projection helperでtyped Copy projectionとして固定し、completed F5nxn ownerと同時にF5nxo startへ明示的に渡す。raw constructorはmodule-privateとし、後段からnested `GuiStroke` resourceへ再進入せず、caller defaultも使わない。closed contourはowner-level requested capと`ClosedContourNoCap` evidenceを保持し、record-levelにはjoin/miterを保持する。深いF5nxn chainをF5nxo completionまで保持した版はResourceIR owner summaryが既存checkpoint/offset関数まで誤ってuse-after-moveへ伝播した。compact authority版compile21でも15分後に70件のowner obligation false move/leakが既存checkpoint、offset、上流fixtureへ伝播したため、F5nxo統合前にnested Result/owner summaryのcompiler最小再現と根本修正が必要である。F5nxoはclosure topology checkpointであり、join geometry、coverage、raster、runtime bridge、native/GUI表示と最終目標は未完成である。

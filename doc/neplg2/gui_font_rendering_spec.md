@@ -8499,3 +8499,13 @@ F5ek は、F5eg `LoopAction` と caller supplied explicit input を照合し、F
 F5nxn は F5nxm の completed metric count と一件ずつの Copy offset geometry だけを authority とし、各 geometry から Left、Right の順で二件の directed side edge を生成する。Left は source-forward、Right は source-reverse とし、line と quadratic の座標・normal・provenance は F5ky の中立 Copy projectionを再利用する。quadratic offset control pointは生成しない。
 
 storage は開始時に `metric_count * 2` のoverflowを検査してexact capacityで一度だけ確保する。1 budgetは1 edge pushだけを許し、lower projection成功後のgeometryはpush前にpending ownerへ保存する。push失敗はreturned storage、pending geometry、pre-push side phaseとcountを回収可能にする。completed ownerはside-edge authorityであり、closure、coverage、raster、platform表示の完成を意味しない。
+
+### Registered simple glyph stroke edge closure projection boundary
+
+F5nxo は completed F5nxn side-edge owner を唯一のdirect authorityとして消費し、registered stroke join closure record ownerを作る。byte-backed glyph lookup、scalar storage、F5nxm offset geometry drain、F5nxn side-edge drainを再実行しない。start成功時はF5nxnからside-edge Vecと検証済みcountsをcompact source authorityへ一度だけ移譲し、lower offset/metric/checkpoint ownerを解放する。開始時に`side_edge_count` exact capacityを一度だけ確保する。1 budgetは移譲済みside-edge storage順のjoin record 1件のpushだけを許し、completed時はjoin count、Left/Right count、Vec len/capがsource side-edge countと一致しなければならない。
+
+successorは同一contour・同一sideから`edge_index` orderで選ぶ。Leftは現在よりstrictに大きい最小index、なければ最小indexへwrapする。Rightは現在よりstrictに小さい最大index、なければ最大indexへwrapする。座標一致から隣接性を推測しない。recordはfrom/to storage index、metric/edge/contour provenance、directed `from_end -> to_start`、source edge gap count、`DirectNeighbor` / `SkippedNoSegmentRange` / `ContourWrap` / 単一drawable edgeの`SelfTarget` evidenceを保持する。
+
+join/cap/miter policyはcaller defaultから捏造しない。callerはpaint-bound strokeを消費する前に公開paint projection helperでtyped Copy closure style projectionを固定し、completed F5nxn ownerと同時にF5nxo startへ渡す。raw cap/join/miter constructorはmodule-privateとする。F5nxo ownerは受領したprojectionを保持し、後段からnested `GuiStroke` resourceへ再進入しない。closed contourではcap geometryを生成せず、requested cap policyと`ClosedContourNoCap` evidenceを保持する。F5nxoはjoin geometry、coverage、raster、packed mask、render command、native/Web表示を生成しない。
+
+budget 0はownerを変更せず、completion判定はbudgetを消費しない。step resultは`Progress`と`CompletedValue`を排他的variantで表す。start failureはF5nxn completed owner、step/invariant/read/successor/record failureはF5nxo owner全体、push failureはreturned Vecとrejected recordを回収可能にする。completed/error/freeの全経路でnested ownerとjoin Vecは一度だけ解放する。

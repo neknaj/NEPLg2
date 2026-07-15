@@ -10933,3 +10933,13 @@ policy は `scheduler_policy` と `timer_policy` だけを保持する。Execute
 F5nxn ownerはF5nxm offset projection owner、exact-capacity edge Vec、pending geometry、Left/Right phase、geometry/side/variant/side別countを所有する。pendingなしではlowerを一件進め、得たCopy geometryをownerへ確定してからLeftをpushする。Left成功後も同じgeometryをpendingに保持し、次の一budgetでRightをsource-reverseとしてpushする。Right成功時だけgeometry countを進める。
 
 中立side-edge projectionは既存F5ky private builderからも利用し、registered経路との方向座標authorityを一本化する。lower failureとpush failureはいずれもowner-bearing errorとし、lookup、parse、F5kx/F5ky drain再実行、closure、coverage、packed mask、render command、platform APIへ進まない。
+
+## Registered simple glyph stroke edge closure projection boundary
+
+F5nxo ownerはcompleted F5nxnから一度だけ移譲したside-edge Vecと検証済みcountsのcompact source authority、paint-bound strokeを消費する前に公開paint projection helperで固定したtyped Copy cap/join/miter projection、exact-capacity join Vec、次のside-edge storage cursor、join/Left/Right countを所有する。start failureはF5nxn全体を返し、start成功時だけlower offset/metric/checkpoint ownerを解放する。raw projection constructorはmodule-privateとする。direct geometry authorityを移譲元F5nxnに限定し、F5nxm projectionやF5ky drainを再開しない。style projectionはF5nxo startの明示引数として一度だけ受け取り、後段からnested `GuiStroke` resourceへ再進入せず、cap/join/miterのdefaultを新しく作らない。
+
+各source side edgeはstorage順に一度だけ処理する。同一contour・同一sideの候補を走査し、Leftはstrict ascending、Rightはstrict descendingで次のdrawable edgeを選ぶ。方向内に候補がなければ同じsideの端へwrapする。単一候補だけならself-targetとする。endpoint equalityはsuccessor選択に使わず、edge orderから`DirectNeighbor`、`SkippedNoSegmentRange`、`ContourWrap`、`SelfTarget`とgap countを決める。
+
+join recordはfrom/to storage index、両side edgeのmetric/edge/contour provenance、directed from end/to start、join/miter policy、adjacency evidenceを保持する。requested capはclosure owner-level style、cap materialization decisionは`ClosedContourNoCap` evidenceとして保持する。これはclosure topology recordであり、bevel/miter/round geometry、coverage、raster、presentationはcompleted F5nxo ownerをsole authorityとする後続ownerの責務である。
+
+startは`side_edge_count` exact capacityを一度だけ確保する。stepはterminal、budget 0、read/successor/record検査、pushの順で進み、push成功後だけcursor/countをcommitする。push失敗はreturned Vecとrejected record、pre-push progressをowner-bearing errorへ戻す。step resultは`Progress`または`CompletedValue`だけを持ち、同時にprogress ownerとcompleted ownerを返さない。全failure/free経路はnested F5nxn ownerとVecの単一解放を維持する。
